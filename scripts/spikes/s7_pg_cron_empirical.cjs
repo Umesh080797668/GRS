@@ -1,14 +1,51 @@
 const path = require('path');
-const { PrismaClient } = require(path.join(process.cwd(), 'node_modules/.pnpm/@prisma+client@6.19.3_prisma@6.19.3_typescript@5.9.3__typescript@5.9.3/node_modules/@prisma/client'));
 const fs = require('fs');
 
-const sessionUrl = "postgresql://postgres.zhoefftjvjdhfmodfast:Ki3HjP1ZHyQgoBAO@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&pool_timeout=30";
+// Helper to load .env without hardcoding secrets in code
+function loadEnv() {
+  const envPath = path.resolve(process.cwd(), '.env');
+  if (fs.existsSync(envPath)) {
+    const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const idx = trimmed.indexOf('=');
+      if (idx !== -1) {
+        const key = trimmed.slice(0, idx).trim();
+        let val = trimmed.slice(idx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        if (!process.env[key]) {
+          process.env[key] = val;
+        }
+      }
+    }
+  }
+}
+loadEnv();
+
+const { PrismaClient } = require(path.join(process.cwd(), 'node_modules/.pnpm/@prisma+client@6.19.3_prisma@6.19.3_typescript@5.9.3__typescript@5.9.3/node_modules/@prisma/client'));
+
+const dbUrl = process.env.DATABASE_URL || process.env.DIRECT_URL;
+if (!dbUrl) {
+  console.error('ERROR: DATABASE_URL or DIRECT_URL must be defined in .env or environment.');
+  process.exit(1);
+}
+
+// Ensure connection limit and timeout are set safely
+let sessionUrl = dbUrl;
+if (!sessionUrl.includes('connection_limit=')) {
+  const sep = sessionUrl.includes('?') ? '&' : '?';
+  sessionUrl = `${sessionUrl}${sep}connection_limit=1&pool_timeout=30`;
+}
+
 const prisma = new PrismaClient({
   datasources: { db: { url: sessionUrl } }
 });
 
 async function runPgCronEmpiricalTest() {
-  console.log('Connecting to live Supabase PostgreSQL (Tokyo ap-northeast-1)...');
+  console.log('Connecting to live Supabase PostgreSQL from DATABASE_URL environment configuration...');
 
   // 1. Verify extension
   const ext = await prisma.$queryRawUnsafe("SELECT extname, extversion FROM pg_extension WHERE extname = 'pg_cron';");
@@ -78,6 +115,6 @@ async function runPgCronEmpiricalTest() {
 }
 
 runPgCronEmpiricalTest().catch(err => {
-  console.error('pg_cron empirical test failed:', err);
+  console.error('pg_cron empirical test failed:', err.message);
   process.exit(1);
 });
