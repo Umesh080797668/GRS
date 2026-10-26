@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EmailService } from './email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 
 describe('EmailService (Spike S6 & Task M1.15)', () => {
@@ -50,6 +51,15 @@ describe('EmailService (Spike S6 & Task M1.15)', () => {
       providers: [
         EmailService,
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn().mockImplementation((key: string, defaultValue?: any) => {
+              if (key === 'SMTP_FROM') return 'no-reply@grs.gov.lk';
+              return defaultValue;
+            }),
+          },
+        },
       ],
     }).compile();
 

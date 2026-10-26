@@ -4,8 +4,10 @@ import {
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+import * as nodemailer from 'nodemailer';
+import { PrismaService } from '../prisma/prisma.service';
 
 export interface SendCodeResult {
   message: string;
@@ -20,7 +22,43 @@ export class EmailService {
   private static readonly MAX_ATTEMPTS = 5;
   private static readonly COOLDOWN_SECONDS = 60;
 
-  constructor(private readonly prisma: PrismaService) { }
+  private transporter: nodemailer.Transporter;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {
+    this.initTransporter();
+  }
+
+  /**
+   * Initializes the nodemailer transport from SMTP credentials, URL, or fallback.
+   */
+  private initTransporter(): void {
+    const smtpUrl = this.configService.get<string>('SMTP_URL');
+    const host = this.configService.get<string>('SMTP_HOST');
+
+    if (smtpUrl) {
+      this.transporter = nodemailer.createTransport(smtpUrl);
+    } else if (host) {
+      const port = parseInt(this.configService.get<string>('SMTP_PORT', '587'), 10);
+      const secure = this.configService.get<string>('SMTP_SECURE') === 'true' || port === 465;
+      const user = this.configService.get<string>('SMTP_USER');
+      const pass = this.configService.get<string>('SMTP_PASS');
+
+      this.transporter = nodemailer.createTransport({
+        host,
+        port,
+        secure,
+        auth: user && pass ? { user, pass } : undefined,
+      });
+    } else {
+      // Local development fallback: json transport to prevent network attempts
+      this.transporter = nodemailer.createTransport({
+        jsonTransport: true,
+      });
+    }
+  }
 
   /**
    * Generates a cryptographically secure 6-digit verification code.
@@ -78,7 +116,7 @@ export class EmailService {
       },
     });
 
-    // Dispatch email
+    // Dispatch email via nodemailer
     await this.dispatchEmail(cleanEmail, rawCode, purpose);
 
     return {
@@ -154,16 +192,57 @@ export class EmailService {
     return crypto.createHash('sha256').update(code).digest('hex');
   }
 
+  /**
+   * Sends email using configured nodemailer transporter.
+   * Never logs plaintext code or recipient PII (Invariant 6).
+   */
   private async dispatchEmail(
     email: string,
     code: string,
-    purpose: string,
+    purpose: 'verify' | 'reset',
   ): Promise<void> {
-    // In production: Resend / Brevo / SMTP delivery.
-    // In local dev/test: Logs delivery payload securely with masked recipient.
-    const maskedEmail = email.replace(/(^.).*(@.*$)/, '$1***$2');
-    this.logger.log(
-      `[EmailService] Dispatched ${purpose} code to ${maskedEmail} (Expires in 15m)`,
-    );
+    const from =
+      this.configService.get<string>('SMTP_FROM') ||
+      this.configService.get<string>('EMAIL_FROM') ||
+      'GRS Platform <no-reply@grs.gov.lk>';
+
+    const subject =
+      purpose === 'verify'
+        ? 'GRS Platform — Email Verification Code'
+        : 'GRS Platform — Password Reset Code';
+
+    const text = `Your GRS verification code is: ${code}\nThis code will expire in 15 minutes.\nDo not share this code with anyone.`;
+
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #CFD8DC; border-radius: 8px; background-color: #FFFFFF;">
+        <h2 style="color: #004D40; margin-top: 0; font-size: 20px;">Global Research & Survey (GRS)</h2>
+        <p style="color: #1C1B1F; font-size: 15px;">Your verification code is:</p>
+        <div style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #004D40; background-color: #E0F2F1; padding: 18px; text-align: center; border-radius: 8px; margin: 24px 0;">
+          ${code}
+        </div>
+        <p style="color: #49454F; font-size: 13px; line-height: 1.5;">This code will expire in 15 minutes. If you did not request this verification, please contact your administrative coordinator immediately.</p>
+      </div>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from,
+        to: email,
+        subject,
+        text,
+        html,
+      });
+
+      // Mask email for PII safety (Invariant 6)
+      const maskedEmail = email.replace(/(^.).*(@.*$)/, '$1***$2');
+      this.logger.log(
+        `[EmailService] Dispatched ${purpose} code to ${maskedEmail} via nodemailer (Expires in 15m)`,
+      );
+    } catch (err: any) {
+      this.logger.error(`[EmailService] Nodemailer dispatch failed: ${err.message}`);
+      if (this.configService.get<string>('NODE_ENV') === 'production') {
+        throw new BadRequestException('Failed to deliver verification code. Please try again.');
+      }
+    }
   }
 }

@@ -9,6 +9,7 @@ import { AccountModule } from './accounts/account.module';
 import { LookupModule } from './lookups/lookup.module';
 import { AreaModule } from './areas/area.module';
 import { AppConfigModule } from './config/app-config.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -23,10 +24,11 @@ import { AppConfigModule } from './config/app-config.module';
     LookupModule,
     AreaModule,
     AppConfigModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
 
 

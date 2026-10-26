@@ -1,15 +1,14 @@
 name: Nightly Backup & Keep-Alive
 
+# Automated hosted runs disabled: backups and health checks run via local maintenance scripts.
 on:
-  schedule:
-    # Run once daily at 00:00 UTC (05:30 IST)
-    - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
   backup-and-keepalive:
     name: Supabase Keep-Alive & Encrypted Dump
     runs-on: ubuntu-latest
+    if: false # Restricted: Hosted runner disabled. Run locally via maintenance scripts.
     steps:
       - uses: actions/checkout@v4
 

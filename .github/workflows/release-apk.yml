@@ -1,15 +1,14 @@
 name: Release APK
 
+# Automated hosted runs disabled: release APK builds are produced locally or on private runner.
 on:
-  push:
-    tags:
-      - 'v*.*.*'
   workflow_dispatch:
 
 jobs:
   build-apk:
     name: Build Signed Android APK
     runs-on: ubuntu-latest
+    if: false # Restricted: Hosted runner disabled.
     steps:
       - uses: actions/checkout@v4
 
