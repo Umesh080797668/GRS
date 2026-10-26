@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  api-checks:
+    name: API (NestJS + Prisma)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Root Dependencies
+        run: npm ci || npm install
+
+      - name: Lint API
+        run: npm --prefix apps/api run lint --if-present
+
+      - name: Run API Unit Tests
+        run: npm --prefix apps/api test --if-present
+
+  flutter-checks:
+    name: Flutter & Dart Packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.4'
+          channel: 'stable'
+          cache: true
+
+      - name: Check Dart Format
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze Packages
+        run: |
+          for pkg in packages/grs_core packages/grs_ui apps/mobile apps/dashboard; do
+            if [ -d "$pkg" ] && [ -f "$pkg/pubspec.yaml" ]; then
+              echo "Analyzing $pkg..."
+              (cd "$pkg" && flutter pub get && flutter analyze)
+            fi
+          done
+
+      - name: Run Dart/Flutter Tests
+        run: |
+          for pkg in packages/grs_core packages/grs_ui apps/mobile apps/dashboard; do
+            if [ -d "$pkg" ] && [ -f "$pkg/pubspec.yaml" ]; then
+              echo "Testing $pkg..."
+              (cd "$pkg" && flutter test --no-pub)
+            fi
+          done
+
+  security-checks:
+    name: Security & Permissions Verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify Android Manifest Permissions (Invariant 7)
+        run: |
+          if [ -f "apps/mobile/android/app/src/main/AndroidManifest.xml" ]; then
+            # Ensure only authorized permissions exist
+            DISALLOWED=$(grep "uses-permission" apps/mobile/android/app/src/main/AndroidManifest.xml | \
+              grep -v "android.permission.INTERNET" | \
+              grep -v "android.permission.ACCESS_NETWORK_STATE" | \
+              grep -v "android.permission.RECEIVE_BOOT_COMPLETED" || true)
+            if [ -n "$DISALLOWED" ]; then
+              echo "FATAL: Unauthorized Android permissions found:"
+              echo "$DISALLOWED"
+              exit 1
+            fi
+            echo "Android Manifest permissions verified: Only INTERNET, ACCESS_NETWORK_STATE, and BOOT permitted."
+          fi
+
+      - name: Secret Scan Client Builds (Invariant 5)
+        run: |
+          # Ensure no service-role key or JWT private secrets leak into apps or packages
+          LEAKS=$(grep -rn "SUPABASE_SERVICE_ROLE_KEY" apps/mobile apps/dashboard packages/ 2>/dev/null || true)
+          if [ -n "$LEAKS" ]; then
+            echo "FATAL: Service role key found in client source code!"
+            echo "$LEAKS"
+            exit 1
+          fi
+          echo "Client bundle secret scan passed."

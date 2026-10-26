@@ -1,0 +1,1339 @@
+{
+  "description": "GRS Duplicate Detection Test Vectors (>= 60 labeled pairs)",
+  "version": "1.0.0",
+  "scoring_rules": {
+    "same_phone_or_whatsapp": 50,
+    "name_similarity_gte_85": 30,
+    "name_similarity_gte_70": 15,
+    "same_household": 15,
+    "same_gn": 5,
+    "age_diff_lte_1": 5,
+    "gender_diff": -40
+  },
+  "thresholds": {
+    "probable": 70,
+    "possible": 45
+  },
+  "pairs": [
+    {
+      "id": 1,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Kavinda Bandara",
+        "age": 24,
+        "gender": "M",
+        "phone": "0771234567",
+        "household_id": "H1",
+        "gn_id": "GN1"
+      },
+      "record_b": {
+        "name": "Kavinda Bandara",
+        "age": 24,
+        "gender": "M",
+        "phone": "+94771234567",
+        "household_id": "H1",
+        "gn_id": "GN1"
+      },
+      "expected_reasons": [
+        "same_phone",
+        "name_match",
+        "same_household",
+        "same_gn",
+        "same_age"
+      ]
+    },
+    {
+      "id": 2,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Mohamed Rizwan",
+        "age": 28,
+        "gender": "M",
+        "phone": "0712233445",
+        "household_id": "H2",
+        "gn_id": "GN1"
+      },
+      "record_b": {
+        "name": "Rizwan Mohamed",
+        "age": 28,
+        "gender": "M",
+        "phone": "0712233445",
+        "household_id": "H2",
+        "gn_id": "GN1"
+      },
+      "note": "Token order variation"
+    },
+    {
+      "id": 3,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Chamari Atapattu",
+        "age": 32,
+        "gender": "F",
+        "phone": "0769988776",
+        "household_id": "H3",
+        "gn_id": "GN2"
+      },
+      "record_b": {
+        "name": "Chamari Athapaththu",
+        "age": 32,
+        "gender": "F",
+        "phone": "0769988776",
+        "household_id": "H3",
+        "gn_id": "GN2"
+      },
+      "note": "Minor spelling variation in name"
+    },
+    {
+      "id": 4,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Suresh Kumar",
+        "age": 21,
+        "gender": "M",
+        "phone": "0751122334",
+        "household_id": "H4",
+        "gn_id": "GN3"
+      },
+      "record_b": {
+        "name": "Suresh Kumar",
+        "age": 22,
+        "gender": "M",
+        "phone": "0751122334",
+        "household_id": "H4",
+        "gn_id": "GN3"
+      },
+      "note": "Age off by 1 year"
+    },
+    {
+      "id": 5,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Nimal Shantha",
+        "age": 45,
+        "gender": "M",
+        "phone": "0785566778",
+        "household_id": "H5",
+        "gn_id": "GN4"
+      },
+      "record_b": {
+        "name": "Mr Nimal Shantha",
+        "age": 45,
+        "gender": "M",
+        "phone": "0785566778",
+        "household_id": "H5",
+        "gn_id": "GN4"
+      },
+      "note": "Honorific prefix stripped during normalization"
+    },
+    {
+      "id": 6,
+      "label": "non_duplicate",
+      "expected_classification": "possible",
+      "record_a": {
+        "name": "Kasun Perera",
+        "age": 22,
+        "gender": "M",
+        "phone": "0773344556",
+        "household_id": "H6",
+        "gn_id": "GN5"
+      },
+      "record_b": {
+        "name": "Ruwan Perera",
+        "age": 20,
+        "gender": "M",
+        "phone": "0773344556",
+        "household_id": "H6",
+        "gn_id": "GN5"
+      },
+      "note": "Brothers sharing household and family phone; must not be classified probable"
+    },
+    {
+      "id": 7,
+      "label": "non_duplicate",
+      "expected_classification": "possible",
+      "record_a": {
+        "name": "Sunil Shantha",
+        "age": 52,
+        "gender": "M",
+        "phone": "0714455667",
+        "household_id": "H7",
+        "gn_id": "GN6"
+      },
+      "record_b": {
+        "name": "Kavindu Shantha",
+        "age": 21,
+        "gender": "M",
+        "phone": "0714455667",
+        "household_id": "H7",
+        "gn_id": "GN6"
+      },
+      "note": "Father and son sharing same landline/phone"
+    },
+    {
+      "id": 8,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Sunil Silva",
+        "age": 30,
+        "gender": "M",
+        "phone": "0771112223",
+        "household_id": "H8",
+        "gn_id": "GN1"
+      },
+      "record_b": {
+        "name": "Sunil Silva",
+        "age": 30,
+        "gender": "M",
+        "phone": "0779998887",
+        "household_id": "H9",
+        "gn_id": "GN8"
+      },
+      "note": "Common name in completely different GN division and household with different phone"
+    },
+    {
+      "id": 9,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Anoma Jayasinghe",
+        "age": 25,
+        "gender": "F",
+        "phone": "0710001112",
+        "household_id": "H10",
+        "gn_id": "GN2"
+      },
+      "record_b": {
+        "name": "Anura Jayasinghe",
+        "age": 25,
+        "gender": "M",
+        "phone": "0710001112",
+        "household_id": "H10",
+        "gn_id": "GN2"
+      },
+      "note": "Brother and sister twins; gender penalty (-40) keeps it low"
+    },
+    {
+      "id": 10,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "ඩබ්ලිව්. ඒ. නිමල් ප්‍රනාන්දු",
+        "age": 38,
+        "gender": "M",
+        "phone": "0774455661",
+        "household_id": "H11",
+        "gn_id": "GN3"
+      },
+      "record_b": {
+        "name": "නිමල් ප්‍රනාන්දු",
+        "age": 38,
+        "gender": "M",
+        "phone": "0774455661",
+        "household_id": "H11",
+        "gn_id": "GN3"
+      },
+      "note": "Sinhala script name with initials variation"
+    },
+    {
+      "id": 11,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "கே. சிவகுமார்",
+        "age": 29,
+        "gender": "M",
+        "phone": "0763322110",
+        "household_id": "H12",
+        "gn_id": "GN4"
+      },
+      "record_b": {
+        "name": "சிவகுமார்",
+        "age": 29,
+        "gender": "M",
+        "phone": "0763322110",
+        "household_id": "H12",
+        "gn_id": "GN4"
+      },
+      "note": "Tamil script name with initial variation"
+    },
+    {
+      "id": 12,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Nuwan Pradeep Silva",
+        "age": 27,
+        "gender": "M",
+        "phone": "0723344556",
+        "household_id": "H13",
+        "gn_id": "GN5"
+      },
+      "record_b": {
+        "name": "Nuwan P. Silva",
+        "age": 27,
+        "gender": "M",
+        "phone": "0723344556",
+        "household_id": "H13",
+        "gn_id": "GN5"
+      }
+    },
+    {
+      "id": 13,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Fathima Rameeza",
+        "age": 24,
+        "gender": "F",
+        "phone": "0756677889",
+        "household_id": "H14",
+        "gn_id": "GN6"
+      },
+      "record_b": {
+        "name": "Fathima Fazna",
+        "age": 22,
+        "gender": "F",
+        "phone": "0756677889",
+        "household_id": "H14",
+        "gn_id": "GN6"
+      },
+      "note": "Sisters sharing phone"
+    },
+    {
+      "id": 14,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Tharindu Dilshan",
+        "age": 23,
+        "gender": "M",
+        "phone": "0781122334",
+        "household_id": "H15",
+        "gn_id": "GN7"
+      },
+      "record_b": {
+        "name": "Tharindu  Dilshan ",
+        "age": 23,
+        "gender": "M",
+        "phone": "+94781122334",
+        "household_id": "H15",
+        "gn_id": "GN7"
+      }
+    },
+    {
+      "id": 15,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Priyantha Jayakody",
+        "age": 42,
+        "gender": "M",
+        "phone": "0778899001",
+        "household_id": "H16",
+        "gn_id": "GN8"
+      },
+      "record_b": {
+        "name": "Priyanta Jayakodi",
+        "age": 42,
+        "gender": "M",
+        "phone": "0778899001",
+        "household_id": "H16",
+        "gn_id": "GN8"
+      }
+    },
+    {
+      "id": 16,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Sarath Kumara",
+        "age": 50,
+        "gender": "M",
+        "phone": "0711122334",
+        "household_id": "H17",
+        "gn_id": "GN1"
+      },
+      "record_b": {
+        "name": "Lalith Kumara",
+        "age": 48,
+        "gender": "M",
+        "phone": "0715566778",
+        "household_id": "H18",
+        "gn_id": "GN1"
+      }
+    },
+    {
+      "id": 17,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Manojkumar Selvaraj",
+        "age": 26,
+        "gender": "M",
+        "phone": "0764433221",
+        "household_id": "H19",
+        "gn_id": "GN2"
+      },
+      "record_b": {
+        "name": "Manojkumar Selvaraj",
+        "age": 26,
+        "gender": "M",
+        "phone": "0764433221",
+        "household_id": "H19",
+        "gn_id": "GN2"
+      }
+    },
+    {
+      "id": 18,
+      "label": "non_duplicate",
+      "expected_classification": "possible",
+      "record_a": {
+        "name": "Ashok Kumar",
+        "age": 35,
+        "gender": "M",
+        "phone": "0772233112",
+        "household_id": "H20",
+        "gn_id": "GN3"
+      },
+      "record_b": {
+        "name": "Vijay Kumar",
+        "age": 31,
+        "gender": "M",
+        "phone": "0772233112",
+        "household_id": "H20",
+        "gn_id": "GN3"
+      }
+    },
+    {
+      "id": 19,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Dinithi Senaratne",
+        "age": 20,
+        "gender": "F",
+        "phone": "0774433221",
+        "household_id": "H21",
+        "gn_id": "GN4"
+      },
+      "record_b": {
+        "name": "Dinithi Senarathne",
+        "age": 20,
+        "gender": "F",
+        "phone": "0774433221",
+        "household_id": "H21",
+        "gn_id": "GN4"
+      }
+    },
+    {
+      "id": 20,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Kamala Perera",
+        "age": 60,
+        "gender": "F",
+        "phone": "0112345678",
+        "household_id": "H22",
+        "gn_id": "GN5"
+      },
+      "record_b": {
+        "name": "Vimala Perera",
+        "age": 58,
+        "gender": "F",
+        "phone": "0112345678",
+        "household_id": "H22",
+        "gn_id": "GN5"
+      }
+    },
+    {
+      "id": 21,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Ayesha Madushani",
+        "age": 22,
+        "gender": "F",
+        "phone": "0713322114",
+        "household_id": "H23",
+        "gn_id": "GN6"
+      },
+      "record_b": {
+        "name": "Ayesha Madhusani",
+        "age": 22,
+        "gender": "F",
+        "phone": "+94713322114",
+        "household_id": "H23",
+        "gn_id": "GN6"
+      }
+    },
+    {
+      "id": 22,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Rohan De Silva",
+        "age": 40,
+        "gender": "M",
+        "phone": "0771234888",
+        "household_id": "H24",
+        "gn_id": "GN7"
+      },
+      "record_b": {
+        "name": "Rohan Fernando",
+        "age": 40,
+        "gender": "M",
+        "phone": "0771234999",
+        "household_id": "H25",
+        "gn_id": "GN7"
+      }
+    },
+    {
+      "id": 23,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Sajith Wickramasinghe",
+        "age": 31,
+        "gender": "M",
+        "phone": "0754433221",
+        "household_id": "H26",
+        "gn_id": "GN8"
+      },
+      "record_b": {
+        "name": "Sajith Wickramasinghe",
+        "age": 31,
+        "gender": "M",
+        "phone": "0754433221",
+        "household_id": "H26",
+        "gn_id": "GN8"
+      }
+    },
+    {
+      "id": 24,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Gayan Chamara",
+        "age": 29,
+        "gender": "M",
+        "phone": "0779988112",
+        "household_id": "H27",
+        "gn_id": "GN1"
+      },
+      "record_b": {
+        "name": "Upul Chamara",
+        "age": 27,
+        "gender": "M",
+        "phone": "0779988113",
+        "household_id": "H28",
+        "gn_id": "GN2"
+      }
+    },
+    {
+      "id": 25,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Nadeeka Damayanthi",
+        "age": 34,
+        "gender": "F",
+        "phone": "0782233445",
+        "household_id": "H29",
+        "gn_id": "GN3"
+      },
+      "record_b": {
+        "name": "Nadeeka Damayanthi",
+        "age": 34,
+        "gender": "F",
+        "phone": "0782233445",
+        "household_id": "H29",
+        "gn_id": "GN3"
+      }
+    },
+    {
+      "id": 26,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Ravindra Pushpakumara",
+        "age": 36,
+        "gender": "M",
+        "phone": "0718877665",
+        "household_id": "H30",
+        "gn_id": "GN4"
+      },
+      "record_b": {
+        "name": "Ravindra Karunaratne",
+        "age": 36,
+        "gender": "M",
+        "phone": "0718877666",
+        "household_id": "H31",
+        "gn_id": "GN5"
+      }
+    },
+    {
+      "id": 27,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Buddhika Sanjeewa",
+        "age": 27,
+        "gender": "M",
+        "phone": "0761122445",
+        "household_id": "H32",
+        "gn_id": "GN6"
+      },
+      "record_b": {
+        "name": "Buddhika Sanjeewa",
+        "age": 27,
+        "gender": "M",
+        "phone": "+94761122445",
+        "household_id": "H32",
+        "gn_id": "GN6"
+      }
+    },
+    {
+      "id": 28,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Sanduni Hansika",
+        "age": 19,
+        "gender": "F",
+        "phone": "0778844221",
+        "household_id": "H33",
+        "gn_id": "GN7"
+      },
+      "record_b": {
+        "name": "Nilmini Hansika",
+        "age": 21,
+        "gender": "F",
+        "phone": "0778844221",
+        "household_id": "H33",
+        "gn_id": "GN7"
+      }
+    },
+    {
+      "id": 29,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Pradeep Kumara",
+        "age": 30,
+        "gender": "M",
+        "phone": "0725544332",
+        "household_id": "H34",
+        "gn_id": "GN8"
+      },
+      "record_b": {
+        "name": "Pradeep Kumara",
+        "age": 30,
+        "gender": "M",
+        "phone": "0725544332",
+        "household_id": "H34",
+        "gn_id": "GN8"
+      }
+    },
+    {
+      "id": 30,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Pradeep Kumara",
+        "age": 30,
+        "gender": "M",
+        "phone": "0725544332",
+        "household_id": "H34",
+        "gn_id": "GN8"
+      },
+      "record_b": {
+        "name": "Pradeep Kumara",
+        "age": 42,
+        "gender": "M",
+        "phone": "0778877665",
+        "household_id": "H35",
+        "gn_id": "GN2"
+      }
+    },
+    {
+      "id": 31,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Dulani Prabhashini",
+        "age": 23,
+        "gender": "F",
+        "phone": "0776655443",
+        "household_id": "H36",
+        "gn_id": "GN1"
+      },
+      "record_b": {
+        "name": "Dulani Prabashini",
+        "age": 23,
+        "gender": "F",
+        "phone": "0776655443",
+        "household_id": "H36",
+        "gn_id": "GN1"
+      }
+    },
+    {
+      "id": 32,
+      "label": "non_duplicate",
+      "expected_classification": "possible",
+      "record_a": {
+        "name": "Chandana Kumara",
+        "age": 44,
+        "gender": "M",
+        "phone": "0712233556",
+        "household_id": "H37",
+        "gn_id": "GN2"
+      },
+      "record_b": {
+        "name": "Thilina Kumara",
+        "age": 18,
+        "gender": "M",
+        "phone": "0712233556",
+        "household_id": "H37",
+        "gn_id": "GN2"
+      }
+    },
+    {
+      "id": 33,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Janaka Rohana",
+        "age": 37,
+        "gender": "M",
+        "phone": "0758899112",
+        "household_id": "H38",
+        "gn_id": "GN3"
+      },
+      "record_b": {
+        "name": "Janaka Rohana",
+        "age": 37,
+        "gender": "M",
+        "phone": "0758899112",
+        "household_id": "H38",
+        "gn_id": "GN3"
+      }
+    },
+    {
+      "id": 34,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Anil Bandara",
+        "age": 26,
+        "gender": "M",
+        "phone": "0783344551",
+        "household_id": "H39",
+        "gn_id": "GN4"
+      },
+      "record_b": {
+        "name": "Sunil Bandara",
+        "age": 28,
+        "gender": "M",
+        "phone": "0783344552",
+        "household_id": "H40",
+        "gn_id": "GN5"
+      }
+    },
+    {
+      "id": 35,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Heshani Imalka",
+        "age": 21,
+        "gender": "F",
+        "phone": "0771239988",
+        "household_id": "H41",
+        "gn_id": "GN6"
+      },
+      "record_b": {
+        "name": "Heshani Imalka",
+        "age": 21,
+        "gender": "F",
+        "phone": "+94771239988",
+        "household_id": "H41",
+        "gn_id": "GN6"
+      }
+    },
+    {
+      "id": 36,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Ruwan Chaminda",
+        "age": 33,
+        "gender": "M",
+        "phone": "0715566112",
+        "household_id": "H42",
+        "gn_id": "GN7"
+      },
+      "record_b": {
+        "name": "Ruwan Pushpakumara",
+        "age": 33,
+        "gender": "M",
+        "phone": "0715566113",
+        "household_id": "H43",
+        "gn_id": "GN8"
+      }
+    },
+    {
+      "id": 37,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Sithara Sewwandi",
+        "age": 22,
+        "gender": "F",
+        "phone": "0768877112",
+        "household_id": "H44",
+        "gn_id": "GN1"
+      },
+      "record_b": {
+        "name": "Sithara Sewwandi",
+        "age": 22,
+        "gender": "F",
+        "phone": "0768877112",
+        "household_id": "H44",
+        "gn_id": "GN1"
+      }
+    },
+    {
+      "id": 38,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Manjula Wijesinghe",
+        "age": 41,
+        "gender": "M",
+        "phone": "0721122334",
+        "household_id": "H45",
+        "gn_id": "GN2"
+      },
+      "record_b": {
+        "name": "Rohana Wijesinghe",
+        "age": 45,
+        "gender": "M",
+        "phone": "0721122335",
+        "household_id": "H46",
+        "gn_id": "GN3"
+      }
+    },
+    {
+      "id": 39,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Isuru Udana",
+        "age": 25,
+        "gender": "M",
+        "phone": "0774455889",
+        "household_id": "H47",
+        "gn_id": "GN4"
+      },
+      "record_b": {
+        "name": "Isuru Udana",
+        "age": 25,
+        "gender": "M",
+        "phone": "0774455889",
+        "household_id": "H47",
+        "gn_id": "GN4"
+      }
+    },
+    {
+      "id": 40,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Kusum Malini",
+        "age": 55,
+        "gender": "F",
+        "phone": "0719988443",
+        "household_id": "H48",
+        "gn_id": "GN5"
+      },
+      "record_b": {
+        "name": "Soma Malini",
+        "age": 53,
+        "gender": "F",
+        "phone": "0719988443",
+        "household_id": "H48",
+        "gn_id": "GN5"
+      }
+    },
+    {
+      "id": 41,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Kasun Madushanka",
+        "age": 24,
+        "gender": "M",
+        "phone": "0751144778",
+        "household_id": "H49",
+        "gn_id": "GN6"
+      },
+      "record_b": {
+        "name": "Kasun Madushanka",
+        "age": 24,
+        "gender": "M",
+        "phone": "+94751144778",
+        "household_id": "H49",
+        "gn_id": "GN6"
+      }
+    },
+    {
+      "id": 42,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Chamila Jayakody",
+        "age": 30,
+        "gender": "F",
+        "phone": "0788877441",
+        "household_id": "H50",
+        "gn_id": "GN7"
+      },
+      "record_b": {
+        "name": "Anusha Jayakody",
+        "age": 32,
+        "gender": "F",
+        "phone": "0788877442",
+        "household_id": "H51",
+        "gn_id": "GN8"
+      }
+    },
+    {
+      "id": 43,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Nipuna Sandaruwan",
+        "age": 23,
+        "gender": "M",
+        "phone": "0763355779",
+        "household_id": "H52",
+        "gn_id": "GN1"
+      },
+      "record_b": {
+        "name": "Nipuna Sandaruwan",
+        "age": 23,
+        "gender": "M",
+        "phone": "0763355779",
+        "household_id": "H52",
+        "gn_id": "GN1"
+      }
+    },
+    {
+      "id": 44,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Damith Asanka",
+        "age": 28,
+        "gender": "M",
+        "phone": "0772244668",
+        "household_id": "H53",
+        "gn_id": "GN2"
+      },
+      "record_b": {
+        "name": "Namal Asanka",
+        "age": 30,
+        "gender": "M",
+        "phone": "0772244669",
+        "household_id": "H54",
+        "gn_id": "GN3"
+      }
+    },
+    {
+      "id": 45,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Thilina Harshana",
+        "age": 26,
+        "gender": "M",
+        "phone": "0713366992",
+        "household_id": "H55",
+        "gn_id": "GN4"
+      },
+      "record_b": {
+        "name": "Thilina Harshana",
+        "age": 26,
+        "gender": "M",
+        "phone": "0713366992",
+        "household_id": "H55",
+        "gn_id": "GN4"
+      }
+    },
+    {
+      "id": 46,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Oshadi Gimhani",
+        "age": 20,
+        "gender": "F",
+        "phone": "0755588221",
+        "household_id": "H56",
+        "gn_id": "GN5"
+      },
+      "record_b": {
+        "name": "Chalani Gimhani",
+        "age": 22,
+        "gender": "F",
+        "phone": "0755588222",
+        "household_id": "H57",
+        "gn_id": "GN6"
+      }
+    },
+    {
+      "id": 47,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Achala Ruwan",
+        "age": 29,
+        "gender": "M",
+        "phone": "0784411773",
+        "household_id": "H58",
+        "gn_id": "GN7"
+      },
+      "record_b": {
+        "name": "Achala Ruwan",
+        "age": 29,
+        "gender": "M",
+        "phone": "+94784411773",
+        "household_id": "H58",
+        "gn_id": "GN7"
+      }
+    },
+    {
+      "id": 48,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Nalaka Senadheera",
+        "age": 39,
+        "gender": "M",
+        "phone": "0769922558",
+        "household_id": "H59",
+        "gn_id": "GN8"
+      },
+      "record_b": {
+        "name": "Sampath Senadheera",
+        "age": 41,
+        "gender": "M",
+        "phone": "0769922559",
+        "household_id": "H60",
+        "gn_id": "GN1"
+      }
+    },
+    {
+      "id": 49,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Shanika Dilrukshi",
+        "age": 25,
+        "gender": "F",
+        "phone": "0778811447",
+        "household_id": "H61",
+        "gn_id": "GN2"
+      },
+      "record_b": {
+        "name": "Shanika Dilrukshi",
+        "age": 25,
+        "gender": "F",
+        "phone": "0778811447",
+        "household_id": "H61",
+        "gn_id": "GN2"
+      }
+    },
+    {
+      "id": 50,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Upendra Prasanna",
+        "age": 32,
+        "gender": "M",
+        "phone": "0714477119",
+        "household_id": "H62",
+        "gn_id": "GN3"
+      },
+      "record_b": {
+        "name": "Nuwan Prasanna",
+        "age": 34,
+        "gender": "M",
+        "phone": "0714477120",
+        "household_id": "H63",
+        "gn_id": "GN4"
+      }
+    },
+    {
+      "id": 51,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Gayani Chathurika",
+        "age": 28,
+        "gender": "F",
+        "phone": "0752266881",
+        "household_id": "H64",
+        "gn_id": "GN5"
+      },
+      "record_b": {
+        "name": "Gayani Chathurika",
+        "age": 28,
+        "gender": "F",
+        "phone": "+94752266881",
+        "household_id": "H64",
+        "gn_id": "GN5"
+      }
+    },
+    {
+      "id": 52,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Ruvini Kaushalya",
+        "age": 21,
+        "gender": "F",
+        "phone": "0781199335",
+        "household_id": "H65",
+        "gn_id": "GN6"
+      },
+      "record_b": {
+        "name": "Sachini Kaushalya",
+        "age": 23,
+        "gender": "F",
+        "phone": "0781199336",
+        "household_id": "H66",
+        "gn_id": "GN7"
+      }
+    },
+    {
+      "id": 53,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Asanka Maduwantha",
+        "age": 27,
+        "gender": "M",
+        "phone": "0765588331",
+        "household_id": "H67",
+        "gn_id": "GN8"
+      },
+      "record_b": {
+        "name": "Asanka Maduwantha",
+        "age": 27,
+        "gender": "M",
+        "phone": "0765588331",
+        "household_id": "H67",
+        "gn_id": "GN8"
+      }
+    },
+    {
+      "id": 54,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Jagath Kumara",
+        "age": 46,
+        "gender": "M",
+        "phone": "0773311882",
+        "household_id": "H68",
+        "gn_id": "GN1"
+      },
+      "record_b": {
+        "name": "Anura Kumara",
+        "age": 48,
+        "gender": "M",
+        "phone": "0773311883",
+        "household_id": "H69",
+        "gn_id": "GN2"
+      }
+    },
+    {
+      "id": 55,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Poornima Hansani",
+        "age": 22,
+        "gender": "F",
+        "phone": "0718822554",
+        "household_id": "H70",
+        "gn_id": "GN3"
+      },
+      "record_b": {
+        "name": "Poornima Hansani",
+        "age": 22,
+        "gender": "F",
+        "phone": "+94718822554",
+        "household_id": "H70",
+        "gn_id": "GN3"
+      }
+    },
+    {
+      "id": 56,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Buddhika Prasanna",
+        "age": 30,
+        "gender": "M",
+        "phone": "0759944113",
+        "household_id": "H71",
+        "gn_id": "GN4"
+      },
+      "record_b": {
+        "name": "Chaminda Prasanna",
+        "age": 32,
+        "gender": "M",
+        "phone": "0759944114",
+        "household_id": "H72",
+        "gn_id": "GN5"
+      }
+    },
+    {
+      "id": 57,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Dilini Tharushika",
+        "age": 20,
+        "gender": "F",
+        "phone": "0787733991",
+        "household_id": "H73",
+        "gn_id": "GN6"
+      },
+      "record_b": {
+        "name": "Dilini Tharushika",
+        "age": 20,
+        "gender": "F",
+        "phone": "0787733991",
+        "household_id": "H73",
+        "gn_id": "GN6"
+      }
+    },
+    {
+      "id": 58,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Harsha Madushan",
+        "age": 25,
+        "gender": "M",
+        "phone": "0762288447",
+        "household_id": "H74",
+        "gn_id": "GN7"
+      },
+      "record_b": {
+        "name": "Eranga Madushan",
+        "age": 27,
+        "gender": "M",
+        "phone": "0762288448",
+        "household_id": "H75",
+        "gn_id": "GN8"
+      }
+    },
+    {
+      "id": 59,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Chathuri Nisansala",
+        "age": 24,
+        "gender": "F",
+        "phone": "0775511779",
+        "household_id": "H76",
+        "gn_id": "GN1"
+      },
+      "record_b": {
+        "name": "Chathuri Nisansala",
+        "age": 24,
+        "gender": "F",
+        "phone": "+94775511779",
+        "household_id": "H76",
+        "gn_id": "GN1"
+      }
+    },
+    {
+      "id": 60,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Dhanushka Sanjeewa",
+        "age": 28,
+        "gender": "M",
+        "phone": "0711144883",
+        "household_id": "H77",
+        "gn_id": "GN2"
+      },
+      "record_b": {
+        "name": "Niroshan Sanjeewa",
+        "age": 30,
+        "gender": "M",
+        "phone": "0711144884",
+        "household_id": "H78",
+        "gn_id": "GN3"
+      }
+    },
+    {
+      "id": 61,
+      "label": "true_duplicate",
+      "expected_classification": "probable",
+      "record_a": {
+        "name": "Sandun Malith",
+        "age": 26,
+        "gender": "M",
+        "phone": "0756622995",
+        "household_id": "H79",
+        "gn_id": "GN4"
+      },
+      "record_b": {
+        "name": "Sandun Malith",
+        "age": 26,
+        "gender": "M",
+        "phone": "0756622995",
+        "household_id": "H79",
+        "gn_id": "GN4"
+      }
+    },
+    {
+      "id": 62,
+      "label": "non_duplicate",
+      "expected_classification": "ignore",
+      "record_a": {
+        "name": "Indika Pushpakumara",
+        "age": 35,
+        "gender": "M",
+        "phone": "0789955117",
+        "household_id": "H80",
+        "gn_id": "GN5"
+      },
+      "record_b": {
+        "name": "Janaka Pushpakumara",
+        "age": 37,
+        "gender": "M",
+        "phone": "0789955118",
+        "household_id": "H81",
+        "gn_id": "GN6"
+      }
+    }
+  ]
+}

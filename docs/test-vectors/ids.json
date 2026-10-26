@@ -1,0 +1,59 @@
+{
+  "description": "GRS Generated Credentials Test Vectors (Appendix G)",
+  "id_format": {
+    "regex": "^GRS[0-9]{10}$",
+    "prefix": "GRS",
+    "digit_length": 10,
+    "valid_examples": [
+      "GRS1234567890",
+      "GRS0001234567",
+      "GRS9876543210"
+    ],
+    "invalid_examples": [
+      "grs1234567890",
+      "GRS123456789",
+      "GRS12345678901",
+      "ADM1234567890",
+      "GRS123456789A"
+    ]
+  },
+  "password_format": {
+    "length": 12,
+    "alphabet": "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz",
+    "excluded_lookalikes": [
+      "0",
+      "O",
+      "o",
+      "1",
+      "l",
+      "I"
+    ],
+    "display_grouping": "XXXX-XXXX-XXXX",
+    "display_regex": "^[2-9A-HJ-NP-Za-km-z]{4}-[2-9A-HJ-NP-Za-km-z]{4}-[2-9A-HJ-NP-Za-km-z]{4}$",
+    "valid_display_examples": [
+      "ABC2-DEF3-GHJ4",
+      "kmnp-qrst-uvwx",
+      "2345-6789-ABCD"
+    ],
+    "invalid_examples": [
+      "0O1l-ABCD-EFGH",
+      "ABC-DEF-GHI",
+      "ABCD-EFGH-JKLM-NOPQ"
+    ]
+  },
+  "argon2_parameters": {
+    "user_password": {
+      "type": "Argon2id",
+      "memoryCost": 65536,
+      "timeCost": 3,
+      "parallelism": 4
+    },
+    "generated_initial_password": {
+      "type": "Argon2id",
+      "memoryCost": 32768,
+      "timeCost": 2,
+      "parallelism": 2,
+      "note": "Optimized lighter parameter set for bulk generation within Vercel execution limits (Spike S2)"
+    }
+  }
+}

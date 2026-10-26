@@ -1,0 +1,42 @@
+name: Nightly Backup & Keep-Alive
+
+on:
+  schedule:
+    # Run once daily at 00:00 UTC (05:30 IST)
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup-and-keepalive:
+    name: Supabase Keep-Alive & Encrypted Dump
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL Client & OpenSSL
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client openssl
+
+      - name: Ping Supabase Keep-Alive
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -n "$SUPABASE_URL" ]; then
+            echo "Pinging Supabase REST to prevent free-tier pause..."
+            curl -f -H "apikey: $SUPABASE_ANON_KEY" "$SUPABASE_URL/rest/v1/" || echo "Keep-alive ping sent."
+          fi
+
+      - name: Perform Encrypted Database Dump
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+        run: |
+          if [ -n "$DIRECT_URL" ] && [ -n "$BACKUP_ENCRYPTION_KEY" ]; then
+            echo "Running pg_dump..."
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            pg_dump "$DIRECT_URL" --format=custom --file=dump.sql
+            echo "Encrypting dump with AES-256-CBC..."
+            openssl enc -aes-256-cbc -salt -in dump.sql -out "grs_backup_${TIMESTAMP}.dump.enc" -pass "pass:$BACKUP_ENCRYPTION_KEY"
+            rm dump.sql
+            echo "Encrypted backup created: grs_backup_${TIMESTAMP}.dump.enc"
+          fi

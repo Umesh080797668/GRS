@@ -1,0 +1,97 @@
+{
+  "description": "Phone & WhatsApp Normalization Test Vectors for GRS (Appendix A)",
+  "vectors": [
+    {
+      "input": "0771234567",
+      "valid_sl": true,
+      "e164": "+94771234567"
+    },
+    {
+      "input": "071-234-5678",
+      "valid_sl": true,
+      "e164": "+94712345678"
+    },
+    {
+      "input": "075 123 4567",
+      "valid_sl": true,
+      "e164": "+94751234567"
+    },
+    {
+      "input": "(076) 1234567",
+      "valid_sl": true,
+      "e164": "+94761234567"
+    },
+    {
+      "input": "+94771234567",
+      "valid_sl": true,
+      "e164": "+94771234567"
+    },
+    {
+      "input": "+94 77 123 4567",
+      "valid_sl": true,
+      "e164": "+94771234567"
+    },
+    {
+      "input": "94771234567",
+      "valid_sl": true,
+      "e164": "+94771234567"
+    },
+    {
+      "input": "0094771234567",
+      "valid_sl": true,
+      "e164": "+94771234567"
+    },
+    {
+      "input": "0112345678",
+      "valid_sl": true,
+      "e164": "+94112345678"
+    },
+    {
+      "input": "0812345678",
+      "valid_sl": true,
+      "e164": "+94812345678"
+    },
+    {
+      "input": "+971501234567",
+      "valid_sl": false,
+      "valid_whatsapp": true,
+      "e164": "+971501234567"
+    },
+    {
+      "input": "+447911123456",
+      "valid_sl": false,
+      "valid_whatsapp": true,
+      "e164": "+447911123456"
+    },
+    {
+      "input": "+12025550123",
+      "valid_sl": false,
+      "valid_whatsapp": true,
+      "e164": "+12025550123"
+    },
+    {
+      "input": "07712345",
+      "valid_sl": false,
+      "valid_whatsapp": false,
+      "reason": "too_short"
+    },
+    {
+      "input": "077123456789",
+      "valid_sl": false,
+      "valid_whatsapp": false,
+      "reason": "too_long"
+    },
+    {
+      "input": "abcdefghij",
+      "valid_sl": false,
+      "valid_whatsapp": false,
+      "reason": "non_numeric"
+    },
+    {
+      "input": "",
+      "valid_sl": false,
+      "valid_whatsapp": false,
+      "reason": "empty"
+    }
+  ]
+}

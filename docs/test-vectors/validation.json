@@ -1,0 +1,263 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "GRS Shared Validation Test Vectors across NestJS API and Flutter Core",
+  "version": "1.0.0",
+  "vectors": {
+    "name": [
+      {
+        "input": "Sunil Perera",
+        "valid": true,
+        "normalized": "Sunil Perera"
+      },
+      {
+        "input": "  Kamal   Silva  ",
+        "valid": true,
+        "normalized": "Kamal Silva"
+      },
+      {
+        "input": "සුනිල් පෙරේරා",
+        "valid": true,
+        "normalized": "සුනිල් පෙරේරා"
+      },
+      {
+        "input": "சுனில் பெரேரா",
+        "valid": true,
+        "normalized": "சுனில் பெரேரா"
+      },
+      {
+        "input": "A",
+        "valid": false,
+        "reason": "too_short"
+      },
+      {
+        "input": "123456",
+        "valid": false,
+        "reason": "digits_only"
+      },
+      {
+        "input": "",
+        "valid": false,
+        "reason": "empty"
+      },
+      {
+        "input": "   ",
+        "valid": false,
+        "reason": "whitespace_only"
+      }
+    ],
+    "age": [
+      {
+        "input": 1,
+        "valid": true
+      },
+      {
+        "input": 18,
+        "valid": true
+      },
+      {
+        "input": 25,
+        "valid": true
+      },
+      {
+        "input": 120,
+        "valid": true
+      },
+      {
+        "input": 0,
+        "valid": false,
+        "reason": "below_min"
+      },
+      {
+        "input": -5,
+        "valid": false,
+        "reason": "negative"
+      },
+      {
+        "input": 121,
+        "valid": false,
+        "reason": "above_max"
+      },
+      {
+        "input": "twenty",
+        "valid": false,
+        "reason": "non_integer"
+      }
+    ],
+    "gender": [
+      {
+        "input": "F",
+        "valid": true
+      },
+      {
+        "input": "M",
+        "valid": true
+      },
+      {
+        "input": "female",
+        "valid": false,
+        "reason": "must_be_F_or_M"
+      },
+      {
+        "input": "O",
+        "valid": false,
+        "reason": "invalid_enum"
+      },
+      {
+        "input": "",
+        "valid": false,
+        "reason": "empty"
+      }
+    ],
+    "house_no": [
+      {
+        "input": "25",
+        "valid": true,
+        "normalized": "25"
+      },
+      {
+        "input": "025",
+        "valid": true,
+        "normalized": "25"
+      },
+      {
+        "input": "25/A",
+        "valid": true,
+        "normalized": "25/A"
+      },
+      {
+        "input": "25 A",
+        "valid": true,
+        "normalized": "25/A"
+      },
+      {
+        "input": "25\\A",
+        "valid": true,
+        "normalized": "25/A"
+      },
+      {
+        "input": "104/B-2",
+        "valid": true,
+        "normalized": "104/B-2"
+      },
+      {
+        "input": "",
+        "valid": false,
+        "reason": "empty"
+      }
+    ],
+    "age_group": [
+      {
+        "input": "18-25",
+        "valid": true,
+        "min": 18,
+        "max": 25
+      },
+      {
+        "input": "18 - 25",
+        "valid": true,
+        "min": 18,
+        "max": 25
+      },
+      {
+        "input": "18–25",
+        "valid": true,
+        "min": 18,
+        "max": 25
+      },
+      {
+        "input": "30-20",
+        "valid": false,
+        "reason": "min_greater_than_max"
+      },
+      {
+        "input": "invalid",
+        "valid": false,
+        "reason": "bad_format"
+      }
+    ],
+    "user_code": [
+      {
+        "input": "GRS1234567890",
+        "valid": true
+      },
+      {
+        "input": "grs1234567890",
+        "valid": true,
+        "normalized": "GRS1234567890"
+      },
+      {
+        "input": "GRS0000000001",
+        "valid": true
+      },
+      {
+        "input": "GRS12345",
+        "valid": false,
+        "reason": "wrong_length"
+      },
+      {
+        "input": "ADMIN1234567890",
+        "valid": false,
+        "reason": "wrong_prefix"
+      },
+      {
+        "input": "GRS123456789X",
+        "valid": false,
+        "reason": "non_digit"
+      }
+    ],
+    "password": [
+      {
+        "input": "ABCD-EFGH-JKLM",
+        "valid": true
+      },
+      {
+        "input": "Abcd@1234#Secure",
+        "valid": true
+      },
+      {
+        "input": "short",
+        "valid": false,
+        "reason": "less_than_8_chars"
+      },
+      {
+        "input": "password123",
+        "valid": false,
+        "reason": "common_password"
+      }
+    ],
+    "future_hopes": [
+      {
+        "input": [
+          "higher_education",
+          "local_job"
+        ],
+        "valid": true
+      },
+      {
+        "input": [
+          "entrepreneur"
+        ],
+        "valid": true
+      },
+      {
+        "input": [],
+        "valid": true
+      },
+      {
+        "input": [
+          "invalid_hope"
+        ],
+        "valid": false,
+        "reason": "unknown_code"
+      },
+      {
+        "input": [
+          "local_job",
+          "local_job"
+        ],
+        "valid": false,
+        "reason": "duplicates_not_allowed"
+      }
+    ]
+  }
+}
