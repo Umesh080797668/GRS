@@ -5,6 +5,10 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { ScopeModule } from './common/scope/scope.module';
 import { AuthModule } from './auth/auth.module';
+import { AccountModule } from './accounts/account.module';
+import { LookupModule } from './lookups/lookup.module';
+import { AreaModule } from './areas/area.module';
+import { AppConfigModule } from './config/app-config.module';
 
 @Module({
   imports: [
@@ -15,8 +19,14 @@ import { AuthModule } from './auth/auth.module';
     PrismaModule,
     ScopeModule,
     AuthModule,
+    AccountModule,
+    LookupModule,
+    AreaModule,
+    AppConfigModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
+
+

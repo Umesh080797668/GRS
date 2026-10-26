@@ -75,6 +75,28 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  grs_core:
+    dependency: "direct main"
+    description:
+      path: "../../packages/grs_core"
+      relative: true
+    source: path
+    version: "1.0.0"
+  grs_ui:
+    dependency: "direct main"
+    description:
+      path: "../../packages/grs_ui"
+      relative: true
+    source: path
+    version: "0.0.1"
+  intl:
+    dependency: transitive
+    description:
+      name: intl
+      sha256: d6f56758b7d3014a48af9701c085700aac781a92a87a62b1333b46d8879661cf
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.19.0"
   leak_tracker:
     dependency: transitive
     description:

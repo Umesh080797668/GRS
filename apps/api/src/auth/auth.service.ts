@@ -12,6 +12,20 @@ import { CredentialService } from './credential.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+export type AuthSession = {
+  mustChangePassword: false;
+  accessToken: string;
+  refreshToken: string;
+  user: Record<string, any>;
+};
+
+export type LoginResult =
+  | {
+    mustChangePassword: true;
+    accessToken: string;
+    user: Record<string, any>;
+  }
+  | AuthSession;
 
 @Injectable()
 export class AuthService {
@@ -26,7 +40,7 @@ export class AuthService {
     private readonly credentialService: CredentialService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   /**
    * Normalizes login identifier (GRS ID -> uppercase, Email -> lowercase).
@@ -43,7 +57,7 @@ export class AuthService {
    * Authenticates user with uniform failure semantics (Invariant 14).
    * Supports GRS ID and verified email addresses.
    */
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto): Promise<LoginResult> {
     const { type, value } = this.normalizeIdentifier(dto.identifier);
 
     const profile = await this.prisma.profile.findFirst({
@@ -137,7 +151,7 @@ export class AuthService {
       );
 
       return {
-        mustChangePassword: true,
+        mustChangePassword: true as const,
         accessToken: limitedToken,
         user: this.sanitizeProfile(profile),
       };
@@ -151,7 +165,10 @@ export class AuthService {
    * Forces password change on first sign-in or user-requested change.
    * Clears must_change_password and increments token_version to kill stale sessions.
    */
-  async changePassword(userId: string, dto: ChangePasswordDto) {
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+  ): Promise<AuthSession> {
     const profile = await this.prisma.profile.findUnique({
       where: { id: userId },
     });
@@ -215,7 +232,7 @@ export class AuthService {
   /**
    * Rotates refresh tokens with reuse detection.
    */
-  async refreshTokens(dto: RefreshTokenDto) {
+  async refreshTokens(dto: RefreshTokenDto): Promise<AuthSession> {
     const tokenHash = crypto.createHash('sha256').update(dto.refreshToken).digest('hex');
 
     const tokenRecord = await this.prisma.refreshToken.findFirst({
@@ -319,7 +336,7 @@ export class AuthService {
     });
 
     return {
-      mustChangePassword: false,
+      mustChangePassword: false as const,
       accessToken,
       refreshToken: rawRefreshToken,
       user: this.sanitizeProfile(profile),

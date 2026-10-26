@@ -167,6 +167,9 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
       });
 
       expect(result.mustChangePassword).toBe(false);
+      if (result.mustChangePassword) {
+        throw new Error('Expected mustChangePassword to be false');
+      }
       expect(result.accessToken).toBe('mock.jwt.token');
       expect(result.refreshToken).toBeDefined();
       expect(prisma.refreshToken.create).toHaveBeenCalled();

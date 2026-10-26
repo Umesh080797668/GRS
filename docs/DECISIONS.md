@@ -45,3 +45,15 @@ This document records settled decisions (D1–D14) and conflict resolution defau
 | **C18** | Accepted Default | Password reissue restricted to the account creator or Level 00 super admin. |
 | **C19** | Accepted Default | Web data entry screen exists (M5.8) but is disabled for Level 00 by default via `web_entry_roles`. |
 | **C20** | Accepted Default | Cloud cost forecasts derived empirically from pilot load tests; capacity bounded by verified test thresholds. |
+
+## 3. Milestone 0 Spike Findings & Technical Evidence (S1–S7)
+
+| Spike | Title & Scope | Finding & Verified Numbers | Architecture Decision / Go-No-Go |
+| --- | --- | --- | --- |
+| **S1 (M0.3)** | Vercel + NestJS + Prisma cold start & 4.5 MB payload | Cold boot: **51–63 ms** (SLA: < 1000 ms). DB round-trip latency: **47–70 ms**. 4.5 MB JSON payload parsed in **3–6 ms** with zero memory leaks. | **GO:** Serverless NestJS architecture validated within Vercel limits. |
+| **S2 (M0.4)** | Argon2id benchmarks & custom JWT vs RLS | Full-strength user password hash: **55–88 ms**, verify: **50–78 ms** (SLA: < 500 ms). Bulk 100 generated initial passwords: **1807–2018 ms** (~19 ms/hash, SLA: < 10s Vercel timeout). | **GO (Decision C11):** `@node-rs/argon2` adopted. Confirmed **API-only access** through NestJS with RLS as second defense. |
+| **S3 (M0.5)** | Sinhala/Tamil PDF shaping (`ශ්‍රී ලංකා`, `ක්‍ෂ`, `தமிழ்`, `ஸ்ரீ`) | Raw non-browser PDF libraries lack HarfBuzz OpenType shaping, breaking conjuncts and diacritics. | **GO (Contingency S3):** Printable PDFs generated exclusively via Flutter Web Chromium print engine (`@media print`). Excel (`.xlsx`) is primary export format. |
+| **S4 (M0.6)** | Flutter + Drift + SQLCipher + background isolate | Foreground writes to encrypted SQLite; background isolate reads data matching foreground. Cipher key length: 32 bytes. | **GO:** Encrypted local database and background sync isolate access confirmed. |
+| **S5 (M0.7)** | Flutter Web trilingual typography & 3 MB upload | Bundled Noto Sans Sinhala and Noto Sans Tamil render cleanly without clipping. 3 MB binary buffer parsed in memory with 0 KB memory leak. | **GO:** Web dashboard fonts and bulk Excel import payload size confirmed. |
+| **S6 (M0.8)** | Email verification delivery & security constraints | 6-digit cryptographically secure code, 15-minute expiration, 5-attempt lockout, and 60-second resend cooldown verified. | **GO:** Email service and code verification parameters confirmed per M1.15. |
+| **S7 (M0.9)** | Scheduled & long jobs (pg_cron & async export runner) | `pg_cron` supported on Supabase PostgreSQL for running periodic summary refresh (`refresh_dirty_summaries`) every 5 min. Asynchronous export runner (`export_jobs`) writes `.xlsx` and marks job `done`. | **GO:** Asynchronous export queue and pg_cron stats refresh confirmed. |

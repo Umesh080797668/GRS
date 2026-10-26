@@ -1,5 +1,9 @@
-/// A Calculator.
-class Calculator {
-  /// Returns [value] plus 1.
-  int addOne(int value) => value + 1;
-}
+/// Contains shared design tokens, color system, trilingual typography,
+/// and core widgets per docs/design/DESIGN.md.
+library;
+
+export 'src/tokens/colors.dart';
+export 'src/tokens/spacing.dart';
+export 'src/tokens/typography.dart';
+export 'src/widgets/sync_badge.dart';
+export 'src/widgets/offline_banner.dart';
