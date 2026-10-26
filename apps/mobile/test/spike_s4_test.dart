@@ -8,7 +8,7 @@ import 'package:sqlite3/sqlite3.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('Spike S4: Drift, Encrypted SQLite & Background Isolate Execution (M0.6)', () {
+  group('Spike S4: Drift, SQLite & Background Isolate Execution (M0.6)', () {
     late Directory tempDir;
     late File dbFile;
     const testCipherKey =
@@ -128,6 +128,28 @@ void main() {
           returnsNormally,
         );
         memoryDb.dispose();
+      },
+    );
+
+    test(
+      'Empirical verification of PRAGMA cipher_version: host VM vs native Android device boundary',
+      () {
+        final db = sqlite3.openInMemory();
+        final result = db.select('PRAGMA cipher_version;');
+
+        // On Linux desktop host, system libsqlite3 is standard SQLite (PRAGMA cipher_version returns 0 rows).
+        // PRAGMA key is syntactically accepted as a no-op but does not encrypt on the desktop test runner.
+        // True SQLCipher binary encryption (PRAGMA cipher_version returning "4.x" and unreadability without key)
+        // requires the native Android libsqlcipher.so bundled in the mobile target, verified on device in M2.4.
+        expect(
+          result.isEmpty,
+          isTrue,
+          reason:
+              'On host Linux desktop, system SQLite is unencrypted. '
+              'Device-level SQLCipher binary verification is gated on Android in M2.4.',
+        );
+
+        db.dispose();
       },
     );
   });

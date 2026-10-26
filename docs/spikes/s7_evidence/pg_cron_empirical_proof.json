@@ -5,7 +5,7 @@
     "extversion": "1.6.4"
   },
   "cronJob": {
-    "jobid": "3",
+    "jobid": "4",
     "schedule": "*/5 * * * *",
     "command": "UPDATE public.m0_cron_heartbeat SET tick_count = tick_count + 1, last_tick_at = now() WHERE id = 1;",
     "nodename": "localhost",
@@ -16,15 +16,72 @@
     "jobname": "m0_5min_summary_refresh"
   },
   "schedule": "*/5 * * * *",
-  "initialRow": {
+  "latestAutonomousRuns": [
+    {
+      "jobid": "4",
+      "runid": "24",
+      "job_pid": 33265,
+      "database": "postgres",
+      "username": "postgres",
+      "command": "UPDATE public.m0_cron_heartbeat SET tick_count = tick_count + 1, last_tick_at = now() WHERE id = 1;",
+      "status": "succeeded",
+      "return_message": "UPDATE 1",
+      "start_time": "2026-10-26T10:10:00.047Z",
+      "end_time": "2026-10-26T10:10:00.049Z"
+    },
+    {
+      "jobid": "3",
+      "runid": "23",
+      "job_pid": 32574,
+      "database": "postgres",
+      "username": "postgres",
+      "command": "UPDATE public.m0_cron_heartbeat SET tick_count = tick_count + 1, last_tick_at = now() WHERE id = 1;",
+      "status": "succeeded",
+      "return_message": "UPDATE 1",
+      "start_time": "2026-10-26T10:05:00.016Z",
+      "end_time": "2026-10-26T10:05:00.104Z"
+    },
+    {
+      "jobid": "3",
+      "runid": "22",
+      "job_pid": 32505,
+      "database": "postgres",
+      "username": "postgres",
+      "command": "UPDATE public.m0_cron_heartbeat SET tick_count = tick_count + 1, last_tick_at = now() WHERE id = 1;",
+      "status": "succeeded",
+      "return_message": "UPDATE 1",
+      "start_time": "2026-10-26T10:00:00.040Z",
+      "end_time": "2026-10-26T10:00:00.044Z"
+    },
+    {
+      "jobid": "3",
+      "runid": "21",
+      "job_pid": 32407,
+      "database": "postgres",
+      "username": "postgres",
+      "command": "UPDATE public.m0_cron_heartbeat SET tick_count = tick_count + 1, last_tick_at = now() WHERE id = 1;",
+      "status": "succeeded",
+      "return_message": "UPDATE 1",
+      "start_time": "2026-10-26T09:55:00.039Z",
+      "end_time": "2026-10-26T09:55:00.041Z"
+    },
+    {
+      "jobid": "3",
+      "runid": "20",
+      "job_pid": 31721,
+      "database": "postgres",
+      "username": "postgres",
+      "command": "UPDATE public.m0_cron_heartbeat SET tick_count = tick_count + 1, last_tick_at = now() WHERE id = 1;",
+      "status": "succeeded",
+      "return_message": "UPDATE 1",
+      "start_time": "2026-10-26T09:50:00.026Z",
+      "end_time": "2026-10-26T09:50:00.028Z"
+    }
+  ],
+  "heartbeatState": {
     "id": 1,
-    "tick_count": 0,
-    "last_tick_at": "2026-10-26T09:17:52.704Z"
+    "tick_count": 3,
+    "last_tick_at": "2026-10-26T10:10:00.047Z"
   },
-  "updatedRow": {
-    "id": 1,
-    "tick_count": 1,
-    "last_tick_at": "2026-10-26T09:18:03.616Z"
-  },
-  "verifiedAt": "2026-10-26T09:18:05.767Z"
+  "verifiedAt": "2026-10-26T10:13:22.730Z"
 }

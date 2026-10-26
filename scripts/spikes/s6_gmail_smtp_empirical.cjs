@@ -64,7 +64,7 @@ async function sendRealVerificationEmail() {
   const code = crypto.randomInt(100000, 999999).toString();
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-  console.log(`Sending real verification email with OTP ${code} to ${emailTo}...`);
+  console.log(`Sending real verification email with 6-digit OTP to ${emailTo}...`);
 
   const mailOptions = {
     from: smtpFrom,
@@ -96,7 +96,7 @@ async function sendRealVerificationEmail() {
     accepted: info.accepted,
     rejected: info.rejected,
     envelope: info.envelope,
-    otpCode: code,
+    codeFormat: '6-digit numeric (cryptographically random)',
     expiresAt: expiresAt,
   };
 

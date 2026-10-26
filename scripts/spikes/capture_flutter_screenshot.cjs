@@ -17,8 +17,9 @@ async function capture() {
     '--headless=new',
     '--no-sandbox',
     '--disable-gpu',
+    '--disable-extensions',
     '--remote-debugging-port=9222',
-    '--window-size=1280,1050',
+    '--window-size=1280,1280',
     'http://127.0.0.1:8089'
   ]);
 
@@ -34,11 +35,11 @@ async function capture() {
   });
 
   const targets = await getJson('http://127.0.0.1:9222/json');
-  console.log('Found targets:', targets.map(t => t.url));
-  const pageTarget = targets.find(t => t.type === 'page');
+  console.log('Found targets:', targets.map(t => `${t.type}: ${t.url}`));
+  const pageTarget = targets.find(t => t.url.includes('127.0.0.1:8089'));
 
   if (!pageTarget) {
-    throw new Error('No page target found');
+    throw new Error('No page target found matching 127.0.0.1:8089');
   }
 
   // Connect via native WebSocket
@@ -78,8 +79,11 @@ async function capture() {
     }
   });
 
-  console.log('Waiting 12 seconds for Flutter CanvasKit / Skia / Fonts to render...');
-  await sleep(12000);
+  console.log('Navigating to http://127.0.0.1:8089...');
+  await send('Page.navigate', { url: 'http://127.0.0.1:8089' });
+
+  console.log('Waiting 18 seconds for Flutter CanvasKit / Skia / Fonts to render...');
+  await sleep(18000);
 
   console.log('Capturing screenshot...');
   const screenshotRes = await send('Page.captureScreenshot', { format: 'png' });

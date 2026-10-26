@@ -52,7 +52,7 @@ async function runPgCronEmpiricalTest() {
   console.log('pg_cron Extension verified:', ext);
 
   // 2. Create test table
-  console.log('Creating public.m0_cron_heartbeat table...');
+  console.log('Ensuring public.m0_cron_heartbeat table exists...');
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS public.m0_cron_heartbeat (
       id int PRIMARY KEY,
@@ -64,46 +64,46 @@ async function runPgCronEmpiricalTest() {
   await prisma.$executeRawUnsafe(`
     INSERT INTO public.m0_cron_heartbeat (id, tick_count, last_tick_at)
     VALUES (1, 0, now())
-    ON CONFLICT (id) DO UPDATE SET tick_count = 0, last_tick_at = now();
+    ON CONFLICT (id) DO NOTHING;
   `);
 
-  const initialRow = await prisma.$queryRawUnsafe("SELECT * FROM public.m0_cron_heartbeat WHERE id = 1;");
-  console.log('Initial row state (T0):', initialRow);
-
-  // 3. Unschedule previous job if exists
-  try {
-    await prisma.$queryRawUnsafe("SELECT cron.unschedule('m0_5min_summary_refresh');");
-  } catch (e) {
-    // Ignore if not present
+  // 3. Ensure 5-minute cron job is registered
+  const existingJob = await prisma.$queryRawUnsafe("SELECT jobid, schedule, command, nodename, nodeport, database, username, active, jobname FROM cron.job WHERE jobname = 'm0_5min_summary_refresh';");
+  if (existingJob.length === 0) {
+    console.log("Registering 5-minute summary refresh job via cron.schedule('m0_5min_summary_refresh', '*/5 * * * *', ...)...");
+    await prisma.$queryRawUnsafe(`
+      SELECT cron.schedule(
+        'm0_5min_summary_refresh',
+        '*/5 * * * *',
+        'UPDATE public.m0_cron_heartbeat SET tick_count = tick_count + 1, last_tick_at = now() WHERE id = 1;'
+      );
+    `);
   }
 
-  // 4. Schedule 5-minute job
-  console.log("Scheduling 5-minute summary refresh job via cron.schedule('m0_5min_summary_refresh', '*/5 * * * *', ...)...");
-  const scheduleRes = await prisma.$queryRawUnsafe(`
-    SELECT cron.schedule(
-      'm0_5min_summary_refresh',
-      '*/5 * * * *',
-      'UPDATE public.m0_cron_heartbeat SET tick_count = tick_count + 1, last_tick_at = now() WHERE id = 1;'
-    );
-  `);
-  console.log('cron.schedule returned jobid:', scheduleRes);
-
-  // 5. Query cron.job table
+  // 4. Query cron.job table
   const cronJobs = await prisma.$queryRawUnsafe("SELECT jobid, schedule, command, nodename, nodeport, database, username, active, jobname FROM cron.job WHERE jobname = 'm0_5min_summary_refresh';");
   console.log('Registered cron.job entry:', cronJobs);
 
-  // 6. Execute the update to demonstrate row changing state
-  await prisma.$executeRawUnsafe("UPDATE public.m0_cron_heartbeat SET tick_count = tick_count + 1, last_tick_at = now() WHERE id = 1;");
-  const updatedRow = await prisma.$queryRawUnsafe("SELECT * FROM public.m0_cron_heartbeat WHERE id = 1;");
-  console.log('Updated row state (T1):', updatedRow);
+  // 5. Query autonomous background runs from cron.job_run_details
+  const runDetails = await prisma.$queryRawUnsafe(`
+    SELECT jobid, runid, job_pid, database, username, command, status, return_message, start_time, end_time
+    FROM cron.job_run_details
+    ORDER BY start_time DESC
+    LIMIT 10;
+  `);
+  console.log('Autonomous cron.job_run_details background executions:', runDetails);
+
+  // 6. Verify heartbeat table updated autonomously by pg_cron background worker
+  const currentHeartbeat = await prisma.$queryRawUnsafe("SELECT * FROM public.m0_cron_heartbeat WHERE id = 1;");
+  console.log('Current heartbeat state updated autonomously by pg_cron daemon:', currentHeartbeat);
 
   const proof = {
     database: "Supabase PostgreSQL 17.11 (aws-0-ap-northeast-1)",
     extension: ext[0],
     cronJob: cronJobs[0],
     schedule: "*/5 * * * *",
-    initialRow: initialRow[0],
-    updatedRow: updatedRow[0],
+    latestAutonomousRuns: runDetails.slice(0, 5),
+    heartbeatState: currentHeartbeat[0],
     verifiedAt: new Date().toISOString()
   };
 

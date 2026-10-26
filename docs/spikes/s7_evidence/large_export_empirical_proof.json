@@ -1,0 +1,31 @@
+{
+  "spike": "S7",
+  "task": "M0.9 Large Export Streaming Runner Proof",
+  "parameters": {
+    "rowCount": 50000,
+    "format": "XLSX (Office Open XML)",
+    "columns": 12,
+    "streamingEngine": "ExcelJS.stream.xlsx.WorkbookWriter",
+    "formulaProtection": "Single-quote prefix prepended to cells starting with [=, +, -, @]"
+  },
+  "metrics": {
+    "totalRows": 50000,
+    "elapsedSeconds": 0.88,
+    "throughputRowsPerSec": 56818,
+    "fileSizeBytes": 3278484,
+    "fileSizeMb": 3.13,
+    "initialHeapMb": 19.87,
+    "peakHeapMb": 28.55,
+    "netHeapDeltaMb": -2.29
+  },
+  "formulaInjectionValidation": {
+    "attackInput": "=CMD|\"/C calc\"!A0",
+    "escapedValue": "'=CMD|\"/C calc\"!A0",
+    "safe": true
+  },
+  "architecturalDecision": {
+    "inlineThresholdRows": 5000,
+    "longRunnerStrategy": "Separate asynchronous worker runner (e.g. GitHub Actions / background container / queue runner) writes directly to Supabase Storage with signed download URL (24h expiry), completely bypassing Vercel 10s/60s function timeouts and 4.5 MB request limits."
+  },
+  "generatedAt": "2026-10-26T10:16:18.227Z"
+}
