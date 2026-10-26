@@ -41,7 +41,7 @@ export class AppService {
       await Promise.race([
         pingQuery,
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Database connection timed out')), 1000),
+          setTimeout(() => reject(new Error('Database connection timed out')), 3500),
         ),
       ]);
       latencyMs = Math.round((performance.now() - start) * 10) / 10;

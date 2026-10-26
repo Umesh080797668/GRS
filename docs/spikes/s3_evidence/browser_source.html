@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    @font-face {
+      font-family: 'NotoSansSinhala';
+      src: url('file:///usr/share/fonts/truetype/noto/NotoSansSinhala-Regular.ttf');
+    }
+    @font-face {
+      font-family: 'NotoSansTamil';
+      src: url('file:///usr/share/fonts/truetype/noto/NotoSansTamil-Medium.ttf');
+    }
+    body {
+      font-family: sans-serif;
+      padding: 50px;
+    }
+    h1 {
+      font-size: 20px;
+      color: #004D40;
+      border-bottom: 2px solid #004D40;
+      padding-bottom: 8px;
+    }
+    .sample {
+      font-size: 28px;
+      margin: 20px 0;
+      line-height: 1.6;
+    }
+    .sinhala {
+      font-family: 'NotoSansSinhala', sans-serif;
+    }
+    .tamil {
+      font-family: 'NotoSansTamil', sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <h1>Spike S3: Chromium Web Print Rendering (With HarfBuzz Shaping)</h1>
+  <div class="sample sinhala">Sinhala: Sri Lanka: <b>ශ්‍රී ලංකා</b></div>
+  <div class="sample sinhala">Sinhala: Ksha ligature: <b>ක්‍ෂ</b></div>
+  <div class="sample tamil">Tamil: Tamil: <b>தமிழ்</b></div>
+  <div class="sample tamil">Tamil: Shri ligature: <b>ஸ்ரீ</b></div>
+</body>
+</html>
