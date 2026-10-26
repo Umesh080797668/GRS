@@ -1,14 +1,14 @@
 name: grs_core
-description: A starting point for Dart libraries or applications.
+description: Core domain models, shared validators, and campaign logic for GRS.
 version: 1.0.0
-# repository: https://github.com/my_org/my_repo
 
 environment:
   sdk: ^3.10.3
 
-# Add regular dependencies here.
 dependencies:
-  # path: ^1.9.0
+  meta: ^1.15.0
+  collection: ^1.18.0
+  intl: ^0.19.0
 
 dev_dependencies:
   lints: ^6.0.0

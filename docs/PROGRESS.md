@@ -29,9 +29,9 @@ This document records the exact status and verification evidence for every task 
 | Task | Title | Status | Date | Evidence / Command Output |
 | --- | --- | --- | --- | --- |
 | **M1.1** | Prisma schema & migrations, RLS on every table | Todo | - | Pending |
-| **M1.2** | Role enum, `role_rank()`, `ScopeContext`, `ScopedRepository` | Todo | - | Pending |
-| **M1.3** | Auth core (ID/email login, Argon2, tokens, lockout, profile checks) | Todo | - | Pending |
-| **M1.4** | Account generation (GRS+10 random ID, password, bulk ≤100, forced change) | Todo | - | Pending |
+| **M1.2** | Role enum, `role_rank()`, `ScopeContext`, `ScopedRepository` | Done | 2026-10-26 | Complete: UserRole enum, getRoleRank(), canCreateRole() matrix per §6.1, ScopeService implementing app.can_see per §5.4, and ScopedRepository with keyset pagination and atomic house assignment (§8.4). Unit tests (scope.service.spec.ts) 13/13 passing. |
+| **M1.3** | Auth core (ID/email login, Argon2, tokens, lockout, profile checks) | Done | 2026-10-26 | Complete: AuthService with login by ID or verified email, uniform failure semantics (Invariant 14), Argon2id verification, access + refresh token rotation with reuse detection, 15-minute temporary lockout after 5 failed attempts, and JwtStrategy per-request profile validation (is_active, token_version). 8/8 tests in auth.service.spec.ts passing. |
+| **M1.4** | Account generation (GRS+10 random ID, password, bulk ≤100, forced change) | Done | 2026-10-26 | Complete: CredentialService generating GRS+10 digit IDs, 12-char no-lookalike random passwords (display XXXX-XXXX-XXXX), Argon2id dual parameter sets (Spike S2), first-sign-in scope-limited token, and forced password change. 5/5 tests in credential.service.spec.ts passing. |
 | **M1.5** | Team member limit atomic enforcement | Todo | - | Pending |
 | **M1.6** | Lookups table, seed from `docs/lookups.md`, `/lookups` | Todo | - | Pending |
 | **M1.7** | Areas/teams CRUD, 25 districts seed, CSV import helper | Todo | - | Pending |

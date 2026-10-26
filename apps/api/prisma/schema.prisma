@@ -1,0 +1,534 @@
+// Prisma Schema for GRS (Global Research & Survey App)
+// Authoritative Data Model per Agent Build Plan v1.2 Section 5
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Enums (Section 5.1)
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  super_admin
+  admin
+  cg
+  dc
+  sda
+  cdc_secretary
+  team_member
+
+  @@map("user_role")
+}
+
+enum Gender {
+  F
+  M
+
+  @@map("gender")
+}
+
+enum InfoProvidedBy {
+  self
+  mother
+  father
+  sister
+  other
+
+  @@map("info_provided_by")
+}
+
+enum DuplicateStatus {
+  open
+  confirmed
+  dismissed
+
+  @@map("duplicate_status")
+}
+
+enum JobStatus {
+  queued
+  running
+  done
+  failed
+  expired
+
+  @@map("job_status")
+}
+
+// -----------------------------------------------------------------------------
+// Models (Section 5.2)
+// -----------------------------------------------------------------------------
+
+model Profile {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userCode           String    @unique @map("user_code") @db.VarChar(13)
+  email              String?   @unique @db.VarChar(255)
+  pendingEmail       String?   @map("pending_email") @db.VarChar(255)
+  passwordHash       String    @map("password_hash") @db.VarChar(255)
+  mustChangePassword Boolean   @default(true) @map("must_change_password")
+  passwordExpiresAt  DateTime? @map("password_expires_at") @db.Timestamptz(6)
+  passwordChangedAt  DateTime? @map("password_changed_at") @db.Timestamptz(6)
+  role               UserRole
+  fullName           String    @map("full_name") @db.VarChar(255)
+  phoneE164          String?   @map("phone_e164") @db.VarChar(20)
+  preferredLanguage  String    @default("si") @map("preferred_language") @db.VarChar(5)
+  createdBy          String?   @map("created_by") @db.Uuid
+  districtId         String?   @map("district_id") @db.Uuid
+  dsId               String?   @map("ds_id") @db.Uuid
+  gnId               String?   @map("gn_id") @db.Uuid
+  teamId             String?   @map("team_id") @db.Uuid
+  isActive           Boolean   @default(true) @map("is_active")
+  deactivatedAt      DateTime? @map("deactivated_at") @db.Timestamptz(6)
+  deactivatedBy      String?   @map("deactivated_by") @db.Uuid
+  failedLoginCount   Int       @default(0) @map("failed_login_count")
+  lockedUntil        DateTime? @map("locked_until") @db.Timestamptz(6)
+  lastLoginAt        DateTime? @map("last_login_at") @db.Timestamptz(6)
+  tokenVersion       Int       @default(1) @map("token_version")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  refreshTokens     RefreshToken[]
+  emailCodes        EmailCode[]
+  createdBatches    AccountBatch[] @relation("BatchCreator")
+  actionsPerformed  AccountAudit[] @relation("Actor")
+  actionsReceived   AccountAudit[] @relation("Target")
+  createdHouseholds Household[]    @relation("HouseholdCreator")
+  collectedClients  Client[]       @relation("ClientCollector")
+  exportJobs        ExportJob[]
+
+  @@index([createdBy])
+  @@index([teamId])
+  @@index([districtId])
+  @@index([dsId])
+  @@index([gnId])
+  @@map("profiles")
+}
+
+model RefreshToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profileId  String    @map("profile_id") @db.Uuid
+  tokenHash  String    @map("token_hash") @db.VarChar(255)
+  deviceId   String?   @map("device_id") @db.VarChar(100)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+  replacedBy String?   @map("replaced_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+model EmailCode {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profileId String   @map("profile_id") @db.Uuid
+  email     String   @db.VarChar(255)
+  purpose   String   @db.VarChar(20) // verify, reset
+  codeHash  String   @map("code_hash") @db.VarChar(255)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, purpose])
+  @@map("email_codes")
+}
+
+model AccountBatch {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdBy String   @map("created_by") @db.Uuid
+  role      UserRole
+  teamId    String?  @map("team_id") @db.Uuid
+  count     Int
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  creator Profile        @relation("BatchCreator", fields: [createdBy], references: [id])
+  audits  AccountAudit[]
+
+  @@map("account_batches")
+}
+
+model AccountAudit {
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId  String   @map("actor_id") @db.Uuid
+  targetId String   @map("target_id") @db.Uuid
+  action   String   @db.VarChar(50) // created, password_reset, reissued, deactivated, reactivated, email_added, password_changed
+  batchId  String?  @map("batch_id") @db.Uuid
+  at       DateTime @default(now()) @db.Timestamptz(6)
+
+  actor  Profile       @relation("Actor", fields: [actorId], references: [id])
+  target Profile       @relation("Target", fields: [targetId], references: [id])
+  batch  AccountBatch? @relation(fields: [batchId], references: [id])
+
+  @@index([targetId])
+  @@index([actorId])
+  @@map("account_audit")
+}
+
+model RateLimit {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String   @unique @db.VarChar(255)
+  windowStart DateTime @map("window_start") @db.Timestamptz(6)
+  count       Int      @default(1)
+
+  @@index([key, windowStart])
+  @@map("rate_limits")
+}
+
+model AppSetting {
+  key       String   @id @db.VarChar(100)
+  value     Json     @db.JsonB
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("app_settings")
+}
+
+model District {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nameSi    String   @map("name_si") @db.VarChar(100)
+  nameTa    String   @map("name_ta") @db.VarChar(100)
+  nameEn    String   @map("name_en") @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  divisions DivisionalSecretariat[]
+
+  @@map("districts")
+}
+
+model DivisionalSecretariat {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  districtId String   @map("district_id") @db.Uuid
+  nameSi     String   @map("name_si") @db.VarChar(100)
+  nameTa     String   @map("name_ta") @db.VarChar(100)
+  nameEn     String   @map("name_en") @db.VarChar(100)
+  sdoName    String?  @map("sdo_name") @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  district    District     @relation(fields: [districtId], references: [id], onDelete: Restrict)
+  gnDivisions GnDivision[]
+
+  @@index([districtId])
+  @@map("divisional_secretariats")
+}
+
+model GnDivision {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dsId             String   @map("ds_id") @db.Uuid
+  gnNumber         String   @map("gn_number") @db.VarChar(50)
+  gnName           String   @map("gn_name") @db.VarChar(100)
+  cdcSecretaryId   String?  @map("cdc_secretary_id") @db.Uuid
+  secretaryName    String?  @map("secretary_name") @db.VarChar(255)
+  secretaryContact String?  @map("secretary_contact") @db.VarChar(50)
+  secretaryEmail   String?  @map("secretary_email") @db.VarChar(255)
+  nextSerial       Int      @default(1) @map("next_serial")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  ds         DivisionalSecretariat @relation(fields: [dsId], references: [id], onDelete: Restrict)
+  teams      Team[]
+  households Household[]
+
+  @@unique([dsId, gnNumber])
+  @@index([dsId])
+  @@map("gn_divisions")
+}
+
+model Team {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gnId         String    @map("gn_id") @db.Uuid
+  teamNo       Int       @map("team_no")
+  leaderId     String?   @unique @map("leader_id") @db.Uuid
+  maxMembers   Int       @default(10) @map("max_members")
+  statsDirtyAt DateTime? @map("stats_dirty_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  gn         GnDivision  @relation(fields: [gnId], references: [id], onDelete: Restrict)
+  households Household[]
+
+  @@unique([gnId, teamNo])
+  @@index([gnId])
+  @@map("teams")
+}
+
+model Household {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gnId            String    @map("gn_id") @db.Uuid
+  teamId          String?   @map("team_id") @db.Uuid
+  districtId      String    @map("district_id") @db.Uuid
+  dsId            String    @map("ds_id") @db.Uuid
+  serialNo        Int       @map("serial_no")
+  houseNo         String    @map("house_no") @db.VarChar(50)
+  houseNoNorm     String    @map("house_no_norm") @db.VarChar(50)
+  houseLeaderName String    @map("house_leader_name") @db.VarChar(255)
+  address         String?   @db.Text
+  villageName     String?   @map("village_name") @db.VarChar(150)
+  isEpf           Boolean   @default(false) @map("is_epf")
+  isEtf           Boolean   @default(false) @map("is_etf")
+  isAswesuma      Boolean   @default(false) @map("is_aswesuma")
+  isSamurdhi      Boolean   @default(false) @map("is_samurdhi")
+  hasSpecialNeeds Boolean   @default(false) @map("has_special_needs")
+  targetFemale    Int       @default(0) @map("target_female")
+  targetMale      Int       @default(0) @map("target_male")
+  ageGroupMin     Int?      @map("age_group_min")
+  ageGroupMax     Int?      @map("age_group_max")
+  langSinhala     Boolean   @default(false) @map("lang_sinhala")
+  langTamil       Boolean   @default(false) @map("lang_tamil")
+  langEnglish     Boolean   @default(false) @map("lang_english")
+  version         Int       @default(1)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedReason   String?   @map("deleted_reason") @db.VarChar(255)
+  importBatchId   String?   @map("import_batch_id") @db.Uuid
+  createdBy       String    @map("created_by") @db.Uuid
+  updatedBy       String?   @map("updated_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  gn      GnDivision @relation(fields: [gnId], references: [id], onDelete: Restrict)
+  team    Team?      @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  creator Profile    @relation("HouseholdCreator", fields: [createdBy], references: [id])
+  clients Client[]
+
+  @@unique([gnId, serialNo])
+  @@index([gnId, houseNoNorm])
+  @@index([teamId])
+  @@index([districtId])
+  @@index([dsId])
+  @@map("households")
+}
+
+model Client {
+  id                         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  householdId                String         @map("household_id") @db.Uuid
+  districtId                 String         @map("district_id") @db.Uuid
+  dsId                       String         @map("ds_id") @db.Uuid
+  gnId                       String         @map("gn_id") @db.Uuid
+  teamId                     String?        @map("team_id") @db.Uuid
+  name                       String         @db.VarChar(255)
+  nameNorm                   String         @map("name_norm") @db.VarChar(255)
+  age                        Int
+  gender                     Gender
+  address                    String?        @db.Text
+  phoneRaw                   String?        @map("phone_raw") @db.VarChar(50)
+  phoneE164                  String?        @map("phone_e164") @db.VarChar(20)
+  whatsappRaw                String?        @map("whatsapp_raw") @db.VarChar(50)
+  whatsappE164               String?        @map("whatsapp_e164") @db.VarChar(20)
+  highestEducation           String?        @map("highest_education") @db.VarChar(50)
+  highestVocational          String?        @map("highest_vocational") @db.VarChar(50)
+  interestedVocationalStream String?        @map("interested_vocational_stream") @db.VarChar(50)
+  interestedJob              String?        @map("interested_job") @db.VarChar(50)
+  isEpf                      Boolean        @default(false) @map("is_epf")
+  isEtf                      Boolean        @default(false) @map("is_etf")
+  isAswesuma                 Boolean        @default(false) @map("is_aswesuma")
+  isSamurdhi                 Boolean        @default(false) @map("is_samurdhi")
+  hasSpecialNeeds            Boolean        @default(false) @map("has_special_needs")
+  futureHopes                String[]       @default([]) @map("future_hopes")
+  infoProvidedBy             InfoProvidedBy @map("info_provided_by")
+  infoProvidedByOther        String?        @map("info_provided_by_other") @db.VarChar(255)
+  consentGiven               Boolean        @map("consent_given")
+  consentAt                  DateTime?      @map("consent_at") @db.Timestamptz(6)
+  consentVersion             String?        @map("consent_version") @db.VarChar(20)
+  collectedBy                String         @map("collected_by") @db.Uuid
+  collectedAt                DateTime       @map("collected_at") @db.Timestamptz(6)
+  deviceId                   String?        @map("device_id") @db.VarChar(100)
+  clientUpdatedAt            DateTime       @map("client_updated_at") @db.Timestamptz(6)
+  serverVersion              Int            @default(1) @map("server_version")
+  contentHash                String         @map("content_hash") @db.VarChar(64)
+  receivedAt                 DateTime       @default(now()) @map("received_at") @db.Timestamptz(6)
+  deletedAt                  DateTime?      @map("deleted_at") @db.Timestamptz(6)
+  duplicateOf                String?        @map("duplicate_of") @db.Uuid
+  appVersion                 String?        @map("app_version") @db.VarChar(20)
+  schemaVersion              String?        @map("schema_version") @db.VarChar(20)
+  syncedAt                   DateTime?      @map("synced_at") @db.Timestamptz(6)
+  createdBy                  String         @map("created_by") @db.Uuid
+  updatedBy                  String?        @map("updated_by") @db.Uuid
+  createdAt                  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  household Household     @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  collector Profile       @relation("ClientCollector", fields: [collectedBy], references: [id])
+  audits    ClientAudit[]
+
+  // Keyset indexes per Section 5.3
+  @@index([districtId, createdAt, id])
+  @@index([dsId, createdAt, id])
+  @@index([gnId, createdAt, id])
+  @@index([teamId, createdAt, id])
+  @@index([collectedBy, createdAt, id])
+  @@index([householdId])
+  @@index([phoneE164])
+  @@index([whatsappE164])
+  @@map("clients")
+}
+
+model ClientAudit {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId  String   @map("client_id") @db.Uuid
+  changedBy String   @map("changed_by") @db.Uuid
+  changedAt DateTime @default(now()) @map("changed_at") @db.Timestamptz(6)
+  before    Json     @db.JsonB
+  after     Json     @db.JsonB
+  reason    String?  @db.VarChar(255)
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("client_audit")
+}
+
+model DuplicateCandidate {
+  id         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientA    String          @map("client_a") @db.Uuid
+  clientB    String          @map("client_b") @db.Uuid
+  score      Int
+  reasons    Json            @db.JsonB
+  status     DuplicateStatus @default(open)
+  reviewedBy String?         @map("reviewed_by") @db.Uuid
+  reviewedAt DateTime?       @map("reviewed_at") @db.Timestamptz(6)
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([clientA, clientB])
+  @@index([status])
+  @@map("duplicate_candidates")
+}
+
+model TeamStat {
+  teamId            String   @id @map("team_id") @db.Uuid
+  gnId              String   @map("gn_id") @db.Uuid
+  dsId              String   @map("ds_id") @db.Uuid
+  districtId        String   @map("district_id") @db.Uuid
+  housesAssigned    Int      @default(0) @map("houses_assigned")
+  housesStarted     Int      @default(0) @map("houses_started")
+  housesDone        Int      @default(0) @map("houses_done")
+  clientsCount      Int      @default(0) @map("clients_count")
+  epfCount          Int      @default(0) @map("epf_count")
+  etfCount          Int      @default(0) @map("etf_count")
+  aswesumaCount     Int      @default(0) @map("aswesuma_count")
+  samurdhiCount     Int      @default(0) @map("samurdhi_count")
+  specialNeedsCount Int      @default(0) @map("special_needs_count")
+  refreshedAt       DateTime @default(now()) @map("refreshed_at") @db.Timestamptz(6)
+
+  @@index([gnId])
+  @@index([dsId])
+  @@index([districtId])
+  @@map("team_stats")
+}
+
+model AreaStat {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  areaType          String   @map("area_type") @db.VarChar(20) // gn, ds, district, national
+  areaId            String   @map("area_id") @db.VarChar(50)
+  housesAssigned    Int      @default(0) @map("houses_assigned")
+  housesStarted     Int      @default(0) @map("houses_started")
+  housesDone        Int      @default(0) @map("houses_done")
+  clientsCount      Int      @default(0) @map("clients_count")
+  epfCount          Int      @default(0) @map("epf_count")
+  etfCount          Int      @default(0) @map("etf_count")
+  aswesumaCount     Int      @default(0) @map("aswesuma_count")
+  samurdhiCount     Int      @default(0) @map("samurdhi_count")
+  specialNeedsCount Int      @default(0) @map("special_needs_count")
+  refreshedAt       DateTime @default(now()) @map("refreshed_at") @db.Timestamptz(6)
+
+  @@unique([areaType, areaId])
+  @@map("area_stats")
+}
+
+model LookupValue {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category String  @db.VarChar(50) // education, vocational_qualification, vocational_stream, job, future_hope, info_provided_by
+  code     String  @unique @db.VarChar(50)
+  labelSi  String  @map("label_si") @db.VarChar(255)
+  labelTa  String  @map("label_ta") @db.VarChar(255)
+  labelEn  String  @map("label_en") @db.VarChar(255)
+  sort     Int     @default(100)
+  isActive Boolean @default(true) @map("is_active")
+
+  @@index([category, sort])
+  @@map("lookup_values")
+}
+
+model ImportBatch {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gnId            String   @map("gn_id") @db.Uuid
+  fileName        String   @map("file_name") @db.VarChar(255)
+  rowsTotal       Int      @map("rows_total")
+  rowsOk          Int      @map("rows_ok")
+  rowsFailed      Int      @map("rows_failed")
+  status          String   @default("previewed") @db.VarChar(20) // previewed, committed, expired
+  errorReportPath String?  @map("error_report_path") @db.VarChar(255)
+  importedBy      String   @map("imported_by") @db.Uuid
+  importedAt      DateTime @default(now()) @map("imported_at") @db.Timestamptz(6)
+
+  stagingRows ImportStaging[]
+
+  @@map("import_batches")
+}
+
+model ImportStaging {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  batchId   String   @map("batch_id") @db.Uuid
+  rowNo     Int      @map("row_no")
+  data      Json     @db.JsonB
+  errors    Json     @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  batch ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId, rowNo])
+  @@map("import_staging")
+}
+
+model ExportJob {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestedBy String    @map("requested_by") @db.Uuid
+  kind        String    @db.VarChar(50) // progress, clients, beneficiaries, interests, duplicates
+  filters     Json      @db.JsonB
+  status      JobStatus @default(queued)
+  filePath    String?   @map("file_path") @db.VarChar(255)
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz(6)
+  error       String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  requester Profile @relation(fields: [requestedBy], references: [id])
+
+  @@index([requestedBy])
+  @@index([status])
+  @@map("export_jobs")
+}
+
+model AppRelease {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version             String   @unique @db.VarChar(20)
+  minSupportedVersion String   @map("min_supported_version") @db.VarChar(20)
+  apkUrl              String   @map("apk_url") @db.VarChar(255)
+  checksum            String   @db.VarChar(64)
+  releaseNotes        String?  @map("release_notes") @db.Text
+  releasedAt          DateTime @default(now()) @map("released_at") @db.Timestamptz(6)
+
+  @@map("app_releases")
+}
+
+model SyncLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  deviceId    String?  @map("device_id") @db.VarChar(100)
+  recordsSent Int      @map("records_sent")
+  status      String   @db.VarChar(20)
+  details     Json?    @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId, createdAt])
+  @@map("sync_log")
+}

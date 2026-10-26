@@ -10,7 +10,8 @@
     "lint": "npm --prefix apps/api run lint --if-present",
     "test": "npm --prefix apps/api test --if-present",
     "test:e2e": "npm --prefix apps/api run test:e2e --if-present",
-    "build": "npm --prefix apps/api run build --if-present"
+    "build": "npm --prefix apps/api run build --if-present",
+    "ci:local": "bash scripts/ci.sh"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

@@ -1,8 +1,4 @@
-/// Support for doing something awesome.
-///
-/// More dartdocs go here.
+/// Core domain models, shared validators, and campaign logic for GRS.
 library;
 
-export 'src/grs_core_base.dart';
-
-// TODO: Export any libraries intended for clients of this package.
+export 'src/validators.dart';
