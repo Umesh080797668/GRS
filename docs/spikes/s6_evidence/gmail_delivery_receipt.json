@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-10-26T08:03:34.940Z",
+  "messageId": "<aa9d0b64-3c58-bf9d-e292-e672044ba37b@gmail.com>",
+  "response": "250 2.0.0 OK  1793001815 41be03b00d2f7-cd8ccc8f97esm1186191a12.19 - gsmtp",
+  "accepted": [
+    "imanthaumesh08@gmail.com"
+  ],
+  "rejected": [],
+  "envelope": {
+    "from": "umeshbandara08@gmail.com",
+    "to": [
+      "imanthaumesh08@gmail.com"
+    ]
+  },
+  "otpCode": "714409",
+  "expiresAt": "2026-10-26T08:17:51.394Z"
+}
