@@ -54,6 +54,11 @@ if [ -n "$LEAKS" ]; then
 fi
 echo "Secret scan passed: No service-role key in client codebase."
 
+# 4. Traceability Coverage Check (M1.9)
+echo ""
+echo "--- [4/4] Running Traceability 5-Layer Coverage Check ---"
+node scripts/check_traceability.cjs
+
 echo ""
 echo "===================================================="
 echo " ALL LOCAL CI QUALITY GATES PASSED! "

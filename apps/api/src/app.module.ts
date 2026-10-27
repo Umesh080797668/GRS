@@ -10,6 +10,7 @@ import { LookupModule } from './lookups/lookup.module';
 import { AreaModule } from './areas/area.module';
 import { AppConfigModule } from './config/app-config.module';
 import { EmailModule } from './email/email.module';
+import { JobsModule } from './jobs/jobs.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { EmailModule } from './email/email.module';
     AreaModule,
     AppConfigModule,
     EmailModule,
+    JobsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

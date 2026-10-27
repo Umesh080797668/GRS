@@ -1,0 +1,51 @@
+# GRS Role × Endpoint Authorization Matrix
+
+| Endpoint | Method | anon | deactivated | team_member (L5) | cdc_secretary (L4) | sda (L3) | dc (L2) | cg (L1) | admin (L0) | super_admin (L00) | Scope Rule |
+| --- | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | --- |
+| `/auth/login` | **POST** | ✅ Allow | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `none` |
+| `/auth/change-password` | **POST** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `own_only` |
+| `/auth/refresh` | **POST** | ✅ Allow | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `own_only` |
+| `/auth/logout` | **POST** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `own_only` |
+| `/auth/email/add` | **POST** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `own_only` |
+| `/auth/email/verify` | **POST** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `own_only` |
+| `/auth/forgot` | **POST** | ✅ Allow | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `none` |
+| `/auth/reset` | **POST** | ✅ Allow | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `none` |
+| `/accounts` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/accounts/bulk` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/accounts` | **GET** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/accounts/:id` | **PATCH** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/accounts/:id/deactivate` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/accounts/:id/reactivate` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/accounts/:id/reset-password` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/accounts/batches/:id/reissue` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/config` | **GET** | ✅ Allow | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `none` |
+| `/lookups` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `national` |
+| `/lookups/version` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `national` |
+| `/districts` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `national` |
+| `/districts` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `national` |
+| `/ds` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/ds` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `national` |
+| `/gn` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/gn` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `national` |
+| `/teams` | **GET** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/teams` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `national` |
+| `/areas/pilot-csv` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `national` |
+| `/houses` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/houses` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `gn_only` |
+| `/houses/:id` | **PATCH** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `gn_only` |
+| `/houses/:id` | **DELETE** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `gn_only` |
+| `/teams/:id/houses` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `team_only` |
+| `/teams/:id/houses/:houseId` | **DELETE** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `team_only` |
+| `/clients` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/clients` | **POST** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `team_only` |
+| `/clients/:id` | **PATCH** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `team_only` |
+| `/sync/area` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | `team_only` |
+| `/sync/changes` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | `team_only` |
+| `/sync/push` | **POST** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | `team_only` |
+| `/duplicates` | **GET** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/duplicates/:id/confirm` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `team_only` |
+| `/duplicates/:id/dismiss` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `team_only` |
+| `/stats/progress` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/exports` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/exports/:id` | **GET** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/releases/latest` | **GET** | ✅ Allow | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `none` |

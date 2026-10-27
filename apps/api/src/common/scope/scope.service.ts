@@ -163,4 +163,28 @@ export class ScopeService {
     // Level 5 can never edit synced records
     return false;
   }
+
+  /**
+   * Evaluates if caller can see a given row per Section 5.4 (app.can_see equivalent).
+   */
+  canSee(
+    scope: ScopeContext,
+    target: { districtId: string; dsId: string; gnId: string; teamId?: string; collectedBy: string },
+  ): boolean {
+    if (scope.role === UserRole.super_admin) return true;
+    if (scope.role === UserRole.admin || scope.role === UserRole.cg) return true;
+    if (scope.role === UserRole.dc) {
+      return target.districtId === scope.districtId || target.collectedBy === scope.userId;
+    }
+    if (scope.role === UserRole.sda) {
+      return target.dsId === scope.dsId || target.collectedBy === scope.userId;
+    }
+    if (scope.role === UserRole.cdc_secretary) {
+      return target.teamId === scope.teamId || target.collectedBy === scope.userId;
+    }
+    if (scope.role === UserRole.team_member) {
+      return target.collectedBy === scope.userId;
+    }
+    return false;
+  }
 }
