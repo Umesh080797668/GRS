@@ -20,7 +20,9 @@ describe('Milestone 0 Spikes: S1 & S2', () => {
     appService = appModule.get<AppService>(AppService);
     credentialService = appModule.get<CredentialService>(CredentialService);
 
-    console.log(`[Spike S1] NestJS Cold-Start Time: ${Math.round(coldStartMs)} ms`);
+    console.log(
+      `[Spike S1] NestJS Cold-Start Time: ${Math.round(coldStartMs)} ms`,
+    );
   });
 
   afterAll(async () => {
@@ -127,7 +129,9 @@ describe('Milestone 0 Spikes: S1 & S2', () => {
 
       expect(activeUser.isActive).toBe(true);
       expect(deactivatedUser.isActive).toBe(false);
-      console.log('[Spike S2] Decision C11 Evaluated: API-only access with RLS second defense confirmed.');
+      console.log(
+        '[Spike S2] Decision C11 Evaluated: API-only access with RLS second defense confirmed.',
+      );
     });
   });
 });

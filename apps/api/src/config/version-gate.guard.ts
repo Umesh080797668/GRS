@@ -9,17 +9,18 @@ import { AppConfigService } from './app-config.service';
 
 @Injectable()
 export class VersionGateGuard implements CanActivate {
-  constructor(private readonly configService: AppConfigService) {}
+  constructor(private readonly configService: AppConfigService) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const path: string = request.path || request.url || '';
 
-    // Exempt endpoints: /v1/config and root health check
+    // Exempt endpoints: /health, /v1/config, /v1/releases/latest, and root
     if (
       path === '/' ||
-      path === '/v1/config' ||
-      path.startsWith('/v1/config/')
+      path === '/health' ||
+      path.startsWith('/v1/config') ||
+      path.startsWith('/v1/releases')
     ) {
       return true;
     }

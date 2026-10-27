@@ -20,7 +20,9 @@ describe('ExportJobService (Spike S7 & Task M0.9 / M1.14)', () => {
         return Promise.resolve(item);
       }),
       findUnique: jest.fn().mockImplementation(({ where }) => {
-        return Promise.resolve(inMemoryJobs.find((j) => j.id === where.id) || null);
+        return Promise.resolve(
+          inMemoryJobs.find((j) => j.id === where.id) || null,
+        );
       }),
       update: jest.fn().mockImplementation(({ where, data }) => {
         const idx = inMemoryJobs.findIndex((j) => j.id === where.id);
@@ -55,7 +57,9 @@ describe('ExportJobService (Spike S7 & Task M0.9 / M1.14)', () => {
 
     expect(job.status).toBe(JobStatus.queued);
     expect(job.kind).toBe('clients');
-    expect(job.expiresAt.getTime()).toBeGreaterThan(Date.now() + 6 * 24 * 60 * 60 * 1000);
+    expect(job.expiresAt.getTime()).toBeGreaterThan(
+      Date.now() + 6 * 24 * 60 * 60 * 1000,
+    );
     expect(inMemoryJobs).toHaveLength(1);
   });
 

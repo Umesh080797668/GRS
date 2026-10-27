@@ -11,4 +11,4 @@ import { ScopeModule } from '../common/scope/scope.module';
   providers: [LookupService],
   exports: [LookupService],
 })
-export class LookupModule { }
+export class LookupModule {}

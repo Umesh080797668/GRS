@@ -7,4 +7,4 @@ import { ScopedRepository } from './scoped.repository';
   providers: [ScopeService, ScopedRepository],
   exports: [ScopeService, ScopedRepository],
 })
-export class ScopeModule { }
+export class ScopeModule {}

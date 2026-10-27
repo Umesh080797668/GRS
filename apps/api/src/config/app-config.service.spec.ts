@@ -17,11 +17,16 @@ describe('AppConfigService & VersionGateGuard & RateLimiter (M1.8)', () => {
     appSetting: {
       findUnique: jest.fn().mockImplementation(({ where }) => {
         const val = inMemorySettings[where.key];
-        return Promise.resolve(val !== undefined ? { key: where.key, value: val } : null);
+        return Promise.resolve(
+          val !== undefined ? { key: where.key, value: val } : null,
+        );
       }),
       upsert: jest.fn().mockImplementation(({ where, update, create }) => {
         inMemorySettings[where.key] = update.value ?? create.value;
-        return Promise.resolve({ key: where.key, value: inMemorySettings[where.key] });
+        return Promise.resolve({
+          key: where.key,
+          value: inMemorySettings[where.key],
+        });
       }),
     },
     rateLimit: {
@@ -99,7 +104,10 @@ describe('AppConfigService & VersionGateGuard & RateLimiter (M1.8)', () => {
   });
 
   describe('Version Gate (HTTP 426) (M1.8 Done when criterion)', () => {
-    const createMockContext = (url: string, headers: Record<string, string>): ExecutionContext => {
+    const createMockContext = (
+      url: string,
+      headers: Record<string, string>,
+    ): ExecutionContext => {
       return {
         switchToHttp: () => ({
           getRequest: () => ({
@@ -172,7 +180,11 @@ describe('AppConfigService & VersionGateGuard & RateLimiter (M1.8)', () => {
       await rateLimitService.checkRateLimit(key, limit, windowSeconds);
 
       // Request 3: throttled
-      const throttled = await rateLimitService.checkRateLimit(key, limit, windowSeconds);
+      const throttled = await rateLimitService.checkRateLimit(
+        key,
+        limit,
+        windowSeconds,
+      );
       expect(throttled.allowed).toBe(false);
       expect(throttled.retryAfter).toBeGreaterThan(0);
       expect(throttled.retryAfter).toBeLessThanOrEqual(windowSeconds);

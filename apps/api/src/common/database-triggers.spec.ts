@@ -1,277 +1,198 @@
-describe('Database Triggers & Audit Invariants (M1.13)', () => {
-  // Simulates the exact logic enforced by PostgreSQL triggers defined in 03_triggers.sql
+import { Test, TestingModule } from '@nestjs/testing';
+import { AppModule } from '../app.module';
+import { PrismaService } from '../prisma/prisma.service';
+import { UserRole, Gender, InfoProvidedBy } from '@prisma/client';
 
-  interface ClientRow {
-    id: string;
-    household_id: string;
-    district_id: string;
-    ds_id: string;
-    gn_id: string;
-    team_id?: string;
-    name: string;
-    age: number;
-    collected_by: string;
-    created_at: Date;
-    created_by: string;
-    updated_at: Date;
-    updated_by?: string;
-    server_version: number;
-  }
+describe('Real PostgreSQL Triggers & Client Auditing (M1.13)', () => {
+  let appModule: TestingModule;
+  let prisma: PrismaService;
+  let testUserId: string;
+  let testGnId: string;
+  let testDsId: string;
+  let testDistrictId: string;
+  let testHouseholdId: string;
+  let testClientId: string;
 
-  interface HouseholdRow {
-    id: string;
-    gn_id: string;
-    ds_id: string;
-    district_id: string;
-    serial_no: number;
-    house_no: string;
-    house_leader_name: string;
-    created_at: Date;
-    created_by: string;
-    updated_at: Date;
-    version: number;
-  }
+  beforeAll(async () => {
+    appModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
 
-  interface ClientAuditRow {
-    id: string;
-    client_id: string;
-    changed_by: string;
-    changed_at: Date;
-    before: any;
-    after: any;
-    reason: string;
-  }
+    prisma = appModule.get<PrismaService>(PrismaService);
 
-  const clientAuditLogs: ClientAuditRow[] = [];
-
-  function simulateClientUpdate(
-    oldRow: ClientRow,
-    newRow: Partial<ClientRow>,
-    actorId: string,
-  ): ClientRow {
-    const updated: ClientRow = { ...oldRow, ...newRow };
-
-    // Trigger 1: Immutable columns check (app.fn_check_client_immutable)
-    if (updated.id !== oldRow.id) {
-      throw new Error('Column id is immutable and cannot be modified');
-    }
-    if (updated.collected_by !== oldRow.collected_by) {
-      throw new Error('Column collected_by is immutable and cannot be modified');
-    }
-    if (updated.household_id !== oldRow.household_id) {
-      throw new Error('Column household_id is immutable and cannot be modified');
-    }
-    if (updated.district_id !== oldRow.district_id) {
-      throw new Error('Column district_id is immutable and cannot be modified');
-    }
-    if (updated.ds_id !== oldRow.ds_id) {
-      throw new Error('Column ds_id is immutable and cannot be modified');
-    }
-    if (updated.gn_id !== oldRow.gn_id) {
-      throw new Error('Column gn_id is immutable and cannot be modified');
-    }
-    if (updated.created_at.getTime() !== oldRow.created_at.getTime()) {
-      throw new Error('Column created_at is immutable and cannot be modified');
-    }
-    if (updated.created_by !== oldRow.created_by) {
-      throw new Error('Column created_by is immutable and cannot be modified');
+    let retries = 5;
+    while (retries > 0) {
+      try {
+        await prisma.$connect();
+        break;
+      } catch (e) {
+        retries--;
+        if (retries === 0) throw e;
+        await new Promise((r) => setTimeout(r, 1500));
+      }
     }
 
-    // Trigger 2: Version bump and timestamp (app.fn_bump_client_version)
-    updated.server_version = oldRow.server_version + 1;
-    updated.updated_at = new Date();
-    updated.updated_by = actorId;
+    // Fetch or create baseline area hierarchy
+    let gn = await prisma.gnDivision.findFirst({
+      include: { ds: { include: { district: true } } },
+    });
+    if (!gn) {
+      const dist = await prisma.district.create({
+        data: { nameSi: 'කොළඹ', nameTa: 'கொழும்பு', nameEn: 'Colombo' },
+      });
+      const ds = await prisma.divisionalSecretariat.create({
+        data: { districtId: dist.id, nameSi: 'කොළඹ', nameTa: 'கொழும்பு', nameEn: 'Colombo' },
+      });
+      gn = await prisma.gnDivision.create({
+        data: { dsId: ds.id, gnNumber: 'TRIG-101', gnName: 'Trigger GN' },
+        include: { ds: { include: { district: true } } },
+      });
+    }
 
-    // Trigger 3: Client audit log (app.fn_client_audit)
-    clientAuditLogs.push({
-      id: `audit-${Date.now()}-${Math.random()}`,
-      client_id: updated.id,
-      changed_by: actorId,
-      changed_at: updated.updated_at,
-      before: { ...oldRow },
-      after: { ...updated },
-      reason: 'client_record_update',
+    testGnId = gn.id;
+    testDsId = gn.ds.id;
+    testDistrictId = gn.ds.district.id;
+
+    // Fetch or create test user
+    let user = await prisma.profile.findFirst({ where: { isActive: true } });
+    if (!user) {
+      user = await prisma.profile.create({
+        data: {
+          userCode: 'GRS9999990003',
+          passwordHash: '$argon2id$v=19$m=32768,t=2,p=2$dGVzdA$test',
+          role: UserRole.team_member,
+          fullName: 'Trigger Test User',
+          districtId: testDistrictId,
+          dsId: testDsId,
+          gnId: testGnId,
+          isActive: true,
+        },
+      });
+    }
+    testUserId = user.id;
+
+    // Create a test household
+    const randomSerial = Math.floor(Math.random() * 800000) + 100000;
+    const household = await prisma.household.create({
+      data: {
+        gnId: testGnId,
+        dsId: testDsId,
+        districtId: testDistrictId,
+        serialNo: randomSerial,
+        houseNo: `T-${randomSerial}`,
+        houseNoNorm: `T-${randomSerial}`,
+        houseLeaderName: 'Test Household Leader',
+        createdBy: testUserId,
+      },
+    });
+    testHouseholdId = household.id;
+
+    // Create a test client
+    const client = await prisma.client.create({
+      data: {
+        householdId: testHouseholdId,
+        districtId: testDistrictId,
+        dsId: testDsId,
+        gnId: testGnId,
+        name: 'Initial Client Name',
+        nameNorm: 'INITIAL CLIENT NAME',
+        age: 28,
+        gender: Gender.F,
+        infoProvidedBy: InfoProvidedBy.self,
+        consentGiven: true,
+        collectedBy: testUserId,
+        createdBy: testUserId,
+        collectedAt: new Date(),
+        clientUpdatedAt: new Date(),
+        contentHash: 'a'.repeat(64),
+      },
+    });
+    testClientId = client.id;
+  }, 30000);
+
+  afterAll(async () => {
+    // Cleanup created test records
+    try {
+      if (testClientId) {
+        await prisma.clientAudit.deleteMany({ where: { clientId: testClientId } });
+        await prisma.client.delete({ where: { id: testClientId } });
+      }
+      if (testHouseholdId) {
+        await prisma.household.delete({ where: { id: testHouseholdId } });
+      }
+    } catch {
+      // Ignore cleanup error
+    }
+    await appModule.close();
+  }, 15000);
+
+  it('triggers fn_bump_household_version on UPDATE and increments version 1 -> 2', async () => {
+    const before = await prisma.household.findUnique({
+      where: { id: testHouseholdId },
+    });
+    expect(before?.version).toBe(1);
+
+    const updated = await prisma.household.update({
+      where: { id: testHouseholdId },
+      data: { houseLeaderName: 'Updated Household Leader' },
     });
 
-    return updated;
-  }
+    expect(updated.version).toBe(2);
+    expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(before!.updatedAt.getTime());
+  }, 15000);
 
-  function simulateHouseholdUpdate(
-    oldRow: HouseholdRow,
-    newRow: Partial<HouseholdRow>,
-  ): HouseholdRow {
-    const updated: HouseholdRow = { ...oldRow, ...newRow };
+  it('triggers fn_bump_client_version on UPDATE and increments server_version 1 -> 2', async () => {
+    const before = await prisma.client.findUnique({
+      where: { id: testClientId },
+    });
+    expect(before?.serverVersion).toBe(1);
 
-    // Trigger 1: Immutable columns check (app.fn_check_household_immutable)
-    if (updated.id !== oldRow.id) {
-      throw new Error('Column id is immutable and cannot be modified');
-    }
-    if (updated.serial_no !== oldRow.serial_no) {
-      throw new Error('Column serial_no is immutable and cannot be modified');
-    }
-    if (updated.district_id !== oldRow.district_id) {
-      throw new Error('Column district_id is immutable and cannot be modified');
-    }
-    if (updated.ds_id !== oldRow.ds_id) {
-      throw new Error('Column ds_id is immutable and cannot be modified');
-    }
-    if (updated.gn_id !== oldRow.gn_id) {
-      throw new Error('Column gn_id is immutable and cannot be modified');
-    }
-    if (updated.created_at.getTime() !== oldRow.created_at.getTime()) {
-      throw new Error('Column created_at is immutable and cannot be modified');
-    }
-    if (updated.created_by !== oldRow.created_by) {
-      throw new Error('Column created_by is immutable and cannot be modified');
-    }
-
-    // Trigger 2: Version bump and timestamp (app.fn_bump_household_version)
-    updated.version = oldRow.version + 1;
-    updated.updated_at = new Date();
-
-    return updated;
-  }
-
-  describe('Immutable Columns Protection', () => {
-    const initialClient: ClientRow = {
-      id: 'client-uuid-1',
-      household_id: 'house-uuid-1',
-      district_id: 'dist-uuid-1',
-      ds_id: 'ds-uuid-1',
-      gn_id: 'gn-uuid-1',
-      team_id: 'team-uuid-1',
-      name: 'Sunil Perera',
-      age: 30,
-      collected_by: 'agent-uuid-1',
-      created_at: new Date('2026-10-26T10:00:00Z'),
-      created_by: 'agent-uuid-1',
-      updated_at: new Date('2026-10-26T10:00:00Z'),
-      server_version: 1,
-    };
-
-    it('rejects changes to collected_by (Invariant §5.5 Rule 5)', () => {
-      expect(() => {
-        simulateClientUpdate(
-          initialClient,
-          { collected_by: 'malicious-agent-2' },
-          'malicious-agent-2',
-        );
-      }).toThrow('Column collected_by is immutable and cannot be modified');
+    const updated = await prisma.client.update({
+      where: { id: testClientId },
+      data: { name: 'Updated Client Name' },
     });
 
-    it('rejects changes to household_id', () => {
-      expect(() => {
-        simulateClientUpdate(
-          initialClient,
-          { household_id: 'house-uuid-2' },
-          'agent-uuid-1',
-        );
-      }).toThrow('Column household_id is immutable and cannot be modified');
+    expect(updated.serverVersion).toBe(2);
+    expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(before!.updatedAt.getTime());
+  }, 15000);
+
+  it('triggers fn_client_audit and records audit log row on client UPDATE', async () => {
+    const auditLogs = await prisma.clientAudit.findMany({
+      where: { clientId: testClientId },
+      orderBy: { changedAt: 'desc' },
     });
 
-    it('rejects changes to scope IDs (district_id, ds_id, gn_id)', () => {
-      expect(() => {
-        simulateClientUpdate(
-          initialClient,
-          { gn_id: 'gn-uuid-999' },
-          'agent-uuid-1',
-        );
-      }).toThrow('Column gn_id is immutable and cannot be modified');
-    });
+    expect(auditLogs.length).toBeGreaterThan(0);
+    const latest = auditLogs[0];
+    expect(latest.clientId).toBe(testClientId);
+    expect(latest.before).toBeDefined();
+    expect(latest.after).toBeDefined();
+  }, 15000);
 
-    it('rejects changes to household serial_no', () => {
-      const initialHouse: HouseholdRow = {
-        id: 'house-1',
-        gn_id: 'gn-1',
-        ds_id: 'ds-1',
-        district_id: 'dist-1',
-        serial_no: 42,
-        house_no: '25/A',
-        house_leader_name: 'Kamal',
-        created_at: new Date('2026-10-26T10:00:00Z'),
-        created_by: 'agent-1',
-        updated_at: new Date('2026-10-26T10:00:00Z'),
-        version: 1,
-      };
+  it('triggers fn_check_client_immutable and rejects mutating collected_by with error 42501', async () => {
+    const otherUserId = '00000000-0000-0000-0000-000000000099';
 
-      expect(() => {
-        simulateHouseholdUpdate(initialHouse, { serial_no: 999 });
-      }).toThrow('Column serial_no is immutable and cannot be modified');
-    });
-  });
+    await expect(
+      prisma.$executeRawUnsafe(
+        `UPDATE clients SET collected_by = '${otherUserId}'::uuid WHERE id = '${testClientId}'::uuid;`,
+      ),
+    ).rejects.toThrow(/immutable/i);
+  }, 15000);
 
-  describe('Version Bumping & Timestamps', () => {
-    it('automatically increments server_version on client update', () => {
-      const client: ClientRow = {
-        id: 'client-uuid-1',
-        household_id: 'house-uuid-1',
-        district_id: 'dist-uuid-1',
-        ds_id: 'ds-uuid-1',
-        gn_id: 'gn-uuid-1',
-        name: 'Sunil',
-        age: 30,
-        collected_by: 'agent-1',
-        created_at: new Date(),
-        created_by: 'agent-1',
-        updated_at: new Date(),
-        server_version: 1,
-      };
+  it('triggers fn_check_household_immutable and rejects mutating serial_no with error 42501', async () => {
+    await expect(
+      prisma.$executeRawUnsafe(
+        `UPDATE households SET serial_no = 999999 WHERE id = '${testHouseholdId}'::uuid;`,
+      ),
+    ).rejects.toThrow(/immutable/i);
+  }, 15000);
 
-      const updated = simulateClientUpdate(client, { age: 31 }, 'sec-1');
-      expect(updated.server_version).toBe(2);
-      expect(updated.age).toBe(31);
-    });
-
-    it('automatically increments version on household update', () => {
-      const house: HouseholdRow = {
-        id: 'house-1',
-        gn_id: 'gn-1',
-        ds_id: 'ds-1',
-        district_id: 'dist-1',
-        serial_no: 10,
-        house_no: '12',
-        house_leader_name: 'Amara',
-        created_at: new Date(),
-        created_by: 'agent-1',
-        updated_at: new Date(),
-        version: 3,
-      };
-
-      const updated = simulateHouseholdUpdate(house, { house_leader_name: 'Amara Silva' });
-      expect(updated.version).toBe(4);
-      expect(updated.house_leader_name).toBe('Amara Silva');
-    });
-  });
-
-  describe('Client Audit Trigger (M1.13 "Done when" criteria)', () => {
-    it('direct update by Level 4 writes an audit row with before/after state and changed_by', () => {
-      const client: ClientRow = {
-        id: 'client-uuid-audit-test',
-        household_id: 'house-uuid-1',
-        district_id: 'dist-uuid-1',
-        ds_id: 'ds-uuid-1',
-        gn_id: 'gn-uuid-1',
-        name: 'Sunil Perera',
-        age: 30,
-        collected_by: 'agent-1',
-        created_at: new Date(),
-        created_by: 'agent-1',
-        updated_at: new Date(),
-        server_version: 1,
-      };
-
-      const l4SecretaryId = 'cdc-sec-uuid-4444';
-      simulateClientUpdate(client, { name: 'Sunil Mahinda Perera', age: 31 }, l4SecretaryId);
-
-      expect(clientAuditLogs.length).toBeGreaterThan(0);
-      const audit = clientAuditLogs[clientAuditLogs.length - 1];
-
-      expect(audit.client_id).toBe('client-uuid-audit-test');
-      expect(audit.changed_by).toBe(l4SecretaryId);
-      expect(audit.before.name).toBe('Sunil Perera');
-      expect(audit.after.name).toBe('Sunil Mahinda Perera');
-      expect(audit.after.server_version).toBe(2);
-      expect(audit.reason).toBe('client_record_update');
-    });
+  afterAll(async () => {
+    if (prisma) {
+      await prisma.$disconnect();
+    }
+    if (appModule) {
+      await appModule.close();
+    }
   });
 });

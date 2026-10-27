@@ -13,14 +13,23 @@ describe('EmailService (Spike S6 & Task M1.15)', () => {
   const mockPrisma = {
     emailCode: {
       findFirst: jest.fn().mockImplementation(({ where }) => {
-        let matches = inMemoryCodes.filter((c) => c.profileId === where.profileId);
-        if (where.purpose) matches = matches.filter((c) => c.purpose === where.purpose);
-        if (where.createdAt?.gt) matches = matches.filter((c) => c.createdAt > where.createdAt.gt);
-        if (where.expiresAt?.gt) matches = matches.filter((c) => c.expiresAt > where.expiresAt.gt);
+        let matches = inMemoryCodes.filter(
+          (c) => c.profileId === where.profileId,
+        );
+        if (where.purpose)
+          matches = matches.filter((c) => c.purpose === where.purpose);
+        if (where.createdAt?.gt)
+          matches = matches.filter((c) => c.createdAt > where.createdAt.gt);
+        if (where.expiresAt?.gt)
+          matches = matches.filter((c) => c.expiresAt > where.expiresAt.gt);
         return Promise.resolve(matches[matches.length - 1] || null);
       }),
       create: jest.fn().mockImplementation(({ data }) => {
-        const item = { id: `ec-${Date.now()}-${Math.random()}`, ...data, createdAt: new Date() };
+        const item = {
+          id: `ec-${Date.now()}-${Math.random()}`,
+          ...data,
+          createdAt: new Date(),
+        };
         inMemoryCodes.push(item);
         return Promise.resolve(item);
       }),
@@ -37,7 +46,8 @@ describe('EmailService (Spike S6 & Task M1.15)', () => {
       deleteMany: jest.fn().mockImplementation(({ where }) => {
         const before = inMemoryCodes.length;
         inMemoryCodes = inMemoryCodes.filter(
-          (c) => !(c.profileId === where.profileId && c.purpose === where.purpose),
+          (c) =>
+            !(c.profileId === where.profileId && c.purpose === where.purpose),
         );
         return Promise.resolve({ count: before - inMemoryCodes.length });
       }),
@@ -54,10 +64,12 @@ describe('EmailService (Spike S6 & Task M1.15)', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn().mockImplementation((key: string, defaultValue?: any) => {
-              if (key === 'SMTP_FROM') return 'no-reply@grs.gov.lk';
-              return defaultValue;
-            }),
+            get: jest
+              .fn()
+              .mockImplementation((key: string, defaultValue?: any) => {
+                if (key === 'SMTP_FROM') return 'no-reply@grs.gov.lk';
+                return defaultValue;
+              }),
           },
         },
       ],
@@ -67,7 +79,11 @@ describe('EmailService (Spike S6 & Task M1.15)', () => {
   });
 
   it('generates 6-digit code with 15-minute expiration', async () => {
-    const result = await service.sendCode('usr-1', 'test@example.com', 'verify');
+    const result = await service.sendCode(
+      'usr-1',
+      'test@example.com',
+      'verify',
+    );
 
     expect(result.expiresAt.getTime()).toBeGreaterThan(Date.now());
     expect(result.cooldownSeconds).toBe(60);
@@ -101,7 +117,12 @@ describe('EmailService (Spike S6 & Task M1.15)', () => {
       createdAt: new Date(),
     });
 
-    const verified = await service.verifyCode('usr-1', 'test@example.com', rawCode, 'verify');
+    const verified = await service.verifyCode(
+      'usr-1',
+      'test@example.com',
+      rawCode,
+      'verify',
+    );
     expect(verified).toBe(true);
     expect(inMemoryCodes).toHaveLength(0); // Purged
   });

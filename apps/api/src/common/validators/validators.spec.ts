@@ -3,16 +3,25 @@ import * as path from 'path';
 import { GrsValidators } from './grs-validators';
 
 describe('GrsValidators - Shared Test Vectors (M1.9)', () => {
-  const vectorsDir = path.resolve(__dirname, '../../../../../docs/test-vectors');
+  const vectorsDir = path.resolve(
+    __dirname,
+    '../../../../../docs/test-vectors',
+  );
   let validationVectors: any;
   let phoneVectors: any;
   let idVectors: any;
 
   beforeAll(() => {
-    const valFile = fs.readFileSync(path.join(vectorsDir, 'validation.json'), 'utf-8');
+    const valFile = fs.readFileSync(
+      path.join(vectorsDir, 'validation.json'),
+      'utf-8',
+    );
     validationVectors = JSON.parse(valFile).vectors;
 
-    const phoneFile = fs.readFileSync(path.join(vectorsDir, 'phones.json'), 'utf-8');
+    const phoneFile = fs.readFileSync(
+      path.join(vectorsDir, 'phones.json'),
+      'utf-8',
+    );
     phoneVectors = JSON.parse(phoneFile).vectors;
 
     const idFile = fs.readFileSync(path.join(vectorsDir, 'ids.json'), 'utf-8');

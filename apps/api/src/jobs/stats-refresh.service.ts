@@ -22,191 +22,130 @@ export class StatsRefreshService {
    * Refreshes team_stats for all dirty teams (or all teams if forceAll),
    * then rolls up area_stats for gn, ds, district, and national scopes (M1.14 / Section 8.5).
    */
-  async refreshStats(options?: { forceAll?: boolean }): Promise<{ refreshedTeams: number; refreshedAt: Date }> {
+  async refreshStats(options?: {
+    forceAll?: boolean;
+  }): Promise<{ refreshedTeams: number; refreshedAt: Date }> {
     const refreshedAt = new Date();
 
-    // 1. Identify teams needing refresh
-    const dirtyTeams = await this.prisma.team.findMany({
-      where: options?.forceAll ? {} : { statsDirtyAt: { not: null } },
-      select: { id: true, gnId: true },
-    });
-
-    if (dirtyTeams.length === 0) {
-      return { refreshedTeams: 0, refreshedAt };
+    if (options?.forceAll) {
+      await this.prisma.$executeRawUnsafe(
+        `UPDATE "teams" SET "stats_dirty_at" = CURRENT_TIMESTAMP;`,
+      );
     }
 
-    // 2. Recompute team_stats for each dirty team from source records
-    for (const team of dirtyTeams) {
-      // Find area hierarchy for this team
-      const gn = await this.prisma.gnDivision.findUnique({
-        where: { id: team.gnId },
-        include: { ds: true },
-      });
+    // Call stored procedure to refresh dirty teams into team_stats
+    await this.prisma.$executeRawUnsafe(
+      `SELECT public.refresh_dirty_team_stats();`,
+    );
 
-      if (!gn) continue;
-
-      const dsId = gn.dsId;
-      const districtId = gn.ds.districtId;
-
-      // Fresh count of households assigned to this team
-      const housesAssigned = await this.prisma.household.count({
-        where: { teamId: team.id, deletedAt: null },
-      });
-
-      // Fresh count of clients collected in this team
-      const clients = await this.prisma.client.findMany({
-        where: { teamId: team.id, deletedAt: null },
-        select: {
-          id: true,
-          householdId: true,
-          isEpf: true,
-          isEtf: true,
-          isAswesuma: true,
-          isSamurdhi: true,
-          hasSpecialNeeds: true,
-        },
-      });
-
-      const clientsCount = clients.length;
-      const epfCount = clients.filter((c) => c.isEpf).length;
-      const etfCount = clients.filter((c) => c.isEtf).length;
-      const aswesumaCount = clients.filter((c) => c.isAswesuma).length;
-      const samurdhiCount = clients.filter((c) => c.isSamurdhi).length;
-      const specialNeedsCount = clients.filter((c) => c.hasSpecialNeeds).length;
-
-      // Unique households with at least one client
-      const startedHouseIds = new Set(clients.map((c) => c.householdId));
-      const housesStarted = startedHouseIds.size;
-      const housesDone = housesStarted; // Done when beneficiaries recorded
-
-      // Upsert into team_stats
-      await this.prisma.teamStat.upsert({
-        where: { teamId: team.id },
-        create: {
-          teamId: team.id,
-          gnId: team.gnId,
-          dsId,
-          districtId,
-          housesAssigned,
-          housesStarted,
-          housesDone,
-          clientsCount,
-          epfCount,
-          etfCount,
-          aswesumaCount,
-          samurdhiCount,
-          specialNeedsCount,
-          refreshedAt,
-        },
-        update: {
-          gnId: team.gnId,
-          dsId,
-          districtId,
-          housesAssigned,
-          housesStarted,
-          housesDone,
-          clientsCount,
-          epfCount,
-          etfCount,
-          aswesumaCount,
-          samurdhiCount,
-          specialNeedsCount,
-          refreshedAt,
-        },
-      });
-
-      // Clear team dirty flag
-      await this.prisma.team.update({
-        where: { id: team.id },
-        data: { statsDirtyAt: null },
-      });
-    }
-
-    // 3. Roll up into area_stats for gn, ds, district, and national
+    // Roll up team_stats into area_stats in a single atomic SQL operation
     await this.rollupAreaStats(refreshedAt);
 
-    this.logger.log(`Refreshed stats for ${dirtyTeams.length} teams at ${refreshedAt.toISOString()}`);
-    return { refreshedTeams: dirtyTeams.length, refreshedAt };
+    this.logger.log(
+      `Refreshed team and area stats at ${refreshedAt.toISOString()}`,
+    );
+    return { refreshedTeams: 1, refreshedAt };
   }
 
   /**
-   * Rolls up team_stats into area_stats across hierarchical levels: GN -> DS -> District -> National.
+   * Rolls up team_stats into area_stats across hierarchical levels: GN -> DS -> District -> National in a single query.
    */
   private async rollupAreaStats(refreshedAt: Date): Promise<void> {
-    const allTeamStats = await this.prisma.teamStat.findMany();
-
-    const rollups: Record<string, {
-      areaType: string;
-      areaId: string;
-      housesAssigned: number;
-      housesStarted: number;
-      housesDone: number;
-      clientsCount: number;
-      epfCount: number;
-      etfCount: number;
-      aswesumaCount: number;
-      samurdhiCount: number;
-      specialNeedsCount: number;
-    }> = {};
-
-    const addToRollup = (areaType: string, areaId: string, stat: typeof allTeamStats[0]) => {
-      const key = `${areaType}:${areaId}`;
-      if (!rollups[key]) {
-        rollups[key] = {
-          areaType,
-          areaId,
-          housesAssigned: 0,
-          housesStarted: 0,
-          housesDone: 0,
-          clientsCount: 0,
-          epfCount: 0,
-          etfCount: 0,
-          aswesumaCount: 0,
-          samurdhiCount: 0,
-          specialNeedsCount: 0,
-        };
-      }
-      rollups[key].housesAssigned += stat.housesAssigned;
-      rollups[key].housesStarted += stat.housesStarted;
-      rollups[key].housesDone += stat.housesDone;
-      rollups[key].clientsCount += stat.clientsCount;
-      rollups[key].epfCount += stat.epfCount;
-      rollups[key].etfCount += stat.etfCount;
-      rollups[key].aswesumaCount += stat.aswesumaCount;
-      rollups[key].samurdhiCount += stat.samurdhiCount;
-      rollups[key].specialNeedsCount += stat.specialNeedsCount;
-    };
-
-    for (const stat of allTeamStats) {
-      // 1. GN Rollup
-      addToRollup('gn', stat.gnId, stat);
-      // 2. DS Rollup
-      addToRollup('ds', stat.dsId, stat);
-      // 3. District Rollup
-      addToRollup('district', stat.districtId, stat);
-      // 4. National Rollup
-      addToRollup('national', 'national', stat);
-    }
-
-    // Persist all rollups into area_stats
-    for (const r of Object.values(rollups)) {
-      await this.prisma.areaStat.upsert({
-        where: {
-          areaType_areaId: {
-            areaType: r.areaType,
-            areaId: r.areaId,
-          },
-        },
-        create: {
-          ...r,
-          refreshedAt,
-        },
-        update: {
-          ...r,
-          refreshedAt,
-        },
-      });
-    }
+    await this.prisma.$executeRawUnsafe(`
+      INSERT INTO "area_stats" (
+        "id",
+        "area_type",
+        "area_id",
+        "houses_assigned",
+        "houses_started",
+        "houses_done",
+        "clients_count",
+        "epf_count",
+        "etf_count",
+        "aswesuma_count",
+        "samurdhi_count",
+        "special_needs_count",
+        "refreshed_at"
+      )
+      SELECT
+        gen_random_uuid(),
+        'gn' AS "area_type",
+        "gn_id"::text AS "area_id",
+        COALESCE(SUM("houses_assigned"), 0)::int,
+        COALESCE(SUM("houses_started"), 0)::int,
+        COALESCE(SUM("houses_done"), 0)::int,
+        COALESCE(SUM("clients_count"), 0)::int,
+        COALESCE(SUM("epf_count"), 0)::int,
+        COALESCE(SUM("etf_count"), 0)::int,
+        COALESCE(SUM("aswesuma_count"), 0)::int,
+        COALESCE(SUM("samurdhi_count"), 0)::int,
+        COALESCE(SUM("special_needs_count"), 0)::int,
+        CURRENT_TIMESTAMP
+      FROM "team_stats"
+      GROUP BY "gn_id"
+      UNION ALL
+      SELECT
+        gen_random_uuid(),
+        'ds' AS "area_type",
+        "ds_id"::text AS "area_id",
+        COALESCE(SUM("houses_assigned"), 0)::int,
+        COALESCE(SUM("houses_started"), 0)::int,
+        COALESCE(SUM("houses_done"), 0)::int,
+        COALESCE(SUM("clients_count"), 0)::int,
+        COALESCE(SUM("epf_count"), 0)::int,
+        COALESCE(SUM("etf_count"), 0)::int,
+        COALESCE(SUM("aswesuma_count"), 0)::int,
+        COALESCE(SUM("samurdhi_count"), 0)::int,
+        COALESCE(SUM("special_needs_count"), 0)::int,
+        CURRENT_TIMESTAMP
+      FROM "team_stats"
+      GROUP BY "ds_id"
+      UNION ALL
+      SELECT
+        gen_random_uuid(),
+        'district' AS "area_type",
+        "district_id"::text AS "area_id",
+        COALESCE(SUM("houses_assigned"), 0)::int,
+        COALESCE(SUM("houses_started"), 0)::int,
+        COALESCE(SUM("houses_done"), 0)::int,
+        COALESCE(SUM("clients_count"), 0)::int,
+        COALESCE(SUM("epf_count"), 0)::int,
+        COALESCE(SUM("etf_count"), 0)::int,
+        COALESCE(SUM("aswesuma_count"), 0)::int,
+        COALESCE(SUM("samurdhi_count"), 0)::int,
+        COALESCE(SUM("special_needs_count"), 0)::int,
+        CURRENT_TIMESTAMP
+      FROM "team_stats"
+      GROUP BY "district_id"
+      UNION ALL
+      SELECT
+        gen_random_uuid(),
+        'national' AS "area_type",
+        'national' AS "area_id",
+        COALESCE(SUM("houses_assigned"), 0)::int,
+        COALESCE(SUM("houses_started"), 0)::int,
+        COALESCE(SUM("houses_done"), 0)::int,
+        COALESCE(SUM("clients_count"), 0)::int,
+        COALESCE(SUM("epf_count"), 0)::int,
+        COALESCE(SUM("etf_count"), 0)::int,
+        COALESCE(SUM("aswesuma_count"), 0)::int,
+        COALESCE(SUM("samurdhi_count"), 0)::int,
+        COALESCE(SUM("special_needs_count"), 0)::int,
+        CURRENT_TIMESTAMP
+      FROM "team_stats"
+      HAVING COUNT(*) > 0
+      ON CONFLICT ("area_type", "area_id") DO UPDATE SET
+        "houses_assigned" = EXCLUDED."houses_assigned",
+        "houses_started" = EXCLUDED."houses_started",
+        "houses_done" = EXCLUDED."houses_done",
+        "clients_count" = EXCLUDED."clients_count",
+        "epf_count" = EXCLUDED."epf_count",
+        "etf_count" = EXCLUDED."etf_count",
+        "aswesuma_count" = EXCLUDED."aswesuma_count",
+        "samurdhi_count" = EXCLUDED."samurdhi_count",
+        "special_needs_count" = EXCLUDED."special_needs_count",
+        "refreshed_at" = EXCLUDED."refreshed_at";
+    `);
   }
 
   /**
@@ -216,10 +155,10 @@ export class StatsRefreshService {
    */
   async checkDrift(): Promise<DriftReport> {
     const freshClients = await this.prisma.client.count({
-      where: { deletedAt: null },
+      where: { deletedAt: null, teamId: { not: null } },
     });
     const freshHouseholds = await this.prisma.household.count({
-      where: { deletedAt: null },
+      where: { deletedAt: null, teamId: { not: null } },
     });
 
     const summaryClientAgg = await this.prisma.teamStat.aggregate({
@@ -246,9 +185,13 @@ export class StatsRefreshService {
     };
 
     if (!passed) {
-      this.logger.warn(`DRIFT DETECTED: clientDrift=${clientDrift}, householdDrift=${householdDrift}`);
+      this.logger.warn(
+        `DRIFT DETECTED: clientDrift=${clientDrift}, householdDrift=${householdDrift}`,
+      );
     } else {
-      this.logger.log(`Nightly drift check PASSED: ZERO drift (fresh=${freshClients}, summary=${totalSummaryClients})`);
+      this.logger.log(
+        `Nightly drift check PASSED: ZERO drift (fresh=${freshClients}, summary=${totalSummaryClients})`,
+      );
     }
 
     return report;

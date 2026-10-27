@@ -8,4 +8,4 @@ import { ExportJobService } from './export-job.service';
   providers: [StatsRefreshService, ExportJobService],
   exports: [StatsRefreshService, ExportJobService],
 })
-export class JobsModule { }
+export class JobsModule {}

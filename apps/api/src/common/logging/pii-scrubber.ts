@@ -83,7 +83,10 @@ export class PiiScrubber {
     let result = str;
 
     // Mask Bearer tokens: Bearer eyJ... -> Bearer [REDACTED]
-    result = result.replace(/Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi, 'Bearer [REDACTED]');
+    result = result.replace(
+      /Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi,
+      'Bearer [REDACTED]',
+    );
 
     // Mask E.164 phone numbers: +94771234567 -> +9477***4567
     result = result.replace(/\+94[0-9]{9}/g, (phone) => {

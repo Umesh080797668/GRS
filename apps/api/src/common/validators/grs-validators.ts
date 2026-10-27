@@ -186,7 +186,9 @@ export class GrsValidators {
   /**
    * Parses age group string: "18-25", "18–25", "18 - 25".
    */
-  static parseAgeGroup(input?: string | null): ValidationResult<{ min: number; max: number }> {
+  static parseAgeGroup(
+    input?: string | null,
+  ): ValidationResult<{ min: number; max: number }> {
     if (!input || input.trim().length === 0) {
       return { isValid: false, error: 'empty' };
     }

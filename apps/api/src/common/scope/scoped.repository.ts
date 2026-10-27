@@ -20,7 +20,7 @@ export class ScopedRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: ScopeService,
-  ) { }
+  ) {}
 
   /**
    * Finds households strictly within the caller's territory (Invariant 4).

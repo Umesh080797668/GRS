@@ -60,6 +60,16 @@ export class AccountController {
     return this.accountService.findAccounts(user, query);
   }
 
+  @Patch(':id')
+  @Roles(UserRole.super_admin, UserRole.cdc_secretary)
+  async updateAccount(
+    @CurrentUser() user: ScopeContext,
+    @Param('id') targetId: string,
+    @Body() dto: any,
+  ) {
+    return this.accountService.updateAccount(user, targetId, dto);
+  }
+
   @Patch(':id/deactivate')
   @Roles(UserRole.super_admin, UserRole.cdc_secretary)
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -87,5 +97,23 @@ export class AccountController {
     @Param('id') targetId: string,
   ) {
     return this.accountService.reissuePassword(user, targetId);
+  }
+
+  @Post(':id/reset-password')
+  @Roles(UserRole.super_admin, UserRole.cdc_secretary)
+  async resetPassword(
+    @CurrentUser() user: ScopeContext,
+    @Param('id') targetId: string,
+  ) {
+    return this.accountService.resetPassword(user, targetId);
+  }
+
+  @Post('batches/:id/reissue')
+  @Roles(UserRole.super_admin, UserRole.cdc_secretary)
+  async reissueBatch(
+    @CurrentUser() user: ScopeContext,
+    @Param('id') batchId: string,
+  ) {
+    return this.accountService.reissueBatch(user, batchId);
   }
 }

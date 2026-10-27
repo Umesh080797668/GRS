@@ -19,7 +19,7 @@ export interface HealthCheckResponse {
 export class AppService {
   private readonly logger = new Logger(AppService.name);
 
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   getHello(): string {
     return 'Global Research & Survey API (GRS)';
@@ -36,12 +36,15 @@ export class AppService {
     try {
       const pingQuery = this.prisma.$queryRaw`SELECT 1`;
       // Attach local rejection handler to avoid unhandled rejection if timeout triggers first
-      pingQuery.catch(() => { });
+      pingQuery.catch(() => {});
 
       await Promise.race([
         pingQuery,
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Database connection timed out')), 3500),
+          setTimeout(
+            () => reject(new Error('Database connection timed out')),
+            3500,
+          ),
         ),
       ]);
       latencyMs = Math.round((performance.now() - start) * 10) / 10;

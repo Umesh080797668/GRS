@@ -64,10 +64,7 @@ export class RateLimitService {
 
       // Limit reached
       if (existing.count >= limit) {
-        const retryAfter = Math.max(
-          1,
-          Math.ceil((windowMs - elapsed) / 1000),
-        );
+        const retryAfter = Math.max(1, Math.ceil((windowMs - elapsed) / 1000));
         return {
           allowed: false,
           limit,

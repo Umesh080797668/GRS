@@ -17,6 +17,7 @@ import {
 import { CreateAccountDto } from './dto/create-account.dto';
 import { CreateBulkAccountsDto } from './dto/create-bulk-accounts.dto';
 import { ListAccountsDto } from './dto/list-accounts.dto';
+import { UpdateAccountDto } from './dto/update-account.dto';
 import { Prisma } from '@prisma/client';
 
 export interface CreatedAccountResponse {
@@ -54,59 +55,62 @@ export class AccountService {
       AccountService.INITIAL_PASSWORD_TTL_DAYS * 24 * 60 * 60 * 1000;
     const passwordExpiresAt = new Date(Date.now() + ttlMs);
 
-    const created = await this.prisma.$transaction(async (tx) => {
-      let teamGnId: string | undefined;
+    // Pre-generate credentials outside transaction to minimize lock holding time
+    const { raw, display } = this.credentialService.generateInitialPassword();
+    const passwordHash = await this.credentialService.hashInitialPassword(raw);
 
-      // Atomic team member limit enforcement (C8)
-      if (dto.role === UserRole.team_member && dto.teamId) {
-        teamGnId = await this.assertTeamCapacity(tx, dto.teamId, 1);
-      }
+    const created = await this.prisma.$transaction(
+      async (tx) => {
+        let teamGnId: string | undefined;
 
-      const gnId = dto.gnId || teamGnId || creatorScope.gnId || undefined;
-      const userCode = await this.generateUniqueUserCode(tx);
-      const { raw, display } =
-        this.credentialService.generateInitialPassword();
-      const passwordHash =
-        await this.credentialService.hashInitialPassword(raw);
+        // Atomic team member limit enforcement (C8)
+        if (dto.role === UserRole.team_member && dto.teamId) {
+          teamGnId = await this.assertTeamCapacity(tx, dto.teamId, 1);
+        }
 
-      const profile = await tx.profile.create({
-        data: {
-          userCode,
-          fullName: dto.fullName,
-          role: dto.role,
-          passwordHash,
-          phoneE164: dto.phoneE164,
-          preferredLanguage: dto.preferredLanguage || 'si',
-          districtId: dto.districtId || creatorScope.districtId || undefined,
-          dsId: dto.dsId || creatorScope.dsId || undefined,
-          gnId,
-          teamId: dto.teamId || creatorScope.teamId || undefined,
-          createdBy: creatorScope.userId,
-          mustChangePassword: true,
+        const gnId = dto.gnId || teamGnId || creatorScope.gnId || undefined;
+        const userCode = await this.generateUniqueUserCode(tx);
+
+        const profile = await tx.profile.create({
+          data: {
+            userCode,
+            fullName: dto.fullName,
+            role: dto.role,
+            passwordHash,
+            phoneE164: dto.phoneE164,
+            preferredLanguage: dto.preferredLanguage || 'si',
+            districtId: dto.districtId || creatorScope.districtId || undefined,
+            dsId: dto.dsId || creatorScope.dsId || undefined,
+            gnId,
+            teamId: dto.teamId || creatorScope.teamId || undefined,
+            createdBy: creatorScope.userId,
+            mustChangePassword: true,
+            passwordExpiresAt,
+            isActive: true,
+          },
+        });
+
+        await tx.accountAudit.create({
+          data: {
+            actorId: creatorScope.userId,
+            targetId: profile.id,
+            action: 'created',
+          },
+        });
+
+        return {
+          id: profile.id,
+          userCode: profile.userCode,
+          fullName: profile.fullName,
+          role: profile.role,
+          teamId: profile.teamId,
+          gnId: profile.gnId,
+          initialPassword: display,
           passwordExpiresAt,
-          isActive: true,
-        },
-      });
-
-      await tx.accountAudit.create({
-        data: {
-          actorId: creatorScope.userId,
-          targetId: profile.id,
-          action: 'created',
-        },
-      });
-
-      return {
-        id: profile.id,
-        userCode: profile.userCode,
-        fullName: profile.fullName,
-        role: profile.role,
-        teamId: profile.teamId,
-        gnId: profile.gnId,
-        initialPassword: display,
-        passwordExpiresAt,
-      };
-    });
+        };
+      },
+      { maxWait: 45000, timeout: 45000 },
+    );
 
     return { user: created };
   }
@@ -134,86 +138,105 @@ export class AccountService {
       AccountService.INITIAL_PASSWORD_TTL_DAYS * 24 * 60 * 60 * 1000;
     const passwordExpiresAt = new Date(Date.now() + ttlMs);
 
-    return this.prisma.$transaction(async (tx) => {
-      let teamGnId: string | undefined;
-
-      // Atomic team member limit enforcement (C8)
-      if (dto.role === UserRole.team_member && dto.teamId) {
-        teamGnId = await this.assertTeamCapacity(tx, dto.teamId, count);
-      }
-
-      const gnId = dto.gnId || teamGnId || creatorScope.gnId || undefined;
-
-      const batch = await tx.accountBatch.create({
-        data: {
-          createdBy: creatorScope.userId,
-          role: dto.role,
-          teamId: dto.teamId || creatorScope.teamId || undefined,
-          count,
-        },
+    // Pre-generate credentials outside transaction to minimize lock holding time
+    const pregeneratedMembers = [];
+    for (let i = 0; i < count; i++) {
+      const memberInfo = dto.members && dto.members[i];
+      const fullName = memberInfo?.fullName || `Team Member ${i + 1}`;
+      const phoneE164 = memberInfo?.phoneE164;
+      const preferredLanguage = memberInfo?.preferredLanguage || 'si';
+      const { raw, display } = this.credentialService.generateInitialPassword();
+      pregeneratedMembers.push({
+        fullName,
+        phoneE164,
+        preferredLanguage,
+        rawPassword: raw,
+        displayPassword: display,
       });
+    }
 
-      const results: CreatedAccountResponse[] = [];
+    const hashedMembers = await Promise.all(
+      pregeneratedMembers.map(async (m) => ({
+        ...m,
+        passwordHash: await this.credentialService.hashInitialPassword(
+          m.rawPassword,
+        ),
+      })),
+    );
 
-      for (let i = 0; i < count; i++) {
-        const memberInfo = dto.members && dto.members[i];
-        const fullName =
-          memberInfo?.fullName ||
-          `Team Member ${i + 1}`;
-        const phoneE164 = memberInfo?.phoneE164;
-        const preferredLanguage = memberInfo?.preferredLanguage || 'si';
+    return this.prisma.$transaction(
+      async (tx) => {
+        let teamGnId: string | undefined;
 
-        const userCode = await this.generateUniqueUserCode(tx);
-        const { raw, display } =
-          this.credentialService.generateInitialPassword();
-        const passwordHash =
-          await this.credentialService.hashInitialPassword(raw);
+        // Atomic team member limit enforcement (C8)
+        if (dto.role === UserRole.team_member && dto.teamId) {
+          teamGnId = await this.assertTeamCapacity(tx, dto.teamId, count);
+        }
 
-        const profile = await tx.profile.create({
+        const gnId = dto.gnId || teamGnId || creatorScope.gnId || undefined;
+
+        const batch = await tx.accountBatch.create({
           data: {
-            userCode,
-            fullName,
-            role: dto.role,
-            passwordHash,
-            phoneE164,
-            preferredLanguage,
-            districtId: dto.districtId || creatorScope.districtId || undefined,
-            dsId: dto.dsId || creatorScope.dsId || undefined,
-            gnId,
-            teamId: dto.teamId || creatorScope.teamId || undefined,
             createdBy: creatorScope.userId,
-            mustChangePassword: true,
+            role: dto.role,
+            teamId: dto.teamId || creatorScope.teamId || undefined,
+            count,
+          },
+        });
+
+        const results: CreatedAccountResponse[] = [];
+
+        for (let i = 0; i < count; i++) {
+          const m = hashedMembers[i];
+          const userCode = await this.generateUniqueUserCode(tx);
+
+          const profile = await tx.profile.create({
+            data: {
+              userCode,
+              fullName: m.fullName,
+              role: dto.role,
+              passwordHash: m.passwordHash,
+              phoneE164: m.phoneE164,
+              preferredLanguage: m.preferredLanguage,
+              districtId: dto.districtId || creatorScope.districtId || undefined,
+              dsId: dto.dsId || creatorScope.dsId || undefined,
+              gnId,
+              teamId: dto.teamId || creatorScope.teamId || undefined,
+              createdBy: creatorScope.userId,
+              mustChangePassword: true,
+              passwordExpiresAt,
+              isActive: true,
+            },
+          });
+
+          await tx.accountAudit.create({
+            data: {
+              actorId: creatorScope.userId,
+              targetId: profile.id,
+              action: 'created',
+              batchId: batch.id,
+            },
+          });
+
+          results.push({
+            id: profile.id,
+            userCode: profile.userCode,
+            fullName: profile.fullName,
+            role: profile.role,
+            teamId: profile.teamId,
+            gnId: profile.gnId,
+            initialPassword: m.displayPassword,
             passwordExpiresAt,
-            isActive: true,
-          },
-        });
+          });
+        }
 
-        await tx.accountAudit.create({
-          data: {
-            actorId: creatorScope.userId,
-            targetId: profile.id,
-            action: 'created',
-            batchId: batch.id,
-          },
-        });
-
-        results.push({
-          id: profile.id,
-          userCode: profile.userCode,
-          fullName: profile.fullName,
-          role: profile.role,
-          teamId: profile.teamId,
-          gnId: profile.gnId,
-          initialPassword: display,
-          passwordExpiresAt,
-        });
-      }
-
-      return {
-        batchId: batch.id,
-        users: results,
-      };
-    });
+        return {
+          batchId: batch.id,
+          users: results,
+        };
+      },
+      { maxWait: 45000, timeout: 45000 },
+    );
   }
 
   /**
@@ -277,7 +300,7 @@ export class AccountService {
           action: 'deactivated',
         },
       });
-    });
+    }, { maxWait: 45000, timeout: 45000 });
   }
 
   /**
@@ -337,7 +360,7 @@ export class AccountService {
           action: 'reactivated',
         },
       });
-    });
+    }, { maxWait: 45000, timeout: 45000 });
   }
 
   /**
@@ -365,7 +388,8 @@ export class AccountService {
     if (!isCreator && !isSuperAdmin) {
       throw new ForbiddenException({
         code: 'REISSUE_FORBIDDEN',
-        message: 'Password reissue is restricted to the account creator or Super Admin',
+        message:
+          'Password reissue is restricted to the account creator or Super Admin',
       });
     }
 
@@ -373,8 +397,7 @@ export class AccountService {
       AccountService.INITIAL_PASSWORD_TTL_DAYS * 24 * 60 * 60 * 1000;
     const expiresAt = new Date(Date.now() + ttlMs);
     const { raw, display } = this.credentialService.generateInitialPassword();
-    const passwordHash =
-      await this.credentialService.hashInitialPassword(raw);
+    const passwordHash = await this.credentialService.hashInitialPassword(raw);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.profile.update({
@@ -399,11 +422,172 @@ export class AccountService {
           action: 'reissued',
         },
       });
-    });
+    }, { maxWait: 45000, timeout: 45000 });
 
     return {
       initialPassword: display,
       expiresAt,
+    };
+  }
+
+  /**
+   * Updates account details for a subordinate account within scope (M1.4).
+   */
+  async updateAccount(
+    adminScope: ScopeContext,
+    targetUserId: string,
+    dto: UpdateAccountDto,
+  ) {
+    const target = await this.prisma.profile.findUnique({
+      where: { id: targetUserId },
+    });
+    if (!target) {
+      throw new NotFoundException(`Account ${targetUserId} not found`);
+    }
+
+    // Role hierarchy check
+    if (getRoleRank(adminScope.role) <= getRoleRank(target.role)) {
+      throw new ForbiddenException(
+        'Cannot modify account with equal or higher role rank',
+      );
+    }
+
+    // Territorial scope check
+    const canSee = this.scopeService.canSee(adminScope, {
+      districtId: target.districtId || '',
+      dsId: target.dsId || '',
+      gnId: target.gnId || '',
+      teamId: target.teamId || undefined,
+      collectedBy: target.createdBy || '',
+    });
+    if (!canSee) {
+      throw new ForbiddenException(
+        'Account is outside caller territorial scope',
+      );
+    }
+
+    // Check team capacity if team is changing
+    if (dto.teamId && dto.teamId !== target.teamId) {
+      await this.assertTeamCapacity(this.prisma, dto.teamId, 1);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.profile.update({
+        where: { id: targetUserId },
+        data: {
+          fullName: dto.fullName ?? undefined,
+          phoneE164: dto.phoneE164 ?? undefined,
+          teamId: dto.teamId !== undefined ? dto.teamId : undefined,
+          isActive: dto.isActive ?? undefined,
+        },
+      });
+
+      await tx.accountAudit.create({
+        data: {
+          actorId: adminScope.userId,
+          targetId: targetUserId,
+          action: 'updated',
+        },
+      });
+
+      return {
+        id: updated.id,
+        userCode: updated.userCode,
+        fullName: updated.fullName,
+        role: updated.role,
+        teamId: updated.teamId,
+        isActive: updated.isActive,
+      };
+    }, { maxWait: 45000, timeout: 45000 });
+  }
+
+  /**
+   * Admin reset of subordinate password (alias of reissuePassword for M1.4 POST /accounts/:id/reset-password).
+   */
+  async resetPassword(adminScope: ScopeContext, targetUserId: string) {
+    return this.reissuePassword(adminScope, targetUserId);
+  }
+
+  /**
+   * Reissues passwords for all unactivated accounts in an account creation batch (M1.4).
+   */
+  async reissueBatch(adminScope: ScopeContext, batchId: string) {
+    const batch = await this.prisma.accountBatch.findUnique({
+      where: { id: batchId },
+      include: { audits: true },
+    });
+    if (!batch) {
+      throw new NotFoundException(`Account batch ${batchId} not found`);
+    }
+
+    // Find accounts created under this batch that haven't changed password
+    const auditTargets = await this.prisma.accountAudit.findMany({
+      where: { batchId, action: 'created' },
+      select: { targetId: true },
+    });
+
+    const targetIds = auditTargets.map((a) => a.targetId);
+    const profiles = await this.prisma.profile.findMany({
+      where: {
+        id: { in: targetIds },
+        isActive: true,
+        mustChangePassword: true,
+      },
+    });
+
+    const reissuedList: Array<{
+      id: string;
+      userCode: string;
+      fullName: string;
+      initialPassword: string;
+      passwordExpiresAt: Date;
+    }> = [];
+
+    const expiresAt = new Date();
+    expiresAt.setDate(
+      expiresAt.getDate() + AccountService.INITIAL_PASSWORD_TTL_DAYS,
+    );
+
+    for (const profile of profiles) {
+      const { display, raw } =
+        this.credentialService.generateInitialPassword();
+      const passwordHash =
+        await this.credentialService.hashInitialPassword(raw);
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.profile.update({
+          where: { id: profile.id },
+          data: {
+            passwordHash,
+            mustChangePassword: true,
+            passwordExpiresAt: expiresAt,
+            tokenVersion: { increment: 1 },
+          },
+        });
+
+        await tx.accountAudit.create({
+          data: {
+            actorId: adminScope.userId,
+            targetId: profile.id,
+            batchId,
+            action: 'reissued',
+          },
+        });
+      }, { maxWait: 45000, timeout: 45000 });
+
+      reissuedList.push({
+        id: profile.id,
+        userCode: profile.userCode,
+        fullName: profile.fullName,
+        initialPassword: display,
+        passwordExpiresAt: expiresAt,
+      });
+    }
+
+    return {
+      batchId,
+      totalReissued: reissuedList.length,
+      credentials: reissuedList,
     };
   }
 
@@ -512,7 +696,8 @@ export class AccountService {
       if (targetGnId && targetGnId !== creator.gnId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_GN',
-          message: 'CDC Secretary can only create members in their own GN division',
+          message:
+            'CDC Secretary can only create members in their own GN division',
         });
       }
     }
@@ -527,7 +712,9 @@ export class AccountService {
     teamId: string,
     requestedCount: number,
   ): Promise<string> {
-    const teams = await tx.$queryRaw<Array<{ id: string; max_members: number; gn_id: string }>>`
+    const teams = await tx.$queryRaw<
+      Array<{ id: string; max_members: number; gn_id: string }>
+    >`
       SELECT id, max_members, gn_id FROM teams WHERE id = ${teamId}::uuid FOR UPDATE
     `;
 

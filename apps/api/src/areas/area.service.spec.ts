@@ -23,9 +23,13 @@ describe('AreaService (M1.7)', () => {
         );
       }),
       findUnique: jest.fn().mockImplementation(({ where }) => {
-        return Promise.resolve(inMemoryDistricts.find((d) => d.id === where.id) || null);
+        return Promise.resolve(
+          inMemoryDistricts.find((d) => d.id === where.id) || null,
+        );
       }),
-      findMany: jest.fn().mockImplementation(() => Promise.resolve(inMemoryDistricts)),
+      findMany: jest
+        .fn()
+        .mockImplementation(() => Promise.resolve(inMemoryDistricts)),
       create: jest.fn().mockImplementation(({ data }) => {
         const d = { id: `dist-${Date.now()}-${Math.random()}`, ...data };
         inMemoryDistricts.push(d);
@@ -44,7 +48,9 @@ describe('AreaService (M1.7)', () => {
         );
       }),
       findUnique: jest.fn().mockImplementation(({ where }) => {
-        return Promise.resolve(inMemoryDs.find((ds) => ds.id === where.id) || null);
+        return Promise.resolve(
+          inMemoryDs.find((ds) => ds.id === where.id) || null,
+        );
       }),
       findMany: jest.fn().mockImplementation(() => Promise.resolve(inMemoryDs)),
       create: jest.fn().mockImplementation(({ data }) => {
@@ -65,7 +71,9 @@ describe('AreaService (M1.7)', () => {
           );
         }
         if (where.id) {
-          return Promise.resolve(inMemoryGn.find((gn) => gn.id === where.id) || null);
+          return Promise.resolve(
+            inMemoryGn.find((gn) => gn.id === where.id) || null,
+          );
         }
         return Promise.resolve(null);
       }),
@@ -88,11 +96,15 @@ describe('AreaService (M1.7)', () => {
           );
         }
         if (where.id) {
-          return Promise.resolve(inMemoryTeams.find((t) => t.id === where.id) || null);
+          return Promise.resolve(
+            inMemoryTeams.find((t) => t.id === where.id) || null,
+          );
         }
         return Promise.resolve(null);
       }),
-      findMany: jest.fn().mockImplementation(() => Promise.resolve(inMemoryTeams)),
+      findMany: jest
+        .fn()
+        .mockImplementation(() => Promise.resolve(inMemoryTeams)),
       create: jest.fn().mockImplementation(({ data }) => {
         const t = { id: `team-${Date.now()}-${Math.random()}`, ...data };
         inMemoryTeams.push(t);

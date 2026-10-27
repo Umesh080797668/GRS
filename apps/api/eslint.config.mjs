@@ -32,4 +32,21 @@ export default tseslint.config(
       "prettier/prettier": ["error", { endOfLine: "auto" }],
     },
   },
+  {
+    files: ['src/**/*.controller.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['*prisma.service*'],
+              message:
+                'Controllers must not directly inject or use PrismaService. Use domain services or ScopedRepository instead (M1.2 / Section 5.4).',
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

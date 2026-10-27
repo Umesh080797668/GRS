@@ -13,7 +13,7 @@ export interface CategorizedLookups {
 export class LookupService implements OnModuleInit {
   private cachedVersion: string = '';
 
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
     this.cachedVersion = this.computeStaticVersion(CANONICAL_LOOKUPS);
@@ -121,6 +121,10 @@ export class LookupService implements OnModuleInit {
     const fingerprint = sorted
       .map((i) => `${i.code}:${i.sort}:${i.labelEn}:${i.labelSi}:${i.labelTa}`)
       .join('|');
-    return crypto.createHash('sha256').update(fingerprint).digest('hex').slice(0, 16);
+    return crypto
+      .createHash('sha256')
+      .update(fingerprint)
+      .digest('hex')
+      .slice(0, 16);
   }
 }

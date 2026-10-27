@@ -22,17 +22,29 @@ export class AppConfigService {
    * Returns current application configuration including sync pacing and version gates.
    */
   async getConfig(): Promise<AppConfig> {
-    const minVerSetting = await this.getSetting('min_supported_version', '1.0.0');
+    const minVerSetting = await this.getSetting(
+      'min_supported_version',
+      '1.0.0',
+    );
     const latestVerSetting = await this.getSetting('latest_version', '1.0.0');
-    const agentCanEditSetting = await this.getSetting('agent_can_edit_synced', false);
+    const agentCanEditSetting = await this.getSetting(
+      'agent_can_edit_synced',
+      false,
+    );
     const syncJitterSetting = await this.getSetting('sync_jitter_max_s', 15);
     const syncBatchSetting = await this.getSetting('sync_batch_max', 50);
     const apkUrlSetting = await this.getSetting(
       'apk_download_url',
       'https://github.com/Umesh080797668/GRS/releases/latest/download/app-release.apk',
     );
-    const ttlDaysSetting = await this.getSetting('initial_password_ttl_days', 30);
-    const webEntrySetting = await this.getSetting('web_data_entry_enabled', false);
+    const ttlDaysSetting = await this.getSetting(
+      'initial_password_ttl_days',
+      30,
+    );
+    const webEntrySetting = await this.getSetting(
+      'web_data_entry_enabled',
+      false,
+    );
 
     return {
       minSupportedVersion: String(minVerSetting),

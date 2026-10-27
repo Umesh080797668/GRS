@@ -63,7 +63,10 @@ export const CREATION_MATRIX: Record<UserRole, UserRole[]> = {
 /**
  * Evaluates whether creator role can create an account with target role.
  */
-export function canCreateRole(creatorRole: UserRole, targetRole: UserRole): boolean {
+export function canCreateRole(
+  creatorRole: UserRole,
+  targetRole: UserRole,
+): boolean {
   const allowed = CREATION_MATRIX[creatorRole] || [];
   return allowed.includes(targetRole);
 }

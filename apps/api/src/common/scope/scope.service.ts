@@ -87,7 +87,10 @@ export class ScopeService {
         if (scope.districtId) {
           return {
             ...baseCondition,
-            OR: [{ districtId: scope.districtId }, { collectedBy: scope.userId }],
+            OR: [
+              { districtId: scope.districtId },
+              { collectedBy: scope.userId },
+            ],
           };
         }
         return baseCondition;
@@ -169,18 +172,30 @@ export class ScopeService {
    */
   canSee(
     scope: ScopeContext,
-    target: { districtId: string; dsId: string; gnId: string; teamId?: string; collectedBy: string },
+    target: {
+      districtId: string;
+      dsId: string;
+      gnId: string;
+      teamId?: string;
+      collectedBy: string;
+    },
   ): boolean {
     if (scope.role === UserRole.super_admin) return true;
-    if (scope.role === UserRole.admin || scope.role === UserRole.cg) return true;
+    if (scope.role === UserRole.admin || scope.role === UserRole.cg)
+      return true;
     if (scope.role === UserRole.dc) {
-      return target.districtId === scope.districtId || target.collectedBy === scope.userId;
+      return (
+        target.districtId === scope.districtId ||
+        target.collectedBy === scope.userId
+      );
     }
     if (scope.role === UserRole.sda) {
       return target.dsId === scope.dsId || target.collectedBy === scope.userId;
     }
     if (scope.role === UserRole.cdc_secretary) {
-      return target.teamId === scope.teamId || target.collectedBy === scope.userId;
+      return (
+        target.teamId === scope.teamId || target.collectedBy === scope.userId
+      );
     }
     if (scope.role === UserRole.team_member) {
       return target.collectedBy === scope.userId;

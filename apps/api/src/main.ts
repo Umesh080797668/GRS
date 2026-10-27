@@ -5,13 +5,54 @@ import { ExpressAdapter } from '@nestjs/platform-express';
 import express, { Express } from 'express';
 import { AppModule } from './app.module';
 
+import * as Sentry from '@sentry/node';
+import { sentryEventScrubber } from './common/logging/sentry-scrubber';
+import { StructuredLoggerService } from './common/logging/structured-logger.service';
+
 const expressApp: Express = express();
 let isInitialized = false;
 
-export async function createNestServer(server: Express) {
-  const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
+// Initialize Sentry with PII scrubber (M1.11 / Section 12)
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+    beforeSend: sentryEventScrubber as any,
+  });
+}
 
-  app.enableCors();
+export async function createNestServer(server: Express) {
+  const logger = new StructuredLoggerService();
+  const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
+    logger,
+  });
+
+  // Secure CORS policy: Restrict to configured origins or localhost development
+  const allowedOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
+    : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:8080'];
+
+  app.enableCors({
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        process.env.NODE_ENV !== 'production'
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error('Blocked by CORS policy'));
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-App-Version',
+      'X-Device-ID',
+    ],
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({

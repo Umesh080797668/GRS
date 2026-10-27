@@ -87,6 +87,8 @@ describe('LookupService (M1.6)', () => {
   it('seeds canonical lookups via upsert', async () => {
     const count = await service.seed();
     expect(count).toBe(CANONICAL_LOOKUPS.length);
-    expect(mockPrisma.lookupValue.upsert).toHaveBeenCalledTimes(CANONICAL_LOOKUPS.length);
+    expect(mockPrisma.lookupValue.upsert).toHaveBeenCalledTimes(
+      CANONICAL_LOOKUPS.length,
+    );
   });
 });

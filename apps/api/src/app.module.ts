@@ -10,6 +10,9 @@ import { LookupModule } from './lookups/lookup.module';
 import { AreaModule } from './areas/area.module';
 import { AppConfigModule } from './config/app-config.module';
 import { EmailModule } from './email/email.module';
+import { APP_GUARD } from '@nestjs/core';
+import { VersionGateGuard } from './config/version-gate.guard';
+import { ReleasesModule } from './releases/releases.module';
 import { JobsModule } from './jobs/jobs.module';
 
 @Module({
@@ -27,10 +30,15 @@ import { JobsModule } from './jobs/jobs.module';
     AppConfigModule,
     EmailModule,
     JobsModule,
+    ReleasesModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: VersionGateGuard,
+    },
+  ],
 })
 export class AppModule { }
-
-

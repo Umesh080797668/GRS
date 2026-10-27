@@ -41,8 +41,13 @@ export class EmailService {
     if (smtpUrl) {
       this.transporter = nodemailer.createTransport(smtpUrl);
     } else if (host) {
-      const port = parseInt(this.configService.get<string>('SMTP_PORT', '587'), 10);
-      const secure = this.configService.get<string>('SMTP_SECURE') === 'true' || port === 465;
+      const port = parseInt(
+        this.configService.get<string>('SMTP_PORT', '587'),
+        10,
+      );
+      const secure =
+        this.configService.get<string>('SMTP_SECURE') === 'true' ||
+        port === 465;
       const user = this.configService.get<string>('SMTP_USER');
       const pass = this.configService.get<string>('SMTP_PASS');
 
@@ -89,7 +94,7 @@ export class EmailService {
       const remainingSeconds = Math.ceil(
         (EmailService.COOLDOWN_SECONDS * 1000 -
           (now.getTime() - recentCode.createdAt.getTime())) /
-        1000,
+          1000,
       );
       throw new BadRequestException({
         code: 'EMAIL_COOLDOWN',
@@ -239,9 +244,13 @@ export class EmailService {
         `[EmailService] Dispatched ${purpose} code to ${maskedEmail} via nodemailer (Expires in 15m)`,
       );
     } catch (err: any) {
-      this.logger.error(`[EmailService] Nodemailer dispatch failed: ${err.message}`);
+      this.logger.error(
+        `[EmailService] Nodemailer dispatch failed: ${err.message}`,
+      );
       if (this.configService.get<string>('NODE_ENV') === 'production') {
-        throw new BadRequestException('Failed to deliver verification code. Please try again.');
+        throw new BadRequestException(
+          'Failed to deliver verification code. Please try again.',
+        );
       }
     }
   }

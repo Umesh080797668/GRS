@@ -1,4 +1,11 @@
-import { Controller, Get, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { AppService, HealthCheckResponse } from './app.service';
 
 @Controller()
@@ -15,17 +22,13 @@ export class AppController {
     return this.appService.checkHealth();
   }
 
-  /**
-   * Endpoint for testing 4.5 MB maximum payload limits (Spike S1).
-   */
   @Post('v1/test/payload')
   @HttpCode(HttpStatus.OK)
-  testPayload(@Body() body: any): { receivedBytes: number; status: string } {
-    const jsonStr = JSON.stringify(body || {});
-    const bytes = Buffer.byteLength(jsonStr, 'utf8');
+  testPayload(@Body() body: any) {
+    const receivedBytes = Buffer.byteLength(JSON.stringify(body || {}));
     return {
-      receivedBytes: bytes,
       status: 'accepted',
+      receivedBytes,
     };
   }
 }

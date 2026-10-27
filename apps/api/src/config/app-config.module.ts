@@ -1,4 +1,4 @@
-import { Module, Global } from '@nestjs/common';
+import { Module, Global, forwardRef } from '@nestjs/common';
 import { AppConfigService } from './app-config.service';
 import { AppConfigController } from './app-config.controller';
 import { VersionGateGuard } from './version-gate.guard';
@@ -9,9 +9,9 @@ import { ScopeModule } from '../common/scope/scope.module';
 
 @Global()
 @Module({
-  imports: [PrismaModule, AuthModule, ScopeModule],
+  imports: [PrismaModule, forwardRef(() => AuthModule), ScopeModule],
   controllers: [AppConfigController],
   providers: [AppConfigService, VersionGateGuard, RateLimitService],
   exports: [AppConfigService, VersionGateGuard, RateLimitService],
 })
-export class AppConfigModule {}
+export class AppConfigModule { }

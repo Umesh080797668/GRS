@@ -32,7 +32,12 @@ export class SentryScrubber {
         const scrubbedHeaders: Record<string, string> = {};
         for (const [k, v] of Object.entries(event.request.headers)) {
           const lower = k.toLowerCase();
-          if (lower === 'authorization' || lower === 'cookie' || lower === 'set-cookie' || lower === 'x-api-key') {
+          if (
+            lower === 'authorization' ||
+            lower === 'cookie' ||
+            lower === 'set-cookie' ||
+            lower === 'x-api-key'
+          ) {
             scrubbedHeaders[k] = '[REDACTED]';
           } else {
             scrubbedHeaders[k] = PiiScrubber.scrubString(v);
@@ -55,7 +60,9 @@ export class SentryScrubber {
       event.breadcrumbs = event.breadcrumbs.map((crumb) => {
         return {
           ...crumb,
-          message: crumb.message ? PiiScrubber.scrubString(crumb.message) : undefined,
+          message: crumb.message
+            ? PiiScrubber.scrubString(crumb.message)
+            : undefined,
           data: crumb.data ? PiiScrubber.scrub(crumb.data) : undefined,
         };
       });
@@ -77,3 +84,5 @@ export class SentryScrubber {
     return event;
   }
 }
+
+export const sentryEventScrubber = (event: any) => SentryScrubber.beforeSend(event);

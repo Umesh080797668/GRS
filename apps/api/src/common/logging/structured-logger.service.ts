@@ -38,9 +38,10 @@ export class StructuredLoggerService implements LoggerService {
     context?: string,
     data?: any,
   ): StructuredLogEntry {
-    const scrubbedMessage = typeof message === 'string'
-      ? PiiScrubber.scrubString(message)
-      : PiiScrubber.scrub(message);
+    const scrubbedMessage =
+      typeof message === 'string'
+        ? PiiScrubber.scrubString(message)
+        : PiiScrubber.scrub(message);
 
     const scrubbedData = data ? PiiScrubber.scrub(data) : undefined;
 
@@ -48,7 +49,10 @@ export class StructuredLoggerService implements LoggerService {
       timestamp: new Date().toISOString(),
       level,
       context,
-      message: typeof scrubbedMessage === 'string' ? scrubbedMessage : JSON.stringify(scrubbedMessage),
+      message:
+        typeof scrubbedMessage === 'string'
+          ? scrubbedMessage
+          : JSON.stringify(scrubbedMessage),
       data: scrubbedData,
     };
   }

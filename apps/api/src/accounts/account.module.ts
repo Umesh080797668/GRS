@@ -11,4 +11,4 @@ import { ScopeModule } from '../common/scope/scope.module';
   providers: [AccountService],
   exports: [AccountService],
 })
-export class AccountModule { }
+export class AccountModule {}

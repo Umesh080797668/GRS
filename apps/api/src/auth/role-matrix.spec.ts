@@ -1,6 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { UserRole } from '@prisma/client';
+import { Test } from '@nestjs/testing';
+import { ModulesContainer } from '@nestjs/core';
+import { PATH_METADATA, METHOD_METADATA } from '@nestjs/common/constants';
+import { AppModule } from '../app.module';
 import {
   ExtendedRole,
   ROLE_ENDPOINT_POLICIES,
@@ -22,7 +26,9 @@ describe('Role × Endpoint Authorization Matrix (M1.10)', () => {
 
   it('contains policies for all 43 API endpoints across 12 categories', () => {
     expect(ROLE_ENDPOINT_POLICIES.length).toBeGreaterThanOrEqual(40);
-    const paths = new Set(ROLE_ENDPOINT_POLICIES.map((p) => `${p.method} ${p.path}`));
+    const paths = new Set(
+      ROLE_ENDPOINT_POLICIES.map((p) => `${p.method} ${p.path}`),
+    );
     expect(paths.has('POST /auth/login')).toBe(true);
     expect(paths.has('POST /accounts')).toBe(true);
     expect(paths.has('POST /accounts/bulk')).toBe(true);
@@ -170,6 +176,110 @@ describe('Role × Endpoint Authorization Matrix (M1.10)', () => {
     });
   });
 
+  describe('Dynamic NestJS Route Discovery & Role Matrix Alignment (M1.10)', () => {
+    let app: any;
+    let registeredRoutes: Array<{
+      method: string;
+      path: string;
+      controller: string;
+      handler: string;
+    }> = [];
+
+    beforeAll(async () => {
+      const moduleRef = await Test.createTestingModule({
+        imports: [AppModule],
+      }).compile();
+
+      app = moduleRef.createNestApplication();
+      await app.init();
+
+      const modulesContainer = app.get(ModulesContainer);
+
+      for (const [_, moduleInstance] of modulesContainer.entries()) {
+        for (const [_, controllerWrapper] of moduleInstance.controllers.entries()) {
+          const { instance, metatype } = controllerWrapper;
+          if (!metatype) continue;
+          const controllerPath = Reflect.getMetadata(PATH_METADATA, metatype);
+          if (!controllerPath) continue;
+
+          const prototype = Object.getPrototypeOf(instance);
+          const methodNames = Object.getOwnPropertyNames(prototype).filter(
+            (name) =>
+              name !== 'constructor' && typeof prototype[name] === 'function',
+          );
+
+          for (const methodName of methodNames) {
+            const methodHandler = prototype[methodName];
+            const routePath = Reflect.getMetadata(PATH_METADATA, methodHandler);
+            const methodCode = Reflect.getMetadata(METHOD_METADATA, methodHandler);
+            if (routePath !== undefined && methodCode !== undefined) {
+              const httpMethods = [
+                'GET',
+                'POST',
+                'PUT',
+                'DELETE',
+                'PATCH',
+                'ALL',
+                'OPTIONS',
+                'HEAD',
+              ];
+              const httpMethod = httpMethods[methodCode] || 'UNKNOWN';
+              const cleanController = controllerPath.replace(/^\/+|\/+$/g, '');
+              const cleanRoute = (routePath || '').replace(/^\/+|\/+$/g, '');
+              const fullPath = '/' + [cleanController, cleanRoute].filter(Boolean).join('/');
+              registeredRoutes.push({
+                method: httpMethod,
+                path: fullPath,
+                controller: metatype.name,
+                handler: methodName,
+              });
+            }
+          }
+        }
+      }
+    }, 30000);
+
+    afterAll(async () => {
+      if (app) await app.close();
+    }, 15000);
+
+    it('dynamically discovers all active API routes in NestJS and verifies 100% matrix coverage', () => {
+      expect(registeredRoutes.length).toBeGreaterThan(25);
+
+      const policySet = new Set(
+        ROLE_ENDPOINT_POLICIES.map((p) => `${p.method} ${p.path}`),
+      );
+
+      const missingRoutes: string[] = [];
+      for (const route of registeredRoutes) {
+        // Strip /v1 prefix and any trailing slashes for comparison with matrix
+        let normalizedPath = route.path.replace(/^\/v1/, '');
+        if (normalizedPath.endsWith('/') && normalizedPath.length > 1) {
+          normalizedPath = normalizedPath.slice(0, -1);
+        }
+        if (!normalizedPath.startsWith('/')) {
+          normalizedPath = '/' + normalizedPath;
+        }
+        const formattedKey = `${route.method} ${normalizedPath}`;
+
+        // Root health check endpoints & spike test route
+        if (
+          formattedKey === 'GET /' ||
+          formattedKey === 'GET /health' ||
+          formattedKey === 'POST /test/payload'
+        ) {
+          continue;
+        }
+
+        const foundInMatrix = policySet.has(formattedKey);
+        if (!foundInMatrix) {
+          missingRoutes.push(`${formattedKey} (${route.controller}.${route.handler})`);
+        }
+      }
+      expect(missingRoutes).toEqual([]);
+    });
+  });
+
   describe('Matrix Markdown Generation & Audit Artifact', () => {
     it('generates docs/ROLE_ENDPOINT_MATRIX.md and verifies completeness', () => {
       const markdown = RoleMatrixEvaluator.generateMarkdownMatrix();
@@ -177,7 +287,10 @@ describe('Role × Endpoint Authorization Matrix (M1.10)', () => {
       expect(markdown).toContain('team_member (L5)');
       expect(markdown).toContain('super_admin (L00)');
 
-      const outPath = path.resolve(__dirname, '../../../../docs/ROLE_ENDPOINT_MATRIX.md');
+      const outPath = path.resolve(
+        __dirname,
+        '../../../../docs/ROLE_ENDPOINT_MATRIX.md',
+      );
       fs.writeFileSync(outPath, markdown, 'utf-8');
       expect(fs.existsSync(outPath)).toBe(true);
       console.log(`Generated Role Matrix Audit Document at: ${outPath}`);

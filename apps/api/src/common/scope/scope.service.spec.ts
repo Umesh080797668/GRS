@@ -1,5 +1,10 @@
 import { ScopeService } from './scope.service';
-import { UserRole, ScopeContext, getRoleRank, canCreateRole } from './scope.types';
+import {
+  UserRole,
+  ScopeContext,
+  getRoleRank,
+  canCreateRole,
+} from './scope.types';
 import { ForbiddenException } from '@nestjs/common';
 
 describe('ScopeService & Role Hierarchy', () => {
@@ -11,26 +16,50 @@ describe('ScopeService & Role Hierarchy', () => {
 
   describe('Role Hierarchy & Ranking (Section 3 / 5.1)', () => {
     it('should rank roles in strict descending administrative order', () => {
-      expect(getRoleRank(UserRole.super_admin)).toBeGreaterThan(getRoleRank(UserRole.admin));
-      expect(getRoleRank(UserRole.admin)).toBeGreaterThan(getRoleRank(UserRole.cg));
-      expect(getRoleRank(UserRole.cg)).toBeGreaterThan(getRoleRank(UserRole.dc));
-      expect(getRoleRank(UserRole.dc)).toBeGreaterThan(getRoleRank(UserRole.sda));
-      expect(getRoleRank(UserRole.sda)).toBeGreaterThan(getRoleRank(UserRole.cdc_secretary));
-      expect(getRoleRank(UserRole.cdc_secretary)).toBeGreaterThan(getRoleRank(UserRole.team_member));
+      expect(getRoleRank(UserRole.super_admin)).toBeGreaterThan(
+        getRoleRank(UserRole.admin),
+      );
+      expect(getRoleRank(UserRole.admin)).toBeGreaterThan(
+        getRoleRank(UserRole.cg),
+      );
+      expect(getRoleRank(UserRole.cg)).toBeGreaterThan(
+        getRoleRank(UserRole.dc),
+      );
+      expect(getRoleRank(UserRole.dc)).toBeGreaterThan(
+        getRoleRank(UserRole.sda),
+      );
+      expect(getRoleRank(UserRole.sda)).toBeGreaterThan(
+        getRoleRank(UserRole.cdc_secretary),
+      );
+      expect(getRoleRank(UserRole.cdc_secretary)).toBeGreaterThan(
+        getRoleRank(UserRole.team_member),
+      );
     });
 
     it('should enforce account creation matrix (Section 6.1)', () => {
       // Super admin can create all roles
-      expect(canCreateRole(UserRole.super_admin, UserRole.cdc_secretary)).toBe(true);
-      expect(canCreateRole(UserRole.super_admin, UserRole.team_member)).toBe(true);
+      expect(canCreateRole(UserRole.super_admin, UserRole.cdc_secretary)).toBe(
+        true,
+      );
+      expect(canCreateRole(UserRole.super_admin, UserRole.team_member)).toBe(
+        true,
+      );
 
       // CDC Secretary (Level 4) can ONLY create Level 5 team members
-      expect(canCreateRole(UserRole.cdc_secretary, UserRole.team_member)).toBe(true);
-      expect(canCreateRole(UserRole.cdc_secretary, UserRole.cdc_secretary)).toBe(false);
-      expect(canCreateRole(UserRole.cdc_secretary, UserRole.super_admin)).toBe(false);
+      expect(canCreateRole(UserRole.cdc_secretary, UserRole.team_member)).toBe(
+        true,
+      );
+      expect(
+        canCreateRole(UserRole.cdc_secretary, UserRole.cdc_secretary),
+      ).toBe(false);
+      expect(canCreateRole(UserRole.cdc_secretary, UserRole.super_admin)).toBe(
+        false,
+      );
 
       // Team Member (Level 5) can create nobody
-      expect(canCreateRole(UserRole.team_member, UserRole.team_member)).toBe(false);
+      expect(canCreateRole(UserRole.team_member, UserRole.team_member)).toBe(
+        false,
+      );
     });
   });
 
@@ -55,8 +84,14 @@ describe('ScopeService & Role Hierarchy', () => {
     });
 
     it('District Admin without districtId throws ForbiddenException', () => {
-      const scope: ScopeContext = { userId: 'u-dc', role: UserRole.dc, districtId: null };
-      expect(() => service.getHouseholdScopeFilter(scope)).toThrow(ForbiddenException);
+      const scope: ScopeContext = {
+        userId: 'u-dc',
+        role: UserRole.dc,
+        districtId: null,
+      };
+      expect(() => service.getHouseholdScopeFilter(scope)).toThrow(
+        ForbiddenException,
+      );
     });
 
     it('CDC Secretary (Level 4) and Team Member (Level 5) scope to assigned teamId', () => {

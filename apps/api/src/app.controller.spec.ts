@@ -13,10 +13,7 @@ describe('AppController (Spike S1 / Health & Payload)', () => {
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [
-        AppService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [AppService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     appController = app.get<AppController>(AppController);
@@ -24,7 +21,9 @@ describe('AppController (Spike S1 / Health & Payload)', () => {
 
   describe('root', () => {
     it('should return app identity', () => {
-      expect(appController.getHello()).toContain('Global Research & Survey API');
+      expect(appController.getHello()).toContain(
+        'Global Research & Survey API',
+      );
     });
   });
 

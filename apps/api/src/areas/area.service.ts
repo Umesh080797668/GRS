@@ -23,7 +23,7 @@ export interface PilotAreaImportResult {
 
 @Injectable()
 export class AreaService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Seeds the 25 official Sri Lankan districts with trilingual names.
@@ -241,9 +241,12 @@ export class AreaService {
       });
     }
 
-    const header = lines[0]
-      .split(',')
-      .map((h) => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
+    const header = lines[0].split(',').map((h) =>
+      h
+        .trim()
+        .toLowerCase()
+        .replace(/^["']|["']$/g, ''),
+    );
 
     const colIndex = {
       district: header.indexOf('district'),
@@ -370,7 +373,8 @@ export class AreaService {
       }
 
       // 4. Provision initial teams
-      const teamCount = isNaN(initialTeams) || initialTeams < 1 ? 1 : initialTeams;
+      const teamCount =
+        isNaN(initialTeams) || initialTeams < 1 ? 1 : initialTeams;
       for (let t = 1; t <= teamCount; t++) {
         const teamExists = await this.prisma.team.findUnique({
           where: {

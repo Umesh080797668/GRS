@@ -1,4 +1,7 @@
-import { StructuredLoggerService, StructuredLogEntry } from './structured-logger.service';
+import {
+  StructuredLoggerService,
+  StructuredLogEntry,
+} from './structured-logger.service';
 import { PiiScrubber } from './pii-scrubber';
 import { SentryScrubber, SentryEvent } from './sentry-scrubber';
 
@@ -61,7 +64,8 @@ describe('Structured Logging & PII Scrubbing (M1.11)', () => {
     });
 
     it('masks Bearer tokens and phone numbers in raw string logs', () => {
-      const logString = 'Request with Bearer eyJhbGciOiJIUzI1Ni.xyz received for +94771234567';
+      const logString =
+        'Request with Bearer eyJhbGciOiJIUzI1Ni.xyz received for +94771234567';
       const scrubbed = PiiScrubber.scrubString(logString);
 
       expect(scrubbed).not.toContain('eyJhbGciOiJIUzI1Ni.xyz');
@@ -72,15 +76,11 @@ describe('Structured Logging & PII Scrubbing (M1.11)', () => {
 
   describe('StructuredLoggerService Output Verification', () => {
     it('outputs valid JSON structure with scrubbed data and metadata', () => {
-      logger.log(
-        'User authentication attempt',
-        'AuthService',
-        {
-          userCode: 'GRS1234567890',
-          password: 'secret_password_here',
-          ip: '192.168.1.1',
-        },
-      );
+      logger.log('User authentication attempt', 'AuthService', {
+        userCode: 'GRS1234567890',
+        password: 'secret_password_here',
+        ip: '192.168.1.1',
+      });
 
       expect(capturedLogs.length).toBe(1);
       const entry = capturedLogs[0];
@@ -101,7 +101,8 @@ describe('Structured Logging & PII Scrubbing (M1.11)', () => {
     });
 
     it('scrubs error traces containing sensitive data', () => {
-      const sensitiveStack = 'Error: Invalid password=secret123 at AuthService.login (Bearer eyJhbGci.test)';
+      const sensitiveStack =
+        'Error: Invalid password=secret123 at AuthService.login (Bearer eyJhbGci.test)';
       logger.error('Failed login', sensitiveStack, 'AuthService');
 
       expect(capturedLogs.length).toBe(1);
@@ -137,7 +138,8 @@ describe('Structured Logging & PII Scrubbing (M1.11)', () => {
       const sentryEvent: SentryEvent = {
         request: {
           headers: {
-            authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.topsecret',
+            authorization:
+              'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.topsecret',
             cookie: 'session_token=secret_cookie_123',
             'user-agent': 'Mozilla/5.0',
           },
@@ -151,7 +153,8 @@ describe('Structured Logging & PII Scrubbing (M1.11)', () => {
         breadcrumbs: [
           {
             category: 'auth',
-            message: 'User GRS1234567890 submitted password=UserEnteredPassword!',
+            message:
+              'User GRS1234567890 submitted password=UserEnteredPassword!',
             data: { phoneE164: '+94771234567' },
           },
         ],

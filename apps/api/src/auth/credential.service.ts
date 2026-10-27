@@ -8,17 +8,17 @@ export class CredentialService {
   private static readonly PASSWORD_ALPHABET =
     '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
 
-  // Argon2 parameters per Spike S2
+  // Argon2 parameters per Spike S2 (optimized for fast test execution in CI/test env)
   private static readonly USER_ARGON2_OPTIONS = {
-    memoryCost: 65536,
-    timeCost: 3,
-    parallelism: 4,
+    memoryCost: process.env.NODE_ENV === 'test' ? 1024 : 65536,
+    timeCost: process.env.NODE_ENV === 'test' ? 1 : 3,
+    parallelism: process.env.NODE_ENV === 'test' ? 1 : 4,
   };
 
   private static readonly INITIAL_ARGON2_OPTIONS = {
-    memoryCost: 32768,
-    timeCost: 2,
-    parallelism: 2,
+    memoryCost: process.env.NODE_ENV === 'test' ? 1024 : 32768,
+    timeCost: process.env.NODE_ENV === 'test' ? 1 : 2,
+    parallelism: process.env.NODE_ENV === 'test' ? 1 : 2,
   };
 
   /**
