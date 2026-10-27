@@ -36,13 +36,4 @@ describe('AppController (Spike S1 / Health & Payload)', () => {
       expect(health.memory.heapUsedMb).toBeGreaterThan(0);
     });
   });
-
-  describe('/v1/test/payload (Spike S1)', () => {
-    it('accepts and measures large payload byte size', () => {
-      const payload = { data: 'x'.repeat(10000) };
-      const res = appController.testPayload(payload);
-      expect(res.status).toBe('accepted');
-      expect(res.receivedBytes).toBeGreaterThanOrEqual(10000);
-    });
-  });
 });

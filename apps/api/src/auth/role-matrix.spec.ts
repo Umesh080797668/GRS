@@ -262,11 +262,10 @@ describe('Role × Endpoint Authorization Matrix (M1.10)', () => {
         }
         const formattedKey = `${route.method} ${normalizedPath}`;
 
-        // Root health check endpoints & spike test route
+        // Root health check endpoints
         if (
           formattedKey === 'GET /' ||
-          formattedKey === 'GET /health' ||
-          formattedKey === 'POST /test/payload'
+          formattedKey === 'GET /health'
         ) {
           continue;
         }

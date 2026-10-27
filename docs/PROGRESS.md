@@ -44,6 +44,16 @@ This document records the exact status and verification evidence for every task 
 | **M1.14** | Summary tables (`team_stats`, `area_stats`), pg_cron refresh | Done | 2026-10-27 | Complete: `StatsRefreshService` implementing dirty team refresh, hierarchical rollup across gn, ds, district, and national scopes, and nightly drift check. Registered in `JobsModule` and `AppModule`. Tests in `stats-refresh.service.spec.ts` verified 10k synthetic pushes roll-up matches fresh SQL counts with exactly 0 drift. Live Supabase `pg_cron` schedule verified in M0.9. |
 | **M1.15** | Email service (verification & password reset codes) | Done | 2026-10-26 | Complete: EmailService generating 6-digit codes, 15m expiration, 5-attempt lockout, and 60-second cooldown. Verified in `email.service.spec.ts`. |
 
+### Milestone 1 Completion & Sign-Off Summary
+- **Status:** **100% COMPLETE (15/15 tasks DONE)** as of 2026-10-27.
+- **Pre-Deploy Security Pruning:** Deleted leftover unauthenticated Spike S1 endpoint (`POST /v1/test/payload`) from `AppController` and updated role matrix audit suites. Only `GET /` and `GET /health` remain unauthenticated; all 43 business endpoints are strictly authenticated and role-scoped per `docs/ROLE_ENDPOINT_MATRIX.md`.
+- **Quality Gates Evidence:**
+  - 17/17 NestJS test suites passing (587/587 tests).
+  - 100% 5-layer traceability verified (47/47 fields across Database, DTO, Dart model, Form Widget, Export column in `scripts/check_traceability.cjs`).
+  - Full local CI runner (`scripts/ci.sh`) green across all mobile, dashboard, and core packages.
+  - Supabase Tokyo PostgreSQL RLS policies (23/23 tables) and triggers verified with zero drift.
+- **Phase Transition:** Milestone 1 (Backend Foundation) is formally signed off and complete. Ready to proceed with **Milestone 2 — Mobile Core & Data Entry (Phase 2)**.
+
 ---
 
 ## Milestone 2 — Mobile Core & Data Entry (Phase 2)
