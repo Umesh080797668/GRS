@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class LoginDto {
@@ -24,6 +24,7 @@ export class LoginDto {
     example: 'device-uuid-1234',
     required: false,
   })
+  @IsOptional()
   @IsString()
   deviceId?: string;
 }

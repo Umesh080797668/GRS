@@ -25,10 +25,30 @@ void main() {
 
     test('Cipher key validation rejects short keys (< 16 chars)', () async {
       expect(
-        () => AppDatabase.open(file: dbFile, cipherKey: 'short_key'),
+        () => AppDatabase.open(
+          file: dbFile,
+          cipherKey: 'short_key',
+          requireCipher: false,
+        ),
         throwsA(isA<InvalidDatabaseKeyException>()),
       );
     });
+
+    test(
+      'Startup security guard: PRAGMA cipher_version check refuses to open unencrypted database when SQLCipher is missing',
+      () async {
+        // Host SQLite lacks SQLCipher native binaries.
+        // Opening with requireCipher: true MUST fail closed and throw SqlCipherNotAvailableException.
+        expect(
+          () => AppDatabase.open(
+            file: dbFile,
+            cipherKey: correctKey,
+            requireCipher: true,
+          ),
+          throwsA(isA<SqlCipherNotAvailableException>()),
+        );
+      },
+    );
 
     test(
       'Opening an unreadable or non-decryptable file throws InvalidDatabaseKeyException (M2.4 Done When)',
@@ -41,8 +61,11 @@ void main() {
         );
 
         expect(
-          () async =>
-              await AppDatabase.open(file: encryptedFile, cipherKey: wrongKey),
+          () async => await AppDatabase.open(
+            file: encryptedFile,
+            cipherKey: wrongKey,
+            requireCipher: false,
+          ),
           throwsA(isA<InvalidDatabaseKeyException>()),
         );
       },
@@ -52,7 +75,11 @@ void main() {
       'Database lifecycle: open, populate, close and re-open (M2.4)',
       () async {
         // 1. Initialize and populate database with correct key
-        final db = await AppDatabase.open(file: dbFile, cipherKey: correctKey);
+        final db = await AppDatabase.open(
+          file: dbFile,
+          cipherKey: correctKey,
+          requireCipher: false,
+        );
 
         final household = Household(
           id: 'h-101',
@@ -82,6 +109,7 @@ void main() {
         final reOpenedDb = await AppDatabase.open(
           file: dbFile,
           cipherKey: correctKey,
+          requireCipher: false,
         );
         final retrievedRows = await reOpenedDb.getHouseholds();
         expect(retrievedRows.length, equals(1));
@@ -97,7 +125,11 @@ void main() {
     );
 
     test('Client survey CRUD and revision guard', () async {
-      final db = await AppDatabase.open(file: dbFile, cipherKey: correctKey);
+      final db = await AppDatabase.open(
+        file: dbFile,
+        cipherKey: correctKey,
+        requireCipher: false,
+      );
 
       final client = Client(
         id: 'c-001',
@@ -159,7 +191,11 @@ void main() {
     });
 
     test('Lookups storage and category query', () async {
-      final db = await AppDatabase.open(file: dbFile, cipherKey: correctKey);
+      final db = await AppDatabase.open(
+        file: dbFile,
+        cipherKey: correctKey,
+        requireCipher: false,
+      );
 
       final lookups = [
         const LookupValueModel(

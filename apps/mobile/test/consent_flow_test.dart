@@ -33,7 +33,11 @@ void main() {
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('consent_test_');
       dbFile = File('${tempDir.path}/consent.db');
-      db = await AppDatabase.open(file: dbFile, cipherKey: cipherKey);
+      db = await AppDatabase.open(
+        file: dbFile,
+        cipherKey: cipherKey,
+        requireCipher: false,
+      );
 
       await db.upsertHousehold(
         Household(

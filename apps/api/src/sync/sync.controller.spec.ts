@@ -6,6 +6,9 @@ import { LookupService } from '../lookups/lookup.service';
 import { UserRole } from '../common/scope/scope.types';
 import type { ScopeContext } from '../common/scope/scope.types';
 
+import { ScopeService } from '../common/scope/scope.service';
+import { ForbiddenException } from '@nestjs/common';
+
 describe('SyncController & SyncService (M2.7 Area Download)', () => {
   let controller: SyncController;
   let syncService: SyncService;
@@ -89,6 +92,7 @@ describe('SyncController & SyncService (M2.7 Area Download)', () => {
       controllers: [SyncController],
       providers: [
         SyncService,
+        ScopeService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: LookupService, useValue: mockLookupService },
       ],
@@ -131,5 +135,27 @@ describe('SyncController & SyncService (M2.7 Area Download)', () => {
     expect(result).toBeDefined();
     expect(result.items.length).toBe(1);
     expect(result.items[0].id).toBe('house-2');
+  });
+
+  it('FAILS CLOSED: throws ForbiddenException if user has no assigned team/scope', async () => {
+    const unassignedUser: ScopeContext = {
+      userId: 'user-rogue',
+      role: UserRole.team_member,
+      // No teamId, no gnId, no dsId, no districtId
+    };
+
+    await expect(
+      controller.downloadArea(unassignedUser, { limit: 500 }),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('FAILS CLOSED: throws ForbiddenException if user role is missing or unauthorized', async () => {
+    const rogueUser = {
+      userId: 'user-rogue',
+    } as any;
+
+    await expect(
+      controller.downloadArea(rogueUser, { limit: 500 }),
+    ).rejects.toThrow(ForbiddenException);
   });
 });

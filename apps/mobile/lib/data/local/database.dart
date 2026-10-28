@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:grs_core/grs_core.dart';
+import 'package:sqlite3/open.dart' as sqlite_open;
+import 'package:sqlcipher_flutter_libs/sqlcipher_flutter_libs.dart';
 
 class InvalidDatabaseKeyException implements Exception {
   final String message;
@@ -112,16 +114,50 @@ class MetaTable extends Table {
   String get tableName => 'meta';
 }
 
+/// Thrown when SQLCipher is required but unencrypted plain SQLite was detected.
+class SqlCipherNotAvailableException implements Exception {
+  final String message;
+  const SqlCipherNotAvailableException([
+    this.message =
+        'SQLCipher is not compiled/linked. PRAGMA cipher_version returned empty. Refusing to open unencrypted database.',
+  ]);
+
+  @override
+  String toString() => 'SqlCipherNotAvailableException: $message';
+}
+
 /// Offline-first encrypted SQLite database (Drift + SQLCipher).
 /// Stores households, client surveys, lookups, sync metadata per Build Plan §8.1.
 class AppDatabase {
   final QueryExecutor _executor;
   final String _cipherKey;
+  String? _cipherVersion;
 
   /// Returns the encryption key used to open this database.
   String get cipherKey => _cipherKey;
 
+  /// Returns the SQLCipher library version if encrypted, or null if plain SQLite.
+  String? get cipherVersion => _cipherVersion;
+
+  /// Whether this database instance is backed by verified native SQLCipher encryption.
+  bool get isEncrypted => _cipherVersion != null && _cipherVersion!.isNotEmpty;
+
   static const int currentSchemaVersion = 2;
+  static bool _sqlCipherInitialized = false;
+
+  /// Ensures SQLCipher native dynamic library binding is configured on Android
+  static void initSqlCipher() {
+    if (_sqlCipherInitialized) return;
+    if (Platform.isAndroid) {
+      try {
+        sqlite_open.open.overrideFor(
+          sqlite_open.OperatingSystem.android,
+          openCipherOnAndroid,
+        );
+      } catch (_) {}
+    }
+    _sqlCipherInitialized = true;
+  }
 
   AppDatabase._(this._executor, this._cipherKey);
 
@@ -129,7 +165,9 @@ class AppDatabase {
     required File file,
     required String cipherKey,
     int targetSchemaVersion = currentSchemaVersion,
+    bool requireCipher = true,
   }) async {
+    initSqlCipher();
     if (cipherKey.length < 16) {
       throw const InvalidDatabaseKeyException(
         'Cipher key must be at least 16 characters.',
@@ -148,17 +186,44 @@ class AppDatabase {
       await executor.ensureOpen(
         _AppDatabaseUser(targetVersion: targetSchemaVersion),
       );
+
+      // Startup check: Query PRAGMA cipher_version to verify SQLCipher linkage
+      final cipherVersionRows = await executor.runSelect(
+        'PRAGMA cipher_version;',
+        [],
+      );
+      final cipherVersion =
+          cipherVersionRows.isNotEmpty &&
+              cipherVersionRows.first.values.isNotEmpty
+          ? cipherVersionRows.first.values.first?.toString()
+          : null;
+
+      if (requireCipher &&
+          (cipherVersion == null || cipherVersion.trim().isEmpty)) {
+        await executor.close();
+        throw const SqlCipherNotAvailableException(
+          'SQLCipher is not compiled/linked. PRAGMA cipher_version returned empty. Refusing to open unencrypted database.',
+        );
+      }
+
+      db._cipherVersion = cipherVersion;
+
       await db._init(targetSchemaVersion: targetSchemaVersion);
       // Read verification to trigger SQLCipher key validation
       await executor.runSelect('SELECT count(*) FROM sqlite_master;', []);
-    } on SqliteException catch (e) {
-      await executor.close();
-      if (e.resultCode == 26 ||
-          e.extendedResultCode == 26 ||
-          e.message.toLowerCase().contains('not a database') ||
-          e.message.toLowerCase().contains('file is encrypted')) {
+    } catch (e) {
+      try {
+        await executor.close();
+      } catch (_) {}
+      final errStr = e.toString().toLowerCase();
+      if (e is SqliteException ||
+          e is InvalidDatabaseKeyException ||
+          errStr.contains('not a database') ||
+          errStr.contains('file is encrypted') ||
+          errStr.contains('file is not a database') ||
+          errStr.contains('code 26')) {
         throw InvalidDatabaseKeyException(
-          'Database encryption key mismatch or invalid cipher. Access safely denied: ${e.message}',
+          'Database encryption key mismatch or invalid cipher. Access safely denied: $e',
         );
       }
       rethrow;
@@ -170,6 +235,7 @@ class AppDatabase {
     required String cipherKey,
     int targetSchemaVersion = currentSchemaVersion,
   }) async {
+    initSqlCipher();
     if (cipherKey.length < 16) {
       throw const InvalidDatabaseKeyException(
         'Cipher key must be at least 16 characters.',

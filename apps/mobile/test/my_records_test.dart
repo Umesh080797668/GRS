@@ -32,7 +32,11 @@ void main() {
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('my_records_test_');
       dbFile = File('${tempDir.path}/records.db');
-      db = await AppDatabase.open(file: dbFile, cipherKey: cipherKey);
+      db = await AppDatabase.open(
+        file: dbFile,
+        cipherKey: cipherKey,
+        requireCipher: false,
+      );
 
       final now = DateTime.now();
 

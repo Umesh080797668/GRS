@@ -43,7 +43,11 @@ void main() {
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('area_download_test_');
       dbFile = File('${tempDir.path}/test_area.db');
-      db = await AppDatabase.open(file: dbFile, cipherKey: cipherKey);
+      db = await AppDatabase.open(
+        file: dbFile,
+        cipherKey: cipherKey,
+        requireCipher: false,
+      );
     });
 
     tearDown(() async {

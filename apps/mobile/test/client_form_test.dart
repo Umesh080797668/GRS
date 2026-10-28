@@ -32,7 +32,11 @@ void main() {
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('client_form_test_');
       dbFile = File('${tempDir.path}/client_form.db');
-      db = await AppDatabase.open(file: dbFile, cipherKey: cipherKey);
+      db = await AppDatabase.open(
+        file: dbFile,
+        cipherKey: cipherKey,
+        requireCipher: false,
+      );
 
       await db.upsertHousehold(
         Household(

@@ -30,6 +30,7 @@ void main() {
           file: dbFile,
           cipherKey: cipherKey,
           targetSchemaVersion: 1,
+          requireCipher: false,
         );
 
         final v1Version = await dbV1.getSchemaVersion();
@@ -81,6 +82,7 @@ void main() {
           file: dbFile,
           cipherKey: cipherKey,
           targetSchemaVersion: 2,
+          requireCipher: false,
         );
 
         final v2Version = await dbV2.getSchemaVersion();

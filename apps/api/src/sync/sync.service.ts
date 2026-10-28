@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LookupService } from '../lookups/lookup.service';
+import { ScopeService } from '../common/scope/scope.service';
 import type { ScopeContext } from '../common/scope/scope.types';
 
 export interface AreaSyncResult {
@@ -18,29 +19,31 @@ export class SyncService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly lookupService: LookupService,
+    private readonly scopeService: ScopeService,
   ) { }
 
   /**
    * Paged, resumable area download endpoint per DD-Campaign_Agent_Build_Plan.md §6.2.
-   * Returns up to limit (≤ 500) households scoped to the user's assigned area/team.
+   * Returns up to limit (≤ 500) households scoped strictly to the user's assigned area/team
+   * using ScopeService. Fails closed if the caller lacks assigned scope or role permissions.
    */
   async getAreaData(
     user: ScopeContext,
     cursor?: string,
     limit: number = 500,
   ): Promise<AreaSyncResult> {
-    const take = Math.min(Math.max(1, limit), 500);
-
-    const where: any = { deletedAt: null };
-    if (user.teamId) {
-      where.teamId = user.teamId;
-    } else if (user.gnId) {
-      where.gnId = user.gnId;
-    } else if (user.dsId) {
-      where.dsId = user.dsId;
-    } else if (user.districtId) {
-      where.districtId = user.districtId;
+    if (!user || !user.role) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_SCOPE',
+        message_key: 'errors.scope.missing_role',
+      });
     }
+
+    // Strict fail-closed scoping via canonical ScopeService:
+    // team_member / cdc_secretary must have teamId, or ForbiddenException is thrown.
+    const where = this.scopeService.getHouseholdScopeFilter(user);
+
+    const take = Math.min(Math.max(1, limit), 500);
 
     const queryArgs: any = {
       where,

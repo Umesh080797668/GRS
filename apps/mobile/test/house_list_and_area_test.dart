@@ -19,7 +19,11 @@ void main() {
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('house_scroll_test_');
       dbFile = File('${tempDir.path}/test_2000.db');
-      db = await AppDatabase.open(file: dbFile, cipherKey: cipherKey);
+      db = await AppDatabase.open(
+        file: dbFile,
+        cipherKey: cipherKey,
+        requireCipher: false,
+      );
     });
 
     tearDown(() async {
