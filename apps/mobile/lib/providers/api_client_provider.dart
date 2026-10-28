@@ -1,12 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grs_core/grs_core.dart';
+import '../config/env.dart';
+
+export '../config/env.dart';
 
 final apiBaseUrlProvider = StateProvider<String>((ref) {
-  // Configurable base URL (default local or staging)
-  return const String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://localhost:3000',
-  );
+  return AppEnv.defaultApiBaseUrl;
 });
 
 final apiClientProvider = Provider<GrsApiClient>((ref) {

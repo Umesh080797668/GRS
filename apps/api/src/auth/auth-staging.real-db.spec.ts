@@ -1,11 +1,18 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
+dotenv.config({ path: '.env.local' });
 import { PrismaClient } from '@prisma/client';
 import * as argon2 from '@node-rs/argon2';
 import * as crypto from 'crypto';
+import express from 'express';
+import { INestApplication } from '@nestjs/common';
+import { createNestServer } from '../main';
 
 describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
   jest.setTimeout(60000);
   let prisma: PrismaClient;
-  const baseUrl = 'http://localhost:3000';
+  let nestApp: INestApplication | null = null;
+  let baseUrl = 'http://localhost:3000';
 
   const testUserId = '00000000-0000-0000-0000-000000000099';
   const testUserCode = 'GRS9999999099';
@@ -17,6 +24,21 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
   beforeAll(async () => {
     prisma = new PrismaClient();
     await prisma.$connect();
+
+    // Check if external server is running, or start embedded instance
+    try {
+      const probe = await fetch('http://localhost:3000/health');
+      if (probe.ok) {
+        baseUrl = 'http://localhost:3000';
+      } else {
+        throw new Error('Not running');
+      }
+    } catch (_) {
+      const server = express();
+      nestApp = await createNestServer(server);
+      await nestApp.listen(0);
+      baseUrl = await nestApp.getUrl();
+    }
 
     // Clean up any stale records from previous runs
     await cleanTestData();
@@ -49,6 +71,9 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
   afterAll(async () => {
     await cleanTestData();
     await prisma.$disconnect();
+    if (nestApp) {
+      await nestApp.close();
+    }
   });
 
   async function cleanTestData() {

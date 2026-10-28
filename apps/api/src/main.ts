@@ -84,7 +84,7 @@ async function bootstrap() {
   console.log(`GRS API server running on port ${port}`);
 }
 
-if (!process.env.VERCEL) {
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'test' && require.main === module) {
   bootstrap();
 }
 

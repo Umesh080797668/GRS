@@ -13,6 +13,7 @@ class SecureStorageService {
   static const String _keyRefreshToken = 'grs_refresh_token';
   static const String _keyActiveProfile = 'grs_active_profile';
   static const String _keyPreferredLanguage = 'grs_pref_lang';
+  static const String _keyApiBaseUrl = 'grs_api_base_url';
 
   SecureStorageService({FlutterSecureStorage? storage})
     : _storage = storage ?? const FlutterSecureStorage();
@@ -77,6 +78,14 @@ class SecureStorageService {
   Future<String> getPreferredLanguage() async {
     final lang = await _storage.read(key: _keyPreferredLanguage);
     return (lang == 'si' || lang == 'ta' || lang == 'en') ? lang! : 'en';
+  }
+
+  Future<void> saveApiBaseUrl(String url) async {
+    await _storage.write(key: _keyApiBaseUrl, value: url);
+  }
+
+  Future<String?> getApiBaseUrl() async {
+    return await _storage.read(key: _keyApiBaseUrl);
   }
 
   /// Wipes all sensitive keys on user switch (Invariant 8.2 #7)

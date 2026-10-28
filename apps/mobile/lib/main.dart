@@ -3,7 +3,9 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grs_ui/grs_ui.dart';
 import 'l10n/l10n.dart';
+import 'providers/api_client_provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/database_provider.dart';
 import 'router/app_router.dart';
 
 void main() {
@@ -22,8 +24,12 @@ class _GrsMobileAppState extends ConsumerState<GrsMobileApp> {
   @override
   void initState() {
     super.initState();
-    // Cold Start session check (M2.6)
-    Future.microtask(() {
+    // Cold Start session check & saved server URL restore (M2.6)
+    Future.microtask(() async {
+      final savedUrl = await ref.read(secureStorageProvider).getApiBaseUrl();
+      if (savedUrl != null && savedUrl.trim().isNotEmpty) {
+        ref.read(apiBaseUrlProvider.notifier).state = savedUrl.trim();
+      }
       ref.read(authProvider.notifier).checkColdStart();
     });
   }
