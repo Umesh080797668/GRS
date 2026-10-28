@@ -62,6 +62,9 @@ jobs:
             fi
           done
 
+      - name: Verify Trilingual l10n Key Parity (M2.3)
+        run: (cd apps/mobile && flutter test test/l10n_test.dart)
+
   security-checks:
     name: Security & Permissions Verification
     runs-on: ubuntu-latest

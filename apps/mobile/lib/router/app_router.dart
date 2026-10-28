@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../screens/auth/add_email_screen.dart';
 import '../screens/auth/change_password_screen.dart';
+import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/client/client_form_screen.dart';
 import '../screens/client/consent_screen.dart';
@@ -42,12 +43,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         return location == '/add-email' ? null : '/add-email';
       }
 
-      final isLoggingIn = location == '/login';
+      final isAuthRoute =
+          location == '/login' || location == '/forgot-password';
       if (status == AuthStatus.unauthenticated) {
-        return isLoggingIn ? null : '/login';
+        return isAuthRoute ? null : '/login';
       }
 
-      if (status == AuthStatus.authenticated && isLoggingIn) {
+      if (status == AuthStatus.authenticated && isAuthRoute) {
         return '/home';
       }
 
@@ -55,6 +57,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
       GoRoute(
         path: '/change-password',
         builder: (context, state) => const ChangePasswordScreen(),

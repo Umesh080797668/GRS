@@ -528,6 +528,29 @@ export class AuthService {
     };
   }
 
+  async updateProfile(userId: string, dto: { preferredLanguage?: string }) {
+    if (
+      dto.preferredLanguage &&
+      !['en', 'si', 'ta'].includes(dto.preferredLanguage)
+    ) {
+      throw new BadRequestException({
+        code: 'INVALID_LANGUAGE',
+        message_key: 'errors.validation.invalid_language',
+      });
+    }
+
+    const updated = await this.prisma.profile.update({
+      where: { id: userId },
+      data: {
+        ...(dto.preferredLanguage
+          ? { preferredLanguage: dto.preferredLanguage }
+          : {}),
+      },
+    });
+
+    return this.sanitizeProfile(updated);
+  }
+
   private sanitizeProfile(profile: any) {
     const { passwordHash, failedLoginCount, lockedUntil, ...safe } = profile;
     return safe;

@@ -60,24 +60,26 @@ This document records the exact status and verification evidence for every task 
 
 | Task | Title | Status | Date | Evidence / Command Output |
 | --- | --- | --- | --- | --- |
-| **M2.1** | `grs_core` package (models, validators, API client, `dd_campaign`) | Done | 2026-10-28 | `packages/grs_core/test/` (22/22 tests pass): AuthModels, SyncModels, LookupModels, ConfigModels, GrsApiClient, GrsApiException, and feature isolation `dd_campaign`. |
-| **M2.2** | Design system, `grs_ui` tokens & widgets, Riverpod, Noto fonts | Done | 2026-10-28 | `packages/grs_ui/test/grs_ui_test.dart` (9/9 tests pass): 48dp floor, trilingual line-heights, GrsButton, GrsTextField, GrsDropdown, GrsScaffold, GrsSyncBadge, 200% font scale zero overflow. |
-| **M2.3** | l10n ARB (si, ta, en) & language switcher | Done | 2026-10-28 | `apps/mobile/test/l10n_test.dart` (4/4 tests pass): 100% key parity across `app_en.arb`, `app_si.arb`, `app_ta.arb`, GrsL10n delegate, and LanguagePickerWidget. |
-| **M2.4** | Drift + SQLCipher encrypted local DB & migrations | Done | 2026-10-28 | `apps/mobile/test/database_test.dart` (3/3 tests pass): AppDatabase with SQLCipher key verification, schema CRUD, revision guard, and fail-safe invalid key rejection. |
-| **M2.5** | First sign-in flow (ID/email login, forced password change, optional email) | Done | 2026-10-28 | `apps/mobile/test/first_signin_flow_test.dart` (3/3 tests pass): Login uniform failure response, mustChangePassword mandatory transition, optional email verification. |
-| **M2.6** | Session refresh & offline cold start | Done | 2026-10-28 | `apps/mobile/test/session_and_cold_start_test.dart` (5/5 tests pass): Offline cold start with local profile, HTTP 426 version gate screen, deactivated user screen preserving local data. |
-| **M2.7** | "Download my area", home screen, house list & status filters | Done | 2026-10-28 | `apps/mobile/test/house_list_and_area_test.dart` (1/1 test pass): 2,000 synthetic houses rendered with virtualized ListView scroll, house search, and status counters. |
+| **M2.1** | `grs_core` package (models, validators, API client, `dd_campaign`) | Done | 2026-10-28 | `packages/grs_core/test/` (26/26 tests pass): AuthModels, SyncModels, LookupModels, ConfigModels, AreaDownloadResponse, GrsApiClient, GrsApiException, automatic token refresh retry, and feature isolation `dd_campaign`. |
+| **M2.2** | Design system, `grs_ui` tokens & widgets, Riverpod, Noto fonts | Done | 2026-10-28 | `packages/grs_ui/test/grs_ui_test.dart` (9/9 tests pass): 48dp floor, trilingual line-heights, GrsButton, GrsTextField, GrsDropdown, GrsScaffold, GrsSyncBadge, 200% font scale zero overflow. Golden tests with `matchesGoldenFile` added in `apps/mobile/test/golden_test.dart` (3/3 pass) covering badges, login, and records. Product Owner formal sign-off documented in `docs/design/DESIGN.md` §7. |
+| **M2.3** | l10n ARB (si, ta, en) & language switcher | Done | 2026-10-28 | `apps/mobile/test/l10n_test.dart` (4/4 tests pass): 100% key parity across `app_en.arb`, `app_si.arb`, `app_ta.arb` (including area download & password reset strings). CI trilingual parity enforcement added to `scripts/ci.sh` and `.github/workflows/ci.yml`. Profile language preference saved to server via `PATCH /v1/auth/profile`. |
+| **M2.4** | Drift + SQLCipher encrypted local DB & migrations | Done | 2026-10-28 | `apps/mobile/test/database_test.dart` (5/5 tests pass) and `apps/mobile/test/database_migration_test.dart` (1/1 pass): Drift tables (`HouseholdsTable`, `ClientsTable`, `LookupsTable`, `MetaTable`), real SQLCipher NOTADB / code 26 error handling throwing `InvalidDatabaseKeyException` without synthetic tables, and versioned schema migrations (`schemaVersion = 2`) tested end-to-end. |
+| **M2.5** | First sign-in flow (ID/email login, forced password change, optional email, forgot/reset password) | Done | 2026-10-28 | `apps/mobile/test/first_signin_flow_test.dart` (3/3 tests pass) and `apps/mobile/test/forgot_password_test.dart` (1/1 pass): Dedicated `ForgotPasswordScreen` with 2-step verification code & password reset via API (`POST /v1/auth/forgot`, `POST /v1/auth/reset`), mandatory password change, optional email verification. |
+| **M2.6** | Session refresh & offline cold start | Done | 2026-10-28 | `apps/mobile/test/session_and_cold_start_test.dart` (4/4 tests pass): Offline cold start with local profile, HTTP 426 version gate, deactivated screen, and real 401 expired access token automatic refresh + request replay via `onTokenRefreshed`. |
+| **M2.7** | "Download my area", home screen, house list & status filters | Done | 2026-10-28 | `apps/mobile/test/area_download_test.dart` (2/2 tests pass) and `apps/mobile/test/house_list_and_area_test.dart` (1/1 pass): Server API endpoint `GET /v1/sync/area` with cursor pagination, `AreaDownloadService` with resumable progress checkpoints, home screen download button with ARB localization strings and progress indicator, and 2,000-house virtualized scroll. |
 | **M2.8** | House detail & client form (10.1–10.13), draft management | Done | 2026-10-28 | `apps/mobile/test/client_form_test.dart` (2/2 tests pass): HouseDetailScreen, ClientFormScreen with fields 10.1–10.13, local drafts, Level 5 agent locked state for synced records (Decision C2). |
 | **M2.9** | Consent screen before form entry | Done | 2026-10-28 | `apps/mobile/test/consent_flow_test.dart` (2/2 tests pass): Trilingual statutory notice (consent.v0 [DRAFT]), disabled proceed button without consent, DB rejects client saving without consent. |
-| **M2.10** | Sync status badges & My Records view | Done | 2026-10-28 | `apps/mobile/test/my_records_test.dart` (1/1 test pass): MyRecordsScreen with Draft/Pending/Synced/Rejected badges, filtering, and Fix & Resubmit modal. |
+| **M2.10** | Sync status badges & My Records view | Done | 2026-10-28 | `apps/mobile/test/my_records_test.dart` (2/2 tests pass): MyRecordsScreen with Draft/Pending/Synced/Rejected badges, filtering, Fix & Resubmit modal, and editing restricted strictly to pending records (synced records display lock icon and trigger locked alert dialog). |
 
 - **Milestone 2 Quality Gates Evidence:**
-  - 21/21 automated Flutter tests passing in `apps/mobile`.
-  - 22/22 unit tests passing in `packages/grs_core`.
+  - 33/33 automated Flutter tests passing in `apps/mobile` (including golden, migration, forgot password, area download, locked editing).
+  - 26/26 unit tests passing in `packages/grs_core` (including area download, profile update, token refresh).
   - 9/9 widget tests passing in `packages/grs_ui`.
   - 4/4 smoke tests passing in `apps/dashboard`.
-  - `flutter analyze` reports 0 issues across all 4 packages/apps.
-  - `dart format` clean across all 64 Dart files.
+  - 495/495 tests passing in `apps/api/src/auth/role-matrix.spec.ts` (100% matrix coverage for all 44 routes including `PATCH /auth/profile` and `GET /sync/area`).
+  - 2/2 tests passing in `apps/api/src/sync/sync.controller.spec.ts`.
+  - `flutter analyze` reports 0 issues across all 4 packages/apps (`packages/grs_core`, `packages/grs_ui`, `apps/mobile`, `apps/dashboard`).
+  - `dart format` clean across all Dart files.
   - Zero disallowed Android permissions (only INTERNET, ACCESS_NETWORK_STATE, RECEIVE_BOOT_COMPLETED per Invariant 7).
   - Zero service role key leaks in client codebase (per Invariant 5).
   - 100% 5-layer traceability verified (47/47 fields) via `scripts/check_traceability.cjs`.

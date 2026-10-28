@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:grs_ui/grs_ui.dart';
 import '../../l10n/l10n.dart';
 import '../../providers/auth_provider.dart';
@@ -29,53 +30,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           .read(authProvider.notifier)
           .login(_idController.text.trim(), _passwordController.text);
     }
-  }
-
-  void _showForgotPasswordDialog() {
-    final emailController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Forgot Password / මුරපදය අමතකද?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'If you registered a verified email, enter it below. '
-              'Otherwise, please contact your Level 4 Team Leader or Level 00 Admin to reissue your credentials.',
-              style: TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            GrsTextField(
-              controller: emailController,
-              label: 'Verified Email',
-              hint: 'name@example.com',
-              keyboardType: TextInputType.emailAddress,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'If this email is verified, instructions have been sent.',
-                  ),
-                ),
-              );
-            },
-            child: const Text('Send Reset Instructions'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -196,7 +150,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 16),
 
                   TextButton(
-                    onPressed: _showForgotPasswordDialog,
+                    onPressed: () => context.push('/forgot-password'),
                     child: Text(
                       l10n.get('forgotPasswordTitle'),
                       style: const TextStyle(

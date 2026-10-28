@@ -1,3 +1,5 @@
+import 'household.dart';
+
 /// Sync domain models per DD-Campaign_Agent_Build_Plan.md §6.2 and §8.3.
 enum SyncStatus { draft, pending, synced, failed, rejected }
 
@@ -146,5 +148,43 @@ class SyncPushResponse {
 
   Map<String, dynamic> toJson() => {
     'results': results.map((r) => r.toJson()).toList(),
+  };
+}
+
+/// Area data payload returned by GET /sync/area
+class AreaDownloadResponse {
+  final List<Household> items;
+  final String? nextCursor;
+  final bool hasMore;
+  final int total;
+  final Map<String, dynamic>? lookups;
+
+  const AreaDownloadResponse({
+    required this.items,
+    this.nextCursor,
+    required this.hasMore,
+    required this.total,
+    this.lookups,
+  });
+
+  factory AreaDownloadResponse.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'] as List<dynamic>? ?? [];
+    return AreaDownloadResponse(
+      items: rawItems
+          .map((i) => Household.fromJson(i as Map<String, dynamic>))
+          .toList(),
+      nextCursor: json['nextCursor'] as String?,
+      hasMore: json['hasMore'] as bool? ?? false,
+      total: json['total'] as int? ?? rawItems.length,
+      lookups: json['lookups'] as Map<String, dynamic>?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'items': items.map((h) => h.toJson()).toList(),
+    'nextCursor': nextCursor,
+    'hasMore': hasMore,
+    'total': total,
+    'lookups': lookups,
   };
 }

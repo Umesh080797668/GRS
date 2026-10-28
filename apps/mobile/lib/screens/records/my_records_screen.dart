@@ -130,7 +130,13 @@ class _MyRecordsScreenState extends ConsumerState<MyRecordsScreen> {
                                 ),
                                 trailing: _buildBadge(status, l10n),
                                 onTap: () {
-                                  if (status == 'rejected') {
+                                  if (status == 'synced') {
+                                    _showSyncedLockedDialog(
+                                      context,
+                                      id,
+                                      houseId,
+                                    );
+                                  } else if (status == 'rejected') {
                                     _showRejectedDialog(
                                       context,
                                       id,
@@ -138,6 +144,7 @@ class _MyRecordsScreenState extends ConsumerState<MyRecordsScreen> {
                                       lastError,
                                     );
                                   } else {
+                                    // Pending or draft record: permitted to edit
                                     context.push('/houses/$houseId/client/$id');
                                   }
                                 },
@@ -190,6 +197,41 @@ class _MyRecordsScreenState extends ConsumerState<MyRecordsScreen> {
     );
   }
 
+  void _showSyncedLockedDialog(
+    BuildContext context,
+    String clientId,
+    String houseId,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.lock_outline, color: GrsColors.primaryLight),
+            SizedBox(width: 8),
+            Text('Record Locked'),
+          ],
+        ),
+        content: const Text(
+          'This record has already been synced to the central server and is locked against further editing.\n\nEditing is only permitted for records that are still pending sync.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              context.push('/houses/$houseId/client/$clientId');
+            },
+            child: const Text('View Read-Only'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFilterChip(String filterId, String label) {
     final isSelected = _selectedFilter == filterId;
     return ChoiceChip(
@@ -204,14 +246,36 @@ class _MyRecordsScreenState extends ConsumerState<MyRecordsScreen> {
   Widget _buildBadge(String status, GrsL10n l10n) {
     switch (status) {
       case 'synced':
-        return GrsSyncBadge(
-          status: GrsSyncStatus.synced,
-          label: l10n.get('statusSynced'),
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.lock_outline,
+              size: 16,
+              color: GrsColors.syncSynced,
+            ),
+            const SizedBox(width: 4),
+            GrsSyncBadge(
+              status: GrsSyncStatus.synced,
+              label: l10n.get('statusSynced'),
+            ),
+          ],
         );
       case 'pending':
-        return GrsSyncBadge(
-          status: GrsSyncStatus.pending,
-          label: l10n.get('statusPending'),
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.edit_outlined,
+              size: 16,
+              color: GrsColors.syncPending,
+            ),
+            const SizedBox(width: 4),
+            GrsSyncBadge(
+              status: GrsSyncStatus.pending,
+              label: l10n.get('statusPending'),
+            ),
+          ],
         );
       case 'rejected':
         return GrsSyncBadge(

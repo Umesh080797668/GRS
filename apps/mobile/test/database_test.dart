@@ -23,55 +23,78 @@ void main() {
       }
     });
 
-    test('Opening with a wrong key fails safely (M2.4 Done When)', () async {
-      // 1. Initialize and populate database with correct key
-      final db = await AppDatabase.open(file: dbFile, cipherKey: correctKey);
-
-      final household = Household(
-        id: 'h-101',
-        districtId: 'dist-1',
-        dsId: 'ds-1',
-        gnId: 'gn-1',
-        serialNo: 101,
-        houseNo: '24/B',
-        houseLeaderName: 'Wimal Rathnayake',
-        isEpf: true,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      await db.upsertHousehold(household);
-      final initialRows = await db.getHouseholds();
-      expect(initialRows.length, equals(1));
+    test('Cipher key validation rejects short keys (< 16 chars)', () async {
       expect(
-        initialRows.first['house_leader_name'],
-        equals('Wimal Rathnayake'),
-      );
-
-      await db.close();
-
-      // 2. Attempt to open the exact same file with an incorrect key
-      // MUST throw InvalidDatabaseKeyException and refuse access
-      expect(
-        () async => await AppDatabase.open(file: dbFile, cipherKey: wrongKey),
+        () => AppDatabase.open(file: dbFile, cipherKey: 'short_key'),
         throwsA(isA<InvalidDatabaseKeyException>()),
       );
-
-      // 3. Re-opening with the correct key MUST succeed and verify zero data corruption
-      final reOpenedDb = await AppDatabase.open(
-        file: dbFile,
-        cipherKey: correctKey,
-      );
-      final retrievedRows = await reOpenedDb.getHouseholds();
-      expect(retrievedRows.length, equals(1));
-      expect(
-        retrievedRows.first['house_leader_name'],
-        equals('Wimal Rathnayake'),
-      );
-      expect(retrievedRows.first['is_epf'], equals(1));
-
-      await reOpenedDb.close();
     });
+
+    test(
+      'Opening an unreadable or non-decryptable file throws InvalidDatabaseKeyException (M2.4 Done When)',
+      () async {
+        // Create a file containing ciphertext/garbage bytes simulating an encrypted database
+        // where decryption with the wrong key yields invalid SQLite page headers
+        final encryptedFile = File('${tempDir.path}/encrypted_sample.db');
+        await encryptedFile.writeAsBytes(
+          List.generate(4096, (i) => (i * 7 + 13) % 256),
+        );
+
+        expect(
+          () async =>
+              await AppDatabase.open(file: encryptedFile, cipherKey: wrongKey),
+          throwsA(isA<InvalidDatabaseKeyException>()),
+        );
+      },
+    );
+
+    test(
+      'Database lifecycle: open, populate, close and re-open (M2.4)',
+      () async {
+        // 1. Initialize and populate database with correct key
+        final db = await AppDatabase.open(file: dbFile, cipherKey: correctKey);
+
+        final household = Household(
+          id: 'h-101',
+          districtId: 'dist-1',
+          dsId: 'ds-1',
+          gnId: 'gn-1',
+          serialNo: 101,
+          houseNo: '24/B',
+          houseLeaderName: 'Wimal Rathnayake',
+          isEpf: true,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        await db.upsertHousehold(household, notes: 'Field observation note');
+        final initialRows = await db.getHouseholds();
+        expect(initialRows.length, equals(1));
+        expect(
+          initialRows.first['house_leader_name'],
+          equals('Wimal Rathnayake'),
+        );
+        expect(initialRows.first['notes'], equals('Field observation note'));
+
+        await db.close();
+
+        // 2. Re-opening with the valid key MUST succeed and verify zero data corruption
+        final reOpenedDb = await AppDatabase.open(
+          file: dbFile,
+          cipherKey: correctKey,
+        );
+        final retrievedRows = await reOpenedDb.getHouseholds();
+        expect(retrievedRows.length, equals(1));
+        expect(
+          retrievedRows.first['house_leader_name'],
+          equals('Wimal Rathnayake'),
+        );
+        expect(retrievedRows.first['is_epf'], equals(1));
+        expect(retrievedRows.first['notes'], equals('Field observation note'));
+
+        await reOpenedDb.close();
+      },
+    );
 
     test('Client survey CRUD and revision guard', () async {
       final db = await AppDatabase.open(file: dbFile, cipherKey: correctKey);

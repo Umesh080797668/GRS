@@ -14,6 +14,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { VersionGateGuard } from './config/version-gate.guard';
 import { ReleasesModule } from './releases/releases.module';
 import { JobsModule } from './jobs/jobs.module';
+import { SyncModule } from './sync/sync.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { JobsModule } from './jobs/jobs.module';
     EmailModule,
     JobsModule,
     ReleasesModule,
+    SyncModule,
   ],
   controllers: [AppController],
   providers: [

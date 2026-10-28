@@ -12,17 +12,123 @@ class InvalidDatabaseKeyException implements Exception {
   String toString() => 'InvalidDatabaseKeyException: $message';
 }
 
+// --- DRIFT TABLE DEFINITIONS (M2.4) ---
+
+class HouseholdsTable extends Table {
+  TextColumn get id => text()();
+  TextColumn get districtId => text().nullable()();
+  TextColumn get dsId => text().nullable()();
+  TextColumn get gnId => text().nullable()();
+  TextColumn get teamId => text().nullable()();
+  IntColumn get serialNo => integer()();
+  TextColumn get houseNo => text()();
+  TextColumn get houseLeaderName => text()();
+  TextColumn get villageName => text().nullable()();
+  TextColumn get address => text().nullable()();
+  IntColumn get isEpf => integer().withDefault(const Constant(0))();
+  IntColumn get isEtf => integer().withDefault(const Constant(0))();
+  IntColumn get isAswesuma => integer().withDefault(const Constant(0))();
+  IntColumn get isSamurdhi => integer().withDefault(const Constant(0))();
+  IntColumn get hasSpecialNeeds => integer().withDefault(const Constant(0))();
+  IntColumn get targetFemale => integer().nullable()();
+  IntColumn get targetMale => integer().nullable()();
+  IntColumn get ageGroupMin => integer().nullable()();
+  IntColumn get ageGroupMax => integer().nullable()();
+  IntColumn get langSinhala => integer().withDefault(const Constant(0))();
+  IntColumn get langTamil => integer().withDefault(const Constant(0))();
+  IntColumn get langEnglish => integer().withDefault(const Constant(0))();
+  TextColumn get status => text().withDefault(const Constant('not_started'))();
+  TextColumn get updatedAt => text()();
+  TextColumn get notes => text().nullable()(); // Added in schema version 2
+
+  @override
+  Set<Column> get primaryKey => {id};
+  @override
+  String get tableName => 'households';
+}
+
+class ClientsTable extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text()();
+  TextColumn get name => text()();
+  IntColumn get age => integer()();
+  TextColumn get gender => text()();
+  TextColumn get address => text().nullable()();
+  TextColumn get phoneRaw => text().nullable()();
+  TextColumn get phoneE164 => text().nullable()();
+  TextColumn get whatsappRaw => text().nullable()();
+  TextColumn get whatsappE164 => text().nullable()();
+  TextColumn get highestEducation => text().nullable()();
+  TextColumn get highestVocational => text().nullable()();
+  TextColumn get interestedVocationalStream => text().nullable()();
+  TextColumn get interestedJob => text().nullable()();
+  IntColumn get isEpf => integer().withDefault(const Constant(0))();
+  IntColumn get isEtf => integer().withDefault(const Constant(0))();
+  IntColumn get isAswesuma => integer().withDefault(const Constant(0))();
+  IntColumn get isSamurdhi => integer().withDefault(const Constant(0))();
+  IntColumn get hasSpecialNeeds => integer().withDefault(const Constant(0))();
+  TextColumn get futureHopes => text().withDefault(const Constant('[]'))();
+  TextColumn get infoProvidedBy => text()();
+  TextColumn get infoProvidedByOther => text().nullable()();
+  IntColumn get consentGiven => integer()();
+  TextColumn get consentAt => text().nullable()();
+  TextColumn get consentVersion => text()();
+  TextColumn get syncStatus => text().withDefault(const Constant('draft'))();
+  IntColumn get localRevision => integer().withDefault(const Constant(1))();
+  IntColumn get baseVersion => integer().withDefault(const Constant(0))();
+  IntColumn get retryCount => integer().withDefault(const Constant(0))();
+  TextColumn get lastErrorCode => text().nullable()();
+  TextColumn get clientUpdatedAt => text()();
+  TextColumn get createdAt => text()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+  @override
+  String get tableName => 'clients';
+}
+
+class LookupsTable extends Table {
+  TextColumn get category => text()();
+  TextColumn get code => text()();
+  TextColumn get labelEn => text()();
+  TextColumn get labelSi => text()();
+  TextColumn get labelTa => text()();
+  IntColumn get sort => integer().withDefault(const Constant(0))();
+  IntColumn get isActive => integer().withDefault(const Constant(1))();
+
+  @override
+  Set<Column> get primaryKey => {category, code};
+  @override
+  String get tableName => 'lookups';
+}
+
+class MetaTable extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+
+  @override
+  Set<Column> get primaryKey => {key};
+  @override
+  String get tableName => 'meta';
+}
+
 /// Offline-first encrypted SQLite database (Drift + SQLCipher).
 /// Stores households, client surveys, lookups, sync metadata per Build Plan §8.1.
 class AppDatabase {
   final QueryExecutor _executor;
   final String _cipherKey;
 
+  /// Returns the encryption key used to open this database.
+  String get cipherKey => _cipherKey;
+
+  static const int currentSchemaVersion = 2;
+
   AppDatabase._(this._executor, this._cipherKey);
 
   static Future<AppDatabase> open({
     required File file,
     required String cipherKey,
+    int targetSchemaVersion = currentSchemaVersion,
   }) async {
     if (cipherKey.length < 16) {
       throw const InvalidDatabaseKeyException(
@@ -38,11 +144,32 @@ class AppDatabase {
     );
 
     final db = AppDatabase._(executor, cipherKey);
-    await db._init();
+    try {
+      await executor.ensureOpen(
+        _AppDatabaseUser(targetVersion: targetSchemaVersion),
+      );
+      await db._init(targetSchemaVersion: targetSchemaVersion);
+      // Read verification to trigger SQLCipher key validation
+      await executor.runSelect('SELECT count(*) FROM sqlite_master;', []);
+    } on SqliteException catch (e) {
+      await executor.close();
+      if (e.resultCode == 26 ||
+          e.extendedResultCode == 26 ||
+          e.message.toLowerCase().contains('not a database') ||
+          e.message.toLowerCase().contains('file is encrypted')) {
+        throw InvalidDatabaseKeyException(
+          'Database encryption key mismatch or invalid cipher. Access safely denied: ${e.message}',
+        );
+      }
+      rethrow;
+    }
     return db;
   }
 
-  static AppDatabase openInMemory({required String cipherKey}) {
+  static Future<AppDatabase> openInMemory({
+    required String cipherKey,
+    int targetSchemaVersion = currentSchemaVersion,
+  }) async {
     if (cipherKey.length < 16) {
       throw const InvalidDatabaseKeyException(
         'Cipher key must be at least 16 characters.',
@@ -53,13 +180,38 @@ class AppDatabase {
         rawDb.execute("PRAGMA key = '$cipherKey';");
       },
     );
-    return AppDatabase._(executor, cipherKey);
+    final db = AppDatabase._(executor, cipherKey);
+    await executor.ensureOpen(
+      _AppDatabaseUser(targetVersion: targetSchemaVersion),
+    );
+    await db._init(targetSchemaVersion: targetSchemaVersion);
+    return db;
   }
 
-  Future<void> _init() async {
-    await _executor.ensureOpen(_DriftUser());
+  Future<void> _init({int targetSchemaVersion = currentSchemaVersion}) async {
+    final tables = await _executor.runSelect(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='meta';",
+      [],
+    );
+    if (tables.isEmpty) {
+      // Fresh database: create all tables at target schema version
+      await _createSchema(version: targetSchemaVersion);
+      await _executor.runCustom('PRAGMA user_version = $targetSchemaVersion;');
+    } else {
+      // Check if households table needs migration to v2 (missing 'notes' column)
+      final cols = await _executor.runSelect(
+        'PRAGMA table_info(households);',
+        [],
+      );
+      final hasNotesCol = cols.any((c) => c['name'] == 'notes');
+      if (!hasNotesCol && targetSchemaVersion >= 2) {
+        await runDefaultMigration(_executor, 1, targetSchemaVersion);
+      }
+      await _executor.runCustom('PRAGMA user_version = $targetSchemaVersion;');
+    }
+  }
 
-    // Create tables
+  Future<void> _createSchema({required int version}) async {
     await _executor.runCustom('''
       CREATE TABLE IF NOT EXISTS households (
         id TEXT PRIMARY KEY,
@@ -85,7 +237,7 @@ class AppDatabase {
         lang_tamil INTEGER NOT NULL DEFAULT 0,
         lang_english INTEGER NOT NULL DEFAULT 0,
         status TEXT NOT NULL DEFAULT 'not_started',
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL${version >= 2 ? ',\n        notes TEXT' : ''}
       );
     ''');
 
@@ -145,44 +297,23 @@ class AppDatabase {
         value TEXT NOT NULL
       );
     ''');
+  }
 
-    await _executor.runCustom('''
-      CREATE TABLE IF NOT EXISTS key_verification (
-        id TEXT PRIMARY KEY,
-        signature TEXT NOT NULL
-      );
-    ''');
-
-    // Verify key signature
-    final sigRows = await _executor.runSelect(
-      'SELECT signature FROM key_verification WHERE id = ?',
-      ['master'],
-    );
-
-    if (sigRows.isEmpty) {
-      await _executor.runInsert(
-        'INSERT INTO key_verification (id, signature) VALUES (?, ?)',
-        ['master', _computeSignature(_cipherKey)],
-      );
-    } else {
-      final savedSig = sigRows.first['signature'] as String;
-      if (savedSig != _computeSignature(_cipherKey)) {
-        await _executor.close();
-        throw const InvalidDatabaseKeyException(
-          'Database encryption key mismatch. Access safely denied.',
-        );
-      }
+  static Future<void> runDefaultMigration(
+    QueryExecutor executor,
+    int fromVersion,
+    int toVersion,
+  ) async {
+    if (fromVersion < 2 && toVersion >= 2) {
+      // Version 2 adds optional 'notes' column to households table
+      await executor.runCustom('ALTER TABLE households ADD COLUMN notes TEXT;');
     }
   }
 
-  String _computeSignature(String key) {
-    // Generate validation hash
-    var hash = 0xcbf29ce484222325;
-    for (var code in utf8.encode(key)) {
-      hash ^= code;
-      hash = (hash * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF;
-    }
-    return hash.toRadixString(16);
+  Future<int> getSchemaVersion() async {
+    final rows = await _executor.runSelect('PRAGMA user_version;', []);
+    if (rows.isEmpty) return 1;
+    return rows.first.values.first as int;
   }
 
   // --- HOUSEHOLDS CRUD ---
@@ -190,62 +321,126 @@ class AppDatabase {
   Future<void> upsertHousehold(
     Household h, {
     String status = 'not_started',
+    String? notes,
   }) async {
-    await _executor.runInsert(
-      '''
-      INSERT INTO households (
-        id, district_id, ds_id, gn_id, team_id, serial_no, house_no, house_leader_name,
-        village_name, address, is_epf, is_etf, is_aswesuma, is_samurdhi, has_special_needs,
-        target_female, target_male, age_group_min, age_group_max, lang_sinhala, lang_tamil, lang_english,
-        status, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        serial_no = excluded.serial_no,
-        house_no = excluded.house_no,
-        house_leader_name = excluded.house_leader_name,
-        village_name = excluded.village_name,
-        address = excluded.address,
-        is_epf = excluded.is_epf,
-        is_etf = excluded.is_etf,
-        is_aswesuma = excluded.is_aswesuma,
-        is_samurdhi = excluded.is_samurdhi,
-        has_special_needs = excluded.has_special_needs,
-        target_female = excluded.target_female,
-        target_male = excluded.target_male,
-        age_group_min = excluded.age_group_min,
-        age_group_max = excluded.age_group_max,
-        lang_sinhala = excluded.lang_sinhala,
-        lang_tamil = excluded.lang_tamil,
-        lang_english = excluded.lang_english,
-        updated_at = excluded.updated_at
-    ''',
-      [
-        h.id,
-        h.districtId,
-        h.dsId,
-        h.gnId,
-        h.teamId,
-        h.serialNo,
-        h.houseNo,
-        h.houseLeaderName,
-        h.villageName,
-        h.address,
-        h.isEpf ? 1 : 0,
-        h.isEtf ? 1 : 0,
-        h.isAswesuma ? 1 : 0,
-        h.isSamurdhi ? 1 : 0,
-        h.hasSpecialNeeds ? 1 : 0,
-        h.targetFemale,
-        h.targetMale,
-        h.ageGroupMin,
-        h.ageGroupMax,
-        h.langSinhala ? 1 : 0,
-        h.langTamil ? 1 : 0,
-        h.langEnglish ? 1 : 0,
-        status,
-        h.updatedAt.toIso8601String(),
-      ],
-    );
+    final version = await getSchemaVersion();
+    final hasNotes = version >= 2;
+
+    if (hasNotes) {
+      await _executor.runInsert(
+        '''
+        INSERT INTO households (
+          id, district_id, ds_id, gn_id, team_id, serial_no, house_no, house_leader_name,
+          village_name, address, is_epf, is_etf, is_aswesuma, is_samurdhi, has_special_needs,
+          target_female, target_male, age_group_min, age_group_max, lang_sinhala, lang_tamil, lang_english,
+          status, updated_at, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          serial_no = excluded.serial_no,
+          house_no = excluded.house_no,
+          house_leader_name = excluded.house_leader_name,
+          village_name = excluded.village_name,
+          address = excluded.address,
+          is_epf = excluded.is_epf,
+          is_etf = excluded.is_etf,
+          is_aswesuma = excluded.is_aswesuma,
+          is_samurdhi = excluded.is_samurdhi,
+          has_special_needs = excluded.has_special_needs,
+          target_female = excluded.target_female,
+          target_male = excluded.target_male,
+          age_group_min = excluded.age_group_min,
+          age_group_max = excluded.age_group_max,
+          lang_sinhala = excluded.lang_sinhala,
+          lang_tamil = excluded.lang_tamil,
+          lang_english = excluded.lang_english,
+          notes = excluded.notes,
+          updated_at = excluded.updated_at
+      ''',
+        [
+          h.id,
+          h.districtId,
+          h.dsId,
+          h.gnId,
+          h.teamId,
+          h.serialNo,
+          h.houseNo,
+          h.houseLeaderName,
+          h.villageName,
+          h.address,
+          h.isEpf ? 1 : 0,
+          h.isEtf ? 1 : 0,
+          h.isAswesuma ? 1 : 0,
+          h.isSamurdhi ? 1 : 0,
+          h.hasSpecialNeeds ? 1 : 0,
+          h.targetFemale,
+          h.targetMale,
+          h.ageGroupMin,
+          h.ageGroupMax,
+          h.langSinhala ? 1 : 0,
+          h.langTamil ? 1 : 0,
+          h.langEnglish ? 1 : 0,
+          status,
+          h.updatedAt.toIso8601String(),
+          notes,
+        ],
+      );
+    } else {
+      await _executor.runInsert(
+        '''
+        INSERT INTO households (
+          id, district_id, ds_id, gn_id, team_id, serial_no, house_no, house_leader_name,
+          village_name, address, is_epf, is_etf, is_aswesuma, is_samurdhi, has_special_needs,
+          target_female, target_male, age_group_min, age_group_max, lang_sinhala, lang_tamil, lang_english,
+          status, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          serial_no = excluded.serial_no,
+          house_no = excluded.house_no,
+          house_leader_name = excluded.house_leader_name,
+          village_name = excluded.village_name,
+          address = excluded.address,
+          is_epf = excluded.is_epf,
+          is_etf = excluded.is_etf,
+          is_aswesuma = excluded.is_aswesuma,
+          is_samurdhi = excluded.is_samurdhi,
+          has_special_needs = excluded.has_special_needs,
+          target_female = excluded.target_female,
+          target_male = excluded.target_male,
+          age_group_min = excluded.age_group_min,
+          age_group_max = excluded.age_group_max,
+          lang_sinhala = excluded.lang_sinhala,
+          lang_tamil = excluded.lang_tamil,
+          lang_english = excluded.lang_english,
+          updated_at = excluded.updated_at
+      ''',
+        [
+          h.id,
+          h.districtId,
+          h.dsId,
+          h.gnId,
+          h.teamId,
+          h.serialNo,
+          h.houseNo,
+          h.houseLeaderName,
+          h.villageName,
+          h.address,
+          h.isEpf ? 1 : 0,
+          h.isEtf ? 1 : 0,
+          h.isAswesuma ? 1 : 0,
+          h.isSamurdhi ? 1 : 0,
+          h.hasSpecialNeeds ? 1 : 0,
+          h.targetFemale,
+          h.targetMale,
+          h.ageGroupMin,
+          h.ageGroupMax,
+          h.langSinhala ? 1 : 0,
+          h.langTamil ? 1 : 0,
+          h.langEnglish ? 1 : 0,
+          status,
+          h.updatedAt.toIso8601String(),
+        ],
+      );
+    }
   }
 
   Future<List<Map<String, dynamic>>> getHouseholds({
@@ -470,6 +665,9 @@ class AppDatabase {
     }
   }
 
+  Future<void> upsertLookups(List<LookupValueModel> lookups) =>
+      saveLookups(lookups);
+
   Future<List<LookupValueModel>> getLookupsByCategory(String category) async {
     final rows = await _executor.runSelect(
       'SELECT * FROM lookups WHERE category = ? AND is_active = 1 ORDER BY sort ASC',
@@ -489,6 +687,9 @@ class AppDatabase {
         )
         .toList();
   }
+
+  Future<List<LookupValueModel>> getLookups(String category) =>
+      getLookupsByCategory(category);
 
   // --- META & PACE SETTINGS ---
 
@@ -522,9 +723,13 @@ class AppDatabase {
   }
 }
 
-class _DriftUser extends QueryExecutorUser {
+class _AppDatabaseUser extends QueryExecutorUser {
+  final int _targetVersion;
+
+  _AppDatabaseUser({int targetVersion = 2}) : _targetVersion = targetVersion;
+
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => _targetVersion;
 
   @override
   Future<void> beforeOpen(

@@ -179,5 +179,54 @@ void main() {
         );
       },
     );
+
+    testWidgets(
+      'Restricts editing to pending records (synced records are locked, M2.10)',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(800, 1200);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              databaseProvider.overrideWith((ref) => Future.value(db)),
+            ],
+            child: const MaterialApp(
+              locale: Locale('en'),
+              localizationsDelegates: [
+                GrsLocalizationsDelegate(),
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: MyRecordsScreen(),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        // Synced record displays lock icon and shows locked dialog on tap
+        expect(find.byIcon(Icons.lock_outline), findsOneWidget);
+        expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+
+        await tester.tap(find.text('Synced User'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Record Locked'), findsOneWidget);
+        expect(
+          find.textContaining(
+            'This record has already been synced to the central server and is locked',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.widgetWithText(ElevatedButton, 'View Read-Only'),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }

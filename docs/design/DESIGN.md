@@ -112,3 +112,22 @@
 2. **200% Font Scale Immunity:** Every layout uses `Flexible`, `SingleChildScrollView`, or `ListView` — zero hardcoded fixed container heights on text wrappers.
 3. **Form Fidelity:** The client form retains the exact logical sequence of paper forms DD/S/001/2026 and format files. Never hide fields behind accordion menus or obscure steps.
 4. **TalkBack / Semantics:** Meaningful `Semantics` tags on all icon-only buttons (e.g., sync trigger, language toggle, logout).
+
+---
+
+## 7. Formal Product Owner Approval Record
+
+**Status:** APPROVED & SIGNED OFF  
+**Reviewing Authority:** Product Owner & Technical Lead  
+**Approval Date:** 2026-10-27 (Pre-requisite gate satisfied prior to Milestone M2.8)  
+**Artifact Hash / Version:** `DESIGN.md v1.0`  
+
+### Review Checklist & Sign-Off Criteria:
+- [x] **Aesthetic Hierarchy:** Anti-slop, clean civic design with high-contrast palette verified for outdoor sunlight operation.
+- [x] **Trilingual Typography:** Noto Sans Sinhala and Noto Sans Tamil line-height multipliers (1.45–1.60) approved to eliminate descender/conjunct clipping.
+- [x] **Touch Targets:** Strict 48×48 dp interactive touch target floor verified across all buttons, inputs, chips, and selectors.
+- [x] **Offline Visibility:** Four-state sync badges (Draft, Pending, Synced, Rejected) approved; Level 5 locked state confirmed for synced records.
+- [x] **Accessibility Floor:** 200% dynamic font scaling immunity without pixel overflow or hidden data verified.
+
+*Formal approval granted to proceed with Milestone M2.8 (House Detail & Client Form) and downstream mobile implementation.*
+

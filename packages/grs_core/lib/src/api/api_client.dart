@@ -13,12 +13,15 @@ class GrsApiClient {
   final http.Client _client;
   String? _accessToken;
   String? _refreshToken;
+  final Future<void> Function(String newAccess, String newRefresh)?
+  onTokenRefreshed;
 
   GrsApiClient({
     required this.baseUrl,
     http.Client? client,
     String? accessToken,
     String? refreshToken,
+    this.onTokenRefreshed,
   }) : _client = client ?? http.Client(),
        _accessToken = accessToken,
        _refreshToken = refreshToken;
@@ -103,13 +106,33 @@ class GrsApiClient {
     _handleError(response);
   }
 
+  /// Helper to send an authenticated request and automatically retry once with refreshed token on 401
+  Future<http.Response> _sendWithAuthRetry(
+    Future<http.Response> Function() requestFn,
+  ) async {
+    final response = await requestFn();
+    if (response.statusCode == 401 &&
+        _refreshToken != null &&
+        _refreshToken!.isNotEmpty) {
+      try {
+        await refreshSession();
+        return await requestFn();
+      } catch (_) {
+        return response;
+      }
+    }
+    return response;
+  }
+
   /// POST /v1/auth/change-password
   Future<LoginResponse> changePassword(ChangePasswordRequest req) async {
     final uri = Uri.parse('$baseUrl/v1/auth/change-password');
-    final response = await _client.post(
-      uri,
-      headers: _headers(authenticated: true),
-      body: jsonEncode(req.toJson()),
+    final response = await _sendWithAuthRetry(
+      () => _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode(req.toJson()),
+      ),
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -137,7 +160,69 @@ class GrsApiClient {
       final res = LoginResponse.fromJson(json);
       _accessToken = res.accessToken;
       _refreshToken = res.refreshToken;
+      if (onTokenRefreshed != null) {
+        await onTokenRefreshed!(res.accessToken, res.refreshToken);
+      }
       return res;
+    }
+
+    _handleError(response);
+  }
+
+  /// POST /v1/auth/forgot
+  Future<void> forgotPassword(String email) async {
+    final uri = Uri.parse('$baseUrl/v1/auth/forgot');
+    final response = await _client.post(
+      uri,
+      headers: _headers(authenticated: false),
+      body: jsonEncode({'email': email.trim().toLowerCase()}),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+
+    _handleError(response);
+  }
+
+  /// POST /v1/auth/reset
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    final uri = Uri.parse('$baseUrl/v1/auth/reset');
+    final response = await _client.post(
+      uri,
+      headers: _headers(authenticated: false),
+      body: jsonEncode({
+        'email': email.trim().toLowerCase(),
+        'code': code.trim(),
+        'newPassword': newPassword,
+      }),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+
+    _handleError(response);
+  }
+
+  /// PATCH /v1/auth/profile
+  Future<ProfileModel> updateProfile({String? preferredLanguage}) async {
+    final uri = Uri.parse('$baseUrl/v1/auth/profile');
+    final response = await _sendWithAuthRetry(
+      () => _client.patch(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode({'preferredLanguage': ?preferredLanguage}),
+      ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return ProfileModel.fromJson(json);
     }
 
     _handleError(response);
@@ -146,10 +231,12 @@ class GrsApiClient {
   /// POST /v1/auth/email/add
   Future<void> addEmail(String email) async {
     final uri = Uri.parse('$baseUrl/v1/auth/email/add');
-    final response = await _client.post(
-      uri,
-      headers: _headers(authenticated: true),
-      body: jsonEncode({'email': email.trim().toLowerCase()}),
+    final response = await _sendWithAuthRetry(
+      () => _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode({'email': email.trim().toLowerCase()}),
+      ),
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -162,13 +249,15 @@ class GrsApiClient {
   /// POST /v1/auth/email/verify
   Future<void> verifyEmail(String email, String code) async {
     final uri = Uri.parse('$baseUrl/v1/auth/email/verify');
-    final response = await _client.post(
-      uri,
-      headers: _headers(authenticated: true),
-      body: jsonEncode({
-        'email': email.trim().toLowerCase(),
-        'code': code.trim(),
-      }),
+    final response = await _sendWithAuthRetry(
+      () => _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode({
+          'email': email.trim().toLowerCase(),
+          'code': code.trim(),
+        }),
+      ),
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -198,9 +287,8 @@ class GrsApiClient {
   Future<List<LookupValueModel>> getLookups({String? since}) async {
     final queryParams = since != null ? '?since=$since' : '';
     final uri = Uri.parse('$baseUrl/v1/lookups$queryParams');
-    final response = await _client.get(
-      uri,
-      headers: _headers(authenticated: true),
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -213,13 +301,34 @@ class GrsApiClient {
     _handleError(response);
   }
 
-  /// GET /v1/sync/area?cursor=
+  /// GET /v1/sync/area?cursor=&limit=
+  Future<AreaDownloadResponse> downloadArea({
+    String? cursor,
+    int limit = 500,
+  }) async {
+    final params = <String, String>{'limit': limit.toString()};
+    if (cursor != null) params['cursor'] = cursor;
+    final query = Uri(queryParameters: params).query;
+    final uri = Uri.parse('$baseUrl/v1/sync/area?$query');
+
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return AreaDownloadResponse.fromJson(json);
+    }
+
+    _handleError(response);
+  }
+
+  /// GET /v1/sync/area?cursor= (Raw Map accessor)
   Future<Map<String, dynamic>> getAreaSync({String? cursor}) async {
     final queryParams = cursor != null ? '?cursor=$cursor' : '';
     final uri = Uri.parse('$baseUrl/v1/sync/area$queryParams');
-    final response = await _client.get(
-      uri,
-      headers: _headers(authenticated: true),
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -232,10 +341,12 @@ class GrsApiClient {
   /// POST /v1/sync/push
   Future<SyncPushResponse> pushSync(SyncPushRequest req) async {
     final uri = Uri.parse('$baseUrl/v1/sync/push');
-    final response = await _client.post(
-      uri,
-      headers: _headers(authenticated: true),
-      body: jsonEncode(req.toJson()),
+    final response = await _sendWithAuthRetry(
+      () => _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode(req.toJson()),
+      ),
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {

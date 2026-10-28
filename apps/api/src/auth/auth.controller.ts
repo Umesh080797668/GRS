@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Patch,
   Body,
   UseGuards,
   HttpCode,
@@ -110,5 +111,17 @@ export class AuthController {
     @Body() dto: { email: string; code: string; newPassword: string },
   ) {
     return this.authService.resetPassword(dto.email, dto.code, dto.newPassword);
+  }
+
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update user profile settings (preferredLanguage)' })
+  async updateProfile(
+    @CurrentUser() user: ScopeContext,
+    @Body() dto: { preferredLanguage?: string },
+  ) {
+    return this.authService.updateProfile(user.userId, dto);
   }
 }

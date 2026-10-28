@@ -5,6 +5,7 @@ import 'package:grs_core/grs_core.dart';
 import 'package:grs_ui/grs_ui.dart';
 import '../../data/local/database.dart';
 import '../../l10n/l10n.dart';
+import '../../providers/area_download_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/database_provider.dart';
 
@@ -18,7 +19,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchController = TextEditingController();
   String _selectedFilter = 'all';
-  bool _isDownloadingArea = false;
   bool _isSyncing = false;
 
   @override
@@ -27,46 +27,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
-  Future<void> _downloadArea(AppDatabase db) async {
-    setState(() => _isDownloadingArea = true);
-    try {
-      // In pilot / local mode, populate area households if empty
-      final existing = await db.getHouseholds();
-      if (existing.isEmpty) {
-        for (var i = 1; i <= 25; i++) {
-          await db.upsertHousehold(
-            Household(
-              id: 'house-$i',
-              districtId: 'dist-colombo',
-              dsId: 'ds-thimbirigasyaya',
-              gnId: 'TEST-GN-001',
-              teamId: 'team-01',
-              serialNo: i,
-              houseNo: 'HN-$i',
-              houseLeaderName: 'Leader of House #$i',
-              villageName: 'Narahenpita',
-              address: 'No. $i, Main Street, Narahenpita',
-              isEpf: i % 2 == 0,
-              isAswesuma: i % 3 == 0,
-              targetFemale: 2,
-              targetMale: 1,
-              ageGroupMin: 18,
-              ageGroupMax: 35,
-              langSinhala: true,
-              langEnglish: true,
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            ),
-          );
-        }
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Area data loaded successfully.')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isDownloadingArea = false);
+  Future<void> _downloadArea() async {
+    await ref.read(areaDownloadProgressProvider.notifier).startDownload();
+    if (!mounted) return;
+    final state = ref.read(areaDownloadProgressProvider);
+    if (state.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Download failed: ${state.error}'),
+          backgroundColor: GrsColors.syncRejected,
+        ),
+      );
+    } else if (state.isCompleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Area data loaded successfully.')),
+      );
+      setState(() {});
     }
   }
 
@@ -113,6 +89,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final authState = ref.watch(authProvider);
     final l10n = GrsL10n.of(context);
     final dbAsync = ref.watch(databaseProvider);
+    final downloadProgress = ref.watch(areaDownloadProgressProvider);
 
     return GrsScaffold(
       title: l10n.get('appTitle'),
@@ -186,6 +163,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
 
+                  // Area Download Progress Indicator
+                  if (downloadProgress.isDownloading)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      color: GrsColors.secondaryLight.withValues(alpha: 0.15),
+                      child: Row(
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              '${l10n.get('downloadingArea')} (${downloadProgress.downloaded} / ${downloadProgress.total > 0 ? downloadProgress.total : '...'})',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
                   // Search and Filters
                   Padding(
                     padding: const EdgeInsets.symmetric(
@@ -210,17 +216,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         const SizedBox(width: 8),
                         if (households.isEmpty)
                           IconButton(
-                            icon: _isDownloadingArea
+                            icon: downloadProgress.isDownloading
                                 ? const SizedBox(
                                     width: 20,
                                     height: 20,
-                                    child: CircularProgressIndicator(),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   )
                                 : const Icon(Icons.cloud_download_outlined),
                             tooltip: l10n.get('downloadAreaButton'),
-                            onPressed: _isDownloadingArea
+                            onPressed: downloadProgress.isDownloading
                                 ? null
-                                : () => _downloadArea(db),
+                                : _downloadArea,
                           ),
                       ],
                     ),
@@ -269,9 +277,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 const Text('No houses found in this area.'),
                                 const SizedBox(height: 16),
                                 ElevatedButton.icon(
-                                  icon: const Icon(Icons.download),
-                                  label: Text(l10n.get('downloadAreaButton')),
-                                  onPressed: () => _downloadArea(db),
+                                  icon: downloadProgress.isDownloading
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.download),
+                                  label: Text(
+                                    downloadProgress.isDownloading
+                                        ? l10n.get('downloadingArea')
+                                        : l10n.get('downloadAreaButton'),
+                                  ),
+                                  onPressed: downloadProgress.isDownloading
+                                      ? null
+                                      : _downloadArea,
                                 ),
                               ],
                             ),

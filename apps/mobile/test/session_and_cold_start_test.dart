@@ -163,5 +163,93 @@ void main() {
         expect(notifier.state.status, equals(AuthStatus.deactivated));
       },
     );
+
+    test(
+      'Session handles expired access token by automatically refreshing and retrying (M2.6 Done When)',
+      () async {
+        int requestCount = 0;
+        final fakeStorage = FakeSecureStorageService();
+        await fakeStorage.saveTokens(
+          accessToken: 'expired-access-token',
+          refreshToken: 'valid-refresh-token',
+        );
+
+        final mockHttpClient = MockClient((request) async {
+          if (request.url.path == '/v1/auth/refresh') {
+            return http.Response(
+              jsonEncode({
+                'accessToken': 'fresh-new-access-token',
+                'refreshToken': 'fresh-new-refresh-token',
+                'profile': activeProfile.toJson(),
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+
+          if (request.url.path == '/v1/sync/area') {
+            requestCount++;
+            if (request.headers['authorization'] ==
+                'Bearer expired-access-token') {
+              // First attempt with expired token fails with HTTP 401
+              return http.Response(
+                jsonEncode({
+                  'code': 'TOKEN_EXPIRED',
+                  'message_key': 'error.token_expired',
+                }),
+                401,
+                headers: {'content-type': 'application/json'},
+              );
+            } else if (request.headers['authorization'] ==
+                'Bearer fresh-new-access-token') {
+              // Retried attempt with refreshed token succeeds
+              return http.Response(
+                jsonEncode({
+                  'items': [],
+                  'nextCursor': null,
+                  'hasMore': false,
+                  'total': 0,
+                }),
+                200,
+                headers: {'content-type': 'application/json'},
+              );
+            }
+          }
+          return http.Response('Not Found', 404);
+        });
+
+        final apiClient = GrsApiClient(
+          baseUrl: 'http://localhost:3000',
+          client: mockHttpClient,
+          onTokenRefreshed: (newAccess, newRefresh) async {
+            await fakeStorage.saveTokens(
+              accessToken: newAccess,
+              refreshToken: newRefresh,
+            );
+          },
+        );
+        apiClient.setTokens(
+          accessToken: await fakeStorage.getAccessToken(),
+          refreshToken: await fakeStorage.getRefreshToken(),
+        );
+
+        // Make an authenticated call with the expired token
+        final result = await apiClient.downloadArea();
+
+        // Verify request was retried and succeeded
+        expect(result.items, isEmpty);
+        expect(requestCount, equals(2)); // Attempt 1 (401) + Attempt 2 (200)
+
+        // Verify storage received the updated tokens
+        expect(
+          await fakeStorage.getAccessToken(),
+          equals('fresh-new-access-token'),
+        );
+        expect(
+          await fakeStorage.getRefreshToken(),
+          equals('fresh-new-refresh-token'),
+        );
+      },
+    );
   });
 }

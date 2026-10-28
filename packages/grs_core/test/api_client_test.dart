@@ -197,5 +197,189 @@ void main() {
       expect(res.results[1].isRejected, isTrue);
       expect(res.results[1].code, equals('VALIDATION_FAILED'));
     });
+
+    test('downloadArea returns paged households and lookups', () async {
+      final mockClient = MockClient((request) async {
+        expect(request.url.path, equals('/v1/sync/area'));
+        expect(request.url.queryParameters['limit'], equals('500'));
+        return http.Response(
+          jsonEncode({
+            'items': [
+              {
+                'id': 'h-1',
+                'districtId': 'd-1',
+                'dsId': 'ds-1',
+                'gnId': 'gn-1',
+                'serialNo': 1,
+                'houseNo': '10A',
+                'houseLeaderName': 'Perera',
+                'createdAt': DateTime.now().toIso8601String(),
+                'updatedAt': DateTime.now().toIso8601String(),
+              },
+            ],
+            'nextCursor': null,
+            'hasMore': false,
+            'total': 1,
+            'lookups': {'gender': []},
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = GrsApiClient(
+        baseUrl: 'http://localhost:3000',
+        client: mockClient,
+        accessToken: 'valid-token',
+      );
+
+      final res = await client.downloadArea();
+      expect(res.items.length, equals(1));
+      expect(res.items.first.houseNo, equals('10A'));
+      expect(res.hasMore, isFalse);
+      expect(res.lookups, isNotNull);
+    });
+
+    test('forgotPassword and resetPassword succeed', () async {
+      final mockClient = MockClient((request) async {
+        if (request.url.path == '/v1/auth/forgot') {
+          return http.Response(jsonEncode({'message': 'Code sent'}), 200);
+        }
+        if (request.url.path == '/v1/auth/reset') {
+          return http.Response(jsonEncode({'message': 'Password reset'}), 200);
+        }
+        return http.Response('Not Found', 404);
+      });
+
+      final client = GrsApiClient(
+        baseUrl: 'http://localhost:3000',
+        client: mockClient,
+      );
+
+      await expectLater(client.forgotPassword('agent@example.com'), completes);
+      await expectLater(
+        client.resetPassword(
+          email: 'agent@example.com',
+          code: '123456',
+          newPassword: 'NewPassword123!',
+        ),
+        completes,
+      );
+    });
+
+    test('updateProfile sends language preference to server', () async {
+      final mockClient = MockClient((request) async {
+        expect(request.url.path, equals('/v1/auth/profile'));
+        expect(request.method, equals('PATCH'));
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['preferredLanguage'], equals('ta'));
+
+        return http.Response(
+          jsonEncode({
+            'id': 'u-1',
+            'userCode': 'GRS001',
+            'role': 'team_member',
+            'fullName': 'Agent Tamil',
+            'preferredLanguage': 'ta',
+            'isActive': true,
+            'mustChangePassword': false,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = GrsApiClient(
+        baseUrl: 'http://localhost:3000',
+        client: mockClient,
+        accessToken: 'valid-token',
+      );
+
+      final updated = await client.updateProfile(preferredLanguage: 'ta');
+      expect(updated.preferredLanguage, equals('ta'));
+    });
+
+    test(
+      '401 expired access token triggers automatic session refresh and request retry',
+      () async {
+        int getLookupsCalls = 0;
+        int refreshCalls = 0;
+
+        final mockClient = MockClient((request) async {
+          if (request.url.path == '/v1/auth/refresh') {
+            refreshCalls++;
+            return http.Response(
+              jsonEncode({
+                'accessToken': 'new-fresh-token',
+                'refreshToken': 'new-refresh-token',
+                'expiresIn': 900,
+                'mustChangePassword': false,
+                'profile': {
+                  'id': 'user-1',
+                  'userCode': 'GRS001',
+                  'role': 'team_member',
+                  'fullName': 'Agent',
+                  'preferredLanguage': 'en',
+                  'isActive': true,
+                  'mustChangePassword': false,
+                },
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+
+          if (request.url.path == '/v1/lookups') {
+            getLookupsCalls++;
+            if (getLookupsCalls == 1) {
+              // Expired token response on first try
+              return http.Response(
+                jsonEncode({
+                  'code': 'UNAUTHORIZED',
+                  'message': 'Token expired',
+                }),
+                401,
+                headers: {'content-type': 'application/json'},
+              );
+            }
+            // Second try with fresh token
+            expect(
+              request.headers['authorization'],
+              equals('Bearer new-fresh-token'),
+            );
+            return http.Response(
+              jsonEncode([
+                {
+                  'category': 'gender',
+                  'code': 'F',
+                  'labelEn': 'Female',
+                  'labelSi': 'ස්ත්‍රී',
+                  'labelTa': 'பெண்',
+                  'sort': 1,
+                  'isActive': true,
+                },
+              ]),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+
+          return http.Response('Not Found', 404);
+        });
+
+        final client = GrsApiClient(
+          baseUrl: 'http://localhost:3000',
+          client: mockClient,
+          accessToken: 'expired-token',
+          refreshToken: 'valid-refresh-token',
+        );
+
+        final lookups = await client.getLookups();
+        expect(lookups.length, equals(1));
+        expect(getLookupsCalls, equals(2));
+        expect(refreshCalls, equals(1));
+        expect(client.accessToken, equals('new-fresh-token'));
+      },
+    );
   });
 }

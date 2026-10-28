@@ -161,6 +161,22 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     scopeEnforcement: 'none',
     description: 'Reset password using verified 6-digit email code',
   },
+  {
+    method: 'PATCH',
+    path: '/auth/profile',
+    category: 'auth',
+    allowedRoles: [
+      'team_member',
+      'cdc_secretary',
+      'sda',
+      'dc',
+      'cg',
+      'admin',
+      'super_admin',
+    ],
+    scopeEnforcement: 'own_only',
+    description: 'Update user profile preferences (preferred language)',
+  },
 
   // Accounts Endpoints (Creation matrix §6.1)
   {

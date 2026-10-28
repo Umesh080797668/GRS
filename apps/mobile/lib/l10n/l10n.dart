@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/api_client_provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/database_provider.dart';
 
 /// State provider for active UI language (en, si, ta)
 final languageProvider = StateProvider<String>((ref) => 'en');
@@ -85,8 +88,19 @@ class LanguagePickerWidget extends ConsumerWidget {
       initialValue: currentLang,
       icon: const Icon(Icons.language_rounded),
       tooltip: 'Select Language / භාෂාව / மொழி',
-      onSelected: (String lang) {
+      onSelected: (String lang) async {
         ref.read(languageProvider.notifier).state = lang;
+        try {
+          final storage = ref.read(secureStorageProvider);
+          await storage.savePreferredLanguage(lang);
+
+          final authState = ref.read(authProvider);
+          if (authState.status == AuthStatus.authenticated) {
+            await ref
+                .read(apiClientProvider)
+                .updateProfile(preferredLanguage: lang);
+          }
+        } catch (_) {}
       },
       itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
         const PopupMenuItem<String>(value: 'en', child: Text('English')),

@@ -28,6 +28,9 @@ for pkg in packages/grs_core packages/grs_ui apps/mobile apps/dashboard; do
   (cd "$pkg" && flutter test)
 done
 
+echo "Verifying trilingual l10n parity (M2.3 CI Check: every string has all 3 keys)..."
+(cd apps/mobile && flutter test test/l10n_test.dart)
+
 # 3. Security Invariant Checks
 echo ""
 echo "--- [3/3] Running Security Invariant Checks ---"
