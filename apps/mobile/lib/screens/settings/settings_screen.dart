@@ -1,0 +1,200 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:grs_ui/grs_ui.dart';
+import '../../l10n/l10n.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/database_provider.dart';
+
+class SettingsScreen extends ConsumerWidget {
+  const SettingsScreen({super.key});
+
+  Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
+    final l10n = GrsL10n.of(context);
+    final db = await ref.read(databaseProvider.future);
+    final pending = await db.getAllClients(
+      status: GrsSyncStatus.pending as dynamic,
+    );
+
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l10n.get('logoutConfirmTitle')),
+          content: Text(
+            pending.isNotEmpty
+                ? l10n.get('logoutWarning')
+                : 'Are you sure you want to sign out?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(l10n.get('cancel')),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: GrsColors.syncRejected,
+              ),
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                await ref.read(authProvider.notifier).logout();
+                if (context.mounted) {
+                  context.go('/login');
+                }
+              },
+              child: Text(l10n.get('logout')),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final profile = authState.profile;
+    final l10n = GrsL10n.of(context);
+    final currentLang = ref.watch(languageProvider);
+
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.get('settings'))),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Profile Card
+          if (profile != null) ...[
+            GrsCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 28,
+                        backgroundColor: GrsColors.primaryLight,
+                        child: Icon(
+                          Icons.person,
+                          color: Colors.white,
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              profile.fullName,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'ID: ${profile.userCode}',
+                              style: const TextStyle(
+                                color: GrsColors.textSecondaryLight,
+                              ),
+                            ),
+                            Text(
+                              'Role: ${profile.role}',
+                              style: const TextStyle(
+                                color: GrsColors.secondaryLight,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (profile.email != null) ...[
+                    const Divider(height: 24),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.verified,
+                          color: GrsColors.syncSynced,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          profile.email!,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // Language Setting
+          GrsCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.get('language'),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'en', label: Text('English')),
+                    ButtonSegment(value: 'si', label: Text('සිංහල')),
+                    ButtonSegment(value: 'ta', label: Text('தமிழ்')),
+                  ],
+                  selected: {currentLang},
+                  onSelectionChanged: (selected) {
+                    if (selected.isNotEmpty) {
+                      ref.read(languageProvider.notifier).state =
+                          selected.first;
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Security Actions
+          GrsCard(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.mark_email_read_outlined),
+                  title: Text(l10n.get('addEmailTitle')),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () => context.push('/add-email'),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.lock_outline),
+                  title: Text(l10n.get('changePasswordTitle')),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () => context.push('/change-password'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // Sign Out Button
+          GrsButton(
+            text: l10n.get('logout'),
+            variant: GrsButtonVariant.danger,
+            icon: Icons.logout,
+            onPressed: () => _handleLogout(context, ref),
+          ),
+        ],
+      ),
+    );
+  }
+}

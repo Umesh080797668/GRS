@@ -28,11 +28,14 @@ class GrsOfflineBanner extends StatelessWidget {
             color: GrsColors.syncPending,
           ),
           const SizedBox(width: GrsSpacing.xs),
-          Text(
-            message,
-            style: GrsTypography.labelSmall(
-              color: GrsColors.syncPending,
-              languageCode: languageCode,
+          Flexible(
+            child: Text(
+              message,
+              style: GrsTypography.labelSmall(
+                color: GrsColors.syncPending,
+                languageCode: languageCode,
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
         ],
