@@ -27,6 +27,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _submit() {
+    final currentUrl = ref.read(apiBaseUrlProvider);
+    if (currentUrl.trim().isEmpty) {
+      _showServerSettingsDialog(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please configure the Server API URL before signing in.',
+          ),
+        ),
+      );
+      return;
+    }
     if (_formKey.currentState?.validate() ?? false) {
       ref
           .read(authProvider.notifier)
@@ -132,10 +144,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 16),
-                  const Icon(
-                    Icons.assignment_ind_outlined,
-                    size: 64,
-                    color: GrsColors.primaryLight,
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.asset(
+                      'assets/images/app_logo.png',
+                      width: 72,
+                      height: 72,
+                      errorBuilder: (_, _, _) => const Icon(
+                        Icons.assignment_ind_outlined,
+                        size: 64,
+                        color: GrsColors.primaryLight,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -255,7 +275,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            currentServerUrl,
+                            currentServerUrl.isEmpty
+                                ? 'Configure Server URL'
+                                : currentServerUrl,
                             style: const TextStyle(
                               fontSize: 12,
                               color: GrsColors.textSecondaryLight,

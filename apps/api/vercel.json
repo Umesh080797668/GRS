@@ -3,20 +3,10 @@
   "regions": [
     "hnd1"
   ],
-  "builds": [
+  "rewrites": [
     {
-      "src": "api/index.ts",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/v1/(.*)",
-      "dest": "api/index.ts"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "api/index.ts"
+      "source": "/(.*)",
+      "destination": "/api"
     }
   ]
 }

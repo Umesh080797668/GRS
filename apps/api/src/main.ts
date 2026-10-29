@@ -18,7 +18,7 @@ if (process.env.SENTRY_DSN) {
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || 'development',
     beforeSend: sentryEventScrubber as any,
-  });
+  } as any);
 }
 
 export async function createNestServer(server: Express) {
@@ -94,5 +94,5 @@ export default async function handler(req: any, res: any) {
     await createNestServer(expressApp);
     isInitialized = true;
   }
-  expressApp(req, res);
+  (expressApp as any)(req, res);
 }

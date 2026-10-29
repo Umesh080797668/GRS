@@ -155,7 +155,7 @@ export class AuthService {
           scope: 'change-password',
           tokenVersion: profile.tokenVersion,
         },
-        { expiresIn: '15m' },
+        { expiresIn: '15m' } as any,
       );
 
       return {
@@ -337,7 +337,7 @@ export class AuthService {
       scope: 'full',
     };
 
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' } as any);
     const rawRefreshToken = crypto.randomBytes(40).toString('hex');
     const refreshHash = crypto
       .createHash('sha256')

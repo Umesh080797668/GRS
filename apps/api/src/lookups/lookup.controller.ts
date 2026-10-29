@@ -16,7 +16,7 @@ import { UserRole } from '../common/scope/scope.types';
 
 @Controller('v1/lookups')
 export class LookupController {
-  constructor(private readonly lookupService: LookupService) {}
+  constructor(private readonly lookupService: LookupService) { }
 
   @Get()
   async getLookups(
@@ -24,8 +24,8 @@ export class LookupController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const data = await this.lookupService.getCategorizedLookups(category);
-    res.setHeader('ETag', `"${data.version}"`);
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    (res as any).setHeader('ETag', `"${data.version}"`);
+    (res as any).setHeader('Cache-Control', 'public, max-age=3600');
     return data;
   }
 

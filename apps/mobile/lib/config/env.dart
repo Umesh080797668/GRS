@@ -10,7 +10,7 @@ class AppEnv {
   /// or dynamically at runtime via secure storage.
   static const String defaultApiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:3000',
+    defaultValue: '',
   );
 
   /// Supabase Tokyo project URL.
