@@ -1,10 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/api_client_provider.dart';
-import '../providers/auth_provider.dart';
-import '../providers/database_provider.dart';
+import 'package:mobile/providers/api_client_provider.dart';
+import 'package:mobile/providers/auth_provider.dart';
+import 'package:mobile/providers/database_provider.dart';
+import 'app_translations.dart';
 
 /// State provider for active UI language (en, si, ta)
 final languageProvider = StateProvider<String>((ref) => 'en');
@@ -31,21 +30,17 @@ class GrsL10n {
       return GrsL10n(locale, _cache[lang]!);
     }
 
-    try {
-      final jsonString = await rootBundle.loadString('lib/l10n/app_$lang.arb');
-      final jsonMap = jsonDecode(jsonString) as Map<String, dynamic>;
-      final strings = jsonMap.map(
-        (key, value) => MapEntry(key, value.toString()),
-      );
-      _cache[lang] = strings;
-      return GrsL10n(locale, strings);
-    } catch (_) {
-      return GrsL10n(locale, {});
-    }
+    final strings = AppTranslations.get(lang);
+    _cache[lang] = strings;
+    return GrsL10n(locale, strings);
   }
 
   String translate(String key, [Map<String, String>? params]) {
-    var str = _localizedStrings[key] ?? key;
+    var str =
+        _localizedStrings[key] ??
+        AppTranslations.get(locale.languageCode)[key] ??
+        AppTranslations.en[key] ??
+        key;
     if (params != null) {
       params.forEach((paramKey, paramVal) {
         str = str.replaceAll('{$paramKey}', paramVal);
@@ -58,7 +53,7 @@ class GrsL10n {
 
   static GrsL10n of(BuildContext context) {
     return Localizations.of<GrsL10n>(context, GrsL10n) ??
-        GrsL10n(const Locale('en'), {});
+        GrsL10n(const Locale('en'), AppTranslations.en);
   }
 }
 

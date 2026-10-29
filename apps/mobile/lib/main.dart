@@ -26,9 +26,21 @@ class _GrsMobileAppState extends ConsumerState<GrsMobileApp> {
     super.initState();
     // Cold Start session check & saved server URL restore (M2.6)
     Future.microtask(() async {
-      final savedUrl = await ref.read(secureStorageProvider).getApiBaseUrl();
-      if (savedUrl != null && savedUrl.trim().isNotEmpty) {
+      final storage = ref.read(secureStorageProvider);
+      final savedUrl = await storage.getApiBaseUrl();
+      if (savedUrl != null &&
+          savedUrl.trim().isNotEmpty &&
+          !savedUrl.contains('localhost') &&
+          !savedUrl.contains('127.0.0.1')) {
         ref.read(apiBaseUrlProvider.notifier).state = savedUrl.trim();
+      } else {
+        if (savedUrl != null &&
+            (savedUrl.contains('localhost') ||
+                savedUrl.contains('127.0.0.1'))) {
+          await storage.saveApiBaseUrl('');
+        }
+        ref.read(apiBaseUrlProvider.notifier).state =
+            ApiEndpointResolver.resolveDefault();
       }
       ref.read(authProvider.notifier).checkColdStart();
     });

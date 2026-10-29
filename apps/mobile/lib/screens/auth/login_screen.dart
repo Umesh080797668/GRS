@@ -3,9 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:grs_ui/grs_ui.dart';
 import '../../l10n/l10n.dart';
-import '../../providers/api_client_provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/database_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -27,18 +25,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _submit() {
-    final currentUrl = ref.read(apiBaseUrlProvider);
-    if (currentUrl.trim().isEmpty) {
-      _showServerSettingsDialog(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please configure the Server API URL before signing in.',
-          ),
-        ),
-      );
-      return;
-    }
     if (_formKey.currentState?.validate() ?? false) {
       ref
           .read(authProvider.notifier)
@@ -46,92 +32,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  void _showServerSettingsDialog(BuildContext context) {
-    final currentUrl = ref.read(apiBaseUrlProvider);
-    final urlController = TextEditingController(text: currentUrl);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.dns_outlined, color: GrsColors.primaryLight),
-            SizedBox(width: 8),
-            Text('Server Configuration', style: TextStyle(fontSize: 18)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Configure the GRS Backend API URL for this device:',
-              style: TextStyle(
-                fontSize: 13,
-                color: GrsColors.textSecondaryLight,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: urlController,
-              decoration: const InputDecoration(
-                labelText: 'API Base URL',
-                hintText: 'http://192.168.1.50:3000 or https://api.grs.domain',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              urlController.text = AppEnv.defaultApiBaseUrl;
-            },
-            child: const Text('Reset Default'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final newUrl = urlController.text.trim();
-              if (newUrl.isNotEmpty) {
-                ref.read(apiBaseUrlProvider.notifier).state = newUrl;
-                await ref.read(secureStorageProvider).saveApiBaseUrl(newUrl);
-                if (ctx.mounted) {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Server URL updated to $newUrl')),
-                  );
-                }
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final currentServerUrl = ref.watch(apiBaseUrlProvider);
     final l10n = GrsL10n.of(context);
     final isLoading = authState.status == AuthStatus.authenticating;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Global Research & Survey App'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.dns_outlined),
-            tooltip: 'Server Settings',
-            onPressed: () => _showServerSettingsDialog(context),
-          ),
-          const LanguagePickerWidget(),
-        ],
+        actions: const [LanguagePickerWidget()],
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -255,36 +165,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         fontSize: 14,
                         color: GrsColors.secondaryLight,
                         fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  InkWell(
-                    onTap: () => _showServerSettingsDialog(context),
-                    borderRadius: BorderRadius.circular(4),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.link,
-                            size: 14,
-                            color: GrsColors.textSecondaryLight,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            currentServerUrl.isEmpty
-                                ? 'Configure Server URL'
-                                : currentServerUrl,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: GrsColors.textSecondaryLight,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ),
