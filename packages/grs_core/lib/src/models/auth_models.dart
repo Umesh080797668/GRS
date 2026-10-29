@@ -120,7 +120,19 @@ class LoginResponse {
         json['mustChangePassword'] as bool? ??
         json['must_change_password'] as bool? ??
         false,
-    profile: ProfileModel.fromJson(json['profile'] as Map<String, dynamic>),
+    profile: (json['profile'] != null || json['user'] != null)
+        ? ProfileModel.fromJson(
+            (json['profile'] ?? json['user']) as Map<String, dynamic>,
+          )
+        : const ProfileModel(
+            id: '',
+            userCode: '',
+            role: '',
+            fullName: '',
+            preferredLanguage: 'en',
+            isActive: true,
+            mustChangePassword: false,
+          ),
   );
 
   Map<String, dynamic> toJson() => {

@@ -18,7 +18,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
 
   return GoRouter(
-    initialLocation: '/home',
+    initialLocation: '/login',
     redirect: (context, state) {
       final status = authState.status;
       final location = state.matchedLocation;

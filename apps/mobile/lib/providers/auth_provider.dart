@@ -178,7 +178,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
           errorMessage: e.messageKey,
         );
       }
-    } catch (_) {
+    } catch (e, st) {
+      // ignore: avoid_print
+      print('AuthNotifier.login unexpected error: $e\n$st');
       state = const AuthState(
         status: AuthStatus.unauthenticated,
         errorMessage: 'Connection failed. Please check network.',

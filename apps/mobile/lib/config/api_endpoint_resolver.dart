@@ -28,15 +28,25 @@ class ApiEndpointResolver {
   }
 
   /// Sanitizes any persisted or dynamically provided URL, actively purging
-  /// localhost / loopback addresses.
+  /// localhost / loopback addresses and stripping trailing slashes.
   static String sanitize(String? url) {
-    if (url == null) return resolveDefault();
-    final trimmed = url.trim();
-    if (trimmed.isEmpty ||
-        trimmed.contains('localhost') ||
-        trimmed.contains('127.0.0.1')) {
-      return resolveDefault();
+    String resolved;
+    if (url == null) {
+      resolved = resolveDefault();
+    } else {
+      final trimmed = url.trim();
+      if (trimmed.isEmpty ||
+          trimmed.contains('localhost') ||
+          trimmed.contains('127.0.0.1') ||
+          (!trimmed.startsWith('https://') && !trimmed.startsWith('http://'))) {
+        resolved = resolveDefault();
+      } else {
+        resolved = trimmed;
+      }
     }
-    return trimmed;
+    while (resolved.endsWith('/')) {
+      resolved = resolved.substring(0, resolved.length - 1);
+    }
+    return resolved;
   }
 }

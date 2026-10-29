@@ -162,6 +162,7 @@ export class AuthService {
         mustChangePassword: true as const,
         accessToken: limitedToken,
         user: this.sanitizeProfile(profile),
+        profile: this.sanitizeProfile(profile),
       };
     }
 
@@ -360,6 +361,7 @@ export class AuthService {
       accessToken,
       refreshToken: rawRefreshToken,
       user: this.sanitizeProfile(profile),
+      profile: this.sanitizeProfile(profile),
     };
   }
 
