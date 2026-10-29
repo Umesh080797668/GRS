@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:grs_core/grs_core.dart';
 import '../local/database.dart';
 
@@ -43,8 +44,25 @@ class AreaDownloadService {
       cursor = null;
     }
 
-    int downloadedCount =
-        int.tryParse(await _db.getMeta('area_sync_count') ?? '0') ?? 0;
+    int downloadedCount = 0;
+    final downloadedIds = <String>{};
+
+    if (cursor != null) {
+      downloadedCount =
+          int.tryParse(await _db.getMeta('area_sync_count') ?? '0') ?? 0;
+      final savedIdsJson = await _db.getMeta('area_sync_seen_ids');
+      if (savedIdsJson != null && savedIdsJson.isNotEmpty) {
+        try {
+          downloadedIds.addAll(
+            (jsonDecode(savedIdsJson) as List).cast<String>(),
+          );
+        } catch (_) {}
+      }
+    } else {
+      await _db.setMeta('area_sync_count', '0');
+      await _db.setMeta('area_sync_seen_ids', '');
+    }
+
     bool hasMore = true;
 
     while (hasMore) {
@@ -52,6 +70,7 @@ class AreaDownloadService {
 
       if (page.items.isNotEmpty) {
         for (final h in page.items) {
+          downloadedIds.add(h.id);
           await _db.upsertHousehold(h);
         }
         downloadedCount += page.items.length;
@@ -81,9 +100,19 @@ class AreaDownloadService {
         // Save resumable checkpoint
         await _db.setMeta('area_sync_cursor', cursor);
         await _db.setMeta('area_sync_count', downloadedCount.toString());
+        await _db.setMeta(
+          'area_sync_seen_ids',
+          jsonEncode(downloadedIds.toList()),
+        );
       } else {
-        // Download complete: clear cursor and record completion timestamp
+        // Prune houses deleted or reassigned on the server
+        if (downloadedIds.isNotEmpty) {
+          await _db.removeHouseholdsNotIn(downloadedIds);
+        }
+        // Download complete: clear cursor, reset count, and record completion timestamp
         await _db.setMeta('area_sync_cursor', '');
+        await _db.setMeta('area_sync_count', '0');
+        await _db.setMeta('area_sync_seen_ids', '');
         await _db.setMeta(
           'area_sync_completed_at',
           DateTime.now().toUtc().toIso8601String(),

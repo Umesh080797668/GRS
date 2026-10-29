@@ -162,6 +162,8 @@
   "@downloadAreaButton": {},
   "downloadingArea": "தரவு பதிவிறக்கப்படுகிறது...",
   "@downloadingArea": {},
+  "downloadFailed": "பிரிவுத் தரவை பதிவிறக்க முடியவில்லை. பிணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.",
+  "@downloadFailed": {},
   "searchHouseHint": "வீட்டு எண் அல்லது குடும்பத் தலைவர் பெயரால் தேடுக",
   "@searchHouseHint": {},
   "filterAll": "அனைத்து வீடுகள்",

@@ -10,7 +10,7 @@ export interface RateLimitResult {
 
 @Injectable()
 export class RateLimitService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Evaluates rate limit against DB-backed storage (rate_limits table).
@@ -30,21 +30,37 @@ export class RateLimitService {
       });
 
       if (!existing) {
-        await this.prisma.rateLimit.create({
-          data: {
-            key,
-            windowStart: now,
-            count: 1,
-          },
-        });
+        try {
+          await this.prisma.rateLimit.create({
+            data: {
+              key,
+              windowStart: now,
+              count: 1,
+            },
+          });
+          return {
+            allowed: true,
+            limit,
+            remaining: limit - 1,
+          };
+        } catch {
+          // Concurrency: another request just created the record
+        }
+      }
+
+      const current =
+        existing ?? (await this.prisma.rateLimit.findUnique({ where: { key } }));
+
+      if (!current) {
         return {
-          allowed: true,
+          allowed: false,
           limit,
-          remaining: limit - 1,
+          remaining: 0,
+          retryAfter: 60,
         };
       }
 
-      const elapsed = now.getTime() - existing.windowStart.getTime();
+      const elapsed = now.getTime() - current.windowStart.getTime();
 
       // Window expired, reset window
       if (elapsed > windowMs) {
@@ -62,8 +78,16 @@ export class RateLimitService {
         };
       }
 
+      // Atomically increment count first to prevent parallel guess bypass
+      const updated = await this.prisma.rateLimit.update({
+        where: { key },
+        data: {
+          count: { increment: 1 },
+        },
+      });
+
       // Limit reached
-      if (existing.count >= limit) {
+      if (updated.count > limit) {
         const retryAfter = Math.max(1, Math.ceil((windowMs - elapsed) / 1000));
         return {
           allowed: false,
@@ -73,25 +97,18 @@ export class RateLimitService {
         };
       }
 
-      // Increment count
-      await this.prisma.rateLimit.update({
-        where: { key },
-        data: {
-          count: { increment: 1 },
-        },
-      });
-
       return {
         allowed: true,
         limit,
-        remaining: limit - (existing.count + 1),
+        remaining: Math.max(0, limit - updated.count),
       };
     } catch {
-      // In event of DB hiccup during rate limiting, default to allowed to prevent total outage
+      // Fail-closed on database errors to prevent rate-limit bypass
       return {
-        allowed: true,
+        allowed: false,
         limit,
-        remaining: 1,
+        remaining: 0,
+        retryAfter: 60,
       };
     }
   }

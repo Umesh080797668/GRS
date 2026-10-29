@@ -21,6 +21,13 @@ class GrsApiException implements Exception {
   bool get isVersionGate => statusCode == 426;
   bool get isRateLimited => statusCode == 429;
   bool get isServerBusy => statusCode == 503;
+  bool get isAccountDeactivated =>
+      code == 'ACCOUNT_DEACTIVATED' || messageKey == 'errors.auth.deactivated';
+  bool get isPasswordExpired =>
+      code == 'PASSWORD_EXPIRED' ||
+      messageKey == 'errors.auth.initial_password_expired';
+  bool get isAccountLocked =>
+      code == 'ACCOUNT_LOCKED' || messageKey == 'errors.auth.account_locked';
 
   @override
   String toString() =>

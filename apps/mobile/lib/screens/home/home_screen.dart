@@ -37,13 +37,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Future<void> _downloadArea() async {
+    final l10n = GrsL10n.of(context);
     await ref.read(areaDownloadProgressProvider.notifier).startDownload();
     if (!mounted) return;
     final state = ref.read(areaDownloadProgressProvider);
     if (state.error != null) {
+      final msg =
+          (state.error == 'downloadFailed' ||
+              state.error!.startsWith('errors.'))
+          ? l10n.get(state.error!)
+          : state.error!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Download failed: ${state.error}'),
+          content: Text(
+            msg.isNotEmpty
+                ? msg
+                : 'Failed to download area data. Please check network.',
+          ),
           backgroundColor: GrsColors.syncRejected,
         ),
       );

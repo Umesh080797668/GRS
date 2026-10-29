@@ -14,6 +14,7 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
   let prisma: any;
   let credentialService: CredentialService;
   let jwtService: JwtService;
+  let emailService: EmailService;
 
   const mockProfile = {
     id: 'user-uuid-1',
@@ -73,6 +74,8 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
         {
           provide: EmailService,
           useValue: {
+            sendCode: jest.fn().mockResolvedValue({ message: 'Verification code sent' }),
+            verifyCode: jest.fn().mockResolvedValue(true),
             sendOtp: jest.fn().mockResolvedValue(true),
             sendPasswordReset: jest.fn().mockResolvedValue(true),
           },
@@ -80,7 +83,10 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
         {
           provide: RateLimitService,
           useValue: {
-            checkRateLimit: jest.fn().mockResolvedValue(true),
+            checkRateLimit: jest
+              .fn()
+              .mockResolvedValue({ allowed: true, limit: 10, remaining: 9 }),
+            throwThrottled: jest.fn(),
           },
         },
       ],
@@ -89,6 +95,7 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
     service = module.get<AuthService>(AuthService);
     credentialService = module.get<CredentialService>(CredentialService);
     jwtService = module.get<JwtService>(JwtService);
+    emailService = module.get<EmailService>(EmailService);
   });
 
   describe('Identifier Normalization', () => {
@@ -100,6 +107,17 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
       expect(service.normalizeIdentifier('  Agent@GRS.Gov.LK  ')).toEqual({
         type: 'email',
         value: 'agent@grs.gov.lk',
+      });
+    });
+
+    it('correctly classifies emails starting with grs', () => {
+      expect(service.normalizeIdentifier('grsmith@example.com')).toEqual({
+        type: 'email',
+        value: 'grsmith@example.com',
+      });
+      expect(service.normalizeIdentifier('GRS_user@domain.lk')).toEqual({
+        type: 'email',
+        value: 'grs_user@domain.lk',
       });
     });
   });
@@ -301,6 +319,52 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
       ).rejects.toThrow(UnauthorizedException);
 
       expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Forgot & Reset Password Non-Enumeration (Invariant 14)', () => {
+    it('forgotPassword does not leak whether account exists or is on cooldown', async () => {
+      // Non-existent profile
+      prisma.profile.findFirst.mockResolvedValue(null);
+      const resNonExistent = await service.forgotPassword('nonexistent@example.com');
+      expect(resNonExistent.message).toContain('If an account exists');
+
+      // Real profile that hits cooldown in emailService
+      prisma.profile.findFirst.mockResolvedValue(mockProfile);
+      jest.spyOn(emailService, 'sendCode').mockRejectedValue({
+        response: { code: 'EMAIL_COOLDOWN' },
+        message: 'Please wait',
+      });
+      const resCooldown = await service.forgotPassword('real@example.com');
+      expect(resCooldown.message).toContain('If an account exists');
+    });
+
+    it('resetPassword returns identical INVALID_CODE error for non-existent account and wrong code', async () => {
+      // Non-existent profile
+      prisma.profile.findFirst.mockResolvedValue(null);
+      await expect(
+        service.resetPassword('unknown@example.com', '123456', 'NewPassword123!'),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'INVALID_CODE',
+        },
+      });
+
+      // Existing profile, invalid code
+      prisma.profile.findFirst.mockResolvedValue(mockProfile);
+      jest.spyOn(emailService, 'verifyCode').mockRejectedValue(
+        new UnauthorizedException({
+          code: 'INVALID_CODE',
+          message: 'Incorrect verification code',
+        }),
+      );
+      await expect(
+        service.resetPassword('user@grs.gov.lk', '000000', 'NewPassword123!'),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'INVALID_CODE',
+        },
+      });
     });
   });
 });

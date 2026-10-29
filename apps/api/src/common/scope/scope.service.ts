@@ -12,17 +12,9 @@ export class ScopeService {
 
     switch (scope.role) {
       case UserRole.super_admin:
-        return baseCondition;
-
       case UserRole.admin:
       case UserRole.cg:
-        // National scope per Decision C17
-        if (scope.districtId) {
-          return {
-            ...baseCondition,
-            OR: [{ districtId: scope.districtId }, { createdBy: scope.userId }],
-          };
-        }
+        // National scope per Decision C17 (consistent with canSee)
         return baseCondition;
 
       case UserRole.dc:
@@ -80,19 +72,9 @@ export class ScopeService {
 
     switch (scope.role) {
       case UserRole.super_admin:
-        return baseCondition;
-
       case UserRole.admin:
       case UserRole.cg:
-        if (scope.districtId) {
-          return {
-            ...baseCondition,
-            OR: [
-              { districtId: scope.districtId },
-              { collectedBy: scope.userId },
-            ],
-          };
-        }
+        // National scope per Decision C17 (consistent with canSee)
         return baseCondition;
 
       case UserRole.dc:

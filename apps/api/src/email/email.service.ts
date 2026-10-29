@@ -94,7 +94,7 @@ export class EmailService {
       const remainingSeconds = Math.ceil(
         (EmailService.COOLDOWN_SECONDS * 1000 -
           (now.getTime() - recentCode.createdAt.getTime())) /
-          1000,
+        1000,
       );
       throw new BadRequestException({
         code: 'EMAIL_COOLDOWN',
@@ -162,7 +162,18 @@ export class EmailService {
       });
     }
 
-    if (record.attempts >= EmailService.MAX_ATTEMPTS) {
+    // Atomically increment attempts conditionally if under MAX_ATTEMPTS to prevent concurrency race
+    const updateResult = await this.prisma.emailCode.updateMany({
+      where: {
+        id: record.id,
+        attempts: { lt: EmailService.MAX_ATTEMPTS },
+      },
+      data: {
+        attempts: { increment: 1 },
+      },
+    });
+
+    if (updateResult.count === 0) {
       throw new UnauthorizedException({
         code: 'TOO_MANY_ATTEMPTS',
         message: 'Too many incorrect attempts. Please request a new code.',
@@ -173,15 +184,14 @@ export class EmailService {
     const isMatch = candidateHash === record.codeHash;
 
     if (!isMatch) {
-      await this.prisma.emailCode.update({
+      const refreshed = await this.prisma.emailCode.findUnique({
         where: { id: record.id },
-        data: { attempts: { increment: 1 } },
       });
-
+      const attemptsDone = refreshed?.attempts ?? (record.attempts + 1);
       throw new UnauthorizedException({
         code: 'INVALID_CODE',
         message: 'Incorrect verification code',
-        remainingAttempts: EmailService.MAX_ATTEMPTS - (record.attempts + 1),
+        remainingAttempts: Math.max(0, EmailService.MAX_ATTEMPTS - attemptsDone),
       });
     }
 

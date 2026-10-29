@@ -9,6 +9,7 @@ import '../screens/auth/login_screen.dart';
 import '../screens/client/client_form_screen.dart';
 import '../screens/client/consent_screen.dart';
 import '../screens/guard/deactivated_screen.dart';
+import '../screens/guard/splash_screen.dart';
 import '../screens/guard/version_gate_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/house/house_detail_screen.dart';
@@ -19,13 +20,13 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
 
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/splash',
     redirect: (context, state) {
       final status = authState.status;
       final location = state.matchedLocation;
 
       if (status == AuthStatus.initial) {
-        return null;
+        return location == '/splash' ? null : '/splash';
       }
 
       if (status == AuthStatus.versionGate) {
@@ -45,9 +46,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       final isAuthRoute =
-          location == '/login' || location == '/forgot-password';
+          location == '/login' ||
+          location == '/forgot-password' ||
+          location == '/splash';
+
       if (status == AuthStatus.unauthenticated) {
-        return isAuthRoute ? null : '/login';
+        return (location == '/login' || location == '/forgot-password')
+            ? null
+            : '/login';
       }
 
       if (status == AuthStatus.authenticated && isAuthRoute) {
@@ -57,6 +63,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/forgot-password',

@@ -43,6 +43,25 @@ describe('EmailService (Spike S6 & Task M1.15)', () => {
         }
         return Promise.resolve(null);
       }),
+      updateMany: jest.fn().mockImplementation(({ where, data }) => {
+        let count = 0;
+        for (const item of inMemoryCodes) {
+          if (item.id === where.id) {
+            if (where.attempts?.lt !== undefined && item.attempts >= where.attempts.lt) {
+              continue;
+            }
+            if (data.attempts?.increment) {
+              item.attempts += data.attempts.increment;
+            }
+            count++;
+          }
+        }
+        return Promise.resolve({ count });
+      }),
+      findUnique: jest.fn().mockImplementation(({ where }) => {
+        const match = inMemoryCodes.find((c) => c.id === where.id);
+        return Promise.resolve(match || null);
+      }),
       deleteMany: jest.fn().mockImplementation(({ where }) => {
         const before = inMemoryCodes.length;
         inMemoryCodes = inMemoryCodes.filter(

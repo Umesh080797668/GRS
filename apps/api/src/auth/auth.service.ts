@@ -37,7 +37,9 @@ export class AuthService {
 
   // Fallback dummy hash to prevent timing-based user enumeration attacks (Invariant 14)
   private static readonly DUMMY_HASH =
-    '$argon2id$v=19$m=32768,t=2,p=2$dGVzdHNhbHQxMjM$DummyHashToPreventTimingAttacks123';
+    process.env.NODE_ENV === 'test'
+      ? '$argon2id$v=19$m=1024,t=1,p=1$63DNh8tIO+OXs9dMrTXYkw$6XuPraQ129LdwF5c3Dozgo7QxpieGmv1PLOX0BjnyjU'
+      : '$argon2id$v=19$m=32768,t=2,p=2$PCH/SUt3YMNC8/qnCRijvA$Cuw1+IShJzEuWjILkokIT2XnzXYW1cUf6qBB64fWLC8';
 
   constructor(
     private readonly prisma: PrismaService,
@@ -53,7 +55,10 @@ export class AuthService {
    */
   normalizeIdentifier(raw: string): { type: 'code' | 'email'; value: string } {
     const trimmed = raw.trim();
-    if (trimmed.toUpperCase().startsWith('GRS')) {
+    if (trimmed.includes('@')) {
+      return { type: 'email', value: trimmed.toLowerCase() };
+    }
+    if (/^GRS\d{10}$/i.test(trimmed) || trimmed.toUpperCase().startsWith('GRS')) {
       return { type: 'code', value: trimmed.toUpperCase() };
     }
     return { type: 'email', value: trimmed.toLowerCase() };
@@ -401,6 +406,12 @@ export class AuthService {
    * Adds a pending email and dispatches a 6-digit verification code (M1.15 / M2.5).
    */
   async addPendingEmail(userId: string, email: string) {
+    if (!email || typeof email !== 'string') {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message: 'Valid email address is required',
+      });
+    }
     const cleanEmail = email.trim().toLowerCase();
     const existing = await this.prisma.profile.findFirst({
       where: { email: cleanEmail, id: { not: userId } },
@@ -424,6 +435,13 @@ export class AuthService {
    * Verifies the 6-digit code and promotes pending email to verified primary email (M1.15 / M2.5).
    */
   async verifyEmail(userId: string, code: string) {
+    if (!code || typeof code !== 'string') {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message: '6-digit verification code is required',
+      });
+    }
+    const cleanCode = code.trim();
     const profile = await this.prisma.profile.findUnique({
       where: { id: userId },
     });
@@ -437,7 +455,7 @@ export class AuthService {
     await this.emailService.verifyCode(
       userId,
       profile.pendingEmail,
-      code,
+      cleanCode,
       'verify',
     );
 
@@ -467,6 +485,12 @@ export class AuthService {
    * Requests a password reset code. Employs uniform response semantics to prevent email enumeration (Invariant 14).
    */
   async forgotPassword(email: string, clientIp?: string) {
+    if (!email || typeof email !== 'string') {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message: 'Email address is required',
+      });
+    }
     const cleanEmail = email.trim().toLowerCase();
     const rateLimitKey = `auth_forgot_${clientIp || 'global'}_${cleanEmail}`;
     const rl = await this.rateLimitService.checkRateLimit(rateLimitKey, 5, 300);
@@ -482,11 +506,12 @@ export class AuthService {
       try {
         await this.emailService.sendCode(profile.id, cleanEmail, 'reset');
       } catch (err: any) {
-        if (err?.response?.code === 'EMAIL_COOLDOWN') {
-          throw err;
-        }
-        this.logger.error(`Failed to send reset code: ${err.message}`);
+        // Never rethrow EMAIL_COOLDOWN to prevent account enumeration
+        this.logger.warn(`Password reset code skipped for ${cleanEmail}: ${err.message}`);
       }
+    } else {
+      // Simulate equivalent email dispatch delay to prevent timing enumeration
+      await new Promise((resolve) => setTimeout(resolve, 80));
     }
 
     return {
@@ -504,7 +529,14 @@ export class AuthService {
     newPassword: string,
     clientIp?: string,
   ) {
+    if (!email || !code || !newPassword) {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message_key: 'errors.validation.missing_fields',
+      });
+    }
     const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = code.trim();
     const rateLimitKey = `auth_reset_${clientIp || 'global'}_${cleanEmail}`;
     const rl = await this.rateLimitService.checkRateLimit(rateLimitKey, 10, 300);
     if (!rl.allowed) {
@@ -516,14 +548,28 @@ export class AuthService {
     });
 
     if (!profile) {
+      // Balance timing
+      await new Promise((resolve) => setTimeout(resolve, 50));
       throw new UnauthorizedException({
-        code: 'AUTH_INVALID',
-        message_key: 'errors.auth.invalid_credentials',
+        code: 'INVALID_CODE',
+        message_key: 'errors.auth.invalid_reset_code',
+        message: 'Invalid email or verification code',
       });
     }
 
-    // Verify 6-digit code
-    await this.emailService.verifyCode(profile.id, cleanEmail, code, 'reset');
+    // Verify 6-digit code with uniform error response
+    try {
+      await this.emailService.verifyCode(profile.id, cleanEmail, cleanCode, 'reset');
+    } catch (err: any) {
+      if (err instanceof UnauthorizedException) {
+        throw new UnauthorizedException({
+          code: 'INVALID_CODE',
+          message_key: 'errors.auth.invalid_reset_code',
+          message: 'Invalid email or verification code',
+        });
+      }
+      throw err;
+    }
 
     // Validate new password rules (Appendix A)
     const cleanNew = newPassword.trim();

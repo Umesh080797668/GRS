@@ -509,6 +509,46 @@ class AppDatabase {
     }
   }
 
+  /// Removes households from local SQLite database that were deleted or reassigned
+  /// on the server, while protecting any households that contain local unsynced clients.
+  Future<void> removeHouseholdsNotIn(Set<String> validIds) async {
+    if (validIds.isEmpty) return;
+
+    final allLocal = await _executor.runSelect(
+      'SELECT id FROM households;',
+      [],
+    );
+    final localIds = allLocal.map((r) => r.values.first as String).toSet();
+    final toDelete = localIds.difference(validIds);
+    if (toDelete.isEmpty) return;
+
+    // Preserve households with unsynced local client drafts/pending
+    final unsynced = await _executor.runSelect(
+      "SELECT DISTINCT household_id FROM clients WHERE sync_status IN ('draft', 'pending');",
+      [],
+    );
+    final protectedHouseIds = unsynced
+        .map((r) => r.values.first as String)
+        .toSet();
+
+    final safeToDelete = toDelete.difference(protectedHouseIds);
+    if (safeToDelete.isEmpty) return;
+
+    final list = safeToDelete.toList();
+    for (var i = 0; i < list.length; i += 200) {
+      final chunk = list.sublist(i, (i + 200).clamp(0, list.length));
+      final placeholders = List.filled(chunk.length, '?').join(',');
+      await _executor.runCustom(
+        'DELETE FROM clients WHERE household_id IN ($placeholders);',
+        chunk,
+      );
+      await _executor.runCustom(
+        'DELETE FROM households WHERE id IN ($placeholders);',
+        chunk,
+      );
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getHouseholds({
     String? search,
     String? statusFilter,

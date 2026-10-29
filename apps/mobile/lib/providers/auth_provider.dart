@@ -132,6 +132,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
         return;
       }
+      if (e is GrsApiException && e.isAccountDeactivated) {
+        await _storage.clearTokens();
+        state = AuthState(status: AuthStatus.deactivated, profile: profile);
+        return;
+      }
       if (e is GrsApiException && (e.isUnauthorized || e.statusCode == 400)) {
         // Token invalid, revoked, malformed, or rejected
         await _storage.clearTokens();
@@ -197,6 +202,26 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = AuthState(
           status: AuthStatus.versionGate,
           minVersionRequired: e.details['min_version'] as String? ?? '1.0.0',
+        );
+      } else if (e.isAccountDeactivated) {
+        state = const AuthState(
+          status: AuthStatus.deactivated,
+          errorMessage:
+              'Your account has been deactivated. Contact your administrator.',
+        );
+      } else if (e.isPasswordExpired) {
+        state = const AuthState(
+          status: AuthStatus.unauthenticated,
+          errorMessage:
+              'Initial password has expired. Please contact your administrator to reset.',
+        );
+      } else if (e.isAccountLocked) {
+        final retrySecs = e.retryAfterSeconds ?? 900;
+        final mins = (retrySecs / 60).ceil();
+        state = AuthState(
+          status: AuthStatus.unauthenticated,
+          errorMessage:
+              'Account temporarily locked due to failed attempts. Try again in $mins minutes.',
         );
       } else if (e.isUnauthorized || e.isNotFound) {
         // Invariant 14: Uniform error message

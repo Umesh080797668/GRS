@@ -18,6 +18,10 @@ import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { AddEmailDto } from './dto/add-email.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import type { ScopeContext } from '../common/scope/scope.types';
@@ -81,7 +85,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Add pending email and dispatch 6-digit OTP code' })
   async addEmail(
     @CurrentUser() user: ScopeContext,
-    @Body() dto: { email: string },
+    @Body() dto: AddEmailDto,
   ) {
     return this.authService.addPendingEmail(user.userId, dto.email);
   }
@@ -93,7 +97,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Verify 6-digit OTP code and promote pending email' })
   async verifyEmail(
     @CurrentUser() user: ScopeContext,
-    @Body() dto: { code: string },
+    @Body() dto: VerifyEmailDto,
   ) {
     return this.authService.verifyEmail(user.userId, dto.code);
   }
@@ -101,7 +105,7 @@ export class AuthController {
   @Post('forgot')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset code via email (uniform 200)' })
-  async forgotPassword(@Body() dto: { email: string }) {
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto.email);
   }
 
@@ -119,7 +123,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Update user profile settings (preferredLanguage)' })
   async updateProfile(
     @CurrentUser() user: ScopeContext,
-    @Body() dto: { preferredLanguage?: string },
+    @Body() dto: UpdateProfileDto,
   ) {
     return this.authService.updateProfile(user.userId, dto);
   }

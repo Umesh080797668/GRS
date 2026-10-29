@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:grs_core/grs_core.dart';
 import '../data/sync/area_download_service.dart';
 import 'api_client_provider.dart';
 import 'database_provider.dart';
@@ -48,11 +49,19 @@ class AreaDownloadNotifier extends StateNotifier<AreaDownloadProgress> {
         isCompleted: true,
       );
     } catch (e) {
+      final String errorMsg;
+      if (e is GrsApiException) {
+        errorMsg = e.messageKey.isNotEmpty
+            ? e.messageKey
+            : 'errors.sync.download_failed';
+      } else {
+        errorMsg = 'downloadFailed';
+      }
       state = AreaDownloadProgress(
         downloaded: state.downloaded,
         total: state.total,
         isDownloading: false,
-        error: e.toString(),
+        error: errorMsg,
       );
     }
   }

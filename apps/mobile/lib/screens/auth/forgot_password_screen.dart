@@ -67,11 +67,12 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           _errorMessage = e.messageKey;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = e.toString();
+          _errorMessage =
+              'An unexpected network error occurred. Please try again.';
         });
       }
     }
@@ -122,11 +123,12 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           _errorMessage = e.messageKey;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = e.toString();
+          _errorMessage =
+              'An unexpected network error occurred. Please try again.';
         });
       }
     }

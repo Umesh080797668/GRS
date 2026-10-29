@@ -162,6 +162,8 @@
   "@downloadAreaButton": {},
   "downloadingArea": "Downloading area data...",
   "@downloadingArea": {},
+  "downloadFailed": "Failed to download area data. Please check network and try again.",
+  "@downloadFailed": {},
   "searchHouseHint": "Search by House No. or Leader name",
   "@searchHouseHint": {},
   "filterAll": "All Houses",

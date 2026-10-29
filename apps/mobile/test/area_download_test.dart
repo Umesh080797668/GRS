@@ -193,8 +193,71 @@ void main() {
         final allHouses = await db.getHouseholds();
         expect(allHouses.length, equals(6));
 
-        // Cursor should be cleared after finishing
+        // Cursor and sync count should be cleared/reset after finishing
         expect(await db.getMeta('area_sync_cursor'), equals(''));
+        expect(await db.getMeta('area_sync_count'), equals('0'));
+      },
+    );
+
+    test(
+      'Prunes deleted/reassigned server households on completion while preserving unsynced local drafts',
+      () async {
+        // Pre-populate DB with 3 households:
+        // house-1: stays on server
+        // house-2: removed on server, has unsynced draft client -> must be protected
+        // house-3: removed on server, no clients -> must be pruned
+        await db.upsertHousehold(makeHousehold(1));
+        await db.upsertHousehold(makeHousehold(2));
+        await db.upsertHousehold(makeHousehold(3));
+
+        // Insert draft client for house-2
+        await db.saveClient(
+          client: Client(
+            id: 'client-draft-1',
+            householdId: 'house-2',
+            name: 'Local Draft Person',
+            age: 25,
+            gender: 'M',
+            infoProvidedBy: 'Self',
+            consentGiven: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+          status: SyncStatus.draft,
+        );
+
+        // Server area download only returns house-1
+        final mockApi = MockGrsApiClient(
+          responses: [
+            AreaDownloadResponse(
+              items: [makeHousehold(1)],
+              nextCursor: null,
+              hasMore: false,
+              total: 1,
+            ),
+          ],
+        );
+
+        final service = AreaDownloadService(apiClient: mockApi, db: db);
+        await service.downloadArea();
+
+        final remainingHouses = await db.getHouseholds();
+        final remainingIds = remainingHouses.map((h) => h['id']).toSet();
+
+        expect(remainingIds, contains('house-1'));
+        expect(
+          remainingIds,
+          contains('house-2'),
+          reason: 'house-2 has local draft client',
+        );
+        expect(
+          remainingIds,
+          isNot(contains('house-3')),
+          reason: 'house-3 was deleted/reassigned',
+        );
+
+        // area_sync_count should be 0 on completion
+        expect(await db.getMeta('area_sync_count'), equals('0'));
       },
     );
   });

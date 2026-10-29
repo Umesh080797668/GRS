@@ -162,6 +162,8 @@
   "@downloadAreaButton": {},
   "downloadingArea": "දත්ත බාගත වෙමින්...",
   "@downloadingArea": {},
+  "downloadFailed": "වසමේ දත්ත බාගත කිරීම අසාර්ථක විය. කරුණාකර ජාල සම්බන්ධතාවය පරීක්ෂා කර නැවත උත්සාහ කරන්න.",
+  "@downloadFailed": {},
   "searchHouseHint": "නිවාස අංකය හෝ ප්‍රධානියාගේ නම සොයන්න",
   "@searchHouseHint": {},
   "filterAll": "සියලු නිවාස",
