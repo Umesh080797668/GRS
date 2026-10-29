@@ -7,7 +7,7 @@ import {
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Response, Request } from 'express';
+import type { Response, Request } from 'express';
 import { ReleasesService } from './releases.service';
 import { ReleaseManifest } from './release-manifest.interface';
 import {
@@ -15,7 +15,7 @@ import {
   IsString,
   IsOptional,
   IsNumber,
-  IsBoolean
+  IsBoolean,
 } from 'class-validator';
 import * as fs from 'fs';
 import * as path from 'path';
