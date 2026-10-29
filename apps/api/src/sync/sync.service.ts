@@ -20,7 +20,7 @@ export class SyncService {
     private readonly prisma: PrismaService,
     private readonly lookupService: LookupService,
     private readonly scopeService: ScopeService,
-  ) { }
+  ) {}
 
   /**
    * Paged, resumable area download endpoint per DD-Campaign_Agent_Build_Plan.md §6.2.
@@ -71,7 +71,9 @@ export class SyncService {
         const catLookups = await this.lookupService.getCategorizedLookups();
         lookups = catLookups.categories;
       } catch (err: any) {
-        this.logger.warn(`Failed to attach lookups to initial area sync: ${err.message}`);
+        this.logger.warn(
+          `Failed to attach lookups to initial area sync: ${err.message}`,
+        );
       }
     }
 

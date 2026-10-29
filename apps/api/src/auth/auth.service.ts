@@ -24,11 +24,11 @@ export type AuthSession = {
 
 export type LoginResult =
   | {
-    mustChangePassword: true;
-    accessToken: string;
-    user: Record<string, any>;
-    profile?: Record<string, any>;
-  }
+      mustChangePassword: true;
+      accessToken: string;
+      user: Record<string, any>;
+      profile?: Record<string, any>;
+    }
   | AuthSession;
 
 @Injectable()
@@ -48,7 +48,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly rateLimitService: RateLimitService,
-  ) { }
+  ) {}
 
   /**
    * Normalizes login identifier (GRS ID -> uppercase, Email -> lowercase).
@@ -58,7 +58,10 @@ export class AuthService {
     if (trimmed.includes('@')) {
       return { type: 'email', value: trimmed.toLowerCase() };
     }
-    if (/^GRS\d{10}$/i.test(trimmed) || trimmed.toUpperCase().startsWith('GRS')) {
+    if (
+      /^GRS\d{10}$/i.test(trimmed) ||
+      trimmed.toUpperCase().startsWith('GRS')
+    ) {
       return { type: 'code', value: trimmed.toUpperCase() };
     }
     return { type: 'email', value: trimmed.toLowerCase() };
@@ -422,7 +425,9 @@ export class AuthService {
       scope: 'full',
     };
 
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' } as any);
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: '15m',
+    } as any);
     const rawRefreshToken = crypto.randomBytes(40).toString('hex');
     const refreshHash = crypto
       .createHash('sha256')
@@ -495,7 +500,8 @@ export class AuthService {
     if (!profile || !profile.pendingEmail) {
       throw new BadRequestException({
         code: 'NO_PENDING_EMAIL',
-        message: 'No pending email to verify. Please add an email address first.',
+        message:
+          'No pending email to verify. Please add an email address first.',
       });
     }
 
@@ -591,7 +597,11 @@ export class AuthService {
     const cleanEmail = email.trim().toLowerCase();
     const cleanCode = code.trim();
     const rateLimitKey = `auth_reset_${clientIp || 'global'}_${cleanEmail}`;
-    const rl = await this.rateLimitService.checkRateLimit(rateLimitKey, 10, 300);
+    const rl = await this.rateLimitService.checkRateLimit(
+      rateLimitKey,
+      10,
+      300,
+    );
     if (!rl.allowed) {
       this.rateLimitService.throwThrottled(rl.retryAfter || 60);
     }
@@ -612,7 +622,12 @@ export class AuthService {
 
     // Verify 6-digit code with uniform error response
     try {
-      await this.emailService.verifyCode(profile.id, cleanEmail, cleanCode, 'reset');
+      await this.emailService.verifyCode(
+        profile.id,
+        cleanEmail,
+        cleanCode,
+        'reset',
+      );
     } catch (err: any) {
       if (err instanceof UnauthorizedException) {
         throw new UnauthorizedException({
@@ -678,7 +693,8 @@ export class AuthService {
     );
 
     return {
-      message: 'Password has been successfully reset. Please log in with your new password.',
+      message:
+        'Password has been successfully reset. Please log in with your new password.',
     };
   }
 

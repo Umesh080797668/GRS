@@ -18,7 +18,7 @@ if (process.env.SENTRY_DSN) {
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || 'development',
     beforeSend: sentryEventScrubber as any,
-  } as any);
+  });
 }
 
 export async function createNestServer(server: Express) {
@@ -30,10 +30,17 @@ export async function createNestServer(server: Express) {
   // Secure CORS policy: Restrict to configured origins or localhost development
   const allowedOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
-    : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:8080'];
+    : [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:8080',
+      ];
 
   app.enableCors({
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
       if (
         !origin ||
         allowedOrigins.includes(origin) ||
@@ -84,7 +91,11 @@ async function bootstrap() {
   console.log(`GRS API server running on port ${port}`);
 }
 
-if (!process.env.VERCEL && process.env.NODE_ENV !== 'test' && require.main === module) {
+if (
+  !process.env.VERCEL &&
+  process.env.NODE_ENV !== 'test' &&
+  require.main === module
+) {
   bootstrap();
 }
 

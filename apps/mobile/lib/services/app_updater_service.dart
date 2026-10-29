@@ -59,6 +59,12 @@ class AppUpdaterService {
     }
   }
 
+  /// Checks if the update is mandatory (e.g. if mandatory flag is set, or current version < minSupportedVersion).
+  static bool isMandatory(AppReleaseModel release, String currentVersion) {
+    if (release.mandatory) return true;
+    return isUpdateAvailable(release.minSupportedVersion, currentVersion);
+  }
+
   /// Fetches the latest published release from the backend.
   Future<AppReleaseModel> fetchLatestRelease() async {
     return _apiClient.getLatestRelease();
@@ -75,12 +81,12 @@ class AppUpdaterService {
   }
 
   /// Downloads the release APK with real-time download progress.
-  /// Validates SHA-256 checksum if provided by the server.
+  /// Follows 302 redirects (e.g. Vercel -> GitHub Releases) and validates SHA-256 checksum.
   Future<File> downloadApk(
     AppReleaseModel release, {
     DownloadProgressCallback? onProgress,
   }) async {
-    // Resolve absolute download URL
+    // Resolve download URL (direct GitHub release asset or server endpoint)
     Uri downloadUri;
     if (release.apkUrl.startsWith('http://') ||
         release.apkUrl.startsWith('https://')) {
@@ -94,7 +100,10 @@ class AppUpdaterService {
     }
 
     final request = http.Request('GET', downloadUri);
-    request.headers['Accept'] = 'application/vnd.android.package-archive';
+    request.followRedirects = true;
+    request.maxRedirects = 5;
+    request.headers['Accept'] =
+        'application/vnd.android.package-archive, application/octet-stream, */*';
     request.headers['X-App-Version'] = AppEnv.appVersion;
 
     final streamedResponse = await _httpClient.send(request);

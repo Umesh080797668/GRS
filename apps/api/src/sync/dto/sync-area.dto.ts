@@ -4,7 +4,8 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class SyncAreaDto {
   @ApiPropertyOptional({
-    description: 'Resumable pagination cursor (UUID of last received household)',
+    description:
+      'Resumable pagination cursor (UUID of last received household)',
   })
   @IsOptional()
   @IsString()

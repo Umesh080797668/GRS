@@ -79,12 +79,14 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
   async function cleanTestData() {
     try {
       await prisma.emailCode.deleteMany({ where: { profileId: testUserId } });
-      await prisma.refreshToken.deleteMany({ where: { profileId: testUserId } });
+      await prisma.refreshToken.deleteMany({
+        where: { profileId: testUserId },
+      });
       await prisma.accountAudit.deleteMany({
         where: { OR: [{ actorId: testUserId }, { targetId: testUserId }] },
       });
       await prisma.profile.deleteMany({ where: { id: testUserId } });
-    } catch (_) { }
+    } catch (_) {}
   }
 
   it('Step 1: First Sign-In — Login with mustChangePassword: true returns restricted token', async () => {
@@ -101,7 +103,7 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
     });
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as any;
+    const body = await res.json();
 
     expect(body.mustChangePassword).toBe(true);
     expect(body.accessToken).toBeDefined();
@@ -123,7 +125,7 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
         password: initialPassword,
       }),
     });
-    const loginData = (await loginRes.json()) as any;
+    const loginData = await loginRes.json();
     const restrictedToken = loginData.accessToken;
 
     // 2. Call change-password endpoint with new password
@@ -141,7 +143,7 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
     });
 
     expect(changeRes.status).toBe(200);
-    const changeBody = (await changeRes.json()) as any;
+    const changeBody = await changeRes.json();
     expect(changeBody.mustChangePassword).toBe(false);
     expect(changeBody.accessToken).toBeDefined();
     expect(changeBody.refreshToken).toBeDefined();
@@ -191,7 +193,7 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
       }),
     });
     expect(newRes.status).toBe(200);
-    const newBody = (await newRes.json()) as any;
+    const newBody = await newRes.json();
     expect(newBody.mustChangePassword).toBe(false);
     expect(newBody.accessToken).toBeDefined();
     expect(newBody.refreshToken).toBeDefined(); // Full session: refresh token issued
@@ -273,7 +275,7 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
       }),
     });
     expect(postResetLogin.status).toBe(200);
-    const postResetBody = (await postResetLogin.json()) as any;
+    const postResetBody = await postResetLogin.json();
     expect(postResetBody.mustChangePassword).toBe(false);
     expect(postResetBody.accessToken).toBeDefined();
     expect(postResetBody.refreshToken).toBeDefined();
@@ -292,7 +294,7 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
         password: resetPassword,
       }),
     });
-    const loginData = (await loginRes.json()) as any;
+    const loginData = await loginRes.json();
     const initialRefreshToken = loginData.refreshToken;
 
     // 2. Rotate refresh token via POST /v1/auth/refresh
@@ -305,7 +307,7 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
       body: JSON.stringify({ refreshToken: initialRefreshToken }),
     });
     expect(refreshRes.status).toBe(200);
-    const refreshData = (await refreshRes.json()) as any;
+    const refreshData = await refreshRes.json();
     expect(refreshData.accessToken).toBeDefined();
     expect(refreshData.refreshToken).toBeDefined();
     expect(refreshData.refreshToken).not.toEqual(initialRefreshToken);

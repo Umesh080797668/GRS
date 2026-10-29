@@ -651,6 +651,23 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
   },
   {
     method: 'GET',
+    path: '/releases/manifest',
+    category: 'releases',
+    allowedRoles: [
+      'anon',
+      'team_member',
+      'cdc_secretary',
+      'sda',
+      'dc',
+      'cg',
+      'admin',
+      'super_admin',
+    ],
+    scopeEnforcement: 'none',
+    description: 'Public release manifest JSON',
+  },
+  {
+    method: 'GET',
     path: '/releases/download',
     category: 'releases',
     allowedRoles: [

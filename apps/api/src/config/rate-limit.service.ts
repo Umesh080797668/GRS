@@ -10,7 +10,7 @@ export interface RateLimitResult {
 
 @Injectable()
 export class RateLimitService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Evaluates rate limit against DB-backed storage (rate_limits table).
@@ -49,7 +49,8 @@ export class RateLimitService {
       }
 
       const current =
-        existing ?? (await this.prisma.rateLimit.findUnique({ where: { key } }));
+        existing ??
+        (await this.prisma.rateLimit.findUnique({ where: { key } }));
 
       if (!current) {
         return {

@@ -1,43 +1,48 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReleaseManifest } from './release-manifest.interface';
 
-export interface LatestReleaseResponse {
-  version: string;
-  minSupportedVersion: string;
-  apkUrl: string;
-  checksum: string;
-  releaseNotes: string | null;
-  releasedAt: Date;
-}
+export type LatestReleaseResponse = ReleaseManifest;
 
 @Injectable()
 export class ReleasesService {
   constructor(private readonly prisma: PrismaService) { }
 
-  async getLatestRelease(): Promise<LatestReleaseResponse> {
+  async getLatestRelease(): Promise<ReleaseManifest> {
     const release = await this.prisma.appRelease.findFirst({
       orderBy: { releasedAt: 'desc' },
     });
 
     if (!release) {
-      // Fallback release served directly by this API server
+      // Fallback release manifest pointing to GitHub release storage
       return {
         version: '1.0.1',
+        buildNumber: 2,
         minSupportedVersion: '1.0.0',
-        apkUrl: '/v1/releases/download',
-        checksum: '436be008aacf19b183fd27fdb75cf885e51cbefe52c5968c7537a66619abf475',
-        releaseNotes: 'Security hardening, in-app updates, and offline sync optimizations.',
+        apkUrl:
+          'https://github.com/Umesh080797668/GRS/releases/download/v1.0.1/app-release.apk',
+        sha256:
+          '436be008aacf19b183fd27fdb75cf885e51cbefe52c5968c7537a66619abf475',
+        checksum:
+          '436be008aacf19b183fd27fdb75cf885e51cbefe52c5968c7537a66619abf475',
+        fileSize: 70685640,
+        releaseNotes:
+          'Security hardening, in-app updates, and offline sync optimizations.',
         releasedAt: new Date(),
+        mandatory: false,
       };
     }
 
     return {
       version: release.version,
+      buildNumber: 2,
       minSupportedVersion: release.minSupportedVersion,
       apkUrl: release.apkUrl,
+      sha256: release.checksum,
       checksum: release.checksum,
       releaseNotes: release.releaseNotes,
       releasedAt: release.releasedAt,
+      mandatory: false,
     };
   }
 
@@ -45,26 +50,35 @@ export class ReleasesService {
     version: string;
     minSupportedVersion: string;
     apkUrl: string;
-    checksum: string;
+    checksum?: string;
+    sha256?: string;
     releaseNotes?: string;
-  }): Promise<LatestReleaseResponse> {
+    buildNumber?: number;
+    fileSize?: number;
+    mandatory?: boolean;
+  }): Promise<ReleaseManifest> {
+    const hash = (data.sha256 || data.checksum || '').trim();
     const created = await this.prisma.appRelease.create({
       data: {
         version: data.version,
         minSupportedVersion: data.minSupportedVersion,
         apkUrl: data.apkUrl,
-        checksum: data.checksum,
+        checksum: hash,
         releaseNotes: data.releaseNotes,
       },
     });
 
     return {
       version: created.version,
+      buildNumber: data.buildNumber ?? 2,
       minSupportedVersion: created.minSupportedVersion,
       apkUrl: created.apkUrl,
+      sha256: created.checksum,
       checksum: created.checksum,
+      fileSize: data.fileSize,
       releaseNotes: created.releaseNotes,
       releasedAt: created.releasedAt,
+      mandatory: data.mandatory ?? false,
     };
   }
 }

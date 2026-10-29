@@ -164,6 +164,7 @@ describe('Role × Endpoint Authorization Matrix (M1.10)', () => {
         if (
           policy.path === '/config' ||
           policy.path === '/releases/latest' ||
+          policy.path === '/releases/manifest' ||
           policy.path === '/releases/download'
         ) {
           // Public static config & releases
@@ -182,7 +183,7 @@ describe('Role × Endpoint Authorization Matrix (M1.10)', () => {
 
   describe('Dynamic NestJS Route Discovery & Role Matrix Alignment (M1.10)', () => {
     let app: any;
-    let registeredRoutes: Array<{
+    const registeredRoutes: Array<{
       method: string;
       path: string;
       controller: string;
@@ -200,7 +201,10 @@ describe('Role × Endpoint Authorization Matrix (M1.10)', () => {
       const modulesContainer = app.get(ModulesContainer);
 
       for (const [_, moduleInstance] of modulesContainer.entries()) {
-        for (const [_, controllerWrapper] of moduleInstance.controllers.entries()) {
+        for (const [
+          _,
+          controllerWrapper,
+        ] of moduleInstance.controllers.entries()) {
           const { instance, metatype } = controllerWrapper;
           if (!metatype) continue;
           const controllerPath = Reflect.getMetadata(PATH_METADATA, metatype);
@@ -215,7 +219,10 @@ describe('Role × Endpoint Authorization Matrix (M1.10)', () => {
           for (const methodName of methodNames) {
             const methodHandler = prototype[methodName];
             const routePath = Reflect.getMetadata(PATH_METADATA, methodHandler);
-            const methodCode = Reflect.getMetadata(METHOD_METADATA, methodHandler);
+            const methodCode = Reflect.getMetadata(
+              METHOD_METADATA,
+              methodHandler,
+            );
             if (routePath !== undefined && methodCode !== undefined) {
               const httpMethods = [
                 'GET',
@@ -230,7 +237,8 @@ describe('Role × Endpoint Authorization Matrix (M1.10)', () => {
               const httpMethod = httpMethods[methodCode] || 'UNKNOWN';
               const cleanController = controllerPath.replace(/^\/+|\/+$/g, '');
               const cleanRoute = (routePath || '').replace(/^\/+|\/+$/g, '');
-              const fullPath = '/' + [cleanController, cleanRoute].filter(Boolean).join('/');
+              const fullPath =
+                '/' + [cleanController, cleanRoute].filter(Boolean).join('/');
               registeredRoutes.push({
                 method: httpMethod,
                 path: fullPath,
@@ -267,16 +275,15 @@ describe('Role × Endpoint Authorization Matrix (M1.10)', () => {
         const formattedKey = `${route.method} ${normalizedPath}`;
 
         // Root health check endpoints
-        if (
-          formattedKey === 'GET /' ||
-          formattedKey === 'GET /health'
-        ) {
+        if (formattedKey === 'GET /' || formattedKey === 'GET /health') {
           continue;
         }
 
         const foundInMatrix = policySet.has(formattedKey);
         if (!foundInMatrix) {
-          missingRoutes.push(`${formattedKey} (${route.controller}.${route.handler})`);
+          missingRoutes.push(
+            `${formattedKey} (${route.controller}.${route.handler})`,
+          );
         }
       }
       expect(missingRoutes).toEqual([]);

@@ -92,5 +92,30 @@ void main() {
       expect(revived.agentCanEditSynced, isFalse);
       expect(revived.syncJitterMaxS, equals(20));
     });
+
+    test('AppReleaseModel serialization roundtrip with manifest schema', () {
+      final release = AppReleaseModel(
+        version: '1.0.1',
+        buildNumber: 2,
+        minSupportedVersion: '1.0.0',
+        apkUrl:
+            'https://github.com/Umesh080797668/GRS/releases/download/v1.0.1/app-release.apk',
+        checksum:
+            '436be008aacf19b183fd27fdb75cf885e51cbefe52c5968c7537a66619abf475',
+        fileSize: 70685640,
+        releaseNotes: 'Security updates and offline sync optimizations.',
+        releasedAt: DateTime.parse('2026-10-29T10:00:00.000Z'),
+        mandatory: true,
+      );
+
+      final json = release.toJson();
+      final revived = AppReleaseModel.fromJson(json);
+
+      expect(revived.version, equals('1.0.1'));
+      expect(revived.buildNumber, equals(2));
+      expect(revived.sha256, equals(release.checksum));
+      expect(revived.fileSize, equals(70685640));
+      expect(revived.mandatory, isTrue);
+    });
   });
 }

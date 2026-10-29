@@ -31,7 +31,7 @@ import type { ScopeContext } from '../common/scope/scope.types';
 @ApiTags('auth')
 @Controller('v1/auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -83,10 +83,7 @@ export class AuthController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Sign out and revoke active refresh tokens' })
-  async logout(
-    @CurrentUser() user: ScopeContext,
-    @Body() dto?: LogoutDto,
-  ) {
+  async logout(@CurrentUser() user: ScopeContext, @Body() dto?: LogoutDto) {
     return this.authService.logout(user.userId, dto?.deviceId);
   }
 
@@ -95,10 +92,7 @@ export class AuthController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Add pending email and dispatch 6-digit OTP code' })
-  async addEmail(
-    @CurrentUser() user: ScopeContext,
-    @Body() dto: AddEmailDto,
-  ) {
+  async addEmail(@CurrentUser() user: ScopeContext, @Body() dto: AddEmailDto) {
     return this.authService.addPendingEmail(user.userId, dto.email);
   }
 
@@ -106,7 +100,9 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify 6-digit OTP code and promote pending email' })
+  @ApiOperation({
+    summary: 'Verify 6-digit OTP code and promote pending email',
+  })
   async verifyEmail(
     @CurrentUser() user: ScopeContext,
     @Body() dto: VerifyEmailDto,
@@ -116,7 +112,9 @@ export class AuthController {
 
   @Post('forgot')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Request password reset code via email (uniform 200)' })
+  @ApiOperation({
+    summary: 'Request password reset code via email (uniform 200)',
+  })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto.email);
   }

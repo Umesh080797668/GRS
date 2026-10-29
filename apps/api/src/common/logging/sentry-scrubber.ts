@@ -85,4 +85,5 @@ export class SentryScrubber {
   }
 }
 
-export const sentryEventScrubber = (event: any) => SentryScrubber.beforeSend(event);
+export const sentryEventScrubber = (event: any) =>
+  SentryScrubber.beforeSend(event);

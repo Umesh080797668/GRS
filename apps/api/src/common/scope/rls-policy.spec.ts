@@ -172,7 +172,9 @@ describe('Real PostgreSQL RLS Policies & Scope Agreement (M1.12)', () => {
       const result: any[] = await prisma.$transaction(
         async (tx) => {
           await tx.$executeRawUnsafe(`SET LOCAL ROLE anon;`);
-          return tx.$queryRawUnsafe(`SELECT COUNT(*)::int as count FROM clients;`);
+          return tx.$queryRawUnsafe(
+            `SELECT COUNT(*)::int as count FROM clients;`,
+          );
         },
         { maxWait: 45000, timeout: 45000 },
       );

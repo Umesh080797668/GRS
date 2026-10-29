@@ -41,7 +41,12 @@ describe('Real PostgreSQL Triggers & Client Auditing (M1.13)', () => {
         data: { nameSi: 'කොළඹ', nameTa: 'கொழும்பு', nameEn: 'Colombo' },
       });
       const ds = await prisma.divisionalSecretariat.create({
-        data: { districtId: dist.id, nameSi: 'කොළඹ', nameTa: 'கொழும்பு', nameEn: 'Colombo' },
+        data: {
+          districtId: dist.id,
+          nameSi: 'කොළඹ',
+          nameTa: 'கொழும்பு',
+          nameEn: 'Colombo',
+        },
       });
       gn = await prisma.gnDivision.create({
         data: { dsId: ds.id, gnNumber: 'TRIG-101', gnName: 'Trigger GN' },
@@ -114,7 +119,9 @@ describe('Real PostgreSQL Triggers & Client Auditing (M1.13)', () => {
     // Cleanup created test records
     try {
       if (testClientId) {
-        await prisma.clientAudit.deleteMany({ where: { clientId: testClientId } });
+        await prisma.clientAudit.deleteMany({
+          where: { clientId: testClientId },
+        });
         await prisma.client.delete({ where: { id: testClientId } });
       }
       if (testHouseholdId) {
@@ -138,7 +145,9 @@ describe('Real PostgreSQL Triggers & Client Auditing (M1.13)', () => {
     });
 
     expect(updated.version).toBe(2);
-    expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(before!.updatedAt.getTime());
+    expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(
+      before!.updatedAt.getTime(),
+    );
   }, 15000);
 
   it('triggers fn_bump_client_version on UPDATE and increments server_version 1 -> 2', async () => {
@@ -153,7 +162,9 @@ describe('Real PostgreSQL Triggers & Client Auditing (M1.13)', () => {
     });
 
     expect(updated.serverVersion).toBe(2);
-    expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(before!.updatedAt.getTime());
+    expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(
+      before!.updatedAt.getTime(),
+    );
   }, 15000);
 
   it('triggers fn_client_audit and records audit log row on client UPDATE', async () => {

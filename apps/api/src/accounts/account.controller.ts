@@ -25,7 +25,7 @@ import { UpdateAccountDto } from './dto/update-account.dto';
 @Controller('v1/accounts')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AccountController {
-  constructor(private readonly accountService: AccountService) { }
+  constructor(private readonly accountService: AccountService) {}
 
   @Post()
   @Roles(

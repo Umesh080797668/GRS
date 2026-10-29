@@ -39,7 +39,7 @@ export class AccountService {
     private readonly prisma: PrismaService,
     private readonly credentialService: CredentialService,
     private readonly scopeService: ScopeService,
-  ) { }
+  ) {}
 
   /**
    * Creates a single account with generated credentials.
@@ -329,30 +329,33 @@ export class AccountService {
       });
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.profile.update({
-        where: { id: targetUserId },
-        data: {
-          isActive: false,
-          deactivatedAt: new Date(),
-          deactivatedBy: adminScope.userId,
-          tokenVersion: { increment: 1 },
-        },
-      });
+    await this.prisma.$transaction(
+      async (tx) => {
+        await tx.profile.update({
+          where: { id: targetUserId },
+          data: {
+            isActive: false,
+            deactivatedAt: new Date(),
+            deactivatedBy: adminScope.userId,
+            tokenVersion: { increment: 1 },
+          },
+        });
 
-      // Revoke all refresh tokens
-      await tx.refreshToken.deleteMany({
-        where: { profileId: targetUserId },
-      });
+        // Revoke all refresh tokens
+        await tx.refreshToken.deleteMany({
+          where: { profileId: targetUserId },
+        });
 
-      await tx.accountAudit.create({
-        data: {
-          actorId: adminScope.userId,
-          targetId: targetUserId,
-          action: 'deactivated',
-        },
-      });
-    }, { maxWait: 45000, timeout: 45000 });
+        await tx.accountAudit.create({
+          data: {
+            actorId: adminScope.userId,
+            targetId: targetUserId,
+            action: 'deactivated',
+          },
+        });
+      },
+      { maxWait: 45000, timeout: 45000 },
+    );
   }
 
   /**
@@ -390,29 +393,32 @@ export class AccountService {
       });
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      // Check team capacity if user belongs to a team
-      if (target.role === UserRole.team_member && target.teamId) {
-        await this.assertTeamCapacity(tx, target.teamId, 1);
-      }
+    await this.prisma.$transaction(
+      async (tx) => {
+        // Check team capacity if user belongs to a team
+        if (target.role === UserRole.team_member && target.teamId) {
+          await this.assertTeamCapacity(tx, target.teamId, 1);
+        }
 
-      await tx.profile.update({
-        where: { id: targetUserId },
-        data: {
-          isActive: true,
-          deactivatedAt: null,
-          deactivatedBy: null,
-        },
-      });
+        await tx.profile.update({
+          where: { id: targetUserId },
+          data: {
+            isActive: true,
+            deactivatedAt: null,
+            deactivatedBy: null,
+          },
+        });
 
-      await tx.accountAudit.create({
-        data: {
-          actorId: adminScope.userId,
-          targetId: targetUserId,
-          action: 'reactivated',
-        },
-      });
-    }, { maxWait: 45000, timeout: 45000 });
+        await tx.accountAudit.create({
+          data: {
+            actorId: adminScope.userId,
+            targetId: targetUserId,
+            action: 'reactivated',
+          },
+        });
+      },
+      { maxWait: 45000, timeout: 45000 },
+    );
   }
 
   /**
@@ -451,30 +457,33 @@ export class AccountService {
     const { raw, display } = this.credentialService.generateInitialPassword();
     const passwordHash = await this.credentialService.hashInitialPassword(raw);
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.profile.update({
-        where: { id: targetUserId },
-        data: {
-          passwordHash,
-          mustChangePassword: true,
-          passwordExpiresAt: expiresAt,
-          tokenVersion: { increment: 1 },
-        },
-      });
+    await this.prisma.$transaction(
+      async (tx) => {
+        await tx.profile.update({
+          where: { id: targetUserId },
+          data: {
+            passwordHash,
+            mustChangePassword: true,
+            passwordExpiresAt: expiresAt,
+            tokenVersion: { increment: 1 },
+          },
+        });
 
-      // Revoke existing refresh tokens
-      await tx.refreshToken.deleteMany({
-        where: { profileId: targetUserId },
-      });
+        // Revoke existing refresh tokens
+        await tx.refreshToken.deleteMany({
+          where: { profileId: targetUserId },
+        });
 
-      await tx.accountAudit.create({
-        data: {
-          actorId: adminScope.userId,
-          targetId: targetUserId,
-          action: 'reissued',
-        },
-      });
-    }, { maxWait: 45000, timeout: 45000 });
+        await tx.accountAudit.create({
+          data: {
+            actorId: adminScope.userId,
+            targetId: targetUserId,
+            action: 'reissued',
+          },
+        });
+      },
+      { maxWait: 45000, timeout: 45000 },
+    );
 
     return {
       initialPassword: display,
@@ -708,31 +717,33 @@ export class AccountService {
     );
 
     for (const profile of profiles) {
-      const { display, raw } =
-        this.credentialService.generateInitialPassword();
+      const { display, raw } = this.credentialService.generateInitialPassword();
       const passwordHash =
         await this.credentialService.hashInitialPassword(raw);
 
-      await this.prisma.$transaction(async (tx) => {
-        await tx.profile.update({
-          where: { id: profile.id },
-          data: {
-            passwordHash,
-            mustChangePassword: true,
-            passwordExpiresAt: expiresAt,
-            tokenVersion: { increment: 1 },
-          },
-        });
+      await this.prisma.$transaction(
+        async (tx) => {
+          await tx.profile.update({
+            where: { id: profile.id },
+            data: {
+              passwordHash,
+              mustChangePassword: true,
+              passwordExpiresAt: expiresAt,
+              tokenVersion: { increment: 1 },
+            },
+          });
 
-        await tx.accountAudit.create({
-          data: {
-            actorId: adminScope.userId,
-            targetId: profile.id,
-            batchId,
-            action: 'reissued',
-          },
-        });
-      }, { maxWait: 45000, timeout: 45000 });
+          await tx.accountAudit.create({
+            data: {
+              actorId: adminScope.userId,
+              targetId: profile.id,
+              batchId,
+              action: 'reissued',
+            },
+          });
+        },
+        { maxWait: 45000, timeout: 45000 },
+      );
 
       reissuedList.push({
         id: profile.id,
@@ -902,8 +913,7 @@ export class AccountService {
       ) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_DISTRICT',
-          message:
-            'DC can only create accounts within their assigned district',
+          message: 'DC can only create accounts within their assigned district',
         });
       }
     } else if (creator.role === UserRole.sda) {
@@ -1143,8 +1153,7 @@ export class AccountService {
       ) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_DISTRICT',
-          message:
-            'DC cannot create accounts outside their assigned district',
+          message: 'DC cannot create accounts outside their assigned district',
         });
       }
       if (
@@ -1154,8 +1163,7 @@ export class AccountService {
       ) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_DISTRICT',
-          message:
-            'SDA cannot create accounts outside their assigned district',
+          message: 'SDA cannot create accounts outside their assigned district',
         });
       }
 

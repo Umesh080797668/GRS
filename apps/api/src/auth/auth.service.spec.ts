@@ -74,7 +74,9 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
         {
           provide: EmailService,
           useValue: {
-            sendCode: jest.fn().mockResolvedValue({ message: 'Verification code sent' }),
+            sendCode: jest
+              .fn()
+              .mockResolvedValue({ message: 'Verification code sent' }),
             verifyCode: jest.fn().mockResolvedValue(true),
             sendOtp: jest.fn().mockResolvedValue(true),
             sendPasswordReset: jest.fn().mockResolvedValue(true),
@@ -326,7 +328,9 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
     it('forgotPassword does not leak whether account exists or is on cooldown', async () => {
       // Non-existent profile
       prisma.profile.findFirst.mockResolvedValue(null);
-      const resNonExistent = await service.forgotPassword('nonexistent@example.com');
+      const resNonExistent = await service.forgotPassword(
+        'nonexistent@example.com',
+      );
       expect(resNonExistent.message).toContain('If an account exists');
 
       // Real profile that hits cooldown in emailService
@@ -343,7 +347,11 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
       // Non-existent profile
       prisma.profile.findFirst.mockResolvedValue(null);
       await expect(
-        service.resetPassword('unknown@example.com', '123456', 'NewPassword123!'),
+        service.resetPassword(
+          'unknown@example.com',
+          '123456',
+          'NewPassword123!',
+        ),
       ).rejects.toMatchObject({
         response: {
           code: 'INVALID_CODE',

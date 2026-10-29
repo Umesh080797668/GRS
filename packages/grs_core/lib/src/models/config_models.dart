@@ -51,48 +51,64 @@ class AppConfigModel {
   };
 }
 
-/// Latest release metadata for Over-The-Air (OTA) APK updates.
+/// Latest release metadata for Over-The-Air (OTA) APK updates matching release manifest.
 class AppReleaseModel {
   final String version;
+  final int? buildNumber;
   final String minSupportedVersion;
   final String apkUrl;
   final String checksum;
+  final int? fileSize;
   final String? releaseNotes;
   final DateTime? releasedAt;
+  final bool mandatory;
 
   const AppReleaseModel({
     required this.version,
+    this.buildNumber,
     required this.minSupportedVersion,
     required this.apkUrl,
     required this.checksum,
+    this.fileSize,
     this.releaseNotes,
     this.releasedAt,
+    this.mandatory = false,
   });
 
-  factory AppReleaseModel.fromJson(Map<String, dynamic> json) =>
-      AppReleaseModel(
-        version: json['version'] as String? ?? '1.0.0',
-        minSupportedVersion:
-            json['min_supported_version'] as String? ??
-            json['minSupportedVersion'] as String? ??
-            '1.0.0',
-        apkUrl: json['apk_url'] as String? ?? json['apkUrl'] as String? ?? '',
-        checksum: json['checksum'] as String? ?? '',
-        releaseNotes:
-            json['release_notes'] as String? ?? json['releaseNotes'] as String?,
-        releasedAt: json['released_at'] != null
-            ? DateTime.tryParse(json['released_at'].toString())
-            : (json['releasedAt'] != null
-                  ? DateTime.tryParse(json['releasedAt'].toString())
-                  : null),
-      );
+  String get sha256 => checksum;
+
+  factory AppReleaseModel.fromJson(
+    Map<String, dynamic> json,
+  ) => AppReleaseModel(
+    version: json['version'] as String? ?? '1.0.0',
+    buildNumber: json['build_number'] as int? ?? json['buildNumber'] as int?,
+    minSupportedVersion:
+        json['min_supported_version'] as String? ??
+        json['minSupportedVersion'] as String? ??
+        '1.0.0',
+    apkUrl: json['apk_url'] as String? ?? json['apkUrl'] as String? ?? '',
+    checksum: json['sha256'] as String? ?? json['checksum'] as String? ?? '',
+    fileSize: json['file_size'] as int? ?? json['fileSize'] as int?,
+    releaseNotes:
+        json['release_notes'] as String? ?? json['releaseNotes'] as String?,
+    releasedAt: json['released_at'] != null
+        ? DateTime.tryParse(json['released_at'].toString())
+        : (json['releasedAt'] != null
+              ? DateTime.tryParse(json['releasedAt'].toString())
+              : null),
+    mandatory: json['mandatory'] as bool? ?? false,
+  );
 
   Map<String, dynamic> toJson() => {
     'version': version,
+    'build_number': buildNumber,
     'min_supported_version': minSupportedVersion,
     'apk_url': apkUrl,
+    'sha256': checksum,
     'checksum': checksum,
+    'file_size': fileSize,
     'release_notes': releaseNotes,
     'released_at': releasedAt?.toIso8601String(),
+    'mandatory': mandatory,
   };
 }

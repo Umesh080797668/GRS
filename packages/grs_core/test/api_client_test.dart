@@ -467,6 +467,7 @@ void main() {
 
         // Single-flight guarantee: Exactly 1 refresh call was made, NOT 3
         expect(refreshCalls, equals(1));
+        expect(lookupCalls, greaterThanOrEqualTo(3));
         expect(client.accessToken, equals('single-flight-token'));
       },
     );

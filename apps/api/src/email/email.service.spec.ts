@@ -47,7 +47,10 @@ describe('EmailService (Spike S6 & Task M1.15)', () => {
         let count = 0;
         for (const item of inMemoryCodes) {
           if (item.id === where.id) {
-            if (where.attempts?.lt !== undefined && item.attempts >= where.attempts.lt) {
+            if (
+              where.attempts?.lt !== undefined &&
+              item.attempts >= where.attempts.lt
+            ) {
               continue;
             }
             if (data.attempts?.increment) {

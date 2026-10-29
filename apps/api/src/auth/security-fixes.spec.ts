@@ -390,7 +390,11 @@ describe('Security Vulnerability Fixes Verification', () => {
       mockPrisma = {
         profile: {
           findFirst: jest.fn(),
-          update: jest.fn().mockImplementation(({ data }) => Promise.resolve({ ...data, id: 'u1' })),
+          update: jest
+            .fn()
+            .mockImplementation(({ data }) =>
+              Promise.resolve({ ...data, id: 'u1' }),
+            ),
         },
       };
       mockCredentialService = {
@@ -421,11 +425,16 @@ describe('Security Vulnerability Fixes Verification', () => {
       });
 
       try {
-        await authService.login({ identifier: 'GRS0000000001', password: 'wrong' });
+        await authService.login({
+          identifier: 'GRS0000000001',
+          password: 'wrong',
+        });
         fail('Expected UnauthorizedException');
       } catch (err: any) {
         expect(err).toBeInstanceOf(UnauthorizedException);
-        expect(err.getResponse().message_key).toBe('errors.auth.invalid_credentials');
+        expect(err.getResponse().message_key).toBe(
+          'errors.auth.invalid_credentials',
+        );
       }
     });
 
@@ -627,7 +636,10 @@ describe('Security Vulnerability Fixes Verification', () => {
       );
 
       await expect(
-        auth.login({ identifier: 'GRS1000000001', password: 'Password@1234' }, '192.168.1.100'),
+        auth.login(
+          { identifier: 'GRS1000000001', password: 'Password@1234' },
+          '192.168.1.100',
+        ),
       ).rejects.toThrow();
 
       expect(mockRateLimit.throwThrottled).toHaveBeenCalledWith(60);
@@ -660,7 +672,10 @@ describe('Security Vulnerability Fixes Verification', () => {
       );
 
       await expect(
-        auth.login({ identifier: 'GRS1000000001', password: 'Password@1234' }, '127.0.0.1'),
+        auth.login(
+          { identifier: 'GRS1000000001', password: 'Password@1234' },
+          '127.0.0.1',
+        ),
       ).rejects.toThrow();
 
       expect(mockRateLimit.throwThrottled).toHaveBeenCalledWith(45);

@@ -14,4 +14,4 @@ import { ScopeModule } from '../common/scope/scope.module';
   providers: [AppConfigService, VersionGateGuard, RateLimitService],
   exports: [AppConfigService, VersionGateGuard, RateLimitService],
 })
-export class AppConfigModule { }
+export class AppConfigModule {}

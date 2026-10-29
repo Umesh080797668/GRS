@@ -31,6 +31,29 @@ void main() {
         isFalse,
       );
     });
+
+    test('isMandatory evaluates mandatory flag and minSupportedVersion', () {
+      const release1 = AppReleaseModel(
+        version: '1.0.2',
+        minSupportedVersion: '1.0.0',
+        apkUrl:
+            'https://github.com/Umesh080797668/GRS/releases/download/v1.0.2/app-release.apk',
+        checksum: 'abc',
+        mandatory: true,
+      );
+      expect(AppUpdaterService.isMandatory(release1, '1.0.1'), isTrue);
+
+      const release2 = AppReleaseModel(
+        version: '1.1.0',
+        minSupportedVersion: '1.1.0',
+        apkUrl:
+            'https://github.com/Umesh080797668/GRS/releases/download/v1.1.0/app-release.apk',
+        checksum: 'abc',
+        mandatory: false,
+      );
+      expect(AppUpdaterService.isMandatory(release2, '1.0.5'), isTrue);
+      expect(AppUpdaterService.isMandatory(release2, '1.1.0'), isFalse);
+    });
   });
 
   group('AppUpdaterService Download and Checksum Tests', () {

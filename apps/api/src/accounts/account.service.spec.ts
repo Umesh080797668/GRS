@@ -292,11 +292,18 @@ describe('Real PostgreSQL AccountService, Team Capacity & Concurrency (M1.4 & M1
       console.log(`Concurrent Requests Dispatched: ${CONCURRENT_REQUESTS}`);
       console.log(`Requests Succeeded:             ${succeeded.length}`);
       console.log(`Requests Rejected:              ${failed.length}`);
-      console.log('Rejection errors summary:', JSON.stringify(failed.map((f: any) => f.err).slice(0, 5)));
+      console.log(
+        'Rejection errors summary:',
+        JSON.stringify(failed.map((f: any) => f.err).slice(0, 5)),
+      );
 
       // Verify the real PostgreSQL database contains active members
       const activeMembers = await prisma.profile.count({
-        where: { teamId: concurrencyTeam.id, role: UserRole.team_member, isActive: true },
+        where: {
+          teamId: concurrencyTeam.id,
+          role: UserRole.team_member,
+          isActive: true,
+        },
       });
       console.log(`Active Members in Real DB:      ${activeMembers}`);
       console.log('--------------------------------------------------\n');
@@ -349,7 +356,9 @@ describe('Real PostgreSQL AccountService, Team Capacity & Concurrency (M1.4 & M1
         expect(p.passwordHash).toMatch(/^\$argon2id\$v=19\$/);
 
         // Must not contain common plaintext password patterns or look-alike initial passwords
-        expect(p.passwordHash).not.toMatch(/^[2-9A-HJ-NP-Za-km-z]{4}-[2-9A-HJ-NP-Za-km-z]{4}-[2-9A-HJ-NP-Za-km-z]{4}$/);
+        expect(p.passwordHash).not.toMatch(
+          /^[2-9A-HJ-NP-Za-km-z]{4}-[2-9A-HJ-NP-Za-km-z]{4}-[2-9A-HJ-NP-Za-km-z]{4}$/,
+        );
         expect(p.passwordHash.length).toBeGreaterThanOrEqual(30);
       }
     }, 60000);
@@ -378,10 +387,14 @@ describe('Real PostgreSQL AccountService, Team Capacity & Concurrency (M1.4 & M1
         role: UserRole.dc,
       });
 
-      const updated = await service.updateAccount(testAdminScope, user.user.id, {
-        fullName: 'M1 Test Updated Name',
-        phoneE164: '+94771234567',
-      });
+      const updated = await service.updateAccount(
+        testAdminScope,
+        user.user.id,
+        {
+          fullName: 'M1 Test Updated Name',
+          phoneE164: '+94771234567',
+        },
+      );
 
       expect(updated.fullName).toBe('M1 Test Updated Name');
 
@@ -398,7 +411,10 @@ describe('Real PostgreSQL AccountService, Team Capacity & Concurrency (M1.4 & M1
         role: UserRole.dc,
       });
 
-      const reissued = await service.reissuePassword(testAdminScope, user.user.id);
+      const reissued = await service.reissuePassword(
+        testAdminScope,
+        user.user.id,
+      );
       expect(reissued.initialPassword).toMatch(
         /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz]{4}-[23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz]{4}-[23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz]{4}$/,
       );

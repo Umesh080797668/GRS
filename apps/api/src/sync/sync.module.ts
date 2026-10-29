@@ -11,4 +11,4 @@ import { ScopeModule } from '../common/scope/scope.module';
   providers: [SyncService],
   exports: [SyncService],
 })
-export class SyncModule { }
+export class SyncModule {}

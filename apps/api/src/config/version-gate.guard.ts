@@ -9,7 +9,7 @@ import { AppConfigService } from './app-config.service';
 
 @Injectable()
 export class VersionGateGuard implements CanActivate {
-  constructor(private readonly configService: AppConfigService) { }
+  constructor(private readonly configService: AppConfigService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();

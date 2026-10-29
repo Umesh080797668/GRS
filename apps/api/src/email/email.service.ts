@@ -94,7 +94,7 @@ export class EmailService {
       const remainingSeconds = Math.ceil(
         (EmailService.COOLDOWN_SECONDS * 1000 -
           (now.getTime() - recentCode.createdAt.getTime())) /
-        1000,
+          1000,
       );
       throw new BadRequestException({
         code: 'EMAIL_COOLDOWN',
@@ -191,11 +191,14 @@ export class EmailService {
       const refreshed = await this.prisma.emailCode.findUnique({
         where: { id: record.id },
       });
-      const attemptsDone = refreshed?.attempts ?? (record.attempts + 1);
+      const attemptsDone = refreshed?.attempts ?? record.attempts + 1;
       throw new UnauthorizedException({
         code: 'INVALID_CODE',
         message: 'Incorrect verification code',
-        remainingAttempts: Math.max(0, EmailService.MAX_ATTEMPTS - attemptsDone),
+        remainingAttempts: Math.max(
+          0,
+          EmailService.MAX_ATTEMPTS - attemptsDone,
+        ),
       });
     }
 
