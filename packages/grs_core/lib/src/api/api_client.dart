@@ -185,10 +185,14 @@ class GrsApiClient {
   }
 
   /// POST /v1/auth/logout
-  Future<void> logout() async {
+  Future<void> logout({String? deviceId}) async {
     try {
       final uri = Uri.parse('$baseUrl/v1/auth/logout');
-      await _client.post(uri, headers: _headers(authenticated: true));
+      await _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode(deviceId != null ? {'deviceId': deviceId} : {}),
+      );
     } catch (_) {
       // Ignore network errors during logout so local session teardown can complete cleanly
     } finally {
@@ -312,8 +316,12 @@ class GrsApiClient {
 
   /// GET /v1/lookups
   Future<List<LookupValueModel>> getLookups({String? since}) async {
-    final queryParams = since != null ? '?since=$since' : '';
-    final uri = Uri.parse('$baseUrl/v1/lookups$queryParams');
+    final params = <String, String>{};
+    if (since != null) params['since'] = since;
+    final query = Uri(queryParameters: params).query;
+    final uri = Uri.parse(
+      '$baseUrl/v1/lookups${query.isNotEmpty ? '?$query' : ''}',
+    );
     final response = await _sendWithAuthRetry(
       () => _client.get(uri, headers: _headers(authenticated: true)),
     );

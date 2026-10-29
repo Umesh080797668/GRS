@@ -22,6 +22,7 @@ import { AddEmailDto } from './dto/add-email.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { LogoutDto } from './dto/logout.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import type { ScopeContext } from '../common/scope/scope.types';
@@ -74,8 +75,11 @@ export class AuthController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Sign out and revoke active refresh tokens' })
-  async logout(@CurrentUser() user: ScopeContext) {
-    return this.authService.logout(user.userId);
+  async logout(
+    @CurrentUser() user: ScopeContext,
+    @Body() dto?: LogoutDto,
+  ) {
+    return this.authService.logout(user.userId, dto?.deviceId);
   }
 
   @Post('email/add')

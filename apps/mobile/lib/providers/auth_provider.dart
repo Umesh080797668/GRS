@@ -62,9 +62,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Checks saved session on app launch (Cold Start per M2.6)
   Future<void> checkColdStart() async {
-    final profile = await _storage.getActiveProfile();
-    final accessToken = await _storage.getAccessToken();
-    final refreshToken = await _storage.getRefreshToken();
+    final results = await Future.wait([
+      _storage.getActiveProfile(),
+      _storage.getAccessToken(),
+      _storage.getRefreshToken(),
+    ]);
+    final profile = results[0] as ProfileModel?;
+    final accessToken = results[1] as String?;
+    final refreshToken = results[2] as String?;
 
     if (profile == null) {
       state = const AuthState(status: AuthStatus.unauthenticated);
@@ -102,14 +107,30 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     _apiClient.setTokens(accessToken: accessToken, refreshToken: refreshToken);
 
-    // Try refreshing or verifying online status
+    // Instantly transition to authenticated so Home Screen opens in < 50ms without blocking on the network
+    state = AuthState(
+      status: AuthStatus.authenticated,
+      profile: profile,
+      isOffline: false,
+    );
+
+    // Try refreshing or verifying online status in the background (fast timeout: 2.5s)
     try {
       if (refreshToken != null && refreshToken.trim().isNotEmpty) {
-        final res = await _apiClient.refreshSession();
+        final res = await _apiClient.refreshSession().timeout(
+          const Duration(milliseconds: 2500),
+        );
         await _storage.saveTokens(
           accessToken: res.accessToken,
           refreshToken: res.refreshToken,
         );
+        if (!res.profile.isActive) {
+          state = AuthState(
+            status: AuthStatus.deactivated,
+            profile: res.profile,
+          );
+          return;
+        }
         if (res.profile.mustChangePassword) {
           state = AuthState(
             status: AuthStatus.mustChangePassword,
@@ -332,10 +353,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = AuthState(status: AuthStatus.authenticated, profile: state.profile);
   }
 
-  Future<void> logout() async {
+  Future<void> logout({String deviceId = 'mobile-device'}) async {
     final profileId = state.profile?.id;
     try {
-      await _apiClient.logout();
+      await _apiClient.logout(deviceId: deviceId);
     } catch (_) {}
     await _storage.clearTokens();
     await _storage.clearActiveProfile();

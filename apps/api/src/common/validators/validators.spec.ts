@@ -52,6 +52,9 @@ describe('GrsValidators - Shared Test Vectors (M1.9)', () => {
           expect(result.error).toBe(v.reason);
         }
       }
+      expect(GrsValidators.validateAge('1e1').isValid).toBe(false);
+      expect(GrsValidators.validateAge('0x10').isValid).toBe(false);
+      expect(GrsValidators.validateAge(true).isValid).toBe(false);
     });
   });
 
@@ -153,6 +156,9 @@ describe('GrsValidators - Shared Test Vectors (M1.9)', () => {
           expect(result.value).toBe(v.e164);
         }
       }
+      const slRes = GrsValidators.normalizePhone('+94 0771234567');
+      expect(slRes.isValid).toBe(true);
+      expect(slRes.value).toBe('+94771234567');
     });
 
     it('matches all WhatsApp normalization vectors from phones.json', () => {

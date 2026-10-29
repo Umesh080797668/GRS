@@ -59,6 +59,11 @@ void main() {
           expect(result.error, equals(v['reason']));
         }
       }
+
+      // Explicit low-severity test checks:
+      expect(GrsValidators.validateAge("1e1").isValid, isFalse);
+      expect(GrsValidators.validateAge("0x10").isValid, isFalse);
+      expect(GrsValidators.validateAge(true).isValid, isFalse);
     });
 
     test('Gender validation vectors', () {
@@ -194,6 +199,11 @@ void main() {
           expect(result.value, equals(v['e164']));
         }
       }
+
+      // Explicit low-severity check:
+      final res = GrsValidators.normalizePhone('+94 0771234567');
+      expect(res.isValid, isTrue);
+      expect(res.value, equals('+94771234567'));
     });
 
     test('WhatsApp normalization vectors', () {

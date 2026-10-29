@@ -51,7 +51,19 @@ class GrsValidators {
   /// Validates age: integer between 1 and 120.
   static ValidationResult<int> validateAge(dynamic input) {
     if (input == null) return const ValidationResult.invalid('empty');
-    final int? parsed = input is int ? input : int.tryParse(input.toString());
+    if (input is bool) return const ValidationResult.invalid('non_integer');
+    int? parsed;
+    if (input is int) {
+      parsed = input;
+    } else if (input is String) {
+      final trimmed = input.trim();
+      if (!RegExp(r'^\d+$').hasMatch(trimmed)) {
+        return const ValidationResult.invalid('non_integer');
+      }
+      parsed = int.tryParse(trimmed);
+    } else {
+      return const ValidationResult.invalid('non_integer');
+    }
     if (parsed == null) return const ValidationResult.invalid('non_integer');
     if (parsed < 1) {
       return parsed < 0
@@ -117,8 +129,14 @@ class GrsValidators {
       return const ValidationResult.invalid('non_numeric');
     }
 
-    if (digits.startsWith('0094')) {
+    if (digits.startsWith('00940') && digits.length == 14) {
+      digits = '+94${digits.substring(5)}';
+    } else if (digits.startsWith('0094')) {
       digits = '+94${digits.substring(4)}';
+    } else if (digits.startsWith('+940') && digits.length == 13) {
+      digits = '+94${digits.substring(4)}';
+    } else if (digits.startsWith('940') && digits.length == 12) {
+      digits = '+94${digits.substring(3)}';
     } else if (digits.startsWith('94')) {
       digits = '+$digits';
     } else if (digits.startsWith('0') && digits.length >= 10) {

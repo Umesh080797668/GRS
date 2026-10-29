@@ -24,7 +24,10 @@ class _GrsMobileAppState extends ConsumerState<GrsMobileApp> {
   @override
   void initState() {
     super.initState();
-    // Cold Start session check & saved server URL restore (M2.6)
+    // Cold Start session check kicks off immediately so Home screen opens instantly (M2.6)
+    ref.read(authProvider.notifier).checkColdStart();
+
+    // Concurrently restore saved API server URL
     Future.microtask(() async {
       final storage = ref.read(secureStorageProvider);
       final savedUrl = await storage.getApiBaseUrl();
@@ -42,7 +45,6 @@ class _GrsMobileAppState extends ConsumerState<GrsMobileApp> {
         ref.read(apiBaseUrlProvider.notifier).state =
             ApiEndpointResolver.resolveDefault();
       }
-      ref.read(authProvider.notifier).checkColdStart();
     });
   }
 

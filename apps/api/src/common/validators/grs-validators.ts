@@ -60,7 +60,19 @@ export class GrsValidators {
     if (input === undefined || input === null) {
       return { isValid: false, error: 'empty' };
     }
-    const parsed = typeof input === 'number' ? input : Number(input);
+    if (typeof input === 'boolean') {
+      return { isValid: false, error: 'non_integer' };
+    }
+    if (typeof input === 'string') {
+      const trimmed = input.trim();
+      if (!/^\d+$/.test(trimmed)) {
+        return { isValid: false, error: 'non_integer' };
+      }
+    } else if (typeof input !== 'number') {
+      return { isValid: false, error: 'non_integer' };
+    }
+    const parsed =
+      typeof input === 'number' ? input : parseInt(input.trim(), 10);
     if (!Number.isInteger(parsed) || isNaN(parsed)) {
       return { isValid: false, error: 'non_integer' };
     }
@@ -131,8 +143,14 @@ export class GrsValidators {
       return { isValid: false, error: 'non_numeric' };
     }
 
-    if (digits.startsWith('0094')) {
+    if (digits.startsWith('00940') && digits.length === 14) {
+      digits = '+94' + digits.substring(5);
+    } else if (digits.startsWith('0094')) {
       digits = '+94' + digits.substring(4);
+    } else if (digits.startsWith('+940') && digits.length === 13) {
+      digits = '+94' + digits.substring(4);
+    } else if (digits.startsWith('940') && digits.length === 12) {
+      digits = '+94' + digits.substring(3);
     } else if (digits.startsWith('94')) {
       digits = '+' + digits;
     } else if (digits.startsWith('0') && digits.length >= 10) {

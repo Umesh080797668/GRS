@@ -80,26 +80,41 @@ export class AccountService {
         }
 
         const gnId = resolvedTerritory.gnId || teamGnId || undefined;
-        const userCode = await this.generateUniqueUserCode(tx);
-
-        const profile = await tx.profile.create({
-          data: {
-            userCode,
-            fullName: dto.fullName,
-            role: dto.role,
-            passwordHash,
-            phoneE164: dto.phoneE164,
-            preferredLanguage: dto.preferredLanguage || 'si',
-            districtId: resolvedTerritory.districtId,
-            dsId: resolvedTerritory.dsId,
-            gnId,
-            teamId: resolvedTerritory.teamId,
-            createdBy: creatorScope.userId,
-            mustChangePassword: true,
-            passwordExpiresAt,
-            isActive: true,
-          },
-        });
+        let profile: any;
+        for (let retry = 0; retry < 5; retry++) {
+          const userCode = await this.generateUniqueUserCode(tx);
+          try {
+            profile = await tx.profile.create({
+              data: {
+                userCode,
+                fullName: dto.fullName,
+                role: dto.role,
+                passwordHash,
+                phoneE164: dto.phoneE164,
+                preferredLanguage: dto.preferredLanguage || 'si',
+                districtId: resolvedTerritory.districtId,
+                dsId: resolvedTerritory.dsId,
+                gnId,
+                teamId: resolvedTerritory.teamId,
+                createdBy: creatorScope.userId,
+                mustChangePassword: true,
+                passwordExpiresAt,
+                isActive: true,
+              },
+            });
+            break;
+          } catch (err: any) {
+            const isUserCodeConflict =
+              err?.code === 'P2002' &&
+              (err?.meta?.target?.includes('userCode') ||
+                err?.meta?.target?.includes('user_code') ||
+                JSON.stringify(err?.meta || '').includes('userCode'));
+            if (isUserCodeConflict && retry < 4) {
+              continue;
+            }
+            throw err;
+          }
+        }
 
         await tx.accountAudit.create({
           data: {
@@ -210,26 +225,41 @@ export class AccountService {
 
         for (let i = 0; i < count; i++) {
           const m = hashedMembers[i];
-          const userCode = await this.generateUniqueUserCode(tx);
-
-          const profile = await tx.profile.create({
-            data: {
-              userCode,
-              fullName: m.fullName,
-              role: dto.role,
-              passwordHash: m.passwordHash,
-              phoneE164: m.phoneE164,
-              preferredLanguage: m.preferredLanguage,
-              districtId: resolvedTerritory.districtId,
-              dsId: resolvedTerritory.dsId,
-              gnId,
-              teamId: resolvedTerritory.teamId,
-              createdBy: creatorScope.userId,
-              mustChangePassword: true,
-              passwordExpiresAt,
-              isActive: true,
-            },
-          });
+          let profile: any;
+          for (let retry = 0; retry < 5; retry++) {
+            const userCode = await this.generateUniqueUserCode(tx);
+            try {
+              profile = await tx.profile.create({
+                data: {
+                  userCode,
+                  fullName: m.fullName,
+                  role: dto.role,
+                  passwordHash: m.passwordHash,
+                  phoneE164: m.phoneE164,
+                  preferredLanguage: m.preferredLanguage,
+                  districtId: resolvedTerritory.districtId,
+                  dsId: resolvedTerritory.dsId,
+                  gnId,
+                  teamId: resolvedTerritory.teamId,
+                  createdBy: creatorScope.userId,
+                  mustChangePassword: true,
+                  passwordExpiresAt,
+                  isActive: true,
+                },
+              });
+              break;
+            } catch (err: any) {
+              const isUserCodeConflict =
+                err?.code === 'P2002' &&
+                (err?.meta?.target?.includes('userCode') ||
+                  err?.meta?.target?.includes('user_code') ||
+                  JSON.stringify(err?.meta || '').includes('userCode'));
+              if (isUserCodeConflict && retry < 4) {
+                continue;
+              }
+              throw err;
+            }
+          }
 
           await tx.accountAudit.create({
             data: {

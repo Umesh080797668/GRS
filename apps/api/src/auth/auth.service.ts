@@ -331,8 +331,12 @@ export class AuthService {
       });
     }
 
-    // Revoke current token and issue new pair
-    const session = await this.generateAuthSession(profile, dto.deviceId);
+    // Revoke current token and issue new pair (preserve deviceId if not explicitly provided)
+    const deviceId = dto.deviceId || tokenRecord.deviceId;
+    const session = await this.generateAuthSession(
+      profile,
+      deviceId ?? undefined,
+    );
 
     await this.prisma.refreshToken.update({
       where: { id: tokenRecord.id },
@@ -345,17 +349,29 @@ export class AuthService {
   }
 
   /**
-   * Terminates active session.
+   * Terminates active session. If deviceId is omitted, only terminates unassigned sessions
+   * rather than revoking all active devices.
    */
   async logout(profileId: string, deviceId?: string) {
-    await this.prisma.refreshToken.updateMany({
-      where: {
-        profileId,
-        deviceId: deviceId || undefined,
-        revokedAt: null,
-      },
-      data: { revokedAt: new Date() },
-    });
+    if (deviceId) {
+      await this.prisma.refreshToken.updateMany({
+        where: {
+          profileId,
+          deviceId,
+          revokedAt: null,
+        },
+        data: { revokedAt: new Date() },
+      });
+    } else {
+      await this.prisma.refreshToken.updateMany({
+        where: {
+          profileId,
+          deviceId: null,
+          revokedAt: null,
+        },
+        data: { revokedAt: new Date() },
+      });
+    }
     return { success: true };
   }
 
@@ -653,7 +669,16 @@ export class AuthService {
   }
 
   private sanitizeProfile(profile: any) {
-    const { passwordHash, failedLoginCount, lockedUntil, ...safe } = profile;
+    const {
+      passwordHash,
+      failedLoginCount,
+      lockedUntil,
+      tokenVersion,
+      pendingEmail,
+      passwordExpiresAt,
+      passwordChangedAt,
+      ...safe
+    } = profile;
     return safe;
   }
 }
