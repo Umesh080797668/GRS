@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
@@ -79,11 +80,43 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
       GoRoute(
+        path: '/house/:id',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: HouseDetailScreen(houseId: state.pathParameters['id']!),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              ),
+              child: SlideTransition(
+                position:
+                    Tween<Offset>(
+                      begin: const Offset(0.04, 0),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                      ),
+                    ),
+                child: child,
+              ),
+            );
+          },
+        ),
+      ),
+      GoRoute(
         path: '/houses/:id',
         builder: (context, state) {
           final houseId = state.pathParameters['id']!;
           return HouseDetailScreen(houseId: houseId);
         },
+      ),
+      GoRoute(
+        path: '/client/consent',
+        builder: (context, state) => const ConsentScreen(houseId: 'house_0'),
       ),
       GoRoute(
         path: '/houses/:id/consent',

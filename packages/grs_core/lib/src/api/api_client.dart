@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/auth_models.dart';
@@ -11,16 +12,20 @@ import 'api_exception.dart';
 class GrsApiClient {
   final String baseUrl;
   final http.Client _client;
+  final String appVersion;
   String? _accessToken;
   String? _refreshToken;
   final Future<void> Function(String newAccess, String newRefresh)?
   onTokenRefreshed;
+
+  Future<LoginResponse>? _ongoingRefresh;
 
   GrsApiClient({
     required this.baseUrl,
     http.Client? client,
     String? accessToken,
     String? refreshToken,
+    this.appVersion = '1.0.0',
     this.onTokenRefreshed,
   }) : _client = client ?? http.Client(),
        _accessToken = accessToken,
@@ -43,6 +48,7 @@ class GrsApiClient {
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      'X-App-Version': appVersion,
     };
     if (authenticated && _accessToken != null && _accessToken!.isNotEmpty) {
       headers['Authorization'] = 'Bearer $_accessToken';
@@ -146,8 +152,17 @@ class GrsApiClient {
     _handleError(response);
   }
 
-  /// POST /v1/auth/refresh
-  Future<LoginResponse> refreshSession() async {
+  /// POST /v1/auth/refresh (Single-flight deduplicated)
+  Future<LoginResponse> refreshSession() {
+    if (_ongoingRefresh != null) {
+      return _ongoingRefresh!;
+    }
+    return _ongoingRefresh = _doRefreshSession().whenComplete(() {
+      _ongoingRefresh = null;
+    });
+  }
+
+  Future<LoginResponse> _doRefreshSession() async {
     final uri = Uri.parse('$baseUrl/v1/auth/refresh');
     final response = await _client.post(
       uri,
@@ -167,6 +182,18 @@ class GrsApiClient {
     }
 
     _handleError(response);
+  }
+
+  /// POST /v1/auth/logout
+  Future<void> logout() async {
+    try {
+      final uri = Uri.parse('$baseUrl/v1/auth/logout');
+      await _client.post(uri, headers: _headers(authenticated: true));
+    } catch (_) {
+      // Ignore network errors during logout so local session teardown can complete cleanly
+    } finally {
+      clearTokens();
+    }
   }
 
   /// POST /v1/auth/forgot

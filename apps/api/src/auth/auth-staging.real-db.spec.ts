@@ -90,7 +90,10 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
   it('Step 1: First Sign-In — Login with mustChangePassword: true returns restricted token', async () => {
     const res = await fetch(`${baseUrl}/v1/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-version': '1.0.0',
+      },
       body: JSON.stringify({
         identifier: testUserCode,
         password: initialPassword,
@@ -111,7 +114,10 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
     // 1. Obtain restricted access token
     const loginRes = await fetch(`${baseUrl}/v1/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-version': '1.0.0',
+      },
       body: JSON.stringify({
         identifier: testUserCode,
         password: initialPassword,
@@ -125,6 +131,7 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-app-version': '1.0.0',
         Authorization: `Bearer ${restrictedToken}`,
       },
       body: JSON.stringify({
@@ -160,7 +167,10 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
     // 1. Attempt login with old password -> rejected
     const oldRes = await fetch(`${baseUrl}/v1/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-version': '1.0.0',
+      },
       body: JSON.stringify({
         identifier: testUserCode,
         password: initialPassword,
@@ -171,7 +181,10 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
     // 2. Login with updated password -> full session
     const newRes = await fetch(`${baseUrl}/v1/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-version': '1.0.0',
+      },
       body: JSON.stringify({
         identifier: testUserCode,
         password: updatedPassword,
@@ -188,7 +201,10 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
     // 1. Request forgot password code
     const forgotRes = await fetch(`${baseUrl}/v1/auth/forgot`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-version': '1.0.0',
+      },
       body: JSON.stringify({ email: testEmail }),
     });
     expect(forgotRes.status).toBe(200);
@@ -217,7 +233,10 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
     // 4. Reset with wrong code fails
     const badResetRes = await fetch(`${baseUrl}/v1/auth/reset`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-version': '1.0.0',
+      },
       body: JSON.stringify({
         email: testEmail,
         code: '000000',
@@ -229,7 +248,10 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
     // 5. Reset with real verified code succeeds
     const goodResetRes = await fetch(`${baseUrl}/v1/auth/reset`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-version': '1.0.0',
+      },
       body: JSON.stringify({
         email: testEmail,
         code: actualCode!,
@@ -241,7 +263,10 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
     // 6. Sign in with the reset password succeeds
     const postResetLogin = await fetch(`${baseUrl}/v1/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-version': '1.0.0',
+      },
       body: JSON.stringify({
         identifier: testEmail,
         password: resetPassword,
@@ -258,7 +283,10 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
     // 1. Sign in to obtain an active session pair
     const loginRes = await fetch(`${baseUrl}/v1/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-version': '1.0.0',
+      },
       body: JSON.stringify({
         identifier: testUserCode,
         password: resetPassword,
@@ -270,7 +298,10 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
     // 2. Rotate refresh token via POST /v1/auth/refresh
     const refreshRes = await fetch(`${baseUrl}/v1/auth/refresh`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-version': '1.0.0',
+      },
       body: JSON.stringify({ refreshToken: initialRefreshToken }),
     });
     expect(refreshRes.status).toBe(200);
@@ -282,7 +313,10 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
     // 3. Attempting to REUSE the old consumed refresh token must fail safely (HTTP 401)
     const reuseRes = await fetch(`${baseUrl}/v1/auth/refresh`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-version': '1.0.0',
+      },
       body: JSON.stringify({ refreshToken: initialRefreshToken }),
     });
     expect(reuseRes.status).toBe(401);

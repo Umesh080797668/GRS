@@ -82,13 +82,18 @@ export class AuthService {
       });
     }
 
+    const now = new Date();
     // Check account lockout
-    if (profile.lockedUntil && profile.lockedUntil > new Date()) {
+    if (profile.lockedUntil && profile.lockedUntil > now) {
       throw new UnauthorizedException({
         code: 'AUTH_INVALID',
-        message_key: 'errors.auth.account_locked',
+        message_key: 'errors.auth.invalid_credentials',
       });
     }
+
+    const isLockExpired = Boolean(
+      profile.lockedUntil && profile.lockedUntil <= now,
+    );
 
     // Verify password (trimmed consistently with changePassword)
     const cleanPassword = dto.password.trim();
@@ -98,19 +103,31 @@ export class AuthService {
     );
 
     if (!isPasswordValid) {
-      const nextFailCount = profile.failedLoginCount + 1;
-      const lockedUntil =
-        nextFailCount >= 5
-          ? new Date(Date.now() + 15 * 60 * 1000) // 15-minute temporary lockout
-          : null;
+      if (isLockExpired) {
+        // Lock has expired; reset fail count to 1 and clear lock
+        await this.prisma.profile.update({
+          where: { id: profile.id },
+          data: {
+            failedLoginCount: 1,
+            lockedUntil: null,
+          },
+        });
+      } else {
+        // Atomic increment of failed attempts in DB
+        const nextFailCount = profile.failedLoginCount + 1;
+        const lockedUntil =
+          nextFailCount >= 5
+            ? new Date(Date.now() + 15 * 60 * 1000) // 15-minute temporary lockout
+            : null;
 
-      await this.prisma.profile.update({
-        where: { id: profile.id },
-        data: {
-          failedLoginCount: nextFailCount,
-          lockedUntil,
-        },
-      });
+        await this.prisma.profile.update({
+          where: { id: profile.id },
+          data: {
+            failedLoginCount: { increment: 1 },
+            lockedUntil,
+          },
+        });
+      }
 
       throw new UnauthorizedException({
         code: 'AUTH_INVALID',
@@ -269,6 +286,19 @@ export class AuthService {
       tokenRecord.revokedAt ||
       (tokenRecord.replacedBy && tokenRecord.replacedBy.length > 0)
     ) {
+      const gracePeriodMs = 15 * 1000;
+      const isWithinGraceWindow =
+        tokenRecord.revokedAt &&
+        Date.now() - tokenRecord.revokedAt.getTime() < gracePeriodMs;
+
+      if (isWithinGraceWindow) {
+        // Concurrent refresh race within grace window: reject this request without revoking all sessions
+        throw new UnauthorizedException({
+          code: 'AUTH_INVALID',
+          message_key: 'errors.auth.refresh_token_revoked',
+        });
+      }
+
       // Security Incident: Revoke all refresh tokens for this user!
       await this.prisma.refreshToken.updateMany({
         where: { profileId: tokenRecord.profileId },
@@ -517,33 +547,36 @@ export class AuthService {
     const newPasswordHash =
       await this.credentialService.hashUserPassword(cleanNew);
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.profile.update({
-        where: { id: profile.id },
-        data: {
-          passwordHash: newPasswordHash,
-          mustChangePassword: false,
-          passwordChangedAt: new Date(),
-          failedLoginCount: 0,
-          lockedUntil: null,
-          tokenVersion: { increment: 1 },
-        },
-      });
+    await this.prisma.$transaction(
+      async (tx) => {
+        await tx.profile.update({
+          where: { id: profile.id },
+          data: {
+            passwordHash: newPasswordHash,
+            mustChangePassword: false,
+            passwordChangedAt: new Date(),
+            failedLoginCount: 0,
+            lockedUntil: null,
+            tokenVersion: { increment: 1 },
+          },
+        });
 
-      // Revoke all existing sessions
-      await tx.refreshToken.updateMany({
-        where: { profileId: profile.id, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
+        // Revoke all existing sessions
+        await tx.refreshToken.updateMany({
+          where: { profileId: profile.id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
 
-      await tx.accountAudit.create({
-        data: {
-          actorId: profile.id,
-          targetId: profile.id,
-          action: 'password_reset',
-        },
-      });
-    });
+        await tx.accountAudit.create({
+          data: {
+            actorId: profile.id,
+            targetId: profile.id,
+            action: 'password_reset',
+          },
+        });
+      },
+      { timeout: 25000 },
+    );
 
     return {
       message: 'Password has been successfully reset. Please log in with your new password.',

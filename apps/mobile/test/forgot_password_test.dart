@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:grs_core/grs_core.dart';
+import 'package:grs_ui/grs_ui.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:mobile/l10n/l10n.dart';
@@ -88,7 +89,7 @@ void main() {
 
         // Tap Send Reset Instructions
         final sendButton = find.widgetWithText(
-          ElevatedButton,
+          GrsButton,
           'Send Reset Instructions',
         );
         expect(sendButton, findsOneWidget);
@@ -107,7 +108,7 @@ void main() {
         await tester.pump();
 
         final resetButton = find.widgetWithText(
-          ElevatedButton,
+          GrsButton,
           'Reset Password & Log In',
         );
         expect(resetButton, findsOneWidget);

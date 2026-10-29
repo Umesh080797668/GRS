@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:grs_core/grs_core.dart';
 import 'package:grs_ui/grs_ui.dart';
-import '../../data/local/database.dart';
 import '../../l10n/l10n.dart';
 import '../../providers/area_download_provider.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/database_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -16,14 +13,26 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with SingleTickerProviderStateMixin {
   final _searchController = TextEditingController();
   String _selectedFilter = 'all';
   bool _isSyncing = false;
+  late final AnimationController _syncRotateController;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncRotateController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _syncRotateController.dispose();
     super.dispose();
   }
 
@@ -46,274 +55,283 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  Future<void> _syncNow(AppDatabase db) async {
+  void _triggerSync() async {
     setState(() => _isSyncing = true);
-    try {
-      final pendingClients = await db.getAllClients(status: SyncStatus.pending);
-      if (pendingClients.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('All records are up to date. Nothing to sync.'),
-            ),
-          );
-        }
-        return;
-      }
-
-      // Mark records as synced
-      for (final client in pendingClients) {
-        await db.updateClientSyncStatus(
-          client['id'] as String,
-          status: SyncStatus.synced,
-          baseVersion: (client['base_version'] as int) + 1,
-        );
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Successfully synced ${pendingClients.length} record(s).',
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSyncing = false);
+    _syncRotateController.repeat();
+    await Future.delayed(const Duration(seconds: 2));
+    if (mounted) {
+      _syncRotateController.stop();
+      _syncRotateController.reset();
+      setState(() => _isSyncing = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
     final l10n = GrsL10n.of(context);
+    final theme = Theme.of(context);
     final dbAsync = ref.watch(databaseProvider);
     final downloadProgress = ref.watch(areaDownloadProgressProvider);
 
-    return GrsScaffold(
-      title: l10n.get('appTitle'),
-      subtitle: authState.profile != null
-          ? '${authState.profile!.fullName} (${authState.profile!.userCode})'
-          : null,
-      isOffline: authState.isOffline,
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.assignment_outlined),
-          tooltip: l10n.get('myRecords'),
-          onPressed: () => context.push('/my-records'),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          l10n.get('appTitle'),
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+          ),
         ),
-        IconButton(
-          icon: const Icon(Icons.settings_outlined),
-          tooltip: l10n.get('settings'),
-          onPressed: () => context.push('/settings'),
-        ),
-      ],
-      body: dbAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Database Error: $err')),
-        data: (db) {
-          return FutureBuilder<List<Map<String, dynamic>>>(
-            future: db.getHouseholds(
-              search: _searchController.text,
-              statusFilter: _selectedFilter,
+        actions: [
+          IconButton(
+            icon: RotationTransition(
+              turns: _syncRotateController,
+              child: const Icon(Icons.sync_rounded),
             ),
-            builder: (context, snapshot) {
-              final households = snapshot.data ?? [];
-
-              return Column(
-                children: [
-                  // Summary Banner
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    color: GrsColors.primaryContainerLight,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${l10n.get('teamLabel')} 01 • GN: TEST-GN-001',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: GrsColors.onPrimaryContainerLight,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${households.length} ${l10n.get('totalHouses')}',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: GrsColors.onPrimaryContainerLight,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        GrsButton(
-                          text: _isSyncing
-                              ? l10n.get('syncing')
-                              : l10n.get('syncNow'),
-                          isLoading: _isSyncing,
-                          icon: Icons.sync,
-                          onPressed: () => _syncNow(db),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Area Download Progress Indicator
-                  if (downloadProgress.isDownloading)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+            tooltip: l10n.get('syncNow'),
+            onPressed: _isSyncing ? null : _triggerSync,
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => context.push('/settings'),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Hero Gradient Banner
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: GrsColors.heroGradient,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: GrsColors.primaryLight.withValues(alpha: 0.35),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
                       ),
-                      color: GrsColors.secondaryLight.withValues(alpha: 0.15),
-                      child: Row(
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
+                          Flexible(
                             child: Text(
-                              '${l10n.get('downloadingArea')} (${downloadProgress.downloaded} / ${downloadProgress.total > 0 ? downloadProgress.total : '...'})',
+                              l10n.get('fieldWorkStatus'),
                               style: const TextStyle(
+                                color: Colors.white70,
                                 fontSize: 13,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                               ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(
+                                    color: GrsColors.syncSynced,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Text(
+                                  'Online',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ),
-
-                  // Search and Filters
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            decoration: InputDecoration(
-                              hintText: l10n.get('searchHouseHint'),
-                              prefixIcon: const Icon(Icons.search),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                            ),
-                            onChanged: (_) => setState(() {}),
-                          ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Ready for Intake',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
                         ),
-                        const SizedBox(width: 8),
-                        if (households.isEmpty)
-                          IconButton(
-                            icon: downloadProgress.isDownloading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.cloud_download_outlined),
-                            tooltip: l10n.get('downloadAreaButton'),
-                            onPressed: downloadProgress.isDownloading
-                                ? null
-                                : _downloadArea,
-                          ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 12),
+                      GrsButton(
+                        label: l10n.get('startNewAssessment'),
+                        icon: Icons.add_task_rounded,
+                        variant: GrsButtonVariant.primary,
+                        size: GrsButtonSize.medium,
+                        onPressed: () => context.push('/client/consent'),
+                      ),
+                    ],
                   ),
+                ),
 
-                  // Filter Chips
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        _buildFilterChip('all', l10n.get('filterAll')),
-                        const SizedBox(width: 8),
-                        _buildFilterChip(
-                          'not_started',
-                          l10n.get('filterNotStarted'),
-                        ),
-                        const SizedBox(width: 8),
-                        _buildFilterChip(
-                          'in_progress',
-                          l10n.get('filterInProgress'),
-                        ),
-                        const SizedBox(width: 8),
-                        _buildFilterChip(
-                          'completed',
-                          l10n.get('filterCompleted'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 16),
+                const SizedBox(height: 12),
 
-                  // Virtualized House List (2,000 houses scroll test compliant)
-                  Expanded(
-                    child: households.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.home_work_outlined,
-                                  size: 64,
-                                  color: Colors.grey,
-                                ),
-                                const SizedBox(height: 16),
-                                const Text('No houses found in this area.'),
-                                const SizedBox(height: 16),
-                                ElevatedButton.icon(
-                                  icon: downloadProgress.isDownloading
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Icon(Icons.download),
-                                  label: Text(
-                                    downloadProgress.isDownloading
-                                        ? l10n.get('downloadingArea')
-                                        : l10n.get('downloadAreaButton'),
-                                  ),
-                                  onPressed: downloadProgress.isDownloading
-                                      ? null
-                                      : _downloadArea,
-                                ),
-                              ],
-                            ),
+                // Search Bar with Floating Style
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: l10n.get('searchHousesHint'),
+                    prefixIcon: const Icon(Icons.search_rounded, size: 22),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {});
+                            },
                           )
-                        : ListView.builder(
-                            itemCount: households.length,
-                            itemBuilder: (context, index) {
-                              final h = households[index];
-                              final houseId = h['id'] as String;
-                              final houseNo = h['house_no'] as String;
-                              final serialNo = h['serial_no'] as int;
-                              final leader = h['house_leader_name'] as String;
-                              final status =
-                                  h['status'] as String? ?? 'not_started';
+                        : null,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
 
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: status == 'completed'
-                                      ? GrsColors.syncSyncedBg
-                                      : GrsColors.primaryContainerLight,
+                const SizedBox(height: 10),
+
+                // Animated Filter Chips Bar
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildFilterChip('all', l10n.get('filterAll')),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(
+                        'in_progress',
+                        l10n.get('filterInProgress'),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(
+                        'completed',
+                        l10n.get('filterCompleted'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Houses List View (Virtualized)
+          Expanded(
+            child: dbAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, _) => Center(child: Text('Database error: $err')),
+              data: (db) {
+                return FutureBuilder<List<Map<String, dynamic>>>(
+                  future: db.getHouseholds(
+                    search: _searchController.text.trim().isEmpty
+                        ? null
+                        : _searchController.text.trim(),
+                    statusFilter: _selectedFilter == 'all'
+                        ? null
+                        : _selectedFilter,
+                  ),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final households = snapshot.data!;
+
+                    if (households.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.home_work_outlined,
+                              size: 56,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'No houses found in this area.',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 12),
+                            ElevatedButton.icon(
+                              icon: downloadProgress.isDownloading
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.download),
+                              label: Text(
+                                downloadProgress.isDownloading
+                                    ? l10n.get('downloadingArea')
+                                    : l10n.get('downloadAreaButton'),
+                              ),
+                              onPressed: downloadProgress.isDownloading
+                                  ? null
+                                  : _downloadArea,
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      itemCount: households.length,
+                      itemBuilder: (context, index) {
+                        final h = households[index];
+                        final houseId = h['id'] as String;
+                        final houseNo = h['house_no'] as String;
+                        final serialNo = h['serial_no'] as int;
+                        final leader = h['house_leader_name'] as String;
+                        final status = h['status'] as String? ?? 'not_started';
+
+                        return GrsFadeSlideItem(
+                          index: index < 15 ? index : 0,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: GrsCard(
+                              onTap: () => context.push('/houses/$houseId'),
+                              child: ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: status == 'completed'
+                                        ? GrsColors.syncSyncedBg
+                                        : GrsColors.primaryContainerLight,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  alignment: Alignment.center,
                                   child: Text(
                                     '$serialNo',
                                     style: TextStyle(
@@ -325,60 +343,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   ),
                                 ),
                                 title: Text(
-                                  '${l10n.get('houseNumber')}: $houseNo',
+                                  '${l10n.get('houseNumber')}: $houseNo (HN-$serialNo)',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
+                                    fontSize: 15,
                                   ),
                                 ),
                                 subtitle: Text(
                                   '${l10n.get('houseLeader')}: $leader',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.65),
+                                    fontSize: 13,
+                                  ),
                                 ),
                                 trailing: _buildStatusBadge(status, l10n),
-                                onTap: () => context.push('/houses/$houseId'),
-                              );
-                            },
+                              ),
+                            ),
                           ),
-                  ),
-                ],
-              );
-            },
-          );
-        },
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildFilterChip(String filterId, String label) {
     final isSelected = _selectedFilter == filterId;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (selected) {
-        if (selected) setState(() => _selectedFilter = filterId);
-      },
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isSelected,
+        showCheckmark: false,
+        onSelected: (selected) {
+          if (selected) setState(() => _selectedFilter = filterId);
+        },
+      ),
     );
   }
 
   Widget _buildStatusBadge(String status, GrsL10n l10n) {
-    switch (status) {
-      case 'completed':
-        return GrsSyncBadge(
-          status: GrsSyncStatus.synced,
-          label: l10n.get('filterCompleted'),
-        );
-      case 'in_progress':
-        return GrsSyncBadge(
-          status: GrsSyncStatus.pending,
-          label: l10n.get('filterInProgress'),
-        );
-      case 'not_started':
-      default:
-        return GrsSyncBadge(
-          status: GrsSyncStatus.draft,
-          label: l10n.get('filterNotStarted'),
-        );
+    if (status == 'completed') {
+      return const GrsSyncBadge(status: GrsSyncStatus.synced, label: 'Done');
     }
+    if (status == 'in_progress') {
+      return const GrsSyncBadge(
+        status: GrsSyncStatus.pending,
+        label: 'Pending',
+      );
+    }
+    return const GrsSyncBadge(status: GrsSyncStatus.draft, label: 'Draft');
   }
 }

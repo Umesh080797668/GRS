@@ -14,3 +14,4 @@ export 'src/widgets/grs_text_field.dart';
 export 'src/widgets/grs_dropdown.dart';
 export 'src/widgets/grs_scaffold.dart';
 export 'src/widgets/grs_card.dart';
+export 'src/widgets/grs_motion.dart';

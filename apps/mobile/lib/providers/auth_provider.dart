@@ -76,16 +76,47 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return;
     }
 
+    // Forced password change cannot be bypassed via app restart (Invariant 8.2)
+    if (profile.mustChangePassword) {
+      _apiClient.setTokens(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+      );
+      state = AuthState(
+        status: AuthStatus.mustChangePassword,
+        profile: profile,
+      );
+      return;
+    }
+
+    // Missing or cleared tokens (e.g. after logout) must never authenticate offline
+    final hasNoTokens =
+        (accessToken == null || accessToken.trim().isEmpty) &&
+        (refreshToken == null || refreshToken.trim().isEmpty);
+    if (hasNoTokens) {
+      await _storage.clearTokens();
+      await _storage.clearActiveProfile();
+      state = const AuthState(status: AuthStatus.unauthenticated);
+      return;
+    }
+
     _apiClient.setTokens(accessToken: accessToken, refreshToken: refreshToken);
 
     // Try refreshing or verifying online status
     try {
-      if (refreshToken != null) {
+      if (refreshToken != null && refreshToken.trim().isNotEmpty) {
         final res = await _apiClient.refreshSession();
         await _storage.saveTokens(
           accessToken: res.accessToken,
           refreshToken: res.refreshToken,
         );
+        if (res.profile.mustChangePassword) {
+          state = AuthState(
+            status: AuthStatus.mustChangePassword,
+            profile: res.profile,
+          );
+          return;
+        }
         state = AuthState(
           status: AuthStatus.authenticated,
           profile: res.profile,
@@ -101,15 +132,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
         return;
       }
-      if (e is GrsApiException && e.isUnauthorized) {
-        // Token invalid and not a network error
+      if (e is GrsApiException && (e.isUnauthorized || e.statusCode == 400)) {
+        // Token invalid, revoked, malformed, or rejected
         await _storage.clearTokens();
+        await _storage.clearActiveProfile();
         state = const AuthState(status: AuthStatus.unauthenticated);
         return;
       }
     }
 
-    // Airplane-mode / Offline cold start: Opens app directly to home screen!
+    // Airplane-mode / Offline cold start with valid saved credentials
     state = AuthState(
       status: AuthStatus.authenticated,
       profile: profile,
@@ -276,8 +308,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    final profileId = state.profile?.id;
+    try {
+      await _apiClient.logout();
+    } catch (_) {}
     await _storage.clearTokens();
+    await _storage.clearActiveProfile();
     _apiClient.clearTokens();
+    if (profileId != null) {
+      await wipeUserDatabase(userId: profileId, storage: _storage);
+    } else {
+      await wipeUserDatabase(storage: _storage);
+    }
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 }

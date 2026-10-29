@@ -14,26 +14,33 @@ class AppTranslations {
     "signInButton": "Sign In",
     "invalidCredentialsError": "Invalid user code, email, or password",
     "accountLockedError": "Account temporarily locked due to failed attempts",
-    "accountDeactivatedError": "Your account has been deactivated. Contact your administrator.",
+    "accountDeactivatedError":
+        "Your account has been deactivated. Contact your administrator.",
     "changePasswordTitle": "Change Password",
-    "changePasswordSubtitle": "You must create a new password before continuing",
+    "changePasswordSubtitle":
+        "You must create a new password before continuing",
     "currentPasswordLabel": "Current Password",
     "newPasswordLabel": "New Password",
     "confirmPasswordLabel": "Confirm New Password",
     "passwordMismatchError": "Passwords do not match",
     "updatePasswordButton": "Update Password",
     "forgotPasswordTitle": "Forgot Password",
-    "forgotPasswordPrompt": "If you have registered a verified email, enter it below to receive a password reset link. Otherwise, contact your Level 4 Team Leader or Level 00 Admin to reissue your credentials.",
+    "forgotPasswordPrompt":
+        "If you have registered a verified email, enter it below to receive a password reset link. Otherwise, contact your Level 4 Team Leader or Level 00 Admin to reissue your credentials.",
     "emailLabel": "Email Address",
     "sendResetButton": "Send Reset Instructions",
     "askAdminButton": "Contact Admin",
     "resetPasswordTitle": "Reset Password",
-    "resetPasswordPrompt": "Enter the 6-digit code sent to your email and your new password.",
+    "resetPasswordPrompt":
+        "Enter the 6-digit code sent to your email and your new password.",
     "resetPasswordButton": "Reset Password & Log In",
-    "resetSuccessMessage": "Password reset successfully. Please log in with your new password.",
-    "resetCodeSentNotice": "If this email is registered, a 6-digit reset code has been sent.",
+    "resetSuccessMessage":
+        "Password reset successfully. Please log in with your new password.",
+    "resetCodeSentNotice":
+        "If this email is registered, a 6-digit reset code has been sent.",
     "addEmailTitle": "Add Verified Email (Optional)",
-    "addEmailSubtitle": "Adding an email enables self-service password recovery",
+    "addEmailSubtitle":
+        "Adding an email enables self-service password recovery",
     "sendCodeButton": "Send Verification Code",
     "verifyCodeTitle": "Verify Email",
     "verifyCodePrompt": "Enter the 6-digit code sent to your email",
@@ -51,7 +58,8 @@ class AppTranslations {
     "languageTamil": "தமிழ்",
     "logout": "Sign Out",
     "logoutConfirmTitle": "Sign Out Confirmation",
-    "logoutWarning": "Warning: You have unsynced records on this phone. If you sign out, they will remain safely encrypted, but another user cannot sign in until records are synced.",
+    "logoutWarning":
+        "Warning: You have unsynced records on this phone. If you sign out, they will remain safely encrypted, but another user cannot sign in until records are synced.",
     "cancel": "Cancel",
     "confirm": "Confirm",
     "save": "Save",
@@ -64,6 +72,9 @@ class AppTranslations {
     "offline": "Offline",
     "online": "Online",
     "syncNow": "Sync Now",
+    "fieldWorkStatus": "Field Work Status",
+    "startNewAssessment": "Start New Assessment",
+    "searchHousesHint": "Search houses, leaders...",
     "syncing": "Syncing...",
     "syncSuccess": "Sync completed successfully",
     "syncFailed": "Sync failed. Will retry automatically.",
@@ -73,10 +84,12 @@ class AppTranslations {
     "statusRejected": "Rejected",
     "statusFailed": "Retry Pending",
     "versionGateTitle": "Update Required",
-    "versionGateMessage": "A mandatory update of the GRS App is required to continue. Your local records are safely preserved.",
+    "versionGateMessage":
+        "A mandatory update of the GRS App is required to continue. Your local records are safely preserved.",
     "downloadUpdateButton": "Download APK Update",
     "deactivatedTitle": "Account Inactive",
-    "deactivatedMessage": "This account has been deactivated. Please contact your Divisional Secretariat or administrator.",
+    "deactivatedMessage":
+        "This account has been deactivated. Please contact your Divisional Secretariat or administrator.",
     "welcomeAgent": "Welcome, Field Officer",
     "teamLabel": "Team",
     "gnLabel": "GN Division",
@@ -141,8 +154,10 @@ class AppTranslations {
     "editBeneficiaryTitle": "Edit Beneficiary",
     "deleteDraftConfirm": "Are you sure you want to delete this draft?",
     "consentTitle": "Statutory Consent (PDPA)",
-    "consentCheckboxLabel": "I confirm that informed consent has been obtained from the beneficiary.",
-    "consentRequiredError": "You must obtain consent before recording beneficiary data.",
+    "consentCheckboxLabel":
+        "I confirm that informed consent has been obtained from the beneficiary.",
+    "consentRequiredError":
+        "You must obtain consent before recording beneficiary data.",
   };
 
   static const Map<String, String> si = {
@@ -156,8 +171,10 @@ class AppTranslations {
     "passwordHint": "ඔබගේ මුරපදය ඇතුළත් කරන්න",
     "signInButton": "ඇතුල් වන්න",
     "invalidCredentialsError": "පරිශීලක අංකය, ඊමේල් හෝ මුරපදය වැරදිය",
-    "accountLockedError": "අසාර්ථක උත්සාහයන් හේතුවෙන් ගිණුම තාවකාලිකව අත්හිටුවා ඇත",
-    "accountDeactivatedError": "ඔබගේ ගිණුම අක්‍රිය කර ඇත. කරුණාකර පරිපාලක අමතන්න.",
+    "accountLockedError":
+        "අසාර්ථක උත්සාහයන් හේතුවෙන් ගිණුම තාවකාලිකව අත්හිටුවා ඇත",
+    "accountDeactivatedError":
+        "ඔබගේ ගිණුම අක්‍රිය කර ඇත. කරුණාකර පරිපාලක අමතන්න.",
     "changePasswordTitle": "මුරපදය වෙනස් කරන්න",
     "changePasswordSubtitle": "ඉදිරියට යාමට පෙර ඔබ නව මුරපදයක් සකස් කළ යුතුය",
     "currentPasswordLabel": "වත්මන් මුරපදය",
@@ -166,15 +183,19 @@ class AppTranslations {
     "passwordMismatchError": "මුරපද නොගැලපේ",
     "updatePasswordButton": "මුරපදය යාවත්කාලීන කරන්න",
     "forgotPasswordTitle": "මුරපදය අමතකද?",
-    "forgotPasswordPrompt": "තහවුරු කළ ඊමේල් ලිපිනයක් ඇත්නම් එය මෙහි ඇතුළත් කරන්න. එසේ නොමැති නම් ඔබගේ කණ්ඩායම් නායක හෝ පරිපාලක අමතන්න.",
+    "forgotPasswordPrompt":
+        "තහවුරු කළ ඊමේල් ලිපිනයක් ඇත්නම් එය මෙහි ඇතුළත් කරන්න. එසේ නොමැති නම් ඔබගේ කණ්ඩායම් නායක හෝ පරිපාලක අමතන්න.",
     "emailLabel": "ඊමේල් ලිපිනය",
     "sendResetButton": "උපදෙස් එවන්න",
     "askAdminButton": "පරිපාලක අමතන්න",
     "resetPasswordTitle": "මුරපදය නැවත සකසන්න",
-    "resetPasswordPrompt": "ඔබගේ විද්‍යුත් තැපෑලට එවන ලද ඉලක්කම් 6 කේතය සහ ඔබගේ නව මුරපදය ඇතුළත් කරන්න.",
+    "resetPasswordPrompt":
+        "ඔබගේ විද්‍යුත් තැපෑලට එවන ලද ඉලක්කම් 6 කේතය සහ ඔබගේ නව මුරපදය ඇතුළත් කරන්න.",
     "resetPasswordButton": "මුරපදය නැවත සකසා ඇතුල් වන්න",
-    "resetSuccessMessage": "මුරපදය සාර්ථකව නැවත සකසන ලදී. කරුණාකර ඔබගේ නව මුරපදයෙන් ඇතුල් වන්න.",
-    "resetCodeSentNotice": "මෙම විද්‍යුත් තැපෑල ලියාපදිංචි කර ඇත්නම්, ඉලක්කම් 6 කේතයක් යවා ඇත.",
+    "resetSuccessMessage":
+        "මුරපදය සාර්ථකව නැවත සකසන ලදී. කරුණාකර ඔබගේ නව මුරපදයෙන් ඇතුල් වන්න.",
+    "resetCodeSentNotice":
+        "මෙම විද්‍යුත් තැපෑල ලියාපදිංචි කර ඇත්නම්, ඉලක්කම් 6 කේතයක් යවා ඇත.",
     "addEmailTitle": "ඊමේල් ලිපිනයක් එක් කරන්න (විකල්ප)",
     "addEmailSubtitle": "ඊමේල් ලිපිනයක් මඟින් මුරපදය නැවත සැකසීම පහසු කරයි",
     "sendCodeButton": "කේතය එවන්න",
@@ -194,7 +215,8 @@ class AppTranslations {
     "languageTamil": "தமிழ்",
     "logout": "පිටවන්න",
     "logoutConfirmTitle": "පිටවීම තහවුරු කිරීම",
-    "logoutWarning": "අවවාදයයි: සමමුහුර්ත නොකළ දත්ත මෙම දුරකථනයේ පවතී. පිටවුවද දත්ත ආරක්ෂිතව පවතින නමුත් සමමුහුර්ත වන තුරු වෙනත් පරිශීලකයෙකුට ඇතුල් විය නොහැක.",
+    "logoutWarning":
+        "අවවාදයයි: සමමුහුර්ත නොකළ දත්ත මෙම දුරකථනයේ පවතී. පිටවුවද දත්ත ආරක්ෂිතව පවතින නමුත් සමමුහුර්ත වන තුරු වෙනත් පරිශීලකයෙකුට ඇතුල් විය නොහැක.",
     "cancel": "අවලංගු කරන්න",
     "confirm": "තහවුරු කරන්න",
     "save": "සුරකින්න",
@@ -207,19 +229,25 @@ class AppTranslations {
     "offline": "නොබැඳි",
     "online": "සම්බන්ධයි",
     "syncNow": "දැන් සමමුහුර්ත කරන්න",
+    "fieldWorkStatus": "ක්ෂේත්‍ර කාර්ය තත්ත්වය",
+    "startNewAssessment": "නව ඇගයීමක් අරඹන්න",
+    "searchHousesHint": "නිවාස, නායකයින් සොයන්න...",
     "syncing": "සමමුහුර්ත වෙමින්...",
     "syncSuccess": "සමමුහුර්ත කිරීම සාර්ථකයි",
-    "syncFailed": "සමමුහුර්ත කිරීම අසාර්ථක විය. ස්වයංක්‍රීයව නැවත උත්සාහ කරනු ඇත.",
+    "syncFailed":
+        "සමමුහුර්ත කිරීම අසාර්ථක විය. ස්වයංක්‍රීයව නැවත උත්සාහ කරනු ඇත.",
     "statusDraft": "කෙටුම්පත",
     "statusPending": "සමමුහුර්ත වීමට නියමිත",
     "statusSynced": "සමමුහුර්තයි",
     "statusRejected": "ප්‍රතික්ෂේපිතයි",
     "statusFailed": "නැවත උත්සාහ කරමින්",
     "versionGateTitle": "යාවත්කාලීන කිරීමක් අවශ්‍යයි",
-    "versionGateMessage": "ඉදිරියට යාමට GRS යෙදුම යාවත්කාලීන කිරීම අනිවාර්ය වේ. ඔබගේ දත්ත ආරක්ෂිතයි.",
+    "versionGateMessage":
+        "ඉදිරියට යාමට GRS යෙදුම යාවත්කාලීන කිරීම අනිවාර්ය වේ. ඔබගේ දත්ත ආරක්ෂිතයි.",
     "downloadUpdateButton": "APK යාවත්කාලීනය බාගන්න",
     "deactivatedTitle": "ගිණුම අක්‍රියයි",
-    "deactivatedMessage": "මෙම ගිණුම අක්‍රිය කර ඇත. කරුණාකර ප්‍රාදේශීය ලේකම් කාර්යාලය හෝ පරිපාලක අමතන්න.",
+    "deactivatedMessage":
+        "මෙම ගිණුම අක්‍රිය කර ඇත. කරුණාකර ප්‍රාදේශීය ලේකම් කාර්යාලය හෝ පරිපාලක අමතන්න.",
     "welcomeAgent": "ආයුබෝවන්, ක්ෂේත්‍ර නිලධාරී",
     "teamLabel": "කණ්ඩායම",
     "gnLabel": "ග්‍රාම නිලධාරී වසම",
@@ -284,8 +312,10 @@ class AppTranslations {
     "editBeneficiaryTitle": "ප්‍රතිලාභියා සංස්කරණය",
     "deleteDraftConfirm": "මෙම කෙටුම්පත මැකීමට ඔබට විශ්වාසද?",
     "consentTitle": "ව්‍යවස්ථාපිත කැමැත්ත (PDPA)",
-    "consentCheckboxLabel": "ප්‍රතිලාභියාගෙන් දැනුවත් කැමැත්ත ලබාගත් බව තහවුරු කරමි.",
-    "consentRequiredError": "දත්ත සටහන් කිරීමට පෙර කැමැත්ත ලබා ගැනීම අනිවාර්ය වේ.",
+    "consentCheckboxLabel":
+        "ප්‍රතිලාභියාගෙන් දැනුවත් කැමැත්ත ලබාගත් බව තහවුරු කරමි.",
+    "consentRequiredError":
+        "දත්ත සටහන් කිරීමට පෙර කැමැත්ත ලබා ගැනීම අනිවාර්ය වේ.",
   };
 
   static const Map<String, String> ta = {
@@ -298,31 +328,41 @@ class AppTranslations {
     "passwordLabel": "கடவுச்சொல்",
     "passwordHint": "உங்கள் கடவுச்சொல்லை உள்ளிடவும்",
     "signInButton": "உள்நுழைக",
-    "invalidCredentialsError": "பயனர் குறியீடு, மின்னஞ்சல் அல்லது கடவுச்சொல் தவறானது",
-    "accountLockedError": "தவறான முயற்சிகள் காரணமாக கணக்கு தற்காலிகமாக முடக்கப்பட்டுள்ளது",
-    "accountDeactivatedError": "உங்கள் கணக்கு செயலிழக்கச் செய்யப்பட்டுள்ளது. நிர்வாகியைத் தொடர்பு கொள்ளவும்.",
+    "invalidCredentialsError":
+        "பயனர் குறியீடு, மின்னஞ்சல் அல்லது கடவுச்சொல் தவறானது",
+    "accountLockedError":
+        "தவறான முயற்சிகள் காரணமாக கணக்கு தற்காலிகமாக முடக்கப்பட்டுள்ளது",
+    "accountDeactivatedError":
+        "உங்கள் கணக்கு செயலிழக்கச் செய்யப்பட்டுள்ளது. நிர்வாகியைத் தொடர்பு கொள்ளவும்.",
     "changePasswordTitle": "கடவுச்சொல்லை மாற்றவும்",
-    "changePasswordSubtitle": "தொடர்வதற்கு முன் நீங்கள் புதிய கடவுச்சொல்லை உருவாக்க வேண்டும்",
+    "changePasswordSubtitle":
+        "தொடர்வதற்கு முன் நீங்கள் புதிய கடவுச்சொல்லை உருவாக்க வேண்டும்",
     "currentPasswordLabel": "தற்போதைய கடவுச்சொல்",
     "newPasswordLabel": "புதிய கடவுச்சொல்",
     "confirmPasswordLabel": "புதிய கடவுச்சொல்லை உறுதிப்படுத்தவும்",
     "passwordMismatchError": "கடவுச்சொற்கள் பொருந்தவில்லை",
     "updatePasswordButton": "கடவுச்சொல்லைப் புதுப்பிக்கவும்",
     "forgotPasswordTitle": "கடவுச்சொல் மறந்துவிட்டதா?",
-    "forgotPasswordPrompt": "சரிபார்க்கப்பட்ட மின்னஞ்சல் பதிவு செய்திருந்தால், அதை உள்ளிடவும். இல்லையெனில் உங்கள் குழுத் தலைவர் அல்லது நிர்வாகியைத் தொடர்பு கொள்ளவும்.",
+    "forgotPasswordPrompt":
+        "சரிபார்க்கப்பட்ட மின்னஞ்சல் பதிவு செய்திருந்தால், அதை உள்ளிடவும். இல்லையெனில் உங்கள் குழுத் தலைவர் அல்லது நிர்வாகியைத் தொடர்பு கொள்ளவும்.",
     "emailLabel": "மின்னஞ்சல் முகவரி",
     "sendResetButton": "வழிமுறைகளை அனுப்பவும்",
     "askAdminButton": "நிர்வாகியைத் தொடர்பு கொள்ளவும்",
     "resetPasswordTitle": "கடவுச்சொல்லை மீட்டமை",
-    "resetPasswordPrompt": "உங்கள் மின்னஞ்சலுக்கு அனுப்பப்பட்ட 6 இலக்க குறியீட்டையும் புதிய கடவுச்சொல்லையும் உள்ளிடவும்.",
+    "resetPasswordPrompt":
+        "உங்கள் மின்னஞ்சலுக்கு அனுப்பப்பட்ட 6 இலக்க குறியீட்டையும் புதிய கடவுச்சொல்லையும் உள்ளிடவும்.",
     "resetPasswordButton": "கடவுச்சொல்லை மீட்டமைத்து உள்நுழைக",
-    "resetSuccessMessage": "கடவுச்சொல் வெற்றிகரமாக மீட்டமைக்கப்பட்டது. உங்கள் புதிய கடவுச்சொல்லுடன் உள்நுழையவும்.",
-    "resetCodeSentNotice": "இந்த மின்னஞ்சல் பதிவு செய்யப்பட்டிருந்தால், 6 இலக்க மீட்டமைப்பு குறியீடு அனுப்பப்பட்டுள்ளது.",
+    "resetSuccessMessage":
+        "கடவுச்சொல் வெற்றிகரமாக மீட்டமைக்கப்பட்டது. உங்கள் புதிய கடவுச்சொல்லுடன் உள்நுழையவும்.",
+    "resetCodeSentNotice":
+        "இந்த மின்னஞ்சல் பதிவு செய்யப்பட்டிருந்தால், 6 இலக்க மீட்டமைப்பு குறியீடு அனுப்பப்பட்டுள்ளது.",
     "addEmailTitle": "மின்னஞ்சலைச் சேர்க்கவும் (விருப்பத்தேர்வு)",
-    "addEmailSubtitle": "மின்னஞ்சலைச் சேர்ப்பது கடவுச்சொல்லை மீட்டெடுக்க உதவுகிறது",
+    "addEmailSubtitle":
+        "மின்னஞ்சலைச் சேர்ப்பது கடவுச்சொல்லை மீட்டெடுக்க உதவுகிறது",
     "sendCodeButton": "குறியீட்டை அனுப்பவும்",
     "verifyCodeTitle": "மின்னஞ்சலைச் சரிபார்க்கவும்",
-    "verifyCodePrompt": "உங்கள் மின்னஞ்சலுக்கு அனுப்பப்பட்ட 6 இலக்கக் குறியீட்டை உள்ளிடவும்",
+    "verifyCodePrompt":
+        "உங்கள் மின்னஞ்சலுக்கு அனுப்பப்பட்ட 6 இலக்கக் குறியீட்டை உள்ளிடவும்",
     "verificationCodeLabel": "6 இலக்கக் குறியீடு",
     "verifyButton": "சரிபார்த்துத் தொடரவும்",
     "skipForNowButton": "இப்போதைக்குத் தவிர்க்கவும்",
@@ -337,7 +377,8 @@ class AppTranslations {
     "languageTamil": "தமிழ்",
     "logout": "வெளியேறுக",
     "logoutConfirmTitle": "வெளியேறுவதை உறுதிப்படுத்துக",
-    "logoutWarning": "எச்சரிக்கை: இந்த தொலைபேசியில் ஒத்திசைக்கப்படாத பதிவுகள் உள்ளன. வெளியேறினாலும் தரவு பாதுகாப்பாக இருக்கும், ஆனால் அவை ஒத்திசைக்கப்படும் வரை மற்றொரு பயனர் உள்நுழைய முடியாது.",
+    "logoutWarning":
+        "எச்சரிக்கை: இந்த தொலைபேசியில் ஒத்திசைக்கப்படாத பதிவுகள் உள்ளன. வெளியேறினாலும் தரவு பாதுகாப்பாக இருக்கும், ஆனால் அவை ஒத்திசைக்கப்படும் வரை மற்றொரு பயனர் உள்நுழைய முடியாது.",
     "cancel": "ரத்துசெய்",
     "confirm": "உறுதிப்படுத்து",
     "save": "சேமி",
@@ -350,6 +391,9 @@ class AppTranslations {
     "offline": "ஆஃப்லைன்",
     "online": "இணைய இணைப்பு உள்ளது",
     "syncNow": "இப்போது ஒத்திசைக்கவும்",
+    "fieldWorkStatus": "களப்பணி நிலை",
+    "startNewAssessment": "புதிய மதிப்பீட்டைத் தொடங்கவும்",
+    "searchHousesHint": "வீடுகள், தலைவர்களைத் தேடுங்கள்...",
     "syncing": "ஒத்திசைக்கப்படுகிறது...",
     "syncSuccess": "ஒத்திசைவு வெற்றிகரமாக முடிந்தது",
     "syncFailed": "ஒத்திசைவு தோல்வியடைந்தது. தானாக மீண்டும் முயற்சிக்கும்.",
@@ -359,10 +403,12 @@ class AppTranslations {
     "statusRejected": "நிராகரிக்கப்பட்டது",
     "statusFailed": "மீண்டும் முயற்சி",
     "versionGateTitle": "செயலி புதுப்பிப்பு தேவை",
-    "versionGateMessage": "தொடர்வதற்கு GRS செயலியைப் புதுப்பிப்பது கட்டாயமாகும். உங்கள் உள்ளூர் தரவு பாதுகாப்பாக உள்ளது.",
+    "versionGateMessage":
+        "தொடர்வதற்கு GRS செயலியைப் புதுப்பிப்பது கட்டாயமாகும். உங்கள் உள்ளூர் தரவு பாதுகாப்பாக உள்ளது.",
     "downloadUpdateButton": "APK பதிவிறக்குக",
     "deactivatedTitle": "கணக்கு செயலிழந்துள்ளது",
-    "deactivatedMessage": "இந்தக் கணக்கு செயலிழக்கச் செய்யப்பட்டுள்ளது. பிரதேச செயலகம் அல்லது நிர்வாகியைத் தொடர்பு கொள்ளவும்.",
+    "deactivatedMessage":
+        "இந்தக் கணக்கு செயலிழக்கச் செய்யப்பட்டுள்ளது. பிரதேச செயலகம் அல்லது நிர்வாகியைத் தொடர்பு கொள்ளவும்.",
     "welcomeAgent": "வணக்கம், கள உத்தியோகத்தர்",
     "teamLabel": "குழு",
     "gnLabel": "கிராம நிலதாரி பிரிவு",
@@ -427,8 +473,10 @@ class AppTranslations {
     "editBeneficiaryTitle": "பயனாளியைத் திருத்தவும்",
     "deleteDraftConfirm": "இந்த வரைவை நிச்சயமாக நீக்க விரும்புகிறீர்களா?",
     "consentTitle": "சட்டபூர்வ சம்மதம் (PDPA)",
-    "consentCheckboxLabel": "பயனாளியிடம் தகவலறிந்த சம்மதம் பெறப்பட்டது என்பதை உறுதிப்படுத்துகிறேன்.",
-    "consentRequiredError": "தரவைப் பதிவு செய்வதற்கு முன் சம்மதம் பெறுவது கட்டாயமாகும்.",
+    "consentCheckboxLabel":
+        "பயனாளியிடம் தகவலறிந்த சம்மதம் பெறப்பட்டது என்பதை உறுதிப்படுத்துகிறேன்.",
+    "consentRequiredError":
+        "தரவைப் பதிவு செய்வதற்கு முன் சம்மதம் பெறுவது கட்டாயமாகும்.",
   };
 
   static Map<String, String> get(String lang) {

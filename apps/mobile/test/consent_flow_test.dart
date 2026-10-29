@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:grs_core/grs_core.dart';
+import 'package:grs_ui/grs_ui.dart';
 import 'package:mobile/data/local/database.dart';
 import 'package:mobile/l10n/l10n.dart';
 import 'package:mobile/providers/database_provider.dart';
@@ -88,12 +89,12 @@ void main() {
         expect(checkboxFinder, findsOneWidget);
 
         final buttonFinder = find.widgetWithText(
-          ElevatedButton,
+          GrsButton,
           'Proceed to Beneficiary Form',
         );
         expect(buttonFinder, findsOneWidget);
 
-        final buttonWidget = tester.widget<ElevatedButton>(buttonFinder);
+        final buttonWidget = tester.widget<GrsButton>(buttonFinder);
         expect(buttonWidget.onPressed, isNull); // Disabled!
 
         // Check the consent box
@@ -102,7 +103,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Button is now enabled!
-        final enabledButton = tester.widget<ElevatedButton>(buttonFinder);
+        final enabledButton = tester.widget<GrsButton>(buttonFinder);
         expect(enabledButton.onPressed, isNotNull);
       },
     );
@@ -142,10 +143,7 @@ void main() {
       await tester.pump();
 
       // Attempt to save and finish
-      final saveButton = find.widgetWithText(
-        ElevatedButton,
-        'Save & Finish House',
-      );
+      final saveButton = find.widgetWithText(GrsButton, 'Save & Finish House');
       expect(saveButton, findsOneWidget);
 
       await tester.ensureVisible(saveButton);

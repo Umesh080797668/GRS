@@ -28,12 +28,26 @@ export class VersionGateGuard implements CanActivate {
     const clientVersion =
       request.headers['x-app-version'] || request.query?.app_version;
 
+    const config = await this.configService.getConfig();
+
     if (!clientVersion || typeof clientVersion !== 'string') {
-      // If no version header is provided (e.g. web browser or admin API call), allow
-      return true;
+      throw new HttpException(
+        {
+          statusCode: 426,
+          error: 'UPGRADE_REQUIRED',
+          code: 'UPGRADE_REQUIRED',
+          message_key: 'error.upgrade_required',
+          message:
+            'App version header (X-App-Version) is required to access this service.',
+          clientVersion: null,
+          minSupportedVersion: config.minSupportedVersion,
+          apkDownloadUrl: config.apkDownloadUrl,
+          details: { min_version: config.minSupportedVersion },
+        },
+        426, // HTTP 426 Upgrade Required
+      );
     }
 
-    const config = await this.configService.getConfig();
     const comparison = this.configService.compareSemver(
       clientVersion,
       config.minSupportedVersion,
@@ -44,11 +58,14 @@ export class VersionGateGuard implements CanActivate {
         {
           statusCode: 426,
           error: 'UPGRADE_REQUIRED',
+          code: 'UPGRADE_REQUIRED',
+          message_key: 'error.upgrade_required',
           message:
             'Your app version is no longer supported. Please update to continue.',
           clientVersion,
           minSupportedVersion: config.minSupportedVersion,
           apkDownloadUrl: config.apkDownloadUrl,
+          details: { min_version: config.minSupportedVersion },
         },
         426, // HTTP 426 Upgrade Required
       );

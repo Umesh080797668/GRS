@@ -18,9 +18,12 @@ class SecureStorageService {
   SecureStorageService({FlutterSecureStorage? storage})
     : _storage = storage ?? const FlutterSecureStorage();
 
-  /// Retrieves or generates a cryptographically random 32-byte hex encryption key.
-  Future<String> getOrCreateDatabaseKey() async {
-    final existing = await _storage.read(key: _keyDbCipher);
+  /// Retrieves or generates a cryptographically random 32-byte hex encryption key, isolated per user.
+  Future<String> getOrCreateDatabaseKey({String? userId}) async {
+    final storageKey = userId != null && userId.isNotEmpty
+        ? 'grs_db_cipher_key_$userId'
+        : _keyDbCipher;
+    final existing = await _storage.read(key: storageKey);
     if (existing != null && existing.length == 64) {
       return existing;
     }
@@ -29,8 +32,15 @@ class SecureStorageService {
     final bytes = List<int>.generate(32, (_) => random.nextInt(256));
     final hexKey = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
 
-    await _storage.write(key: _keyDbCipher, value: hexKey);
+    await _storage.write(key: storageKey, value: hexKey);
     return hexKey;
+  }
+
+  Future<void> clearDatabaseKey({String? userId}) async {
+    final storageKey = userId != null && userId.isNotEmpty
+        ? 'grs_db_cipher_key_$userId'
+        : _keyDbCipher;
+    await _storage.delete(key: storageKey);
   }
 
   Future<void> saveTokens({

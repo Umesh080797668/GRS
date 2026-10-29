@@ -133,7 +133,7 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
 
       expect(prisma.profile.update).toHaveBeenCalledWith({
         where: { id: mockProfile.id },
-        data: expect.objectContaining({ failedLoginCount: 3 }),
+        data: expect.objectContaining({ failedLoginCount: { increment: 1 } }),
       });
     });
 
@@ -154,7 +154,7 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
       expect(prisma.profile.update).toHaveBeenCalledWith({
         where: { id: mockProfile.id },
         data: expect.objectContaining({
-          failedLoginCount: 5,
+          failedLoginCount: { increment: 1 },
           lockedUntil: expect.any(Date),
         }),
       });
@@ -270,11 +270,11 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
   });
 
   describe('Refresh Token Rotation & Reuse Detection', () => {
-    it('detects token reuse and revokes all user sessions', async () => {
+    it('detects token reuse and revokes all user sessions when reused after grace window', async () => {
       prisma.refreshToken.findFirst.mockResolvedValue({
         id: 'rt-old',
         profileId: mockProfile.id,
-        revokedAt: new Date(), // Already revoked!
+        revokedAt: new Date(Date.now() - 30 * 1000), // Revoked 30 seconds ago (outside grace window)
         profile: mockProfile,
       });
 
@@ -286,6 +286,21 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
         where: { profileId: mockProfile.id },
         data: { revokedAt: expect.any(Date) },
       });
+    });
+
+    it('rejects without revoking all user sessions when refreshed within grace window', async () => {
+      prisma.refreshToken.findFirst.mockResolvedValue({
+        id: 'rt-old',
+        profileId: mockProfile.id,
+        revokedAt: new Date(Date.now() - 2000), // Revoked 2 seconds ago (within 15s grace)
+        profile: mockProfile,
+      });
+
+      await expect(
+        service.refreshTokens({ refreshToken: 'concurrentToken' }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
     });
   });
 });

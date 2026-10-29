@@ -30,4 +30,10 @@ class AppEnv {
     'SENTRY_DSN',
     defaultValue: '',
   );
+
+  /// Client semantic application version sent in X-App-Version header
+  static const String appVersion = String.fromEnvironment(
+    'APP_VERSION',
+    defaultValue: '1.0.0',
+  );
 }

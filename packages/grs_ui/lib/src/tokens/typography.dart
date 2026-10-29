@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'colors.dart';
 
 /// Design tokens for GRS trilingual typography per docs/design/DESIGN.md.
 abstract final class GrsTypography {
@@ -85,4 +86,36 @@ abstract final class GrsTypography {
         color: color,
         languageCode: languageCode,
       );
+
+  static TextTheme textTheme({
+    String languageCode = 'en',
+    bool isDark = false,
+  }) {
+    final color = isDark
+        ? GrsColors.textPrimaryDark
+        : GrsColors.textPrimaryLight;
+    final secondary = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
+    return TextTheme(
+      displayLarge: displayLarge(color: color, languageCode: languageCode),
+      headlineMedium: headlineMedium(color: color, languageCode: languageCode),
+      titleLarge: style(
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        color: color,
+        languageCode: languageCode,
+      ),
+      titleMedium: titleMedium(color: color, languageCode: languageCode),
+      bodyLarge: bodyLarge(color: color, languageCode: languageCode),
+      bodyMedium: bodyMedium(color: color, languageCode: languageCode),
+      labelMedium: style(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: color,
+        languageCode: languageCode,
+      ),
+      labelSmall: labelSmall(color: secondary, languageCode: languageCode),
+    );
+  }
 }

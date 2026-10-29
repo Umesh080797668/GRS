@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:grs_core/grs_core.dart';
+import 'package:grs_ui/grs_ui.dart';
 import 'package:mobile/data/local/database.dart';
 import 'package:mobile/l10n/l10n.dart';
 import 'package:mobile/providers/database_provider.dart';
@@ -132,7 +133,7 @@ void main() {
 
         // Save and Finish House
         final saveFinishBtn = find.widgetWithText(
-          ElevatedButton,
+          GrsButton,
           'Save & Finish House',
         );
         await tester.ensureVisible(saveFinishBtn);
@@ -204,11 +205,11 @@ void main() {
 
         // Edit action buttons must NOT be shown
         expect(
-          find.widgetWithText(ElevatedButton, 'Save & Finish House'),
+          find.widgetWithText(GrsButton, 'Save & Finish House'),
           findsNothing,
         );
         expect(
-          find.widgetWithText(ElevatedButton, 'Save & Add Next Beneficiary'),
+          find.widgetWithText(GrsButton, 'Save & Add Next Beneficiary'),
           findsNothing,
         );
       },

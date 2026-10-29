@@ -380,4 +380,179 @@ describe('Security Vulnerability Fixes Verification', () => {
       expect(mockPrisma.$queryRaw).toHaveBeenCalled();
     });
   });
+
+  describe('5. Login Lockout Uniform Error & Expiration Reset (auth.service.ts)', () => {
+    let authService: any;
+    let mockPrisma: any;
+    let mockCredentialService: any;
+
+    beforeEach(() => {
+      mockPrisma = {
+        profile: {
+          findFirst: jest.fn(),
+          update: jest.fn().mockImplementation(({ data }) => Promise.resolve({ ...data, id: 'u1' })),
+        },
+      };
+      mockCredentialService = {
+        verifyPassword: jest.fn(),
+      };
+      const mockJwtService = { sign: jest.fn() };
+      const mockConfig = { get: jest.fn().mockReturnValue('secret') };
+
+      const { AuthService } = require('./auth.service');
+      authService = new AuthService(
+        mockPrisma,
+        mockCredentialService,
+        mockJwtService,
+        mockConfig,
+        {} as any,
+        {} as any,
+      );
+    });
+
+    it('returns uniform invalid_credentials message key when account is currently locked', async () => {
+      mockPrisma.profile.findFirst.mockResolvedValue({
+        id: 'u1',
+        userCode: 'GRS0000000001',
+        passwordHash: 'hash',
+        failedLoginCount: 5,
+        lockedUntil: new Date(Date.now() + 10 * 60 * 1000), // locked for 10 more minutes
+        isActive: true,
+      });
+
+      try {
+        await authService.login({ identifier: 'GRS0000000001', password: 'wrong' });
+        fail('Expected UnauthorizedException');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(UnauthorizedException);
+        expect(err.getResponse().message_key).toBe('errors.auth.invalid_credentials');
+      }
+    });
+
+    it('resets failed count to 1 when lock expires instead of immediately re-locking', async () => {
+      mockPrisma.profile.findFirst.mockResolvedValue({
+        id: 'u1',
+        userCode: 'GRS0000000001',
+        passwordHash: 'hash',
+        failedLoginCount: 5,
+        lockedUntil: new Date(Date.now() - 60 * 1000), // lock expired 1 minute ago
+        isActive: true,
+      });
+      mockCredentialService.verifyPassword.mockResolvedValue(false);
+
+      await expect(
+        authService.login({ identifier: 'GRS0000000001', password: 'wrong' }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      // Verify that profile.update set failedLoginCount to 1, and lockedUntil to null!
+      expect(mockPrisma.profile.update).toHaveBeenCalledWith({
+        where: { id: 'u1' },
+        data: {
+          failedLoginCount: 1,
+          lockedUntil: null,
+        },
+      });
+    });
+  });
+
+  describe('6. Concurrent Refresh Grace Window (auth.service.ts)', () => {
+    let authService: any;
+    let mockPrisma: any;
+
+    beforeEach(() => {
+      mockPrisma = {
+        refreshToken: {
+          findFirst: jest.fn(),
+          updateMany: jest.fn(),
+          update: jest.fn(),
+        },
+      };
+      const mockJwtService = { sign: jest.fn() };
+      const mockCredentialService = {};
+      const mockConfig = { get: jest.fn().mockReturnValue('secret') };
+
+      const { AuthService } = require('./auth.service');
+      authService = new AuthService(
+        mockPrisma,
+        mockCredentialService,
+        mockJwtService,
+        mockConfig,
+        {} as any,
+        {} as any,
+      );
+    });
+
+    it('does NOT revoke all user sessions if a revoked token is used within 15s grace window', async () => {
+      mockPrisma.refreshToken.findFirst.mockResolvedValue({
+        id: 'tok1',
+        profileId: 'u1',
+        tokenHash: 'somehash',
+        revokedAt: new Date(Date.now() - 2000), // revoked 2 seconds ago (within 15s grace)
+        expiresAt: new Date(Date.now() + 60000),
+        profile: { id: 'u1', isActive: true },
+      });
+
+      await expect(
+        authService.refreshTokens({ refreshToken: 'test-token' }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      // Verify that updateMany was NOT called to revoke all sessions
+      expect(mockPrisma.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('revokes all user sessions if a revoked token is reused AFTER 15s grace window', async () => {
+      mockPrisma.refreshToken.findFirst.mockResolvedValue({
+        id: 'tok1',
+        profileId: 'u1',
+        tokenHash: 'somehash',
+        revokedAt: new Date(Date.now() - 30000), // revoked 30 seconds ago (outside grace)
+        expiresAt: new Date(Date.now() + 60000),
+        profile: { id: 'u1', isActive: true },
+      });
+
+      await expect(
+        authService.refreshTokens({ refreshToken: 'test-token' }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      // Verify that updateMany was called to revoke all sessions
+      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { profileId: 'u1' },
+        data: { revokedAt: expect.any(Date) },
+      });
+    });
+  });
+
+  describe('7. VersionGateGuard Header Requirement (version-gate.guard.ts)', () => {
+    it('throws HTTP 426 if X-App-Version header is missing', async () => {
+      const mockConfigService = {
+        getConfig: jest.fn().mockResolvedValue({
+          minSupportedVersion: '1.0.0',
+          latestVersion: '1.2.0',
+          apkDownloadUrl: 'https://example.com/app.apk',
+        }),
+        compareSemver: jest.fn(),
+      };
+      const { VersionGateGuard } = require('../config/version-gate.guard');
+      const guard = new VersionGateGuard(mockConfigService);
+
+      const mockContext = {
+        switchToHttp: () => ({
+          getRequest: () => ({
+            url: '/v1/households',
+            path: '/v1/households',
+            headers: {}, // No x-app-version header
+          }),
+        }),
+      };
+
+      try {
+        await guard.canActivate(mockContext);
+        fail('Expected 426 error');
+      } catch (err: any) {
+        expect(err.getStatus()).toBe(426);
+        expect(err.getResponse().error).toBe('UPGRADE_REQUIRED');
+      }
+    });
+  });
 });
+
