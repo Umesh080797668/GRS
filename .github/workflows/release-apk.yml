@@ -4,20 +4,34 @@ on:
   push:
     tags:
       - 'v*.*.*'
+    branches:
+      - main
+    paths:
+      - 'apps/mobile/pubspec.yaml'
   workflow_dispatch:
     inputs:
-      tag_name:
-        description: 'Release tag (e.g. v1.0.1)'
+      bump:
+        description: 'Auto-bump type (if tag_name is empty)'
         required: true
-        default: 'v1.0.1'
+        type: choice
+        default: 'patch'
+        options:
+          - patch
+          - minor
+          - major
+          - auto
+      tag_name:
+        description: 'Custom tag name override (e.g. v1.0.1). Leave empty to auto-calculate.'
+        required: false
+        default: ''
       min_supported_version:
         description: 'Minimum supported client version'
         required: false
         default: '1.0.0'
       release_notes:
-        description: 'Release changelog notes'
+        description: 'Changelog / Release notes (leave empty to auto-generate from commits)'
         required: false
-        default: 'Security hardening, in-app updates, and offline sync optimizations.'
+        default: ''
       mandatory:
         description: 'Is update mandatory (blocks older versions)'
         type: boolean
@@ -53,23 +67,120 @@ jobs:
       - name: Determine Version & Tag
         id: vars
         run: |
-          RAW_TAG="${{ github.event.inputs.tag_name || github.ref_name }}"
-          VERSION="${RAW_TAG#v}"
-          echo "TAG=${RAW_TAG}" >> $GITHUB_ENV
+          git fetch --tags --force origin 2>/dev/null || true
+
+          PUBSPEC_RAW=$(grep "^version:" apps/mobile/pubspec.yaml | head -1 | awk '{print $2}')
+          PUBSPEC_VER="${PUBSPEC_RAW%+*}"
+          PUBSPEC_BUILD="${PUBSPEC_RAW#*+}"
+          if [ "$PUBSPEC_VER" = "$PUBSPEC_BUILD" ] || [ -z "$PUBSPEC_BUILD" ]; then
+            PUBSPEC_BUILD="1"
+          fi
+
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          LATEST_VER="${LATEST_TAG#v}"
+
+          echo "Detected pubspec version: ${PUBSPEC_VER} (build: ${PUBSPEC_BUILD})"
+          echo "Latest git tag: ${LATEST_TAG:-none}"
+
+          # 1. Custom tag specified in inputs
+          if [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            TAG="${{ github.event.inputs.tag_name }}"
+            VERSION="${TAG#v}"
+
+          # 2. Triggered by a Git Tag push
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+            VERSION="${TAG#v}"
+
+          # 3. Triggered by push to main when pubspec.yaml was updated
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            TAG="v${PUBSPEC_VER}"
+            VERSION="${PUBSPEC_VER}"
+            if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+              echo "⚠️ Tag ${TAG} has already been released. Skipping duplicate release build."
+              echo "SKIP_RELEASE=true" >> $GITHUB_ENV
+              exit 0
+            fi
+
+          # 4. workflow_dispatch with automated bump
+          else
+            BUMP="${{ github.event.inputs.bump || 'patch' }}"
+            BASE_VER="${LATEST_VER:-$PUBSPEC_VER}"
+
+            if [ "$BUMP" = "auto" ]; then
+              if [ -n "$LATEST_VER" ] && [ "$PUBSPEC_VER" != "$LATEST_VER" ]; then
+                VERSION="${PUBSPEC_VER}"
+              else
+                IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VER"
+                VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+              fi
+            elif [ "$BUMP" = "patch" ]; then
+              IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VER"
+              VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+            elif [ "$BUMP" = "minor" ]; then
+              IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VER"
+              VERSION="${MAJOR}.$((MINOR + 1)).0"
+            elif [ "$BUMP" = "major" ]; then
+              IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VER"
+              VERSION="$((MAJOR + 1)).0.0"
+            fi
+            TAG="v${VERSION}"
+          fi
+
+          BUILD_NUMBER="${{ github.run_number }}"
+          echo "TAG=${TAG}" >> $GITHUB_ENV
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "BUILD_NUMBER=${BUILD_NUMBER}" >> $GITHUB_ENV
+          echo "SKIP_RELEASE=false" >> $GITHUB_ENV
+
+          echo "🎯 Final release target: Tag=${TAG}, Version=${VERSION}, Build=${BUILD_NUMBER}"
+
+      - name: Create and Push Git Tag
+        if: env.SKIP_RELEASE != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "Creating annotated git tag ${TAG}..."
+            git tag -a "${TAG}" -m "Release ${TAG} [skip ci]"
+            git push origin "${TAG}" || echo "Tag push completed or already present"
+          else
+            echo "Tag ${TAG} already exists locally or remotely."
+          fi
+
+      - name: Prepare Release Changelog
+        if: env.SKIP_RELEASE != 'true'
+        run: |
+          if [ -n "${{ github.event.inputs.release_notes }}" ]; then
+            NOTES="${{ github.event.inputs.release_notes }}"
+          else
+            PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
+            if [ -n "$PREV_TAG" ]; then
+              COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" 2>/dev/null || echo "")
+            else
+              COMMITS=$(git log -n 10 --pretty=format:"- %s" 2>/dev/null || echo "")
+            fi
+            NOTES="Automated release build for **${TAG}**.\n\n### Changes\n${COMMITS:-'- General optimizations and stability improvements'}"
+          fi
+          echo "RELEASE_NOTES<<EOF" >> $GITHUB_ENV
+          echo -e "$NOTES" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
       - name: Install Dependencies
+        if: env.SKIP_RELEASE != 'true'
         run: |
           cd packages/grs_core && flutter pub get
           cd ../grs_ui && flutter pub get
           cd ../../apps/mobile && flutter pub get
 
       - name: Build Android Release APK
+        if: env.SKIP_RELEASE != 'true'
         run: |
           cd apps/mobile
-          flutter build apk --release
+          flutter build apk --release --build-name="${VERSION}" --build-number="${BUILD_NUMBER}"
 
       - name: Generate Checksum & Release Manifest
+        if: env.SKIP_RELEASE != 'true'
         id: manifest
         run: |
           APK_PATH="apps/mobile/build/app/outputs/flutter-apk/app-release.apk"
@@ -80,18 +191,31 @@ jobs:
           echo "FILE_SIZE=${FILE_SIZE}" >> $GITHUB_ENV
           echo "${SHA256}  app-release.apk" > checksum.txt
 
+          MIN_SUPP="${{ github.event.inputs.min_supported_version }}"
+          if [ -z "$MIN_SUPP" ]; then
+            MIN_SUPP="1.0.0"
+          fi
+
+          MANDATORY="${{ github.event.inputs.mandatory }}"
+          if [ -z "$MANDATORY" ]; then
+            MANDATORY=false
+          fi
+
+          # Clean multiline notes for JSON escaping
+          JSON_NOTES=$(python3 -c "import json, os; print(json.dumps(os.environ.get('RELEASE_NOTES', 'Automated release build.')))")
+
           cat <<EOF > manifest.json
           {
             "version": "${VERSION}",
-            "buildNumber": ${{ github.run_number }},
-            "minSupportedVersion": "${{ github.event.inputs.min_supported_version || '1.0.0' }}",
+            "buildNumber": ${BUILD_NUMBER},
+            "minSupportedVersion": "${MIN_SUPP}",
             "apkUrl": "https://github.com/${{ github.repository }}/releases/download/${TAG}/app-release.apk",
             "sha256": "${SHA256}",
             "checksum": "${SHA256}",
             "fileSize": ${FILE_SIZE},
-            "releaseNotes": "${{ github.event.inputs.release_notes || 'Security hardening, in-app updates, and offline sync optimizations.' }}",
+            "releaseNotes": ${JSON_NOTES},
             "releasedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "mandatory": ${{ github.event.inputs.mandatory || false }}
+            "mandatory": ${MANDATORY}
           }
           EOF
 
@@ -99,14 +223,16 @@ jobs:
           cat manifest.json
 
       - name: Create GitHub Release & Upload Assets
+        if: env.SKIP_RELEASE != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
           name: Release ${{ env.TAG }}
+          generate_release_notes: true
           body: |
             ## GRS Mobile Release ${{ env.TAG }}
             
-            ${{ github.event.inputs.release_notes || 'Automated release build.' }}
+            ${{ env.RELEASE_NOTES }}
             
             ### Artifact Verification
             - **Binary:** `app-release.apk`
@@ -121,7 +247,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Notify NestJS Backend (Optional)
-        if: env.BACKEND_URL != ''
+        if: env.SKIP_RELEASE != 'true' && env.BACKEND_URL != ''
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
           RELEASE_SECRET: ${{ secrets.RELEASE_SECRET }}

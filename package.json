@@ -12,6 +12,7 @@
     "test:e2e": "npm --prefix apps/api run test:e2e --if-present",
     "build": "npm --prefix apps/api run build --if-present",
     "ci:local": "bash scripts/ci.sh",
+    "release": "bash scripts/release.sh",
     "mobile:build": "cd apps/mobile && flutter build apk --release --dart-define-from-file=.env"
   },
   "devDependencies": {
