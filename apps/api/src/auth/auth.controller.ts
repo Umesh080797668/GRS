@@ -17,6 +17,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import type { ScopeContext } from '../common/scope/scope.types';
@@ -107,9 +108,7 @@ export class AuthController {
   @Post('reset')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password using verified 6-digit email code' })
-  async resetPassword(
-    @Body() dto: { email: string; code: string; newPassword: string },
-  ) {
+  async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.email, dto.code, dto.newPassword);
   }
 

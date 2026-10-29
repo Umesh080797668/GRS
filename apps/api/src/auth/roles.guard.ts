@@ -10,7 +10,7 @@ import { UserRole, ScopeContext } from '../common/scope/scope.types';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(private readonly reflector: Reflector) { }
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
@@ -18,13 +18,23 @@ export class RolesGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
 
+    const req = context.switchToHttp().getRequest();
+    const user: ScopeContext = req.user;
+
+    if (user && user.scope === 'change-password') {
+      const path = req.originalUrl || req.path || req.url || '';
+      if (!path.includes('/auth/change-password') && !path.endsWith('/change-password')) {
+        throw new ForbiddenException({
+          code: 'SCOPE_RESTRICTED',
+          message_key: 'errors.auth.password_change_required',
+          message: 'Token scope is restricted to password change only',
+        });
+      }
+    }
+
     if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
-
-    const { user }: { user: ScopeContext } = context
-      .switchToHttp()
-      .getRequest();
 
     if (!user || !user.role) {
       throw new ForbiddenException({

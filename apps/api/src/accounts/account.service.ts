@@ -49,7 +49,14 @@ export class AccountService {
     creatorScope: ScopeContext,
     dto: CreateAccountDto,
   ): Promise<{ user: CreatedAccountResponse }> {
-    this.assertCanCreate(creatorScope, dto.role, dto.teamId, dto.gnId);
+    const resolvedTerritory = await this.assertCanCreate(
+      creatorScope,
+      dto.role,
+      dto.districtId,
+      dto.dsId,
+      dto.gnId,
+      dto.teamId,
+    );
 
     const ttlMs =
       AccountService.INITIAL_PASSWORD_TTL_DAYS * 24 * 60 * 60 * 1000;
@@ -64,11 +71,15 @@ export class AccountService {
         let teamGnId: string | undefined;
 
         // Atomic team member limit enforcement (C8)
-        if (dto.role === UserRole.team_member && dto.teamId) {
-          teamGnId = await this.assertTeamCapacity(tx, dto.teamId, 1);
+        if (dto.role === UserRole.team_member && resolvedTerritory.teamId) {
+          teamGnId = await this.assertTeamCapacity(
+            tx,
+            resolvedTerritory.teamId,
+            1,
+          );
         }
 
-        const gnId = dto.gnId || teamGnId || creatorScope.gnId || undefined;
+        const gnId = resolvedTerritory.gnId || teamGnId || undefined;
         const userCode = await this.generateUniqueUserCode(tx);
 
         const profile = await tx.profile.create({
@@ -79,10 +90,10 @@ export class AccountService {
             passwordHash,
             phoneE164: dto.phoneE164,
             preferredLanguage: dto.preferredLanguage || 'si',
-            districtId: dto.districtId || creatorScope.districtId || undefined,
-            dsId: dto.dsId || creatorScope.dsId || undefined,
+            districtId: resolvedTerritory.districtId,
+            dsId: resolvedTerritory.dsId,
             gnId,
-            teamId: dto.teamId || creatorScope.teamId || undefined,
+            teamId: resolvedTerritory.teamId,
             createdBy: creatorScope.userId,
             mustChangePassword: true,
             passwordExpiresAt,
@@ -124,7 +135,14 @@ export class AccountService {
     creatorScope: ScopeContext,
     dto: CreateBulkAccountsDto,
   ): Promise<{ batchId: string; users: CreatedAccountResponse[] }> {
-    this.assertCanCreate(creatorScope, dto.role, dto.teamId, dto.gnId);
+    const resolvedTerritory = await this.assertCanCreate(
+      creatorScope,
+      dto.role,
+      dto.districtId,
+      dto.dsId,
+      dto.gnId,
+      dto.teamId,
+    );
 
     const count = dto.count;
     if (count < 1 || count > 100) {
@@ -169,17 +187,21 @@ export class AccountService {
         let teamGnId: string | undefined;
 
         // Atomic team member limit enforcement (C8)
-        if (dto.role === UserRole.team_member && dto.teamId) {
-          teamGnId = await this.assertTeamCapacity(tx, dto.teamId, count);
+        if (dto.role === UserRole.team_member && resolvedTerritory.teamId) {
+          teamGnId = await this.assertTeamCapacity(
+            tx,
+            resolvedTerritory.teamId,
+            count,
+          );
         }
 
-        const gnId = dto.gnId || teamGnId || creatorScope.gnId || undefined;
+        const gnId = resolvedTerritory.gnId || teamGnId || undefined;
 
         const batch = await tx.accountBatch.create({
           data: {
             createdBy: creatorScope.userId,
             role: dto.role,
-            teamId: dto.teamId || creatorScope.teamId || undefined,
+            teamId: resolvedTerritory.teamId,
             count,
           },
         });
@@ -198,10 +220,10 @@ export class AccountService {
               passwordHash: m.passwordHash,
               phoneE164: m.phoneE164,
               preferredLanguage: m.preferredLanguage,
-              districtId: dto.districtId || creatorScope.districtId || undefined,
-              dsId: dto.dsId || creatorScope.dsId || undefined,
+              districtId: resolvedTerritory.districtId,
+              dsId: resolvedTerritory.dsId,
               gnId,
-              teamId: dto.teamId || creatorScope.teamId || undefined,
+              teamId: resolvedTerritory.teamId,
               createdBy: creatorScope.userId,
               mustChangePassword: true,
               passwordExpiresAt,
@@ -466,39 +488,146 @@ export class AccountService {
       );
     }
 
-    // Check team capacity if team is changing
+    // Validate new team territorial scope if changing team
+    let newTeamGnId: string | undefined;
+    let newTeamDsId: string | undefined;
+    let newTeamDistrictId: string | undefined;
+
     if (dto.teamId && dto.teamId !== target.teamId) {
-      await this.assertTeamCapacity(this.prisma, dto.teamId, 1);
+      const newTeam = await this.prisma.team.findUnique({
+        where: { id: dto.teamId },
+        include: {
+          gn: {
+            include: {
+              ds: true,
+            },
+          },
+        },
+      });
+
+      if (!newTeam) {
+        throw new NotFoundException({
+          code: 'TEAM_NOT_FOUND',
+          message: 'Specified team does not exist',
+        });
+      }
+
+      if (adminScope.role === UserRole.cdc_secretary) {
+        if (dto.teamId !== adminScope.teamId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_TEAM',
+            message: 'CDC Secretary can only assign accounts to their own team',
+          });
+        }
+      } else if (adminScope.role === UserRole.sda) {
+        if (adminScope.dsId && newTeam.gn.dsId !== adminScope.dsId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_DS',
+            message:
+              'SDA cannot assign accounts to a team outside their DS division',
+          });
+        }
+        if (
+          adminScope.districtId &&
+          newTeam.gn.ds.districtId !== adminScope.districtId
+        ) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_DISTRICT',
+            message:
+              'SDA cannot assign accounts to a team outside their district',
+          });
+        }
+      } else if (adminScope.role === UserRole.dc) {
+        if (
+          adminScope.districtId &&
+          newTeam.gn.ds.districtId !== adminScope.districtId
+        ) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_DISTRICT',
+            message:
+              'DC cannot assign accounts to a team outside their district',
+          });
+        }
+      }
+
+      newTeamGnId = newTeam.gnId;
+      newTeamDsId = newTeam.gn.dsId;
+      newTeamDistrictId = newTeam.gn.ds.districtId;
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.profile.update({
-        where: { id: targetUserId },
-        data: {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const willBeActive =
+          dto.isActive !== undefined ? dto.isActive : target.isActive;
+        const effectiveTeamId =
+          dto.teamId !== undefined ? dto.teamId : target.teamId;
+        const isTeamChanging =
+          dto.teamId !== undefined && dto.teamId !== target.teamId;
+        const isReactivating =
+          dto.isActive === true && target.isActive === false;
+
+        // Atomically lock the team and check member capacity inside the transaction (C8)
+        if (
+          target.role === UserRole.team_member &&
+          effectiveTeamId &&
+          willBeActive &&
+          (isTeamChanging || isReactivating)
+        ) {
+          await this.assertTeamCapacity(tx, effectiveTeamId, 1);
+        }
+
+        const data: Prisma.ProfileUpdateInput = {
           fullName: dto.fullName ?? undefined,
           phoneE164: dto.phoneE164 ?? undefined,
           teamId: dto.teamId !== undefined ? dto.teamId : undefined,
           isActive: dto.isActive ?? undefined,
-        },
-      });
+        };
 
-      await tx.accountAudit.create({
-        data: {
-          actorId: adminScope.userId,
-          targetId: targetUserId,
-          action: 'updated',
-        },
-      });
+        if (isTeamChanging && dto.teamId) {
+          if (newTeamGnId) data.gnId = newTeamGnId;
+          if (newTeamDsId) data.dsId = newTeamDsId;
+          if (newTeamDistrictId) data.districtId = newTeamDistrictId;
+        }
 
-      return {
-        id: updated.id,
-        userCode: updated.userCode,
-        fullName: updated.fullName,
-        role: updated.role,
-        teamId: updated.teamId,
-        isActive: updated.isActive,
-      };
-    }, { maxWait: 45000, timeout: 45000 });
+        if (dto.isActive === false && target.isActive === true) {
+          data.deactivatedAt = new Date();
+          data.deactivatedBy = adminScope.userId;
+          data.tokenVersion = { increment: 1 };
+        } else if (dto.isActive === true && target.isActive === false) {
+          data.deactivatedAt = null;
+          data.deactivatedBy = null;
+        }
+
+        const updated = await tx.profile.update({
+          where: { id: targetUserId },
+          data,
+        });
+
+        if (dto.isActive === false && target.isActive === true) {
+          await tx.refreshToken.deleteMany({
+            where: { profileId: targetUserId },
+          });
+        }
+
+        await tx.accountAudit.create({
+          data: {
+            actorId: adminScope.userId,
+            targetId: targetUserId,
+            action: 'updated',
+          },
+        });
+
+        return {
+          id: updated.id,
+          userCode: updated.userCode,
+          fullName: updated.fullName,
+          role: updated.role,
+          teamId: updated.teamId,
+          isActive: updated.isActive,
+        };
+      },
+      { maxWait: 45000, timeout: 45000 },
+    );
   }
 
   /**
@@ -672,12 +801,19 @@ export class AccountService {
 
   // --- Helpers ---
 
-  private assertCanCreate(
+  private async assertCanCreate(
     creator: ScopeContext,
     targetRole: UserRole,
-    targetTeamId?: string,
+    targetDistrictId?: string,
+    targetDsId?: string,
     targetGnId?: string,
-  ): void {
+    targetTeamId?: string,
+  ): Promise<{
+    districtId?: string;
+    dsId?: string;
+    gnId?: string;
+    teamId?: string;
+  }> {
     if (!canCreateRole(creator.role, targetRole)) {
       throw new ForbiddenException({
         code: 'CANNOT_CREATE_ROLE',
@@ -685,22 +821,328 @@ export class AccountService {
       });
     }
 
-    // CDC Secretary scope constraints
+    const effectiveTeamId =
+      targetTeamId ||
+      (targetRole === UserRole.team_member
+        ? creator.teamId || undefined
+        : undefined);
+
+    // Immediate role scope constraints
     if (creator.role === UserRole.cdc_secretary) {
-      if (targetTeamId && targetTeamId !== creator.teamId) {
+      if (
+        effectiveTeamId &&
+        creator.teamId &&
+        effectiveTeamId !== creator.teamId
+      ) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_TEAM',
           message: 'CDC Secretary can only create members for their own team',
         });
       }
-      if (targetGnId && targetGnId !== creator.gnId) {
+      if (targetGnId && creator.gnId && targetGnId !== creator.gnId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_GN',
           message:
             'CDC Secretary can only create members in their own GN division',
         });
       }
+      if (targetDsId && creator.dsId && targetDsId !== creator.dsId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DS',
+          message:
+            'CDC Secretary can only create members in their own DS division',
+        });
+      }
+      if (
+        targetDistrictId &&
+        creator.districtId &&
+        targetDistrictId !== creator.districtId
+      ) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DISTRICT',
+          message:
+            'CDC Secretary can only create members in their own district',
+        });
+      }
+    } else if (creator.role === UserRole.dc) {
+      if (
+        targetDistrictId &&
+        creator.districtId &&
+        targetDistrictId !== creator.districtId
+      ) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DISTRICT',
+          message:
+            'DC can only create accounts within their assigned district',
+        });
+      }
+    } else if (creator.role === UserRole.sda) {
+      if (
+        targetDistrictId &&
+        creator.districtId &&
+        targetDistrictId !== creator.districtId
+      ) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DISTRICT',
+          message:
+            'SDA can only create accounts within their assigned district',
+        });
+      }
+      if (targetDsId && creator.dsId && targetDsId !== creator.dsId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DS',
+          message:
+            'SDA can only create accounts within their assigned DS division',
+        });
+      }
     }
+
+    if (effectiveTeamId) {
+      const team = await this.prisma.team.findUnique({
+        where: { id: effectiveTeamId },
+        include: {
+          gn: {
+            include: {
+              ds: true,
+            },
+          },
+        },
+      });
+
+      if (!team) {
+        throw new NotFoundException({
+          code: 'TEAM_NOT_FOUND',
+          message: 'Specified team does not exist',
+        });
+      }
+
+      // Check creator territory against team's territory
+      if (creator.role === UserRole.dc && creator.districtId) {
+        if (team.gn.ds.districtId !== creator.districtId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_DISTRICT',
+            message:
+              'DC cannot create accounts for a team outside their assigned district',
+          });
+        }
+      }
+
+      if (creator.role === UserRole.sda) {
+        if (
+          creator.districtId &&
+          team.gn.ds.districtId !== creator.districtId
+        ) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_DISTRICT',
+            message:
+              'SDA cannot create accounts for a team outside their assigned district',
+          });
+        }
+        if (creator.dsId && team.gn.dsId !== creator.dsId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_DS',
+            message:
+              'SDA cannot create accounts for a team outside their assigned DS division',
+          });
+        }
+      }
+
+      if (creator.role === UserRole.cdc_secretary && creator.teamId) {
+        if (team.id !== creator.teamId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_TEAM',
+            message: 'CDC Secretary can only create members for their own team',
+          });
+        }
+      }
+
+      // Consistency checks: districtId and dsId and gnId must match the team
+      if (targetDistrictId && targetDistrictId !== team.gn.ds.districtId) {
+        throw new BadRequestException({
+          code: 'TERRITORY_MISMATCH',
+          message: 'Target district does not match the team district',
+        });
+      }
+      if (targetDsId && targetDsId !== team.gn.dsId) {
+        throw new BadRequestException({
+          code: 'TERRITORY_MISMATCH',
+          message: 'Target DS division does not match the team DS division',
+        });
+      }
+      if (targetGnId && targetGnId !== team.gnId) {
+        throw new BadRequestException({
+          code: 'TERRITORY_MISMATCH',
+          message: 'Target GN division does not match the team GN division',
+        });
+      }
+
+      return {
+        districtId:
+          targetDistrictId ||
+          team.gn.ds.districtId ||
+          creator.districtId ||
+          undefined,
+        dsId: targetDsId || team.gn.dsId || creator.dsId || undefined,
+        gnId: targetGnId || team.gnId || creator.gnId || undefined,
+        teamId: effectiveTeamId,
+      };
+    }
+
+    if (targetGnId) {
+      const gn = await this.prisma.gnDivision.findUnique({
+        where: { id: targetGnId },
+        include: { ds: true },
+      });
+
+      if (!gn) {
+        throw new NotFoundException({
+          code: 'GN_NOT_FOUND',
+          message: 'Specified GN division does not exist',
+        });
+      }
+
+      if (creator.role === UserRole.dc && creator.districtId) {
+        if (gn.ds.districtId !== creator.districtId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_DISTRICT',
+            message:
+              'DC cannot create accounts in a GN division outside their district',
+          });
+        }
+      }
+
+      if (creator.role === UserRole.sda) {
+        if (creator.districtId && gn.ds.districtId !== creator.districtId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_DISTRICT',
+            message: 'SDA cannot create accounts outside their district',
+          });
+        }
+        if (creator.dsId && gn.dsId !== creator.dsId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_DS',
+            message:
+              'SDA cannot create accounts in a GN division outside their DS division',
+          });
+        }
+      }
+
+      if (targetDistrictId && targetDistrictId !== gn.ds.districtId) {
+        throw new BadRequestException({
+          code: 'TERRITORY_MISMATCH',
+          message: 'Target district does not match the GN division',
+        });
+      }
+      if (targetDsId && targetDsId !== gn.dsId) {
+        throw new BadRequestException({
+          code: 'TERRITORY_MISMATCH',
+          message: 'Target DS division does not match the GN division',
+        });
+      }
+
+      return {
+        districtId:
+          targetDistrictId ||
+          gn.ds.districtId ||
+          creator.districtId ||
+          undefined,
+        dsId: targetDsId || gn.dsId || creator.dsId || undefined,
+        gnId: targetGnId,
+        teamId: undefined,
+      };
+    }
+
+    if (targetDsId) {
+      const ds = await this.prisma.divisionalSecretariat.findUnique({
+        where: { id: targetDsId },
+      });
+
+      if (!ds) {
+        throw new NotFoundException({
+          code: 'DS_NOT_FOUND',
+          message: 'Specified DS division does not exist',
+        });
+      }
+
+      if (creator.role === UserRole.dc && creator.districtId) {
+        if (ds.districtId !== creator.districtId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_DISTRICT',
+            message:
+              'DC cannot create accounts in a DS division outside their district',
+          });
+        }
+      }
+
+      if (creator.role === UserRole.sda) {
+        if (creator.districtId && ds.districtId !== creator.districtId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_DISTRICT',
+            message: 'SDA cannot create accounts outside their district',
+          });
+        }
+        if (creator.dsId && ds.id !== creator.dsId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_DS',
+            message: 'SDA cannot create accounts outside their DS division',
+          });
+        }
+      }
+
+      if (targetDistrictId && targetDistrictId !== ds.districtId) {
+        throw new BadRequestException({
+          code: 'TERRITORY_MISMATCH',
+          message: 'Target district does not match the DS division',
+        });
+      }
+
+      return {
+        districtId:
+          targetDistrictId || ds.districtId || creator.districtId || undefined,
+        dsId: targetDsId,
+        gnId: undefined,
+        teamId: undefined,
+      };
+    }
+
+    if (targetDistrictId) {
+      if (
+        creator.role === UserRole.dc &&
+        creator.districtId &&
+        targetDistrictId !== creator.districtId
+      ) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DISTRICT',
+          message:
+            'DC cannot create accounts outside their assigned district',
+        });
+      }
+      if (
+        creator.role === UserRole.sda &&
+        creator.districtId &&
+        targetDistrictId !== creator.districtId
+      ) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DISTRICT',
+          message:
+            'SDA cannot create accounts outside their assigned district',
+        });
+      }
+
+      return {
+        districtId: targetDistrictId,
+        dsId: creator.dsId || undefined,
+        gnId: creator.gnId || undefined,
+        teamId: undefined,
+      };
+    }
+
+    return {
+      districtId: creator.districtId || undefined,
+      dsId: creator.dsId || undefined,
+      gnId: creator.gnId || undefined,
+      teamId: effectiveTeamId,
+    };
   }
 
   /**

@@ -52,14 +52,28 @@ export class CredentialService {
   }
 
   /**
-   * Normalizes password input by stripping display grouping dashes and outer whitespace.
+   * Normalizes password input by trimming outer whitespace.
+   * Preserves all internal characters including hyphens/dashes.
    */
   normalizePassword(input: string): string {
-    return input.trim().replace(/-/g, '');
+    return input.trim();
+  }
+
+  /**
+   * Strips display grouping dashes only if the input matches the generated
+   * initial password format (e.g., XXXX-XXXX-XXXX).
+   */
+  stripDisplayDashes(input: string): string {
+    const trimmed = input.trim();
+    if (/^[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}$/.test(trimmed)) {
+      return trimmed.replace(/-/g, '');
+    }
+    return trimmed;
   }
 
   /**
    * Hashes user-selected passwords using full-strength Argon2id parameters.
+   * Preserves all user-entered characters (including hyphens).
    */
   async hashUserPassword(password: string): Promise<string> {
     const clean = this.normalizePassword(password);
@@ -70,18 +84,29 @@ export class CredentialService {
    * Hashes generated one-time initial passwords using optimized parameters for bulk scaling.
    */
   async hashInitialPassword(password: string): Promise<string> {
-    const clean = this.normalizePassword(password);
+    const clean = this.stripDisplayDashes(password);
     return argon2.hash(clean, CredentialService.INITIAL_ARGON2_OPTIONS);
   }
 
   /**
    * Verifies a candidate password against an Argon2 hash.
-   * Tolerates dashes from display grouping (e.g. XXXX-XXXX-XXXX).
+   * 1. Verifies exact candidate (trimmed).
+   * 2. If verification fails and candidate matches initial password grouping format (XXXX-XXXX-XXXX),
+   *    verifies candidate with display dashes stripped.
    */
   async verifyPassword(hash: string, candidate: string): Promise<boolean> {
     const clean = this.normalizePassword(candidate);
     try {
-      return await argon2.verify(hash, clean);
+      if (await argon2.verify(hash, clean)) {
+        return true;
+      }
+      if (clean.includes('-')) {
+        const withoutDashes = this.stripDisplayDashes(clean);
+        if (withoutDashes !== clean && withoutDashes.length > 0) {
+          return await argon2.verify(hash, withoutDashes);
+        }
+      }
+      return false;
     } catch {
       return false;
     }

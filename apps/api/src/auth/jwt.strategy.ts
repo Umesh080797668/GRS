@@ -23,20 +23,48 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
   ) {
+    const secret = configService.get<string>('JWT_ACCESS_SECRET');
+    if (!secret || secret.trim().length === 0) {
+      throw new Error(
+        'CRITICAL SECURITY ERROR: JWT_ACCESS_SECRET is not configured in environment variables. Application will not start without a secure JWT secret.',
+      );
+    }
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey:
-        configService.get<string>('JWT_ACCESS_SECRET') ||
-        'fallback-secret-for-tests-only-must-be-configured-in-env',
+      secretOrKey: secret,
+      passReqToCallback: true,
     });
   }
 
   /**
    * Validates payload and verifies profile active state on EVERY request (Invariant 3 & 4).
+   * Enforces restricted scope boundaries (e.g. change-password only tokens).
    * Immediately rejects deactivated accounts or stale token_version.
    */
-  async validate(payload: JwtPayload): Promise<ScopeContext> {
+  async validate(
+    reqOrPayload: any,
+    maybePayload?: JwtPayload,
+  ): Promise<ScopeContext> {
+    const req = maybePayload ? reqOrPayload : undefined;
+    const payload: JwtPayload = maybePayload || reqOrPayload;
+
+    // Restricted scope check: tokens issued for password change cannot access other endpoints
+    if (payload.scope === 'change-password') {
+      const url = req ? req.originalUrl || req.path || req.url || '' : '';
+      const isChangePassword =
+        url.includes('/auth/change-password') ||
+        url.endsWith('/change-password');
+      if (!isChangePassword) {
+        throw new UnauthorizedException({
+          code: 'SCOPE_RESTRICTED',
+          message_key: 'errors.auth.password_change_required',
+          message: 'Token is restricted to password change endpoint only',
+        });
+      }
+    }
+
     const profile = await this.prisma.profile.findUnique({
       where: { id: payload.sub },
       select: {
@@ -72,6 +100,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       dsId: profile.dsId,
       gnId: profile.gnId,
       teamId: profile.teamId,
+      scope: payload.scope,
     };
   }
 }

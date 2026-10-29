@@ -20,6 +20,7 @@ import { AccountService } from './account.service';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { CreateBulkAccountsDto } from './dto/create-bulk-accounts.dto';
 import { ListAccountsDto } from './dto/list-accounts.dto';
+import { UpdateAccountDto } from './dto/update-account.dto';
 
 @Controller('v1/accounts')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -27,7 +28,13 @@ export class AccountController {
   constructor(private readonly accountService: AccountService) { }
 
   @Post()
-  @Roles(UserRole.super_admin, UserRole.cdc_secretary)
+  @Roles(
+    UserRole.super_admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+    UserRole.cdc_secretary,
+  )
   async createAccount(
     @CurrentUser() user: ScopeContext,
     @Body() dto: CreateAccountDto,
@@ -36,7 +43,13 @@ export class AccountController {
   }
 
   @Post('bulk')
-  @Roles(UserRole.super_admin, UserRole.cdc_secretary)
+  @Roles(
+    UserRole.super_admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+    UserRole.cdc_secretary,
+  )
   async createBulkAccounts(
     @CurrentUser() user: ScopeContext,
     @Body() dto: CreateBulkAccountsDto,
@@ -61,11 +74,17 @@ export class AccountController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.super_admin, UserRole.cdc_secretary)
+  @Roles(
+    UserRole.super_admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+    UserRole.cdc_secretary,
+  )
   async updateAccount(
     @CurrentUser() user: ScopeContext,
     @Param('id') targetId: string,
-    @Body() dto: any,
+    @Body() dto: UpdateAccountDto,
   ) {
     return this.accountService.updateAccount(user, targetId, dto);
   }

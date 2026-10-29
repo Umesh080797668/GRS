@@ -13,6 +13,7 @@ export interface ScopeContext {
   dsId?: string | null;
   gnId?: string | null;
   teamId?: string | null;
+  scope?: string | null;
 }
 
 /**

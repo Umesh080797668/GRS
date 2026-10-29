@@ -15,12 +15,18 @@ import { RolesGuard } from './roles.guard';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret:
-          configService.get<string>('JWT_ACCESS_SECRET') ||
-          'fallback-secret-for-tests-only-must-be-configured-in-env',
-        signOptions: { expiresIn: '15m' },
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const secret = configService.get<string>('JWT_ACCESS_SECRET');
+        if (!secret || secret.trim().length === 0) {
+          throw new Error(
+            'CRITICAL SECURITY ERROR: JWT_ACCESS_SECRET is not configured in environment variables. Application will not start without a secure JWT secret.',
+          );
+        }
+        return {
+          secret,
+          signOptions: { expiresIn: '15m' },
+        };
+      },
       inject: [ConfigService],
     }),
   ],

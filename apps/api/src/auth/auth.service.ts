@@ -27,6 +27,7 @@ export type LoginResult =
     mustChangePassword: true;
     accessToken: string;
     user: Record<string, any>;
+    profile?: Record<string, any>;
   }
   | AuthSession;
 
@@ -89,10 +90,11 @@ export class AuthService {
       });
     }
 
-    // Verify password
+    // Verify password (trimmed consistently with changePassword)
+    const cleanPassword = dto.password.trim();
     const isPasswordValid = await this.credentialService.verifyPassword(
       profile.passwordHash,
-      dto.password,
+      cleanPassword,
     );
 
     if (!isPasswordValid) {
@@ -493,9 +495,27 @@ export class AuthService {
     // Verify 6-digit code
     await this.emailService.verifyCode(profile.id, cleanEmail, code, 'reset');
 
+    // Validate new password rules (Appendix A)
+    const cleanNew = newPassword.trim();
+    if (cleanNew.length < 8) {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message_key: 'errors.auth.password_too_short',
+      });
+    }
+    if (
+      cleanNew === profile.userCode ||
+      (profile.email && cleanNew.toLowerCase() === profile.email.toLowerCase())
+    ) {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message_key: 'errors.auth.password_same_as_id',
+      });
+    }
+
     // Hash new password using user parameter set (Spike S2)
     const newPasswordHash =
-      await this.credentialService.hashUserPassword(newPassword);
+      await this.credentialService.hashUserPassword(cleanNew);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.profile.update({
