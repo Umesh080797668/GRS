@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:grs_core/grs_core.dart';
 import 'package:grs_ui/grs_ui.dart';
 import '../../l10n/l10n.dart';
 import '../../providers/auth_provider.dart';
@@ -11,10 +12,13 @@ class SettingsScreen extends ConsumerWidget {
 
   Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
     final l10n = GrsL10n.of(context);
-    final db = await ref.read(databaseProvider.future);
-    final pending = await db.getAllClients(
-      status: GrsSyncStatus.pending as dynamic,
-    );
+    List<dynamic> pending = [];
+    try {
+      final db = await ref.read(databaseProvider.future);
+      pending = await db.getAllClients(status: SyncStatus.pending);
+    } catch (_) {
+      // Allow sign out even if local DB is inaccessible or already closed
+    }
 
     if (context.mounted) {
       showDialog(
@@ -37,7 +41,10 @@ class SettingsScreen extends ConsumerWidget {
               ),
               onPressed: () async {
                 Navigator.of(ctx).pop();
-                await ref.read(authProvider.notifier).logout();
+                try {
+                  ref.invalidate(databaseProvider);
+                  await ref.read(authProvider.notifier).logout();
+                } catch (_) {}
                 if (context.mounted) {
                   context.go('/login');
                 }
