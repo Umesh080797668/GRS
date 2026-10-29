@@ -13,7 +13,7 @@ const ARGON2_OPTIONS = {
 async function seed() {
   console.log('--- Setting up Level 4 Admin & Households ---');
 
-  const passwordHash = await argon2.hash('Password123!', ARGON2_OPTIONS);
+  const passwordHash = await argon2.hash('Password@1234', ARGON2_OPTIONS);
 
   // Target team and GN division
   const gnId = '92e061d6-e016-4e20-879f-eea34f49478c';
