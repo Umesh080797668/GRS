@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:grs_core/grs_core.dart';
 import 'package:grs_ui/grs_ui.dart';
+import '../../config/env.dart';
 import '../../l10n/l10n.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/database_provider.dart';
+import 'update_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -187,6 +189,79 @@ class SettingsScreen extends ConsumerWidget {
                   title: Text(l10n.get('changePasswordTitle')),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () => context.push('/change-password'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // App Updates Card
+          GrsCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.system_update_rounded,
+                          color: GrsColors.primaryLight,
+                          size: 22,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          l10n.get('checkForUpdates'),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: GrsColors.primaryLight.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'v${AppEnv.appVersion}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: GrsColors.primaryLight,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const CircleAvatar(
+                    radius: 18,
+                    backgroundColor: GrsColors.surfaceVariantLight,
+                    child: Icon(
+                      Icons.cloud_download_outlined,
+                      size: 20,
+                      color: GrsColors.primaryLight,
+                    ),
+                  ),
+                  title: Text(l10n.get('checkForUpdates')),
+                  subtitle: const Text('Check and install latest APK release'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) =>
+                          const UpdateDialog(currentVersion: AppEnv.appVersion),
+                    );
+                  },
                 ),
               ],
             ),

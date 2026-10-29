@@ -650,6 +650,23 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     description: 'Public release info (version, checksum, APK download URL)',
   },
   {
+    method: 'GET',
+    path: '/releases/download',
+    category: 'releases',
+    allowedRoles: [
+      'anon',
+      'team_member',
+      'cdc_secretary',
+      'sda',
+      'dc',
+      'cg',
+      'admin',
+      'super_admin',
+    ],
+    scopeEnforcement: 'none',
+    description: 'Download release APK binary',
+  },
+  {
     method: 'POST',
     path: '/releases',
     category: 'releases',

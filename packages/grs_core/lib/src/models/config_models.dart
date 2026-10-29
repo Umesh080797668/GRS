@@ -50,3 +50,49 @@ class AppConfigModel {
     'sync_batch_max': syncBatchMax,
   };
 }
+
+/// Latest release metadata for Over-The-Air (OTA) APK updates.
+class AppReleaseModel {
+  final String version;
+  final String minSupportedVersion;
+  final String apkUrl;
+  final String checksum;
+  final String? releaseNotes;
+  final DateTime? releasedAt;
+
+  const AppReleaseModel({
+    required this.version,
+    required this.minSupportedVersion,
+    required this.apkUrl,
+    required this.checksum,
+    this.releaseNotes,
+    this.releasedAt,
+  });
+
+  factory AppReleaseModel.fromJson(Map<String, dynamic> json) =>
+      AppReleaseModel(
+        version: json['version'] as String? ?? '1.0.0',
+        minSupportedVersion:
+            json['min_supported_version'] as String? ??
+            json['minSupportedVersion'] as String? ??
+            '1.0.0',
+        apkUrl: json['apk_url'] as String? ?? json['apkUrl'] as String? ?? '',
+        checksum: json['checksum'] as String? ?? '',
+        releaseNotes:
+            json['release_notes'] as String? ?? json['releaseNotes'] as String?,
+        releasedAt: json['released_at'] != null
+            ? DateTime.tryParse(json['released_at'].toString())
+            : (json['releasedAt'] != null
+                  ? DateTime.tryParse(json['releasedAt'].toString())
+                  : null),
+      );
+
+  Map<String, dynamic> toJson() => {
+    'version': version,
+    'min_supported_version': minSupportedVersion,
+    'apk_url': apkUrl,
+    'checksum': checksum,
+    'release_notes': releaseNotes,
+    'released_at': releasedAt?.toIso8601String(),
+  };
+}

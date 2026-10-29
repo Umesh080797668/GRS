@@ -553,6 +553,117 @@ describe('Security Vulnerability Fixes Verification', () => {
         expect(err.getResponse().error).toBe('UPGRADE_REQUIRED');
       }
     });
+
+    it('allows Swagger and OpenAPI docs endpoints without X-App-Version', async () => {
+      const mockConfigService = {
+        getConfig: jest.fn(),
+        compareSemver: jest.fn(),
+      };
+      const { VersionGateGuard } = require('../config/version-gate.guard');
+      const guard = new VersionGateGuard(mockConfigService);
+
+      const mockContext = {
+        switchToHttp: () => ({
+          getRequest: () => ({
+            url: '/api/docs',
+            path: '/api/docs',
+            headers: {},
+          }),
+        }),
+      };
+
+      const result = await guard.canActivate(mockContext);
+      expect(result).toBe(true);
+    });
+
+    it('allows web admin clients with X-Client-Type: web without X-App-Version', async () => {
+      const mockConfigService = {
+        getConfig: jest.fn(),
+        compareSemver: jest.fn(),
+      };
+      const { VersionGateGuard } = require('../config/version-gate.guard');
+      const guard = new VersionGateGuard(mockConfigService);
+
+      const mockContext = {
+        switchToHttp: () => ({
+          getRequest: () => ({
+            url: '/v1/households',
+            path: '/v1/households',
+            headers: { 'x-client-type': 'web' },
+          }),
+        }),
+      };
+
+      const result = await guard.canActivate(mockContext);
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('8. Login Rate Limiting (auth.service.ts)', () => {
+    it('throttles login when IP rate limit is exceeded', async () => {
+      const mockRateLimit = {
+        checkRateLimit: jest.fn().mockImplementation((key) => {
+          if (key.startsWith('login:ip:')) {
+            return Promise.resolve({ allowed: false, retryAfter: 60 });
+          }
+          return Promise.resolve({ allowed: true });
+        }),
+        throwThrottled: jest.fn().mockImplementation((retryAfter) => {
+          throw new (require('@nestjs/common').HttpException)(
+            { statusCode: 429, retryAfter },
+            429,
+          );
+        }),
+      };
+
+      const { AuthService } = require('./auth.service');
+      const auth = new AuthService(
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        mockRateLimit as any,
+      );
+
+      await expect(
+        auth.login({ identifier: 'GRS1000000001', password: 'Password@1234' }, '192.168.1.100'),
+      ).rejects.toThrow();
+
+      expect(mockRateLimit.throwThrottled).toHaveBeenCalledWith(60);
+    });
+
+    it('throttles login when identifier rate limit is exceeded', async () => {
+      const mockRateLimit = {
+        checkRateLimit: jest.fn().mockImplementation((key) => {
+          if (key.startsWith('login:id:')) {
+            return Promise.resolve({ allowed: false, retryAfter: 45 });
+          }
+          return Promise.resolve({ allowed: true });
+        }),
+        throwThrottled: jest.fn().mockImplementation((retryAfter) => {
+          throw new (require('@nestjs/common').HttpException)(
+            { statusCode: 429, retryAfter },
+            429,
+          );
+        }),
+      };
+
+      const { AuthService } = require('./auth.service');
+      const auth = new AuthService(
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        mockRateLimit as any,
+      );
+
+      await expect(
+        auth.login({ identifier: 'GRS1000000001', password: 'Password@1234' }, '127.0.0.1'),
+      ).rejects.toThrow();
+
+      expect(mockRateLimit.throwThrottled).toHaveBeenCalledWith(45);
+    });
   });
 });
-

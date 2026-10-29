@@ -20,14 +20,14 @@ export class ReleasesService {
     });
 
     if (!release) {
-      // Fallback baseline release if table hasn't been seeded yet
+      // Fallback release served directly by this API server
       return {
-        version: '1.0.0',
+        version: '1.0.1',
         minSupportedVersion: '1.0.0',
-        apkUrl: 'https://releases.grs.gov.lk/app-release.apk',
-        checksum: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-        releaseNotes: 'Initial production release',
-        releasedAt: new Date('2026-10-26T00:00:00Z'),
+        apkUrl: '/v1/releases/download',
+        checksum: '436be008aacf19b183fd27fdb75cf885e51cbefe52c5968c7537a66619abf475',
+        releaseNotes: 'Security hardening, in-app updates, and offline sync optimizations.',
+        releasedAt: new Date(),
       };
     }
 

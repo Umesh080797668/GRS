@@ -11,6 +11,7 @@
 -keep class io.flutter.plugins.** { *; }
 -keep class * implements io.flutter.plugin.common.PluginRegistry$PluginRegistrantCallback { *; }
 -keep class * implements io.flutter.plugin.common.MethodChannel$MethodCallHandler { *; }
+-keep class androidx.core.content.FileProvider { *; }
 -dontwarn com.google.android.play.core.**
 
 # Preserve native JNI methods across all libraries

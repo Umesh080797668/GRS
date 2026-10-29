@@ -3,6 +3,7 @@ import {
   Post,
   Patch,
   Body,
+  Req,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -45,8 +46,15 @@ export class AuthController {
     status: 401,
     description: 'Invalid credentials or account locked',
   })
-  async login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Req() req?: any) {
+    const rawIp =
+      req?.headers?.['x-forwarded-for'] ||
+      req?.socket?.remoteAddress ||
+      req?.ip ||
+      '127.0.0.1';
+    const clientIp =
+      typeof rawIp === 'string' ? rawIp.split(',')[0].trim() : '127.0.0.1';
+    return this.authService.login(dto, clientIp);
   }
 
   @Post('change-password')

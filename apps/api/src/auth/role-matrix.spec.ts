@@ -161,8 +161,12 @@ describe('Role × Endpoint Authorization Matrix (M1.10)', () => {
 
     it('Deactivated user gets 401 across EVERY authenticated endpoint immediately', () => {
       for (const policy of ROLE_ENDPOINT_POLICIES) {
-        if (policy.path === '/config' || policy.path === '/releases/latest') {
-          // Public static config
+        if (
+          policy.path === '/config' ||
+          policy.path === '/releases/latest' ||
+          policy.path === '/releases/download'
+        ) {
+          // Public static config & releases
           continue;
         }
         const res = RoleMatrixEvaluator.isAuthorized(

@@ -160,6 +160,11 @@ class AppTranslations {
         "I confirm that informed consent has been obtained from the beneficiary.",
     "consentRequiredError":
         "You must obtain consent before recording beneficiary data.",
+    "checkForUpdates": "Check for Updates",
+    "appUpToDate": "App is up to date",
+    "updateAvailable": "Update Available",
+    "downloadingUpdate": "Downloading update...",
+    "installUpdate": "Install Update",
   };
 
   static const Map<String, String> si = {
@@ -320,6 +325,11 @@ class AppTranslations {
         "ප්‍රතිලාභියාගෙන් දැනුවත් කැමැත්ත ලබාගත් බව තහවුරු කරමි.",
     "consentRequiredError":
         "දත්ත සටහන් කිරීමට පෙර කැමැත්ත ලබා ගැනීම අනිවාර්ය වේ.",
+    "checkForUpdates": "යාවත්කාලීන පරීක්ෂා කරන්න",
+    "appUpToDate": "යෙදුම යාවත්කාලීනයි",
+    "updateAvailable": "නව යාවත්කාලීනයක් තිබේ",
+    "downloadingUpdate": "යාවත්කාලීනය බාගත වෙමින් පවතී...",
+    "installUpdate": "යාවත්කාලීනය ස්ථාපනය කරන්න",
   };
 
   static const Map<String, String> ta = {
@@ -483,6 +493,11 @@ class AppTranslations {
         "பயனாளியிடம் தகவலறிந்த சம்மதம் பெறப்பட்டது என்பதை உறுதிப்படுத்துகிறேன்.",
     "consentRequiredError":
         "தரவைப் பதிவு செய்வதற்கு முன் சம்மதம் பெறுவது கட்டாயமாகும்.",
+    "checkForUpdates": "புதுப்பிப்புகளைச் சரிபார்க்கவும்",
+    "appUpToDate": "பயன்பாடு புதுப்பித்த நிலையில் உள்ளது",
+    "updateAvailable": "புதிய புதுப்பிப்பு உள்ளது",
+    "downloadingUpdate": "புதுப்பிப்பைப் பதிவிறக்குகிறது...",
+    "installUpdate": "புதுப்பிப்பை நிறுவு",
   };
 
   static Map<String, String> get(String lang) {

@@ -279,5 +279,15 @@
   "consentCheckboxLabel": "ප්‍රතිලාභියාගෙන් දැනුවත් කැමැත්ත ලබාගත් බව තහවුරු කරමි.",
   "@consentCheckboxLabel": {},
   "consentRequiredError": "දත්ත සටහන් කිරීමට පෙර කැමැත්ත ලබා ගැනීම අනිවාර්ය වේ.",
-  "@consentRequiredError": {}
+  "@consentRequiredError": {},
+  "checkForUpdates": "යාවත්කාලීන පරීක්ෂා කරන්න",
+  "@checkForUpdates": {},
+  "appUpToDate": "යෙදුම යාවත්කාලීනයි",
+  "@appUpToDate": {},
+  "updateAvailable": "නව යාවත්කාලීනයක් තිබේ",
+  "@updateAvailable": {},
+  "downloadingUpdate": "යාවත්කාලීනය බාගත වෙමින් පවතී...",
+  "@downloadingUpdate": {},
+  "installUpdate": "යාවත්කාලීනය ස්ථාපනය කරන්න",
+  "@installUpdate": {}
 }

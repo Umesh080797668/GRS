@@ -279,5 +279,15 @@
   "consentCheckboxLabel": "I confirm that informed consent has been obtained from the beneficiary.",
   "@consentCheckboxLabel": {},
   "consentRequiredError": "You must obtain consent before recording beneficiary data.",
-  "@consentRequiredError": {}
+  "@consentRequiredError": {},
+  "checkForUpdates": "Check for Updates",
+  "@checkForUpdates": {},
+  "appUpToDate": "App is up to date",
+  "@appUpToDate": {},
+  "updateAvailable": "Update Available",
+  "@updateAvailable": {},
+  "downloadingUpdate": "Downloading update...",
+  "@downloadingUpdate": {},
+  "installUpdate": "Install Update",
+  "@installUpdate": {}
 }

@@ -121,8 +121,12 @@ export class EmailService {
       },
     });
 
-    // Dispatch email via nodemailer
-    await this.dispatchEmail(cleanEmail, rawCode, purpose);
+    // Dispatch email via nodemailer in background (fire-and-forget) so SMTP latency is not awaited
+    this.dispatchEmail(cleanEmail, rawCode, purpose).catch((err) => {
+      this.logger.warn(
+        `Failed to dispatch email to profile ${profileId}: ${err.message}`,
+      );
+    });
 
     return {
       message: 'Verification code sent',

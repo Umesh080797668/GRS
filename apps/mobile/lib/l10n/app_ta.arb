@@ -279,5 +279,15 @@
   "consentCheckboxLabel": "பயனாளியிடம் தகவலறிந்த சம்மதம் பெறப்பட்டது என்பதை உறுதிப்படுத்துகிறேன்.",
   "@consentCheckboxLabel": {},
   "consentRequiredError": "தரவைப் பதிவு செய்வதற்கு முன் சம்மதம் பெறுவது கட்டாயமாகும்.",
-  "@consentRequiredError": {}
+  "@consentRequiredError": {},
+  "checkForUpdates": "புதுப்பிப்புகளைச் சரிபார்க்கவும்",
+  "@checkForUpdates": {},
+  "appUpToDate": "பயன்பாடு புதுப்பித்த நிலையில் உள்ளது",
+  "@appUpToDate": {},
+  "updateAvailable": "புதிய புதுப்பிப்பு உள்ளது",
+  "@updateAvailable": {},
+  "downloadingUpdate": "புதுப்பிப்பைப் பதிவிறக்குகிறது...",
+  "@downloadingUpdate": {},
+  "installUpdate": "புதுப்பிப்பை நிறுவு",
+  "@installUpdate": {}
 }

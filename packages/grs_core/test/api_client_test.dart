@@ -381,5 +381,94 @@ void main() {
         expect(client.accessToken, equals('new-fresh-token'));
       },
     );
+
+    test(
+      'Concurrent 401 requests trigger only a single refreshSession call (single-flight deduplication)',
+      () async {
+        int refreshCalls = 0;
+        int lookupCalls = 0;
+
+        final mockClient = MockClient((request) async {
+          if (request.url.path == '/v1/auth/refresh') {
+            refreshCalls++;
+            // Small artificial latency to simulate in-flight network call
+            await Future.delayed(const Duration(milliseconds: 20));
+            return http.Response(
+              jsonEncode({
+                'accessToken': 'single-flight-token',
+                'refreshToken': 'new-refresh-token',
+                'expiresIn': 900,
+                'mustChangePassword': false,
+                'profile': {
+                  'id': 'u1',
+                  'userCode': 'GRS1234567890',
+                  'fullName': 'User 1',
+                  'role': 'team_member',
+                  'preferredLanguage': 'en',
+                  'isActive': true,
+                  'mustChangePassword': false,
+                },
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+
+          if (request.url.path == '/v1/lookups') {
+            lookupCalls++;
+            final authHeader = request.headers['authorization'] ?? '';
+            if (!authHeader.contains('single-flight-token')) {
+              return http.Response(
+                jsonEncode({
+                  'code': 'UNAUTHORIZED',
+                  'message_key': 'errors.auth.invalid_token',
+                }),
+                401,
+                headers: {'content-type': 'application/json'},
+              );
+            }
+            return http.Response(
+              jsonEncode([
+                {
+                  'category': 'gender',
+                  'code': 'M',
+                  'labelEn': 'Male',
+                  'labelSi': 'පුරුෂ',
+                  'labelTa': 'ஆண்',
+                  'sort': 1,
+                  'isActive': true,
+                },
+              ]),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+
+          return http.Response('Not Found', 404);
+        });
+
+        final client = GrsApiClient(
+          baseUrl: 'http://localhost:3000',
+          client: mockClient,
+          accessToken: 'stale-token',
+          refreshToken: 'valid-refresh-token',
+        );
+
+        // Fire 3 parallel requests simultaneously
+        final results = await Future.wait([
+          client.getLookups(),
+          client.getLookups(),
+          client.getLookups(),
+        ]);
+
+        expect(results[0].length, equals(1));
+        expect(results[1].length, equals(1));
+        expect(results[2].length, equals(1));
+
+        // Single-flight guarantee: Exactly 1 refresh call was made, NOT 3
+        expect(refreshCalls, equals(1));
+        expect(client.accessToken, equals('single-flight-token'));
+      },
+    );
   });
 }

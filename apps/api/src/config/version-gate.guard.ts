@@ -15,12 +15,23 @@ export class VersionGateGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const path: string = request.path || request.url || '';
 
-    // Exempt endpoints: /health, /v1/config, /v1/releases/latest, and root
+    // Exempt endpoints: /health, /v1/config, /v1/releases, Swagger/OpenAPI docs, and root
+    const headers = request.headers || {};
+    const isWebClient =
+      headers['x-client-type'] === 'web' ||
+      headers['x-client-channel'] === 'web' ||
+      headers['sec-fetch-dest'] === 'document';
+
     if (
       path === '/' ||
       path === '/health' ||
       path.startsWith('/v1/config') ||
-      path.startsWith('/v1/releases')
+      path.startsWith('/v1/releases') ||
+      path.startsWith('/api/docs') ||
+      path.startsWith('/docs') ||
+      path.startsWith('/swagger') ||
+      path.includes('swagger') ||
+      isWebClient
     ) {
       return true;
     }

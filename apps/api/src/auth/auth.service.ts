@@ -68,8 +68,31 @@ export class AuthService {
    * Authenticates user with uniform failure semantics (Invariant 14).
    * Supports GRS ID and verified email addresses.
    */
-  async login(dto: LoginDto): Promise<LoginResult> {
+  async login(dto: LoginDto, ip: string = '127.0.0.1'): Promise<LoginResult> {
+    const cleanIp = (ip || '127.0.0.1').trim();
     const { type, value } = this.normalizeIdentifier(dto.identifier);
+
+    if (this.rateLimitService?.checkRateLimit) {
+      // 1. IP-level rate limit: max 30 attempts per minute per IP
+      const rlIp = await this.rateLimitService.checkRateLimit(
+        `login:ip:${cleanIp}`,
+        30,
+        60,
+      );
+      if (rlIp && !rlIp.allowed) {
+        this.rateLimitService.throwThrottled(rlIp.retryAfter || 60);
+      }
+
+      // 2. Identifier-level rate limit: max 5 attempts per minute per identifier
+      const rlId = await this.rateLimitService.checkRateLimit(
+        `login:id:${value}`,
+        5,
+        60,
+      );
+      if (rlId && !rlId.allowed) {
+        this.rateLimitService.throwThrottled(rlId.retryAfter || 60);
+      }
+    }
 
     const profile = await this.prisma.profile.findFirst({
       where: type === 'code' ? { userCode: value } : { email: value },
@@ -338,12 +361,20 @@ export class AuthService {
       deviceId ?? undefined,
     );
 
-    await this.prisma.refreshToken.update({
-      where: { id: tokenRecord.id },
+    // Atomically revoke current token to prevent rotation races
+    const revokeResult = await this.prisma.refreshToken.updateMany({
+      where: { id: tokenRecord.id, revokedAt: null },
       data: {
         revokedAt: new Date(),
       },
     });
+
+    if (revokeResult.count === 0) {
+      throw new UnauthorizedException({
+        code: 'AUTH_INVALID',
+        message_key: 'errors.auth.refresh_token_revoked',
+      });
+    }
 
     return session;
   }
@@ -522,12 +553,18 @@ export class AuthService {
       try {
         await this.emailService.sendCode(profile.id, cleanEmail, 'reset');
       } catch (err: any) {
-        // Never rethrow EMAIL_COOLDOWN to prevent account enumeration
-        this.logger.warn(`Password reset code skipped for ${cleanEmail}: ${err.message}`);
+        this.logger.warn(
+          `Password reset code skipped for profile ${profile.id}: ${err.message}`,
+        );
       }
     } else {
-      // Simulate equivalent email dispatch delay to prevent timing enumeration
-      await new Promise((resolve) => setTimeout(resolve, 80));
+      // Equal work defense: dummy DB query + random number generation to match timing of existing email path
+      if (this.prisma.emailCode?.findFirst) {
+        await this.prisma.emailCode.findFirst({
+          where: { profileId: '00000000-0000-0000-0000-000000000000' },
+        });
+      }
+      crypto.randomInt(100000, 1000000);
     }
 
     return {

@@ -116,11 +116,16 @@ class GrsApiClient {
   Future<http.Response> _sendWithAuthRetry(
     Future<http.Response> Function() requestFn,
   ) async {
+    final tokenBefore = _accessToken;
     final response = await requestFn();
     if (response.statusCode == 401 &&
         _refreshToken != null &&
         _refreshToken!.isNotEmpty) {
       try {
+        // If another concurrent request already refreshed the access token, retry immediately
+        if (_accessToken != null && _accessToken != tokenBefore) {
+          return await requestFn();
+        }
         await refreshSession();
         return await requestFn();
       } catch (_) {
@@ -309,6 +314,22 @@ class GrsApiClient {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       return AppConfigModel.fromJson(json);
+    }
+
+    _handleError(response);
+  }
+
+  /// GET /v1/releases/latest
+  Future<AppReleaseModel> getLatestRelease() async {
+    final uri = Uri.parse('$baseUrl/v1/releases/latest');
+    final response = await _client.get(
+      uri,
+      headers: _headers(authenticated: false),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return AppReleaseModel.fromJson(json);
     }
 
     _handleError(response);
