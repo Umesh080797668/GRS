@@ -289,5 +289,21 @@
   "downloadingUpdate": "Downloading update...",
   "@downloadingUpdate": {},
   "installUpdate": "Install Update",
-  "@installUpdate": {}
+  "@installUpdate": {},
+  "permissionsRequiredTitle": "Permissions Required",
+  "@permissionsRequiredTitle": {},
+  "permissionsRequiredMessage": "GRS Mobile requires essential permissions to perform background survey sync, receive field alerts, and maintain secure cryptographic operations.",
+  "@permissionsRequiredMessage": {},
+  "permissionsRequiredNotice": "These permissions are required for the application to function. If denied, the app will close.",
+  "@permissionsRequiredNotice": {},
+  "grantPermissionsButton": "Grant Permissions",
+  "@grantPermissionsButton": {},
+  "openSettingsButton": "Open Device Settings",
+  "@openSettingsButton": {},
+  "exitAppButton": "Exit Application",
+  "@exitAppButton": {},
+  "notificationPermissionTitle": "Notifications & Alerts",
+  "@notificationPermissionTitle": {},
+  "notificationPermissionDesc": "Enables real-time push sync status, conflict alerts, and background completion notifications.",
+  "@notificationPermissionDesc": {}
 }

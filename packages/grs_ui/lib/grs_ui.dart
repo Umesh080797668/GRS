@@ -1,10 +1,14 @@
-/// Contains shared design tokens, color system, trilingual typography,
-/// and core widgets per docs/design/DESIGN.md.
+/// GRS shared design system — tokens, theme, and widgets.
+///
+/// Exports:
+/// - Tokens: colors, spacing, typography, motions, theme
+/// - Widgets: buttons, cards, text fields, dropdowns, badges, scaffold, motion
 library;
 
 export 'src/tokens/colors.dart';
 export 'src/tokens/spacing.dart';
 export 'src/tokens/typography.dart';
+export 'src/tokens/motions.dart';
 export 'src/tokens/theme.dart';
 export 'src/widgets/sync_badge.dart';
 export 'src/widgets/offline_banner.dart';

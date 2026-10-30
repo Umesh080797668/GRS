@@ -33,11 +33,26 @@ describe('Releases (Self-Hosted APK Update System)', () => {
   });
 
   describe('Step 1 & Step 3: Release Manifest & Endpoints', () => {
-    it('GET /v1/releases/latest returns authoritative ReleaseManifest pointing to GitHub Releases', async () => {
+    it('GET /v1/releases/latest throws NotFoundException when no release is published', async () => {
       mockPrisma.appRelease.findFirst.mockResolvedValue(null);
+      await expect(controller.getLatest()).rejects.toThrow();
+    });
+
+    it('GET /v1/releases/latest returns authoritative ReleaseManifest when release exists', async () => {
+      mockPrisma.appRelease.findFirst.mockResolvedValue({
+        id: 'rel-1',
+        version: '1.1.0',
+        minSupportedVersion: '1.0.0',
+        apkUrl:
+          'https://github.com/Umesh080797668/GRS/releases/download/v1.1.0/app-release.apk',
+        checksum:
+          '436be008aacf19b183fd27fdb75cf885e51cbefe52c5968c7537a66619abf475',
+        releaseNotes: 'OTA update system release',
+        releasedAt: new Date(),
+      });
 
       const manifest = await controller.getLatest();
-      expect(manifest.version).toBe('1.0.1');
+      expect(manifest.version).toBe('1.1.0');
       expect(manifest.minSupportedVersion).toBe('1.0.0');
       expect(manifest.sha256).toBe(
         '436be008aacf19b183fd27fdb75cf885e51cbefe52c5968c7537a66619abf475',
@@ -47,10 +62,20 @@ describe('Releases (Self-Hosted APK Update System)', () => {
     });
 
     it('GET /v1/releases/manifest returns identical manifest specification', async () => {
-      mockPrisma.appRelease.findFirst.mockResolvedValue(null);
+      mockPrisma.appRelease.findFirst.mockResolvedValue({
+        id: 'rel-1',
+        version: '1.1.0',
+        minSupportedVersion: '1.0.0',
+        apkUrl:
+          'https://github.com/Umesh080797668/GRS/releases/download/v1.1.0/app-release.apk',
+        checksum:
+          '436be008aacf19b183fd27fdb75cf885e51cbefe52c5968c7537a66619abf475',
+        releaseNotes: 'OTA update system release',
+        releasedAt: new Date(),
+      });
 
       const manifest = await controller.getManifest();
-      expect(manifest.version).toBe('1.0.1');
+      expect(manifest.version).toBe('1.1.0');
       expect(manifest.apkUrl).toContain('releases/download');
       expect(manifest.sha256).toBeDefined();
     });
@@ -81,6 +106,29 @@ describe('Releases (Self-Hosted APK Update System)', () => {
         302,
         'https://github.com/Umesh080797668/GRS/releases/download/v1.0.1/app-release.apk',
       );
+    });
+
+    it('GET /v1/releases/download throws NotFoundException when binary is not found locally or externally', async () => {
+      jest.spyOn(require('fs'), 'existsSync').mockReturnValue(false);
+
+      mockPrisma.appRelease.findFirst.mockResolvedValue({
+        id: 'rel-1',
+        version: '1.1.0',
+        minSupportedVersion: '1.0.0',
+        apkUrl: '/v1/releases/download',
+        checksum: 'abc',
+        releaseNotes: 'test',
+        releasedAt: new Date(),
+      });
+
+      const mockRes = {
+        redirect: jest.fn(),
+        setHeader: jest.fn(),
+        sendFile: jest.fn(),
+      } as unknown as Response;
+
+      await expect(controller.downloadApk(mockRes)).rejects.toThrow();
+      jest.restoreAllMocks();
     });
   });
 

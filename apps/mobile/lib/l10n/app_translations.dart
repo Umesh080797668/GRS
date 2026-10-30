@@ -165,6 +165,17 @@ class AppTranslations {
     "updateAvailable": "Update Available",
     "downloadingUpdate": "Downloading update...",
     "installUpdate": "Install Update",
+    "permissionsRequiredTitle": "Permissions Required",
+    "permissionsRequiredMessage":
+        "GRS Mobile requires essential permissions to perform background survey sync, receive field alerts, and maintain secure cryptographic operations.",
+    "permissionsRequiredNotice":
+        "These permissions are required for the application to function. If denied, the app will close.",
+    "grantPermissionsButton": "Grant Permissions",
+    "openSettingsButton": "Open Device Settings",
+    "exitAppButton": "Exit Application",
+    "notificationPermissionTitle": "Notifications & Alerts",
+    "notificationPermissionDesc":
+        "Enables real-time push sync status, conflict alerts, and background completion notifications.",
   };
 
   static const Map<String, String> si = {
@@ -330,6 +341,17 @@ class AppTranslations {
     "updateAvailable": "නව යාවත්කාලීනයක් තිබේ",
     "downloadingUpdate": "යාවත්කාලීනය බාගත වෙමින් පවතී...",
     "installUpdate": "යාවත්කාලීනය ස්ථාපනය කරන්න",
+    "permissionsRequiredTitle": "අවසර අවශ්‍යයි",
+    "permissionsRequiredMessage":
+        "ක්ෂේත්‍ර සමීක්ෂණ දත්ත සමමුහුර්ත කිරීම, ක්ෂේත්‍ර නිවේදන ලබා ගැනීම සහ ආරක්ෂිත ක්‍රියාකාරීත්වය සඳහා GRS Mobile යෙදුමට මෙම අවසර අත්‍යවශ්‍ය වේ.",
+    "permissionsRequiredNotice":
+        "මෙම යෙදුම ක්‍රියාත්මක වීමට මෙම අවසර අත්‍යවශ්‍ය වේ. අවසර ප්‍රතික්ෂේප කළහොත් යෙදුම වැසෙනු ඇත.",
+    "grantPermissionsButton": "අවසර ලබා දෙන්න",
+    "openSettingsButton": "දුරකථන සැකසුම් විවෘත කරන්න",
+    "exitAppButton": "යෙදුමෙන් ඉවත් වන්න",
+    "notificationPermissionTitle": "දැනුම්දීම් සහ අනතුරු ඇඟවීම්",
+    "notificationPermissionDesc":
+        "තත්‍ය කාලීන සමමුහුර්තකරණ තත්ත්වය සහ පසුබිම් දැනුම්දීම් සඳහා අවශ්‍ය වේ.",
   };
 
   static const Map<String, String> ta = {
@@ -498,6 +520,17 @@ class AppTranslations {
     "updateAvailable": "புதிய புதுப்பிப்பு உள்ளது",
     "downloadingUpdate": "புதுப்பிப்பைப் பதிவிறக்குகிறது...",
     "installUpdate": "புதுப்பிப்பை நிறுவு",
+    "permissionsRequiredTitle": "அனுமதிகள் தேவை",
+    "permissionsRequiredMessage":
+        "களக் கணக்கெடுப்புத் தரவு ஒத்திசைவு, விழிப்பூட்டல்களைப் பெறுதல் மற்றும் பாதுகாப்பான செயல்பாட்டிற்கு GRS Mobile பயன்பாட்டிற்கு இந்த அனுமதிகள் அவசியமாகும்.",
+    "permissionsRequiredNotice":
+        "இந்த பயன்பாடு செயல்பட இந்த அனுமதிகள் கட்டாயமாகும். நிராகரித்தால், பயன்பாடு மூடப்படும்.",
+    "grantPermissionsButton": "அனுமதிகளை வழங்குக",
+    "openSettingsButton": "சாதன அமைப்புகளைத் திறக்கவும்",
+    "exitAppButton": "பயன்பாட்டிலிருந்து வெளியேறு",
+    "notificationPermissionTitle": "அறிவிப்புகள் மற்றும் விழிப்பூட்டல்கள்",
+    "notificationPermissionDesc":
+        "நிகழ்நேர ஒத்திசைவு நிலை மற்றும் பின்னணி அறிவிப்புகளுக்கு தேவைப்படுகிறது.",
   };
 
   static Map<String, String> get(String lang) {

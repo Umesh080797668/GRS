@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:grs_ui/grs_ui.dart';
 import '../../l10n/l10n.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/sync_provider.dart';
 
 class HouseDetailScreen extends ConsumerWidget {
   final String houseId;
@@ -14,6 +15,9 @@ class HouseDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = GrsL10n.of(context);
     final dbAsync = ref.watch(databaseProvider);
+    final revision = ref.watch(recordsRevisionProvider);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return dbAsync.when(
       loading: () =>
@@ -21,6 +25,7 @@ class HouseDetailScreen extends ConsumerWidget {
       error: (err, _) => Scaffold(body: Center(child: Text('Error: $err'))),
       data: (db) {
         return FutureBuilder<Map<String, dynamic>?>(
+          key: ValueKey('h_${houseId}_$revision'),
           future: db.getHouseholdById(houseId),
           builder: (context, houseSnapshot) {
             final house = houseSnapshot.data;
@@ -43,158 +48,253 @@ class HouseDetailScreen extends ConsumerWidget {
             final hasSpecialNeeds = (house['has_special_needs'] as int) == 1;
 
             return FutureBuilder<List<Map<String, dynamic>>>(
+              key: ValueKey('c_${houseId}_$revision'),
               future: db.getClientsForHousehold(houseId),
               builder: (context, clientSnapshot) {
                 final clients = clientSnapshot.data ?? [];
 
-                return GrsScaffold(
-                  title: '${l10n.get('houseNumber')}: $houseNo',
-                  subtitle: '${l10n.get('serialNumber')}: $serialNo',
-                  showBackButton: true,
-                  onBack: () => context.pop(),
+                return Scaffold(
+                  appBar: AppBar(
+                    title: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${l10n.get('houseNumber')}: $houseNo',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.3,
+                            color: isDark
+                                ? GrsColors.textPrimaryDark
+                                : GrsColors.textPrimaryLight,
+                          ),
+                        ),
+                        Text(
+                          '${l10n.get('serialNumber')}: $serialNo',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? GrsColors.textSecondaryDark
+                                : GrsColors.textSecondaryLight,
+                          ),
+                        ),
+                      ],
+                    ),
+                    leading: IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                      ),
+                      onPressed: () => context.pop(),
+                    ),
+                  ),
                   body: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Pre-visit details card (DD/S/002)
-                        GrsCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        // ── Household Info Card ────────────────────────────
+                        GrsFadeSlideItem(
+                          index: 0,
+                          child: GrsCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Card header row
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 38,
+                                      height: 38,
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? GrsColors.primaryContainerDark
+                                            : GrsColors.primaryContainerLight,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Icon(
+                                        Icons.home_outlined,
+                                        size: 20,
+                                        color: isDark
+                                            ? GrsColors.primaryDark
+                                            : GrsColors.primaryLight,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        l10n.get('previsitDataTitle'),
+                                        style: GrsTypography.titleMedium(
+                                          color: isDark
+                                              ? GrsColors.textPrimaryDark
+                                              : GrsColors.textPrimaryLight,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 16),
+
+                                // Info rows
+                                _InfoRow(
+                                  label: l10n.get('houseLeader'),
+                                  value: leader,
+                                  isDark: isDark,
+                                  bold: true,
+                                ),
+                                const SizedBox(height: 8),
+                                _InfoRow(
+                                  label: l10n.get('villageName'),
+                                  value: village,
+                                  isDark: isDark,
+                                ),
+                                const SizedBox(height: 8),
+                                _InfoRow(
+                                  label: l10n.get('address'),
+                                  value: address,
+                                  isDark: isDark,
+                                ),
+
+                                // Tags
+                                if (isEpf ||
+                                    isEtf ||
+                                    isAswesuma ||
+                                    isSamurdhi ||
+                                    hasSpecialNeeds) ...[
+                                  const SizedBox(height: 14),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: [
+                                      if (isEpf) _buildTag('EPF', isDark),
+                                      if (isEtf) _buildTag('ETF', isDark),
+                                      if (isAswesuma)
+                                        _buildTag('Aswesuma', isDark),
+                                      if (isSamurdhi)
+                                        _buildTag('Samurdhi', isDark),
+                                      if (hasSpecialNeeds)
+                                        _buildTag(
+                                          'Special Needs',
+                                          isDark,
+                                          isAlert: true,
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // ── Beneficiaries Header ───────────────────────────
+                        GrsFadeSlideItem(
+                          index: 1,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Text(
-                                l10n.get('previsitDataTitle'),
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: GrsColors.primaryLight,
-                                ),
+                                '${l10n.get('beneficiariesCount')} (${clients.length})',
+                                style: GrsTypography.headlineMedium(
+                                  color: isDark
+                                      ? GrsColors.textPrimaryDark
+                                      : GrsColors.textPrimaryLight,
+                                ).copyWith(fontSize: 18),
                               ),
-                              const Divider(height: 20),
-                              Text(
-                                '${l10n.get('houseLeader')}: $leader',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
+                              GrsBounceTouch(
+                                onTap: () async {
+                                  await context.push(
+                                    '/houses/$houseId/consent',
+                                  );
+                                  ref
+                                      .read(recordsRevisionProvider.notifier)
+                                      .increment();
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 9,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? GrsColors.primaryContainerDark
+                                        : GrsColors.primaryContainerLight,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.person_add_rounded,
+                                        size: 16,
+                                        color: isDark
+                                            ? GrsColors.primaryDark
+                                            : GrsColors.primaryLight,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        l10n.get('addBeneficiaryButton'),
+                                        style: GrsTypography.labelMedium(
+                                          color: isDark
+                                              ? GrsColors.primaryDark
+                                              : GrsColors.primaryLight,
+                                        ).copyWith(fontWeight: FontWeight.w700),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text('${l10n.get('villageName')}: $village'),
-                              const SizedBox(height: 4),
-                              Text('${l10n.get('address')}: $address'),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 4,
-                                children: [
-                                  if (isEpf) _buildChip('EPF'),
-                                  if (isEtf) _buildChip('ETF'),
-                                  if (isAswesuma) _buildChip('Aswesuma'),
-                                  if (isSamurdhi) _buildChip('Samurdhi'),
-                                  if (hasSpecialNeeds)
-                                    _buildChip('Special Needs', isAlert: true),
-                                ],
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 20),
 
-                        // Beneficiaries Section Header
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '${l10n.get('beneficiariesCount')} (${clients.length})',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            ElevatedButton.icon(
-                              icon: const Icon(Icons.person_add),
-                              label: Text(l10n.get('addBeneficiaryButton')),
-                              onPressed: () =>
-                                  context.push('/houses/$houseId/consent'),
-                            ),
-                          ],
-                        ),
                         const SizedBox(height: 12),
 
-                        // Beneficiaries List
+                        // ── Beneficiaries List ─────────────────────────────
                         if (clients.isEmpty)
-                          Container(
-                            padding: const EdgeInsets.all(24),
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text(
-                              'No beneficiaries recorded yet for this house.\nClick "Add Beneficiary" to begin survey.',
-                              textAlign: TextAlign.center,
-                            ),
+                          GrsFadeSlideItem(
+                            index: 2,
+                            child: _EmptyBeneficiaries(isDark: isDark),
                           )
                         else
-                          ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: clients.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 8),
-                            itemBuilder: (context, idx) {
-                              final c = clients[idx];
-                              final clientId = c['id'] as String;
-                              final name = c['name'] as String;
-                              final age = c['age'] as int;
-                              final gender = c['gender'] as String;
-                              final syncStatus = c['sync_status'] as String;
-
-                              return GrsCard(
-                                onTap: () => context.push(
-                                  '/houses/$houseId/client/$clientId',
+                          ...List.generate(clients.length, (idx) {
+                            final c = clients[idx];
+                            return GrsFadeSlideItem(
+                              index: idx + 2,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: _BeneficiaryCard(
+                                  client: c,
+                                  houseId: houseId,
+                                  l10n: l10n,
+                                  isDark: isDark,
                                 ),
-                                child: Row(
-                                  children: [
-                                    CircleAvatar(
-                                      child: Text(gender == 'F' ? '♀' : '♂'),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            name,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                          Text('Age: $age • $gender'),
-                                        ],
-                                      ),
-                                    ),
-                                    _buildSyncBadge(syncStatus, l10n),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
+                              ),
+                            );
+                          }),
 
                         const SizedBox(height: 24),
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.check_circle_outline),
-                          label: Text(l10n.get('finishHouseButton')),
-                          onPressed: () async {
-                            await db.updateHouseholdStatus(
-                              houseId,
-                              'completed',
-                            );
-                            if (context.mounted) {
-                              context.pop();
-                            }
-                          },
+
+                        // ── Finish house ───────────────────────────────────
+                        GrsFadeSlideItem(
+                          index: clients.length + 2,
+                          child: GrsButton(
+                            label: l10n.get('finishHouseButton'),
+                            icon: Icons.check_circle_outline_rounded,
+                            variant: GrsButtonVariant.outline,
+                            isFullWidth: true,
+                            onPressed: () async {
+                              await db.updateHouseholdStatus(
+                                houseId,
+                                'completed',
+                              );
+                              if (context.mounted) context.pop();
+                            },
+                          ),
                         ),
                       ],
                     ),
@@ -208,46 +308,228 @@ class HouseDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildChip(String label, {bool isAlert = false}) {
-    return Chip(
-      label: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: isAlert ? GrsColors.duplicateAlert : GrsColors.primaryLight,
-        ),
+  Widget _buildTag(String label, bool isDark, {bool isAlert = false}) {
+    final tagColor = isAlert
+        ? GrsColors.duplicateAlert
+        : (isDark ? GrsColors.primaryDark : GrsColors.primaryLight);
+    final tagBg = isAlert
+        ? (isDark ? GrsColors.syncPendingBgDark : GrsColors.duplicateAlertBg)
+        : (isDark
+              ? GrsColors.primaryContainerDark
+              : GrsColors.primaryContainerLight);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: tagBg,
+        borderRadius: BorderRadius.circular(6),
       ),
-      backgroundColor: isAlert
-          ? GrsColors.duplicateAlertBg
-          : GrsColors.primaryContainerLight,
-      padding: EdgeInsets.zero,
+      child: Text(
+        label,
+        style: GrsTypography.labelSmall(
+          color: tagColor,
+        ).copyWith(fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Sub-widgets
+// ────────────────────────────────────────────────────────────────────────────
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.label,
+    required this.value,
+    required this.isDark,
+    this.bold = false,
+  });
+
+  final String label;
+  final String value;
+  final bool isDark;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    final secondaryColor = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
+    final inkColor = isDark
+        ? GrsColors.textPrimaryDark
+        : GrsColors.textPrimaryLight;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 110,
+          child: Text(
+            label,
+            style: GrsTypography.bodyMedium(color: secondaryColor),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: GrsTypography.bodyMedium(
+              color: inkColor,
+            ).copyWith(fontWeight: bold ? FontWeight.w600 : FontWeight.w400),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyBeneficiaries extends StatelessWidget {
+  const _EmptyBeneficiaries({required this.isDark});
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: isDark
+            ? GrsColors.surfaceVariantDark
+            : GrsColors.surfaceVariantLight,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.people_outline_rounded,
+            size: 48,
+            color: isDark
+                ? GrsColors.textTertiaryDark
+                : GrsColors.textTertiaryLight,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'No beneficiaries recorded yet.',
+            style: GrsTypography.bodyMedium(
+              color: isDark
+                  ? GrsColors.textSecondaryDark
+                  : GrsColors.textSecondaryLight,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BeneficiaryCard extends StatelessWidget {
+  const _BeneficiaryCard({
+    required this.client,
+    required this.houseId,
+    required this.l10n,
+    required this.isDark,
+  });
+
+  final Map<String, dynamic> client;
+  final String houseId;
+  final GrsL10n l10n;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final clientId = client['id'] as String;
+    final name = client['name'] as String;
+    final age = client['age'] as int;
+    final gender = client['gender'] as String;
+    final syncStatus = client['sync_status'] as String;
+
+    final isFemale = gender == 'F';
+    final avatarBg = isFemale
+        ? (isDark ? const Color(0xFF2D1B45) : const Color(0xFFF3E8FF))
+        : (isDark
+              ? GrsColors.primaryContainerDark
+              : GrsColors.primaryContainerLight);
+    final avatarInk = isFemale
+        ? const Color(0xFF9333EA)
+        : (isDark ? GrsColors.primaryDark : GrsColors.primaryLight);
+
+    return GrsCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      onTap: () async {
+        await context.push('/houses/$houseId/client/$clientId');
+      },
+      child: Row(
+        children: [
+          // Gender avatar
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: avatarBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              isFemale ? '♀' : '♂',
+              style: TextStyle(fontSize: 20, color: avatarInk),
+            ),
+          ),
+          const SizedBox(width: 14),
+
+          // Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: GrsTypography.titleMedium(
+                    color: isDark
+                        ? GrsColors.textPrimaryDark
+                        : GrsColors.textPrimaryLight,
+                  ).copyWith(fontSize: 15),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Age $age · ${isFemale ? 'Female' : 'Male'}',
+                  style: GrsTypography.bodyMedium(
+                    color: isDark
+                        ? GrsColors.textSecondaryDark
+                        : GrsColors.textSecondaryLight,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+
+          // Sync badge
+          _buildSyncBadge(syncStatus, l10n),
+        ],
+      ),
     );
   }
 
   Widget _buildSyncBadge(String status, GrsL10n l10n) {
-    switch (status) {
-      case 'synced':
-        return GrsSyncBadge(
-          status: GrsSyncStatus.synced,
-          label: l10n.get('statusSynced'),
-        );
-      case 'pending':
-        return GrsSyncBadge(
-          status: GrsSyncStatus.pending,
-          label: l10n.get('statusPending'),
-        );
-      case 'rejected':
-        return GrsSyncBadge(
-          status: GrsSyncStatus.rejected,
-          label: l10n.get('statusRejected'),
-        );
-      case 'draft':
-      default:
-        return GrsSyncBadge(
-          status: GrsSyncStatus.draft,
-          label: l10n.get('statusDraft'),
-        );
-    }
+    return switch (status) {
+      'synced' => GrsSyncBadge(
+        status: GrsSyncStatus.synced,
+        label: l10n.get('statusSynced'),
+      ),
+      'pending' => GrsSyncBadge(
+        status: GrsSyncStatus.pending,
+        label: l10n.get('statusPending'),
+      ),
+      'rejected' => GrsSyncBadge(
+        status: GrsSyncStatus.rejected,
+        label: l10n.get('statusRejected'),
+      ),
+      _ => GrsSyncBadge(
+        status: GrsSyncStatus.draft,
+        label: l10n.get('statusDraft'),
+      ),
+    };
   }
 }

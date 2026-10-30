@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:grs_core/grs_core.dart';
 
@@ -14,6 +15,7 @@ class SecureStorageService {
   static const String _keyActiveProfile = 'grs_active_profile';
   static const String _keyPreferredLanguage = 'grs_pref_lang';
   static const String _keyApiBaseUrl = 'grs_api_base_url';
+  static const String _keyThemeMode = 'grs_theme_mode';
 
   SecureStorageService({FlutterSecureStorage? storage})
     : _storage = storage ?? const FlutterSecureStorage();
@@ -96,6 +98,19 @@ class SecureStorageService {
 
   Future<String?> getApiBaseUrl() async {
     return await _storage.read(key: _keyApiBaseUrl);
+  }
+
+  Future<void> saveThemeMode(ThemeMode mode) async {
+    await _storage.write(key: _keyThemeMode, value: mode.name);
+  }
+
+  Future<ThemeMode> getThemeMode() async {
+    final val = await _storage.read(key: _keyThemeMode);
+    return switch (val) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
   }
 
   /// Wipes all sensitive keys on user switch (Invariant 8.2 #7)

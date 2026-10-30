@@ -6,6 +6,10 @@ import 'package:grs_ui/grs_ui.dart';
 import '../../l10n/l10n.dart';
 import '../../providers/api_client_provider.dart';
 
+/// Forgot Password screen — v2.
+///
+/// Two-step flow: enter email → enter code + new password.
+/// Step indicator and staggered entrance animations.
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
 
@@ -38,16 +42,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       setState(() => _errorMessage = 'Please enter a valid email address');
       return;
     }
-
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-
     try {
       final apiClient = ref.read(apiClientProvider);
       await apiClient.forgotPassword(email);
-
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -56,7 +57,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(GrsL10n.of(context).get('resetCodeSentNotice')),
-            backgroundColor: GrsColors.primaryLight,
           ),
         );
       }
@@ -71,15 +71,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage =
-              'An unexpected network error occurred. Please try again.';
+          _errorMessage = 'An unexpected error occurred. Please try again.';
         });
       }
     }
   }
 
   Future<void> _submitReset() async {
-    final email = _emailController.text.trim();
     final code = _codeController.text.trim();
     final newPassword = _passwordController.text;
 
@@ -87,31 +85,26 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       setState(() => _errorMessage = 'Code must be 6 digits');
       return;
     }
-
     if (newPassword.length < 8) {
       setState(() => _errorMessage = 'Password must be at least 8 characters');
       return;
     }
-
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-
     try {
       final apiClient = ref.read(apiClientProvider);
       await apiClient.resetPassword(
-        email: email,
+        email: _emailController.text.trim(),
         code: code,
         newPassword: newPassword,
       );
-
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(GrsL10n.of(context).get('resetSuccessMessage')),
-            backgroundColor: GrsColors.syncSynced,
           ),
         );
         context.go('/login');
@@ -127,14 +120,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage =
-              'An unexpected network error occurred. Please try again.';
+          _errorMessage = 'An unexpected error occurred. Please try again.';
         });
       }
     }
   }
 
-  void _showContactAdminDialog(BuildContext context, GrsL10n l10n) {
+  void _showContactAdminDialog(GrsL10n l10n) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -153,6 +145,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = GrsL10n.of(context);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final ink = isDark ? GrsColors.textPrimaryDark : GrsColors.textPrimaryLight;
+    final secondary = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
+    final primary = isDark ? GrsColors.primaryDark : GrsColors.primaryLight;
 
     return Scaffold(
       appBar: AppBar(
@@ -163,114 +162,254 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         ),
         actions: const [LanguagePickerWidget()],
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(GrsSpacing.pagePad),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: GrsFadeIn(
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(
-                    Icons.lock_reset_rounded,
-                    size: 64,
-                    color: GrsColors.primaryLight,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _isStep2
-                        ? l10n.get('resetPasswordTitle')
-                        : l10n.get('forgotPasswordTitle'),
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: GrsColors.textPrimaryLight,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
                   const SizedBox(height: 8),
-                  Text(
-                    _isStep2
-                        ? l10n.get('resetPasswordPrompt')
-                        : l10n.get('forgotPasswordPrompt'),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: GrsColors.textSecondaryLight,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
 
-                  if (_errorMessage != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: GrsColors.syncRejectedBg,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: GrsColors.syncRejected),
-                      ),
-                      child: Text(
-                        _errorMessage!,
-                        style: const TextStyle(color: GrsColors.syncRejected),
-                      ),
+                  // ── Step indicator ────────────────────────────────────────
+                  _StepIndicator(
+                    step: _isStep2 ? 2 : 1,
+                    total: 2,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── Icon + heading ────────────────────────────────────────
+                  GrsRiseIn(
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? GrsColors.primaryContainerDark
+                                : GrsColors.primaryContainerLight,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Icon(
+                            Icons.lock_reset_rounded,
+                            size: 36,
+                            color: primary,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          _isStep2
+                              ? l10n.get('resetPasswordTitle')
+                              : l10n.get('forgotPasswordTitle'),
+                          style: GrsTypography.headlineLarge(
+                            color: ink,
+                          ).copyWith(fontSize: 22),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _isStep2
+                              ? l10n.get('resetPasswordPrompt')
+                              : l10n.get('forgotPasswordPrompt'),
+                          style: GrsTypography.bodyMedium(color: secondary),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── Error banner ──────────────────────────────────────────
+                  if (_errorMessage != null) ...[
+                    _ErrorBanner(message: _errorMessage!, isDark: isDark),
+                    const SizedBox(height: 20),
                   ],
 
+                  // ── Step 1: Email ─────────────────────────────────────────
                   if (!_isStep2) ...[
-                    GrsTextField(
-                      controller: _emailController,
-                      label: l10n.get('emailLabel'),
-                      hint: 'name@example.com',
-                      keyboardType: TextInputType.emailAddress,
-                      enabled: !_isLoading,
+                    GrsRiseIn(
+                      delay: const Duration(milliseconds: 180),
+                      child: GrsTextField(
+                        controller: _emailController,
+                        label: l10n.get('emailLabel'),
+                        hint: 'name@example.com',
+                        keyboardType: TextInputType.emailAddress,
+                        prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                        enabled: !_isLoading,
+                      ),
                     ),
                     const SizedBox(height: 24),
-                    GrsButton(
-                      text: l10n.get('sendResetButton'),
-                      isLoading: _isLoading,
-                      onPressed: _sendResetCode,
+                    GrsRiseIn(
+                      delay: const Duration(milliseconds: 240),
+                      child: GrsButton(
+                        label: l10n.get('sendResetButton'),
+                        isLoading: _isLoading,
+                        isFullWidth: true,
+                        size: GrsButtonSize.large,
+                        onPressed: _sendResetCode,
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    OutlinedButton(
-                      onPressed: () => _showContactAdminDialog(context, l10n),
-                      child: Text(l10n.get('askAdminButton')),
+                    const SizedBox(height: 12),
+                    GrsFadeIn(
+                      delay: const Duration(milliseconds: 300),
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          side: BorderSide(
+                            color: isDark
+                                ? GrsColors.outlineDark
+                                : GrsColors.outlineLight,
+                          ),
+                        ),
+                        onPressed: () => _showContactAdminDialog(l10n),
+                        child: Text(
+                          l10n.get('askAdminButton'),
+                          style: GrsTypography.labelMedium(
+                            color: isDark
+                                ? GrsColors.textPrimaryDark
+                                : GrsColors.textPrimaryLight,
+                          ),
+                        ),
+                      ),
                     ),
+
+                    // ── Step 2: Code + new password ───────────────────────────
                   ] else ...[
-                    GrsTextField(
-                      controller: _codeController,
-                      label: l10n.get('verificationCodeLabel'),
-                      hint: '123456',
-                      keyboardType: TextInputType.number,
-                      enabled: !_isLoading,
+                    GrsRiseIn(
+                      delay: const Duration(milliseconds: 160),
+                      child: GrsTextField(
+                        controller: _codeController,
+                        label: l10n.get('verificationCodeLabel'),
+                        hint: '123456',
+                        keyboardType: TextInputType.number,
+                        prefixIcon: const Icon(Icons.pin_outlined, size: 20),
+                        enabled: !_isLoading,
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    GrsTextField(
-                      controller: _passwordController,
-                      label: l10n.get('newPasswordLabel'),
-                      isPassword: true,
-                      enabled: !_isLoading,
+                    const SizedBox(height: 14),
+                    GrsRiseIn(
+                      delay: const Duration(milliseconds: 220),
+                      child: GrsTextField(
+                        controller: _passwordController,
+                        label: l10n.get('newPasswordLabel'),
+                        isPassword: true,
+                        prefixIcon: const Icon(
+                          Icons.lock_outline_rounded,
+                          size: 20,
+                        ),
+                        enabled: !_isLoading,
+                      ),
                     ),
                     const SizedBox(height: 24),
-                    GrsButton(
-                      text: l10n.get('resetPasswordButton'),
-                      isLoading: _isLoading,
-                      onPressed: _submitReset,
+                    GrsRiseIn(
+                      delay: const Duration(milliseconds: 280),
+                      child: GrsButton(
+                        label: l10n.get('resetPasswordButton'),
+                        isLoading: _isLoading,
+                        isFullWidth: true,
+                        size: GrsButtonSize.large,
+                        onPressed: _submitReset,
+                      ),
                     ),
                   ],
 
                   const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () => context.go('/login'),
-                    child: Text(l10n.get('cancel')),
+
+                  GrsFadeIn(
+                    delay: const Duration(milliseconds: 360),
+                    child: Center(
+                      child: TextButton(
+                        onPressed: () => context.go('/login'),
+                        child: Text(
+                          l10n.get('cancel'),
+                          style: TextStyle(color: primary),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _StepIndicator extends StatelessWidget {
+  const _StepIndicator({
+    required this.step,
+    required this.total,
+    required this.isDark,
+  });
+  final int step;
+  final int total;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = isDark ? GrsColors.primaryDark : GrsColors.primaryLight;
+    final inactive = isDark ? GrsColors.outlineDark : GrsColors.outlineLight;
+
+    return Row(
+      children: List.generate(total, (i) {
+        final isActive = i < step;
+        return Expanded(
+          child: AnimatedContainer(
+            duration: GrsMotion.durationMedium,
+            curve: GrsMotion.curveEnter,
+            margin: EdgeInsets.only(right: i < total - 1 ? 6 : 0),
+            height: 4,
+            decoration: BoxDecoration(
+              color: isActive ? active : inactive,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message, required this.isDark});
+  final String message;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? GrsColors.syncRejectedBgDark : GrsColors.syncRejectedBg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_rounded,
+            color: GrsColors.syncRejected,
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: GrsTypography.bodyMedium(
+                color: GrsColors.syncRejected,
+              ).copyWith(fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 import '../tokens/colors.dart';
 import 'grs_motion.dart';
 
+/// GRS card — v3.
+///
+/// Design rules:
+/// - Flat surface, one-tone step above the scaffold ground.
+/// - Border: a single 1 px line in the outline colour; no shadow at rest.
+/// - Tappable: spring-scale press via [GrsBounceTouch].
+/// - Radius: 16 px consistently.
 class GrsCard extends StatelessWidget {
   const GrsCard({
     super.key,
@@ -22,8 +29,13 @@ class GrsCard extends StatelessWidget {
   final VoidCallback? onTap;
   final Color? borderColor;
   final Color? backgroundColor;
+
+  /// Unused in v3 (cards are flat). Retained for API compat.
   final double? elevation;
+
+  /// Unused in v3. Retained for API compat.
   final bool hasGlow;
+
   final Border? border;
 
   @override
@@ -31,9 +43,10 @@ class GrsCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final resolvedBg =
+    final bg =
         backgroundColor ??
         (isDark ? GrsColors.surfaceDark : GrsColors.surfaceLight);
+
     final resolvedBorder =
         border ??
         Border.all(
@@ -43,31 +56,15 @@ class GrsCard extends StatelessWidget {
           width: 1,
         );
 
-    final cardContent = Container(
+    final card = Container(
       margin: margin,
       decoration: BoxDecoration(
-        color: resolvedBg,
-        borderRadius: BorderRadius.circular(18),
+        color: bg,
+        borderRadius: BorderRadius.circular(16),
         border: resolvedBorder,
-        boxShadow: [
-          // Soft ambient shadow
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.3)
-                : const Color(0xFF0F172A).withValues(alpha: 0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-          if (hasGlow)
-            BoxShadow(
-              color: GrsColors.primaryLight.withValues(alpha: 0.12),
-              blurRadius: 20,
-              offset: const Offset(0, 6),
-            ),
-        ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: padding ?? const EdgeInsets.all(16),
           child: child,
@@ -76,13 +73,8 @@ class GrsCard extends StatelessWidget {
     );
 
     if (onTap != null) {
-      return GrsBounceTouch(
-        onTap: onTap,
-        scaleFactor: 0.985,
-        child: cardContent,
-      );
+      return GrsBounceTouch(onTap: onTap, scaleFactor: 0.985, child: card);
     }
-
-    return cardContent;
+    return card;
   }
 }

@@ -289,5 +289,21 @@
   "downloadingUpdate": "புதுப்பிப்பைப் பதிவிறக்குகிறது...",
   "@downloadingUpdate": {},
   "installUpdate": "புதுப்பிப்பை நிறுவு",
-  "@installUpdate": {}
+  "@installUpdate": {},
+  "permissionsRequiredTitle": "அனுமதிகள் தேவை",
+  "@permissionsRequiredTitle": {},
+  "permissionsRequiredMessage": "களக் கணக்கெடுப்புத் தரவு ஒத்திசைவு, விழிப்பூட்டல்களைப் பெறுதல் மற்றும் பாதுகாப்பான செயல்பாட்டிற்கு GRS Mobile பயன்பாட்டிற்கு இந்த அனுமதிகள் அவசியமாகும்.",
+  "@permissionsRequiredMessage": {},
+  "permissionsRequiredNotice": "இந்த பயன்பாடு செயல்பட இந்த அனுமதிகள் கட்டாயமாகும். நிராகரித்தால், பயன்பாடு மூடப்படும்.",
+  "@permissionsRequiredNotice": {},
+  "grantPermissionsButton": "அனுமதிகளை வழங்குக",
+  "@grantPermissionsButton": {},
+  "openSettingsButton": "சாதன அமைப்புகளைத் திறக்கவும்",
+  "@openSettingsButton": {},
+  "exitAppButton": "பயன்பாட்டிலிருந்து வெளியேறு",
+  "@exitAppButton": {},
+  "notificationPermissionTitle": "அறிவிப்புகள் மற்றும் விழிப்பூட்டல்கள்",
+  "@notificationPermissionTitle": {},
+  "notificationPermissionDesc": "நிகழ்நேர ஒத்திசைவு நிலை மற்றும் பின்னணி அறிவிப்புகளுக்கு தேவைப்படுகிறது.",
+  "@notificationPermissionDesc": {}
 }

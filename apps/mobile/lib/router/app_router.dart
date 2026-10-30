@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
+import '../providers/permission_provider.dart';
 import '../screens/auth/add_email_screen.dart';
 import '../screens/auth/change_password_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
@@ -9,6 +10,7 @@ import '../screens/auth/login_screen.dart';
 import '../screens/client/client_form_screen.dart';
 import '../screens/client/consent_screen.dart';
 import '../screens/guard/deactivated_screen.dart';
+import '../screens/guard/permission_gate_screen.dart';
 import '../screens/guard/splash_screen.dart';
 import '../screens/guard/version_gate_screen.dart';
 import '../screens/home/home_screen.dart';
@@ -16,14 +18,52 @@ import '../screens/house/house_detail_screen.dart';
 import '../screens/records/my_records_screen.dart';
 import '../screens/settings/settings_screen.dart';
 
+class AppRouterNotifier extends ChangeNotifier {
+  final Ref _ref;
+
+  AppRouterNotifier(this._ref) {
+    _ref.listen<AuthState>(authProvider, (prev, next) {
+      if (prev?.status != next.status) {
+        notifyListeners();
+      }
+    });
+    _ref.listen<PermissionGateState>(permissionGateProvider, (prev, next) {
+      if (prev?.isGranted != next.isGranted) {
+        notifyListeners();
+      }
+    });
+  }
+
+  AuthStatus get status => _ref.read(authProvider).status;
+  bool get isPermissionGranted => _ref.read(permissionGateProvider).isGranted;
+}
+
+final appRouterNotifierProvider = Provider<AppRouterNotifier>((ref) {
+  final notifier = AppRouterNotifier(ref);
+  ref.onDispose(notifier.dispose);
+  return notifier;
+});
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final notifier = ref.watch(appRouterNotifierProvider);
 
   return GoRouter(
     initialLocation: '/splash',
+    refreshListenable: notifier,
     redirect: (context, state) {
-      final status = authState.status;
+      final status = notifier.status;
       final location = state.matchedLocation;
+      final isPermGranted = notifier.isPermissionGranted;
+
+      // Mandatory permission gate: If permissions are not granted, direct to /permission-gate
+      if (!isPermGranted) {
+        return location == '/permission-gate' ? null : '/permission-gate';
+      }
+
+      // If permissions are granted and user is on /permission-gate, return to /splash
+      if (location == '/permission-gate') {
+        return '/splash';
+      }
 
       if (status == AuthStatus.initial) {
         return location == '/splash' ? null : '/splash';
@@ -63,6 +103,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/permission-gate',
+        builder: (context, state) => const PermissionGateScreen(),
+      ),
       GoRoute(
         path: '/splash',
         builder: (context, state) => const SplashScreen(),

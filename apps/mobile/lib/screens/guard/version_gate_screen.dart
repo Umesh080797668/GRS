@@ -6,6 +6,10 @@ import '../../l10n/l10n.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/updater_provider.dart';
 
+/// Version gate screen — v2.
+///
+/// Shown when the running build is below the server's minimum required version.
+/// The user MUST update before they can use the app.
 class VersionGateScreen extends ConsumerStatefulWidget {
   const VersionGateScreen({super.key});
 
@@ -72,145 +76,175 @@ class _VersionGateScreenState extends ConsumerState<VersionGateScreen> {
   Widget build(BuildContext context) {
     final l10n = GrsL10n.of(context);
     final authState = ref.watch(authProvider);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final ink = isDark ? GrsColors.textPrimaryDark : GrsColors.textPrimaryLight;
+    final secondary = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
+    final primary = isDark ? GrsColors.primaryDark : GrsColors.primaryLight;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.get('versionGateTitle')),
         automaticallyImplyLeading: false,
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.system_update_alt_rounded,
-                size: 80,
-                color: GrsColors.primaryLight,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                l10n.get('versionGateTitle'),
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: GrsColors.textPrimaryLight,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                l10n.get('versionGateMessage'),
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: GrsColors.textSecondaryLight,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              if (authState.minVersionRequired != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Minimum required version: ${authState.minVersionRequired}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: GrsColors.primaryLight,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 32),
-              if (_isDownloading) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: _progress >= 0 ? _progress : null,
-                    minHeight: 10,
-                    backgroundColor: GrsColors.surfaceVariantLight,
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      GrsColors.primaryLight,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            child: GrsFadeIn(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Icon
+                  Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? GrsColors.primaryContainerDark
+                          : GrsColors.primaryContainerLight,
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: Icon(
+                      Icons.system_update_alt_rounded,
+                      size: 44,
+                      color: primary,
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _progress >= 0
-                      ? '${l10n.get('downloadingUpdate')} (${(_progress * 100).toStringAsFixed(0)}%)'
-                      : l10n.get('downloadingUpdate'),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: GrsColors.textPrimaryLight,
-                  ),
-                ),
-                if (_total > 0) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 28),
+
                   Text(
-                    '${_formatBytes(_received)} / ${_formatBytes(_total)}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: GrsColors.textSecondaryLight,
-                    ),
+                    l10n.get('versionGateTitle'),
+                    style: GrsTypography.headlineLarge(
+                      color: ink,
+                    ).copyWith(fontSize: 22),
+                    textAlign: TextAlign.center,
                   ),
-                ],
-              ] else if (_downloadedFile != null) ...[
-                GrsButton(
-                  text: l10n.get('installUpdate'),
-                  icon: Icons.install_mobile_rounded,
-                  onPressed: () async {
-                    try {
-                      await ref
-                          .read(appUpdaterServiceProvider)
-                          .installApk(_downloadedFile!);
-                    } catch (e) {
-                      setState(() {
-                        _errorMessage = e.toString().replaceFirst(
-                          'Exception: ',
-                          '',
-                        );
-                      });
-                    }
-                  },
-                ),
-              ] else ...[
-                GrsButton(
-                  text: l10n.get('downloadUpdateButton'),
-                  icon: Icons.download_rounded,
-                  onPressed: _startUpdate,
-                ),
-              ],
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: GrsColors.syncRejected.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: GrsColors.syncRejected.withValues(alpha: 0.3),
-                    ),
+                  const SizedBox(height: 12),
+
+                  Text(
+                    l10n.get('versionGateMessage'),
+                    style: GrsTypography.bodyLarge(color: secondary),
+                    textAlign: TextAlign.center,
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: GrsColors.syncRejected,
-                        size: 20,
+
+                  if (authState.minVersionRequired != null) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 5,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: GrsColors.syncRejected,
-                          ),
-                        ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? GrsColors.primaryContainerDark
+                            : GrsColors.primaryContainerLight,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Required: v${authState.minVersionRequired}',
+                        style: GrsTypography.labelMedium(
+                          color: primary,
+                        ).copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 40),
+
+                  // ── Download / install state ─────────────────────────────
+                  if (_isDownloading) ...[
+                    // Progress bar
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: _progress > 0 ? _progress : null,
+                        minHeight: 8,
+                        backgroundColor: isDark
+                            ? GrsColors.surfaceVariantDark
+                            : GrsColors.surfaceVariantLight,
+                        valueColor: AlwaysStoppedAnimation<Color>(primary),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _progress > 0
+                          ? '${l10n.get('downloadingUpdate')} · ${(_progress * 100).toStringAsFixed(0)}%'
+                          : l10n.get('downloadingUpdate'),
+                      style: GrsTypography.labelMedium(color: ink),
+                    ),
+                    if (_total > 0) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '${_formatBytes(_received)} / ${_formatBytes(_total)}',
+                        style: GrsTypography.labelSmall(color: secondary),
                       ),
                     ],
-                  ),
-                ),
-              ],
-            ],
+                  ] else if (_downloadedFile != null) ...[
+                    GrsButton(
+                      label: l10n.get('installUpdate'),
+                      icon: Icons.install_mobile_rounded,
+                      isFullWidth: true,
+                      onPressed: () async {
+                        try {
+                          await ref
+                              .read(appUpdaterServiceProvider)
+                              .installApk(_downloadedFile!);
+                        } catch (e) {
+                          setState(() {
+                            _errorMessage = e.toString().replaceFirst(
+                              'Exception: ',
+                              '',
+                            );
+                          });
+                        }
+                      },
+                    ),
+                  ] else ...[
+                    GrsButton(
+                      label: l10n.get('downloadUpdateButton'),
+                      icon: Icons.download_rounded,
+                      isFullWidth: true,
+                      onPressed: _startUpdate,
+                    ),
+                  ],
+
+                  // ── Error ─────────────────────────────────────────────────
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? GrsColors.syncRejectedBgDark
+                            : GrsColors.syncRejectedBg,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_rounded,
+                            color: GrsColors.syncRejected,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: GrsTypography.bodyMedium(
+                                color: GrsColors.syncRejected,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ),

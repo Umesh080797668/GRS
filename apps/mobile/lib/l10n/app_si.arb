@@ -289,5 +289,21 @@
   "downloadingUpdate": "යාවත්කාලීනය බාගත වෙමින් පවතී...",
   "@downloadingUpdate": {},
   "installUpdate": "යාවත්කාලීනය ස්ථාපනය කරන්න",
-  "@installUpdate": {}
+  "@installUpdate": {},
+  "permissionsRequiredTitle": "අවසර අවශ්‍යයි",
+  "@permissionsRequiredTitle": {},
+  "permissionsRequiredMessage": "ක්ෂේත්‍ර සමීක්ෂණ දත්ත සමමුහුර්ත කිරීම, ක්ෂේත්‍ර නිවේදන ලබා ගැනීම සහ ආරක්ෂිත ක්‍රියාකාරීත්වය සඳහා GRS Mobile යෙදුමට මෙම අවසර අත්‍යවශ්‍ය වේ.",
+  "@permissionsRequiredMessage": {},
+  "permissionsRequiredNotice": "මෙම යෙදුම ක්‍රියාත්මක වීමට මෙම අවසර අත්‍යවශ්‍ය වේ. අවසර ප්‍රතික්ෂේප කළහොත් යෙදුම වැසෙනු ඇත.",
+  "@permissionsRequiredNotice": {},
+  "grantPermissionsButton": "අවසර ලබා දෙන්න",
+  "@grantPermissionsButton": {},
+  "openSettingsButton": "දුරකථන සැකසුම් විවෘත කරන්න",
+  "@openSettingsButton": {},
+  "exitAppButton": "යෙදුමෙන් ඉවත් වන්න",
+  "@exitAppButton": {},
+  "notificationPermissionTitle": "දැනුම්දීම් සහ අනතුරු ඇඟවීම්",
+  "@notificationPermissionTitle": {},
+  "notificationPermissionDesc": "තත්‍ය කාලීන සමමුහුර්තකරණ තත්ත්වය සහ පසුබිම් දැනුම්දීම් සඳහා අවශ්‍ය වේ.",
+  "@notificationPermissionDesc": {}
 }

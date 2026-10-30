@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import '../tokens/colors.dart';
 import '../tokens/typography.dart';
 
-/// Reusable civic text input field with high contrast and trilingual typography support.
+/// GRS text input — v2.
+///
+/// Dark-mode aware, consistent with GrsDropdown label style.
+/// Password toggle uses a subtle icon-button with no extra decoration.
 class GrsTextField extends StatefulWidget {
   final TextEditingController? controller;
   final String? initialValue;
@@ -64,10 +67,14 @@ class _GrsTextFieldState extends State<GrsTextField> {
     final textColor = isDark
         ? GrsColors.textPrimaryDark
         : GrsColors.textPrimaryLight;
+    final labelColor = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
+    final iconColor = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
 
-    final inputStyle = GrsTypography.style(
-      fontSize: 16,
-      fontWeight: FontWeight.w400,
+    final inputStyle = GrsTypography.bodyLarge(
       color: textColor,
       languageCode: widget.languageCode,
     );
@@ -77,11 +84,11 @@ class _GrsTextFieldState extends State<GrsTextField> {
       suffix = IconButton(
         icon: Icon(
           _obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-          color: isDark
-              ? GrsColors.textSecondaryDark
-              : GrsColors.textSecondaryLight,
+          size: 20,
+          color: iconColor,
         ),
         onPressed: () => setState(() => _obscured = !_obscured),
+        splashRadius: 20,
       );
     }
 
@@ -91,12 +98,10 @@ class _GrsTextFieldState extends State<GrsTextField> {
       children: [
         Text(
           widget.label,
-          style: GrsTypography.style(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: textColor,
+          style: GrsTypography.labelMedium(
+            color: labelColor,
             languageCode: widget.languageCode,
-          ),
+          ).copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         TextFormField(

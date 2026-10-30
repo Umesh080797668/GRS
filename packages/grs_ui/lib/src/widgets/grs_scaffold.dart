@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'offline_banner.dart';
+import '../tokens/colors.dart';
 
-/// App scaffold providing civic header and persistent offline state notification.
+/// GRS app scaffold — v2.
+///
+/// Provides:
+/// - Themed AppBar with optional back button, title + subtitle, and actions.
+/// - Optional persistent offline banner below the AppBar.
+/// - Slot for body, FAB, bottom nav.
 class GrsScaffold extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -30,6 +36,9 @@ class GrsScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     Widget titleWidget;
     if (subtitle != null) {
       titleWidget = Column(
@@ -38,18 +47,38 @@ class GrsScaffold extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+              color: isDark
+                  ? GrsColors.textPrimaryDark
+                  : GrsColors.textPrimaryLight,
+            ),
           ),
           Text(
             subtitle!,
-            style: const TextStyle(fontSize: 12, color: Colors.white70),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: isDark
+                  ? GrsColors.textSecondaryDark
+                  : GrsColors.textSecondaryLight,
+            ),
           ),
         ],
       );
     } else {
       titleWidget = Text(
         title,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
+          color: isDark
+              ? GrsColors.textPrimaryDark
+              : GrsColors.textPrimaryLight,
+        ),
       );
     }
 
@@ -58,10 +87,11 @@ class GrsScaffold extends StatelessWidget {
         title: titleWidget,
         leading: showBackButton
             ? IconButton(
-                icon: const Icon(Icons.arrow_back),
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
                 onPressed: onBack ?? () => Navigator.of(context).maybePop(),
               )
             : null,
+        automaticallyImplyLeading: showBackButton,
         actions: actions,
       ),
       body: Column(
@@ -70,7 +100,8 @@ class GrsScaffold extends StatelessWidget {
             GrsOfflineBanner(
               message:
                   offlineMessage ??
-                  'You are currently offline. Records will be saved locally and synced later.',
+                  'Offline — records will sync when connected.',
+              languageCode: null,
             ),
           Expanded(child: body),
         ],

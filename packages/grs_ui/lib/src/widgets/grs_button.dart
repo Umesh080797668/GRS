@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:grs_ui/src/tokens/motions.dart';
 import '../tokens/colors.dart';
 import 'grs_motion.dart';
 
@@ -6,6 +7,13 @@ enum GrsButtonVariant { primary, secondary, outline, text, gradient, danger }
 
 enum GrsButtonSize { small, medium, large }
 
+/// GRS primary action button — v3.
+///
+/// Design rules:
+/// - Flat fill, square-ish corners (radius 12). No shadows at rest.
+/// - Press animation: spring-scale via [GrsBounceTouch].
+/// - Haptic: light impact on every press.
+/// - Loading state shows a compact spinner with the button's ink colour.
 class GrsButton extends StatelessWidget {
   const GrsButton({
     super.key,
@@ -30,196 +38,124 @@ class GrsButton extends StatelessWidget {
   final bool isFullWidth;
   final double? width;
 
-  String get _effectiveLabel => label ?? text ?? '';
+  String get _label => label ?? text ?? '';
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final (height, horizontalPadding, fontSize) = switch (size) {
-      GrsButtonSize.small => (38.0, 14.0, 13.0),
-      GrsButtonSize.medium => (48.0, 20.0, 15.0),
-      GrsButtonSize.large => (56.0, 24.0, 16.0),
+    final (height, hPad, fontSize, iconSize) = switch (size) {
+      GrsButtonSize.small => (40.0, 14.0, 13.0, 16.0),
+      GrsButtonSize.medium => (50.0, 20.0, 15.0, 18.0),
+      GrsButtonSize.large => (56.0, 26.0, 16.0, 20.0),
     };
 
+    // ── Resolve variant colours ──────────────────────────────────────────────
+    final (bg, fg, borderColor) = _variantColors(theme, isDark);
+
+    // ── Content ─────────────────────────────────────────────────────────────
     final content = AnimatedSwitcher(
-      duration: const Duration(milliseconds: 200),
+      duration: GrsMotion.durationFast,
       child: isLoading
-          ? SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.2,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  variant == GrsButtonVariant.outline ||
-                          variant == GrsButtonVariant.text
-                      ? theme.colorScheme.primary
-                      : Colors.white,
+          ? KeyedSubtree(
+              key: const ValueKey('loading'),
+              child: SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(fg),
                 ),
               ),
             )
-          : Row(
-              mainAxisSize: isFullWidth || width != null
-                  ? MainAxisSize.max
-                  : MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: fontSize + 3),
-                  const SizedBox(width: 8),
-                ],
-                Flexible(
-                  child: Text(
-                    _effectiveLabel,
-                    style: TextStyle(
-                      fontSize: fontSize,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.2,
+          : KeyedSubtree(
+              key: const ValueKey('label'),
+              child: Row(
+                mainAxisSize: isFullWidth || width != null
+                    ? MainAxisSize.max
+                    : MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, size: iconSize, color: fg),
+                    const SizedBox(width: 8),
+                  ],
+                  Flexible(
+                    child: Text(
+                      _label,
+                      style: TextStyle(
+                        fontSize: fontSize,
+                        fontWeight: FontWeight.w600,
+                        color: fg,
+                        letterSpacing: -0.2,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
     );
 
-    Widget buttonWidget;
+    // ── Button shell ─────────────────────────────────────────────────────────
+    Widget shell = Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: borderColor != null ? Colors.transparent : bg,
+        borderRadius: BorderRadius.circular(12),
+        border: borderColor != null
+            ? Border.all(color: borderColor, width: 1.5)
+            : null,
+      ),
+      alignment: Alignment.center,
+      padding: EdgeInsets.symmetric(horizontal: hPad),
+      child: content,
+    );
 
-    if (variant == GrsButtonVariant.gradient) {
-      buttonWidget = Container(
-        height: height,
-        decoration: BoxDecoration(
-          gradient: GrsColors.primaryGradient,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: GrsColors.primaryLight.withValues(alpha: 0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        alignment: Alignment.center,
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-        child: DefaultTextStyle(
-          style: const TextStyle(color: Colors.white),
-          child: IconTheme(
-            data: const IconThemeData(color: Colors.white),
-            child: content,
-          ),
-        ),
-      );
-    } else if (variant == GrsButtonVariant.primary) {
-      buttonWidget = Container(
-        height: height,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.primary,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: theme.colorScheme.primary.withValues(alpha: 0.25),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        alignment: Alignment.center,
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-        child: DefaultTextStyle(
-          style: TextStyle(color: theme.colorScheme.onPrimary),
-          child: IconTheme(
-            data: IconThemeData(color: theme.colorScheme.onPrimary),
-            child: content,
-          ),
-        ),
-      );
-    } else if (variant == GrsButtonVariant.danger) {
-      buttonWidget = Container(
-        height: height,
-        decoration: BoxDecoration(
-          color: GrsColors.syncRejected,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: GrsColors.syncRejected.withValues(alpha: 0.25),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        alignment: Alignment.center,
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-        child: DefaultTextStyle(
-          style: const TextStyle(color: Colors.white),
-          child: IconTheme(
-            data: const IconThemeData(color: Colors.white),
-            child: content,
-          ),
-        ),
-      );
-    } else if (variant == GrsButtonVariant.secondary) {
-      buttonWidget = Container(
-        height: height,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.secondary,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        alignment: Alignment.center,
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-        child: DefaultTextStyle(
-          style: TextStyle(color: theme.colorScheme.onSecondary),
-          child: IconTheme(
-            data: IconThemeData(color: theme.colorScheme.onSecondary),
-            child: content,
-          ),
-        ),
-      );
-    } else if (variant == GrsButtonVariant.outline) {
-      buttonWidget = Container(
-        height: height,
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isDark ? GrsColors.outlineDark : GrsColors.outlineLight,
-            width: 1.5,
-          ),
-        ),
-        alignment: Alignment.center,
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-        child: DefaultTextStyle(
-          style: TextStyle(color: theme.colorScheme.primary),
-          child: IconTheme(
-            data: IconThemeData(color: theme.colorScheme.primary),
-            child: content,
-          ),
-        ),
-      );
-    } else {
-      buttonWidget = Container(
-        height: height,
-        alignment: Alignment.center,
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-        child: DefaultTextStyle(
-          style: TextStyle(color: theme.colorScheme.primary),
-          child: IconTheme(
-            data: IconThemeData(color: theme.colorScheme.primary),
-            child: content,
-          ),
-        ),
-      );
+    // Solid-fill variants get an opacity reduction when disabled, to signal
+    // that the action is unavailable without a separate "disabled style".
+    if (onPressed == null && !isLoading) {
+      shell = Opacity(opacity: 0.45, child: shell);
     }
 
     if (width != null) {
-      buttonWidget = SizedBox(width: width, child: buttonWidget);
+      shell = SizedBox(width: width, child: shell);
     } else if (isFullWidth) {
-      buttonWidget = SizedBox(width: double.infinity, child: buttonWidget);
+      shell = SizedBox(width: double.infinity, child: shell);
     }
 
-    return GrsBounceTouch(
-      onTap: isLoading ? null : onPressed,
-      child: buttonWidget,
-    );
+    return GrsBounceTouch(onTap: isLoading ? null : onPressed, child: shell);
+  }
+
+  /// Returns (backgroundColor, foregroundColor, borderColor?).
+  (Color, Color, Color?) _variantColors(ThemeData theme, bool isDark) {
+    final primary = theme.colorScheme.primary;
+    final onPrimary = theme.colorScheme.onPrimary;
+
+    return switch (variant) {
+      GrsButtonVariant.primary => (primary, onPrimary, null),
+      GrsButtonVariant.gradient => (primary, onPrimary, null),
+      GrsButtonVariant.secondary => (
+        isDark
+            ? GrsColors.surfaceVariantDark
+            : GrsColors.secondaryContainerLight,
+        isDark
+            ? GrsColors.textPrimaryDark
+            : GrsColors.onSecondaryContainerLight,
+        isDark ? GrsColors.outlineDark : null,
+      ),
+      GrsButtonVariant.danger => (GrsColors.syncRejected, Colors.white, null),
+      GrsButtonVariant.outline => (
+        Colors.transparent,
+        isDark ? GrsColors.textPrimaryDark : primary,
+        isDark ? GrsColors.outlineDark : GrsColors.outlineLight,
+      ),
+      GrsButtonVariant.text => (
+        Colors.transparent,
+        isDark ? GrsColors.textPrimaryDark : primary,
+        null,
+      ),
+    };
   }
 }

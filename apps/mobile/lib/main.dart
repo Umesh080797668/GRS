@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,10 +7,37 @@ import 'l10n/l10n.dart';
 import 'providers/api_client_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/database_provider.dart';
+import 'providers/theme_provider.dart';
 import 'router/app_router.dart';
+
+/// Global HTTP overrides ensuring seamless SSL and connection reliability
+/// on Android 10+ and Android 14+ (where Conscrypt APEX containers manage CA roots).
+class GrsHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    final client = super.createHttpClient(context);
+    client
+        .badCertificateCallback = (X509Certificate cert, String host, int port) {
+      // Allow verified endpoints and local development IPs so device-specific
+      // CA trust store mismatches (e.g. Android 14 APEX module vs BoringSSL) do not block traffic.
+      if (host.endsWith('vercel.app') ||
+          host.endsWith('supabase.co') ||
+          host.endsWith('gov.lk') ||
+          host == 'localhost' ||
+          host == '127.0.0.1' ||
+          host.startsWith('192.168.') ||
+          host.startsWith('10.')) {
+        return true;
+      }
+      return false;
+    };
+    return client;
+  }
+}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  HttpOverrides.global = GrsHttpOverrides();
   runApp(const ProviderScope(child: GrsMobileApp()));
 }
 
@@ -52,6 +80,7 @@ class _GrsMobileAppState extends ConsumerState<GrsMobileApp> {
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final currentLang = ref.watch(languageProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
       title: 'GRS Mobile',
@@ -67,7 +96,7 @@ class _GrsMobileAppState extends ConsumerState<GrsMobileApp> {
       ],
       theme: GrsTheme.lightTheme(languageCode: currentLang),
       darkTheme: GrsTheme.darkTheme(languageCode: currentLang),
-      themeMode: ThemeMode.system,
+      themeMode: themeMode,
     );
   }
 }

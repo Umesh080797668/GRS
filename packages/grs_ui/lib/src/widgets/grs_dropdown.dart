@@ -5,11 +5,13 @@ import '../tokens/typography.dart';
 class GrsDropdownItem<T> {
   final T value;
   final String label;
-
   const GrsDropdownItem({required this.value, required this.label});
 }
 
-/// Reusable civic dropdown selector with guaranteed 48dp touch targets.
+/// Civic dropdown selector — v2.
+///
+/// Dark-mode aware fill/border. Guaranteed 48 dp touch target via
+/// InputDecoration contentPadding. Consistent label style with GrsTextField.
 class GrsDropdown<T> extends StatelessWidget {
   final String label;
   final T? value;
@@ -38,6 +40,9 @@ class GrsDropdown<T> extends StatelessWidget {
     final textColor = isDark
         ? GrsColors.textPrimaryDark
         : GrsColors.textPrimaryLight;
+    final labelColor = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,12 +50,10 @@ class GrsDropdown<T> extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GrsTypography.style(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: textColor,
+          style: GrsTypography.labelMedium(
+            color: labelColor,
             languageCode: languageCode,
-          ),
+          ).copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         DropdownButtonFormField<T>(
@@ -62,9 +65,7 @@ class GrsDropdown<T> extends StatelessWidget {
               value: item.value,
               child: Text(
                 item.label,
-                style: GrsTypography.style(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w400,
+                style: GrsTypography.bodyLarge(
                   color: textColor,
                   languageCode: languageCode,
                 ),
@@ -72,7 +73,17 @@ class GrsDropdown<T> extends StatelessWidget {
             );
           }).toList(),
           decoration: InputDecoration(hintText: hint, errorText: errorText),
-          icon: const Icon(Icons.arrow_drop_down, size: 28),
+          icon: Icon(
+            Icons.expand_more_rounded,
+            size: 22,
+            color: isDark
+                ? GrsColors.textSecondaryDark
+                : GrsColors.textSecondaryLight,
+          ),
+          dropdownColor: isDark
+              ? GrsColors.surfaceVariantDark
+              : GrsColors.surfaceLight,
+          borderRadius: BorderRadius.circular(12),
         ),
       ],
     );

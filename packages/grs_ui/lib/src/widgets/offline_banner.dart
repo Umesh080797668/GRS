@@ -3,7 +3,10 @@ import '../tokens/colors.dart';
 import '../tokens/spacing.dart';
 import '../tokens/typography.dart';
 
-/// Banner indicating offline mode per docs/design/DESIGN.md §1.5.
+/// Persistent offline mode banner — v2.
+///
+/// Sits at the top of the body, one tone step warmer than the surface.
+/// Uses amber semantics (caution, not error) because offline is recoverable.
 class GrsOfflineBanner extends StatelessWidget {
   final String message;
   final String? languageCode;
@@ -12,19 +15,21 @@ class GrsOfflineBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
         horizontal: GrsSpacing.md,
         vertical: GrsSpacing.xs,
       ),
-      color: GrsColors.syncPendingBg,
+      color: isDark ? GrsColors.syncPendingBgDark : GrsColors.syncPendingBg,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(
             Icons.wifi_off_rounded,
-            size: 16,
+            size: 14,
             color: GrsColors.syncPending,
           ),
           const SizedBox(width: GrsSpacing.xs),

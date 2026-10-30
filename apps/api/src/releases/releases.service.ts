@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReleaseManifest } from './release-manifest.interface';
 
@@ -14,23 +14,10 @@ export class ReleasesService {
     });
 
     if (!release) {
-      // Fallback release manifest pointing to GitHub release storage
-      return {
-        version: '1.0.1',
-        buildNumber: 2,
-        minSupportedVersion: '1.0.0',
-        apkUrl:
-          'https://github.com/Umesh080797668/GRS/releases/download/v1.0.1/app-release.apk',
-        sha256:
-          '436be008aacf19b183fd27fdb75cf885e51cbefe52c5968c7537a66619abf475',
-        checksum:
-          '436be008aacf19b183fd27fdb75cf885e51cbefe52c5968c7537a66619abf475',
-        fileSize: 70685640,
-        releaseNotes:
-          'Security hardening, in-app updates, and offline sync optimizations.',
-        releasedAt: new Date(),
-        mandatory: false,
-      };
+      throw new NotFoundException({
+        code: 'RELEASE_NOT_FOUND',
+        message: 'No published application releases found.',
+      });
     }
 
     return {

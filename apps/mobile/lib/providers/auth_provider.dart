@@ -138,11 +138,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
           );
           return;
         }
-        state = AuthState(
-          status: AuthStatus.authenticated,
-          profile: res.profile,
-          isOffline: false,
-        );
+        if (state.profile?.id != res.profile.id ||
+            state.profile?.role != res.profile.role ||
+            state.profile?.fullName != res.profile.fullName ||
+            state.profile?.email != res.profile.email ||
+            state.isOffline != false) {
+          state = AuthState(
+            status: AuthStatus.authenticated,
+            profile: res.profile,
+            isOffline: false,
+          );
+        }
         return;
       }
     } catch (e) {
@@ -168,11 +174,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
 
     // Airplane-mode / Offline cold start with valid saved credentials
-    state = AuthState(
-      status: AuthStatus.authenticated,
-      profile: profile,
-      isOffline: true,
-    );
+    if (!state.isOffline) {
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        profile: profile,
+        isOffline: true,
+      );
+    }
   }
 
   /// Sign in flow (M2.5) with uniform failure response (Invariant 14)

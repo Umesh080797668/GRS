@@ -6,6 +6,7 @@ import {
   Res,
   Req,
   UnauthorizedException,
+  NotFoundException,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { ReleasesService } from './releases.service';
@@ -127,9 +128,11 @@ export class ReleasesController {
       }
     }
 
-    // 3. Fallback: Redirect to GitHub Releases asset for this version
-    const fallbackGithubUrl = `https://github.com/Umesh080797668/GRS/releases/download/v${release.version}/app-release.apk`;
-    return res.redirect(302, fallbackGithubUrl);
+    // 3. Binary not found locally or externally
+    throw new NotFoundException({
+      code: 'RELEASE_NOT_FOUND',
+      message: 'APK release binary is not available on this server.',
+    });
   }
 
   /**
