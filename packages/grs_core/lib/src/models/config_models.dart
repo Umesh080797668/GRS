@@ -62,6 +62,9 @@ class AppReleaseModel {
   final String? releaseNotes;
   final DateTime? releasedAt;
   final bool mandatory;
+  final bool? isUpdateAvailable;
+  final bool? isLatest;
+  final String? message;
 
   const AppReleaseModel({
     required this.version,
@@ -73,6 +76,9 @@ class AppReleaseModel {
     this.releaseNotes,
     this.releasedAt,
     this.mandatory = false,
+    this.isUpdateAvailable,
+    this.isLatest,
+    this.message,
   });
 
   String get sha256 => checksum;
@@ -97,6 +103,11 @@ class AppReleaseModel {
               ? DateTime.tryParse(json['releasedAt'].toString())
               : null),
     mandatory: json['mandatory'] as bool? ?? false,
+    isUpdateAvailable:
+        json['is_update_available'] as bool? ??
+        json['isUpdateAvailable'] as bool?,
+    isLatest: json['is_latest'] as bool? ?? json['isLatest'] as bool?,
+    message: json['message'] as String?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -110,5 +121,8 @@ class AppReleaseModel {
     'release_notes': releaseNotes,
     'released_at': releasedAt?.toIso8601String(),
     'mandatory': mandatory,
+    'is_update_available': isUpdateAvailable,
+    'is_latest': isLatest,
+    'message': message,
   };
 }

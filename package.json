@@ -1,6 +1,6 @@
 {
   "name": "grs-monorepo",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Global Research & Survey App (GRS) Monorepo",
   "workspaces": [

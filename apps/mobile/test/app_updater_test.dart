@@ -179,4 +179,65 @@ void main() {
       },
     );
   });
+
+  group('AppUpdaterService GitHub Releases Fallback Tests', () {
+    test('falls back to GitHub Releases when backend reports 404', () async {
+      final mockClient = MockClient((request) async {
+        if (request.url.host == 'api.test.gov.lk') {
+          return http.Response(
+            jsonEncode({
+              'code': 'RELEASE_NOT_FOUND',
+              'message': 'Release not found',
+            }),
+            404,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.host == 'api.github.com') {
+          return http.Response(
+            jsonEncode({
+              'tag_name': 'v1.1.0',
+              'body': 'Automated release build for v1.1.0',
+              'published_at': '2026-10-30T11:54:48Z',
+              'assets': [
+                {
+                  'name': 'app-release.apk',
+                  'browser_download_url':
+                      'https://github.com/Umesh080797668/GRS/releases/download/v1.1.0/app-release.apk',
+                  'size': 71213132,
+                  'digest':
+                      'sha256:46e0e620269583782342988b3c22993420a17dd743820873e7be3432c3ae08ea',
+                },
+              ],
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('Not Found', 404);
+      });
+
+      final apiClient = GrsApiClient(
+        baseUrl: 'https://api.test.gov.lk',
+        client: mockClient,
+      );
+
+      final updater = AppUpdaterService(
+        apiClient: apiClient,
+        httpClient: mockClient,
+      );
+
+      final release = await updater.fetchLatestRelease(currentVersion: '1.0.0');
+      expect(release.version, '1.1.0');
+      expect(release.apkUrl, contains('v1.1.0/app-release.apk'));
+      expect(
+        AppUpdaterService.isUpdateAvailable(release.version, '1.0.0'),
+        isTrue,
+      );
+      expect(
+        AppUpdaterService.isUpdateAvailable(release.version, '1.1.0'),
+        isFalse,
+      );
+    });
+  });
 }

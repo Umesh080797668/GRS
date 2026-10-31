@@ -183,4 +183,74 @@ describe('Releases (Self-Hosted APK Update System)', () => {
       await expect(controller.createRelease(dto, mockReq)).rejects.toThrow();
     });
   });
+
+  describe('Comprehensive Update Checking & Auto-Sync', () => {
+    it('returns isLatest: true and isUpdateAvailable: false when client version matches latest release', async () => {
+      mockPrisma.appRelease.findFirst.mockResolvedValue({
+        id: 'rel-1',
+        version: '1.1.0',
+        minSupportedVersion: '1.0.0',
+        apkUrl:
+          'https://github.com/Umesh080797668/GRS/releases/download/v1.1.0/app-release.apk',
+        checksum: 'checksum123',
+        releaseNotes: 'v1.1.0 changes',
+        releasedAt: new Date(),
+      });
+
+      const manifest = await controller.getLatest('1.1.0');
+      expect(manifest.version).toBe('1.1.0');
+      expect(manifest.isUpdateAvailable).toBe(false);
+      expect(manifest.isLatest).toBe(true);
+      expect(manifest.message).toBe('You are already up to date.');
+    });
+
+    it('returns isUpdateAvailable: true when client version is older than latest release', async () => {
+      mockPrisma.appRelease.findFirst.mockResolvedValue({
+        id: 'rel-1',
+        version: '1.1.0',
+        minSupportedVersion: '1.0.0',
+        apkUrl:
+          'https://github.com/Umesh080797668/GRS/releases/download/v1.1.0/app-release.apk',
+        checksum: 'checksum123',
+        releaseNotes: 'v1.1.0 changes',
+        releasedAt: new Date(),
+      });
+
+      const manifest = await controller.getLatest('1.0.0');
+      expect(manifest.version).toBe('1.1.0');
+      expect(manifest.isUpdateAvailable).toBe(true);
+      expect(manifest.isLatest).toBe(false);
+      expect(manifest.message).toBe('Update v1.1.0 is available.');
+    });
+
+    it('reassures client with isLatest: true when no release exists in DB but client version is passed', async () => {
+      mockPrisma.appRelease.findFirst.mockResolvedValue(null);
+
+      const manifest = await controller.getLatest('1.0.0');
+      expect(manifest.version).toBe('1.0.0');
+      expect(manifest.isUpdateAvailable).toBe(false);
+      expect(manifest.isLatest).toBe(true);
+      expect(manifest.message).toBe('You are already up to date.');
+    });
+
+    it('GET /v1/releases/check returns full update status structure', async () => {
+      mockPrisma.appRelease.findFirst.mockResolvedValue({
+        id: 'rel-1',
+        version: '1.1.0',
+        minSupportedVersion: '1.0.0',
+        apkUrl:
+          'https://github.com/Umesh080797668/GRS/releases/download/v1.1.0/app-release.apk',
+        checksum: 'checksum123',
+        releaseNotes: 'v1.1.0 changes',
+        releasedAt: new Date(),
+      });
+
+      const check = await controller.checkUpdate('1.0.0');
+      expect(check.isUpdateAvailable).toBe(true);
+      expect(check.currentVersion).toBe('1.0.0');
+      expect(check.latestVersion).toBe('1.1.0');
+      expect(check.message).toBe('Update v1.1.0 is available.');
+    });
+  });
 });
+

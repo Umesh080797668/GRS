@@ -9,4 +9,9 @@ export interface ReleaseManifest {
   releaseNotes?: string | null;
   releasedAt: Date | string;
   mandatory?: boolean;
+  isUpdateAvailable?: boolean;
+  isLatest?: boolean;
+  message?: string;
+  currentVersion?: string;
 }
+

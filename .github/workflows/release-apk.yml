@@ -177,7 +177,7 @@ jobs:
         if: env.SKIP_RELEASE != 'true'
         run: |
           cd apps/mobile
-          flutter build apk --release --build-name="${VERSION}" --build-number="${BUILD_NUMBER}"
+          flutter build apk --release --build-name="${VERSION}" --build-number="${BUILD_NUMBER}" --dart-define=APP_VERSION="${VERSION}"
 
       - name: Generate Checksum & Release Manifest
         if: env.SKIP_RELEASE != 'true'

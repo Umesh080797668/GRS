@@ -5,6 +5,8 @@ import {
   Body,
   Res,
   Req,
+  Query,
+  Headers,
   UnauthorizedException,
   NotFoundException,
 } from '@nestjs/common';
@@ -68,8 +70,12 @@ export class ReleasesController {
    * Returns authoritative release manifest JSON.
    */
   @Get('latest')
-  async getLatest(): Promise<ReleaseManifest> {
-    return this.releasesService.getLatestRelease();
+  async getLatest(
+    @Query('current_version') queryVersion?: string,
+    @Headers('x-app-version') headerVersion?: string,
+  ): Promise<ReleaseManifest> {
+    const currentVersion = queryVersion || headerVersion;
+    return this.releasesService.getLatestRelease(currentVersion);
   }
 
   /**
@@ -77,9 +83,55 @@ export class ReleasesController {
    * Alias for direct manifest.json queries.
    */
   @Get('manifest')
-  async getManifest(): Promise<ReleaseManifest> {
-    return this.releasesService.getLatestRelease();
+  async getManifest(
+    @Query('current_version') queryVersion?: string,
+    @Headers('x-app-version') headerVersion?: string,
+  ): Promise<ReleaseManifest> {
+    const currentVersion = queryVersion || headerVersion;
+    return this.releasesService.getLatestRelease(currentVersion);
   }
+
+  /**
+   * GET /v1/releases/check
+   * Explicit update check endpoint comparing client version with latest release.
+   */
+  @Get('check')
+  async checkUpdate(
+    @Query('current_version') queryVersion?: string,
+    @Headers('x-app-version') headerVersion?: string,
+  ) {
+    const currentVersion = queryVersion || headerVersion;
+    return this.releasesService.checkUpdate(currentVersion);
+  }
+
+  /**
+   * POST /v1/releases/sync
+   * Manually trigger GitHub releases sync.
+   */
+  @Post('sync')
+  async syncReleases(
+    @Req() req: Request,
+  ): Promise<{ message: string; release: ReleaseManifest | null }> {
+    const releaseSecret = process.env.RELEASE_SECRET;
+    const providedSecret = req.headers['x-release-secret'];
+    const authHeader = req.headers.authorization;
+
+    if ((releaseSecret && providedSecret === releaseSecret) || authHeader) {
+      const release = await this.releasesService.syncFromGitHub();
+      return {
+        message: release
+          ? `Synced latest release v${release.version}`
+          : 'No release found on GitHub or sync failed',
+        release,
+      };
+    }
+
+    throw new UnauthorizedException({
+      code: 'UNAUTHORIZED',
+      message: 'Missing authorization or release secret',
+    });
+  }
+
 
   /**
    * GET /v1/releases/download

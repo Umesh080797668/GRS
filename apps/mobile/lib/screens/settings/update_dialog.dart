@@ -45,7 +45,9 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
     });
     try {
       final updater = ref.read(appUpdaterServiceProvider);
-      final release = await updater.fetchLatestRelease();
+      final release = await updater.fetchLatestRelease(
+        currentVersion: widget.currentVersion,
+      );
       final hasUpdate = AppUpdaterService.isUpdateAvailable(
         release.version,
         widget.currentVersion,
@@ -59,9 +61,23 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
       }
     } catch (e) {
       if (mounted) {
+        // If release was not found, it means the client is already on the latest available version
+        if (e is GrsApiException &&
+            (e.isNotFound || e.code == 'RELEASE_NOT_FOUND')) {
+          setState(() {
+            _isChecking = false;
+            _isUpdateAvailable = false;
+          });
+          return;
+        }
+
+        final errorMsg = e is GrsApiException
+            ? (e.messageKey.isNotEmpty ? e.messageKey : e.code)
+            : e.toString().replaceFirst('Exception: ', '');
+
         setState(() {
           _isChecking = false;
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = errorMsg;
         });
       }
     }
@@ -99,9 +115,12 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
       }
     } catch (e) {
       if (mounted) {
+        final errorMsg = e is GrsApiException
+            ? (e.messageKey.isNotEmpty ? e.messageKey : e.code)
+            : e.toString().replaceFirst('Exception: ', '');
         setState(() {
           _isDownloading = false;
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = errorMsg;
         });
       }
     }
@@ -304,8 +323,11 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
                           .read(appUpdaterServiceProvider)
                           .installApk(_downloadedFile!);
                     } catch (e) {
+                      final errorMsg = e is GrsApiException
+                          ? (e.messageKey.isNotEmpty ? e.messageKey : e.code)
+                          : e.toString().replaceFirst('Exception: ', '');
                       setState(() {
-                        _error = e.toString().replaceFirst('Exception: ', '');
+                        _error = errorMsg;
                       });
                     }
                   },

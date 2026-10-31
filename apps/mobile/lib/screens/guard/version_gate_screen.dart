@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:grs_core/grs_core.dart';
 import 'package:grs_ui/grs_ui.dart';
 import '../../l10n/l10n.dart';
 import '../../providers/auth_provider.dart';
@@ -64,9 +65,12 @@ class _VersionGateScreenState extends ConsumerState<VersionGateScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final errorMsg = e is GrsApiException
+            ? (e.messageKey.isNotEmpty ? e.messageKey : e.code)
+            : e.toString().replaceFirst('Exception: ', '');
         setState(() {
           _isDownloading = false;
-          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+          _errorMessage = errorMsg;
         });
       }
     }

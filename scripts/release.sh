@@ -19,6 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PUBSPEC_PATH="${ROOT_DIR}/apps/mobile/pubspec.yaml"
 PACKAGE_JSON="${ROOT_DIR}/package.json"
+ENV_DART="${ROOT_DIR}/apps/mobile/lib/config/env.dart"
 
 BUMP_TYPE="patch"
 PUSH=true
@@ -106,8 +107,13 @@ if [ -f "$PACKAGE_JSON" ]; then
   sed -i "s/\"version\": \".*\"/\"version\": \"${NEW_VER}\"/" "$PACKAGE_JSON"
 fi
 
-# 5. Commit and Create Git Tag
-git add "$PUBSPEC_PATH" "$PACKAGE_JSON"
+# 5. Update apps/mobile/lib/config/env.dart default appVersion
+if [ -f "$ENV_DART" ]; then
+  sed -i "s/defaultValue: '[0-9.]*'/defaultValue: '${NEW_VER}'/" "$ENV_DART"
+fi
+
+# 6. Commit and Create Git Tag
+git add "$PUBSPEC_PATH" "$PACKAGE_JSON" "$ENV_DART"
 git commit -m "chore(release): bump mobile version to ${NEW_FULL} (${NEW_TAG})"
 git tag -a "${NEW_TAG}" -m "Release ${NEW_TAG}"
 

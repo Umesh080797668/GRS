@@ -320,8 +320,11 @@ class GrsApiClient {
   }
 
   /// GET /v1/releases/latest
-  Future<AppReleaseModel> getLatestRelease() async {
-    final uri = Uri.parse('$baseUrl/v1/releases/latest');
+  Future<AppReleaseModel> getLatestRelease({String? currentVersion}) async {
+    final query = currentVersion != null
+        ? '?current_version=$currentVersion'
+        : '';
+    final uri = Uri.parse('$baseUrl/v1/releases/latest$query');
     final response = await _client.get(
       uri,
       headers: _headers(authenticated: false),
