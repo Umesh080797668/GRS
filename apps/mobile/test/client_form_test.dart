@@ -125,8 +125,8 @@ void main() {
 
         // 10.12 Future hopes chips
         expect(find.text('Higher Education'), findsOneWidget);
-        expect(find.text('Vocational Training'), findsOneWidget);
-        expect(find.text('Start Business / Entrepreneur'), findsOneWidget);
+        expect(find.text('Vocational Education'), findsOneWidget);
+        expect(find.text('Entrepreneurship / Self-employment'), findsOneWidget);
 
         // 10.13 Info provided by
         expect(find.text('Information Provided By'), findsOneWidget);
@@ -153,7 +153,7 @@ void main() {
     );
 
     testWidgets(
-      'Synced record is locked and read-only for Level 5 agents (Decision C2)',
+      'Synced record remains editable and displays synced notice (Blueprint §7.4 & §10.1)',
       (WidgetTester tester) async {
         // Create an already-synced client in database
         final syncedClient = Client(
@@ -197,20 +197,17 @@ void main() {
 
         await tester.pumpAndSettle();
 
-        // Locked banner must be displayed
-        expect(
-          find.textContaining('Locked: This record has been confirmed'),
-          findsOneWidget,
-        );
+        // Synced notice banner must be displayed (Blueprint §7.4)
+        expect(find.textContaining('Synced with server'), findsOneWidget);
 
-        // Edit action buttons must NOT be shown
+        // Edit action buttons MUST be shown so field typos can be fixed per Blueprint §7.4 & §10.1
         expect(
           find.widgetWithText(GrsButton, 'Save & Finish House'),
-          findsNothing,
+          findsOneWidget,
         );
         expect(
           find.widgetWithText(GrsButton, 'Save & Add Next Beneficiary'),
-          findsNothing,
+          findsOneWidget,
         );
       },
     );

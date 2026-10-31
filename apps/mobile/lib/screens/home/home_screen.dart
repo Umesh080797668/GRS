@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:grs_ui/grs_ui.dart';
 import '../../l10n/l10n.dart';
 import '../../providers/area_download_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/connectivity_provider.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/sync_provider.dart';
@@ -20,7 +21,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with TickerProviderStateMixin {
   final _searchController = TextEditingController();
   String _selectedFilter = 'all';
-  bool _isSyncing = false;
 
   late final AnimationController _syncCtrl;
   late final AnimationController _heroPulseCtrl;
@@ -95,44 +95,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Future<void> _triggerSync() async {
-    final isOnline = ref.read(connectivityProvider);
-    if (!isOnline) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Device is offline. Turn off Airplane mode or connect to a network to sync.',
-          ),
-          backgroundColor: Color(0xFFB45309),
-        ),
-      );
-      return;
-    }
-    setState(() => _isSyncing = true);
-    _syncCtrl.repeat();
-
-    try {
-      final ok = await ref.read(syncProvider.notifier).sync();
-      final syncState = ref.read(syncProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              syncState.lastMessage ??
-                  (ok ? 'Sync completed.' : 'Sync paused.'),
-            ),
-            backgroundColor: ok
-                ? GrsColors.syncSynced
-                : const Color(0xFFB45309),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        _syncCtrl.stop();
-        _syncCtrl.reset();
-        setState(() => _isSyncing = false);
-      }
-    }
+    final ok = await ref.read(syncProvider.notifier).sync();
+    await ref.read(syncProvider.notifier).pullChanges();
+    if (!mounted) return;
+    final syncState = ref.read(syncProvider);
+    final msg =
+        syncState.lastMessage ?? (ok ? 'Sync completed' : 'Sync paused');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+    );
   }
 
   @override
@@ -145,6 +116,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final isOnline = ref.watch(connectivityProvider);
     final revision = ref.watch(recordsRevisionProvider);
     final pendingCount = ref.watch(pendingCountProvider).value ?? 0;
+    final authState = ref.watch(authProvider);
 
     final ink = isDark ? GrsColors.textPrimaryDark : GrsColors.textPrimaryLight;
     final secondary = isDark
@@ -190,7 +162,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ),
           GrsBounceTouch(
-            onTap: _isSyncing ? null : _triggerSync,
+            onTap: _triggerSync,
             child: Padding(
               padding: const EdgeInsets.all(8),
               child: Badge(
@@ -208,7 +180,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   turns: _syncCtrl,
                   child: Icon(
                     Icons.sync_rounded,
-                    color: _isSyncing ? theme.colorScheme.primary : secondary,
+                    color: secondary.withValues(alpha: 0.4),
                     size: 22,
                   ),
                 ),
@@ -243,8 +215,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ),
 
-          // ── Offline Mode Notice Banner ─────────────────────────────────────
-          if (!isOnline) ...[
+          // ── Expired Session Notice Banner (Blueprint §7.6) ──────────────────
+          if (authState.isSessionExpiredOffline) ...[
+            GrsFadeIn(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF451A03)
+                        : const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0xFF92400E)
+                          : const Color(0xFFFCD34D),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        size: 20,
+                        color: isDark
+                            ? const Color(0xFFFCD34D)
+                            : const Color(0xFFB45309),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l10n.get('offlineSessionExpiredTitle'),
+                              style: GrsTypography.labelMedium(
+                                color: isDark
+                                    ? const Color(0xFFFCD34D)
+                                    : const Color(0xFF92400E),
+                              ).copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              l10n.get('offlineSessionExpiredNotice'),
+                              style: GrsTypography.labelSmall(
+                                color: isDark
+                                    ? const Color(0xFFFDE68A)
+                                    : const Color(0xFF78350F),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ] else if (!isOnline) ...[
             GrsFadeIn(
               child: const Padding(
                 padding: EdgeInsets.fromLTRB(16, 10, 16, 0),

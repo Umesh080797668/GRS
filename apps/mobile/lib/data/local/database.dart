@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:grs_core/grs_core.dart';
 import 'package:sqlite3/open.dart' as sqlite_open;
 import 'package:sqlcipher_flutter_libs/sqlcipher_flutter_libs.dart';
+import 'canonical_lookups.dart';
 
 class InvalidDatabaseKeyException implements Exception {
   final String message;
@@ -710,11 +711,16 @@ class AppDatabase {
     return rows.isEmpty ? null : rows.first;
   }
 
-  Future<void> updateClientSyncStatus(
+  /// Updates client sync status with Revision Guard (Build Plan §8.2 #2).
+  /// If expectedLocalRevision is provided, the status is updated ONLY if
+  /// the record in the local database is still at that exact revision.
+  /// Returns true if updated, false if revision mismatch (agent edited while in flight).
+  Future<bool> updateClientSyncStatus(
     String id, {
     required SyncStatus status,
     int? baseVersion,
     String? errorCode,
+    int? expectedLocalRevision,
   }) async {
     final args = <dynamic>[status.name];
     var setClause = 'sync_status = ?';
@@ -726,13 +732,55 @@ class AppDatabase {
     if (errorCode != null) {
       setClause += ', last_error_code = ?';
       args.add(errorCode);
+    } else if (status == SyncStatus.synced) {
+      setClause += ', last_error_code = NULL';
     }
 
     args.add(id);
-    await _executor.runUpdate(
-      'UPDATE clients SET $setClause WHERE id = ?',
+    var whereClause = 'WHERE id = ?';
+    if (expectedLocalRevision != null) {
+      whereClause += ' AND local_revision = ?';
+      args.add(expectedLocalRevision);
+    }
+
+    final count = await _executor.runUpdate(
+      'UPDATE clients SET $setClause $whereClause',
       args,
     );
+    return count > 0;
+  }
+
+  /// Retrieves up to limit pending client records for batch sync processing (§8.3 & §8.5).
+  Future<List<Map<String, dynamic>>> getPendingClientsBatch({
+    int limit = 50,
+  }) async {
+    return await _executor.runSelect(
+      'SELECT * FROM clients WHERE sync_status = ? ORDER BY created_at ASC LIMIT ?',
+      [SyncStatus.pending.name, limit],
+    );
+  }
+
+  /// Single-flight lock per Build Plan §8.2 #3.
+  /// Prevents foreground sync and background workers from colliding.
+  Future<bool> acquireSyncLock({
+    Duration timeout = const Duration(minutes: 5),
+  }) async {
+    final now = DateTime.now();
+    final lockVal = await getMeta('sync_lock');
+    if (lockVal != null && lockVal.isNotEmpty) {
+      final expiry = DateTime.tryParse(lockVal);
+      if (expiry != null && now.isBefore(expiry)) {
+        return false; // Lock is currently active
+      }
+    }
+    final newExpiry = now.add(timeout).toUtc().toIso8601String();
+    await setMeta('sync_lock', newExpiry);
+    return true;
+  }
+
+  /// Releases the single-flight sync lock.
+  Future<void> releaseSyncLock() async {
+    await setMeta('sync_lock', '');
   }
 
   Future<bool> deleteDraftClient(String id) async {
@@ -779,6 +827,9 @@ class AppDatabase {
       'SELECT * FROM lookups WHERE category = ? AND is_active = 1 ORDER BY sort ASC',
       [category],
     );
+    if (rows.isEmpty) {
+      return CanonicalLookups.byCategory(category);
+    }
     return rows
         .map(
           (r) => LookupValueModel(

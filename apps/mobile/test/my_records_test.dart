@@ -185,7 +185,7 @@ void main() {
     );
 
     testWidgets(
-      'Restricts editing to pending records (synced records are locked, M2.10)',
+      'Allows editing synced records and pending records (Blueprint §7.4 & §10.1)',
       (WidgetTester tester) async {
         tester.view.physicalSize = const Size(800, 1200);
         tester.view.devicePixelRatio = 1.0;
@@ -212,24 +212,10 @@ void main() {
 
         await tester.pumpAndSettle();
 
-        // Synced record displays lock icon and shows locked dialog on tap
-        expect(find.byIcon(Icons.lock_outline), findsOneWidget);
-        expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
-
-        await tester.tap(find.text('Synced User'));
-        await tester.pumpAndSettle();
-
-        expect(find.text('Record Locked'), findsOneWidget);
-        expect(
-          find.textContaining(
-            'This record has already been synced to the central server and is locked',
-          ),
-          findsOneWidget,
-        );
-        expect(
-          find.widgetWithText(ElevatedButton, 'View Read-Only'),
-          findsOneWidget,
-        );
+        // Synced and pending records both display edit button per Blueprint §10.1
+        expect(find.byIcon(Icons.edit_outlined), findsWidgets);
+        expect(find.text('Synced User'), findsOneWidget);
+        expect(find.text('Pending User'), findsOneWidget);
       },
     );
   });

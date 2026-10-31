@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grs_core/grs_core.dart';
 import '../data/local/secure_storage_service.dart';
@@ -21,6 +22,7 @@ class AuthState {
   final String? errorMessage;
   final bool isOffline;
   final String? minVersionRequired;
+  final bool isSessionExpiredOffline;
 
   const AuthState({
     required this.status,
@@ -28,6 +30,7 @@ class AuthState {
     this.errorMessage,
     this.isOffline = false,
     this.minVersionRequired,
+    this.isSessionExpiredOffline = false,
   });
 
   factory AuthState.initial() => const AuthState(status: AuthStatus.initial);
@@ -38,6 +41,7 @@ class AuthState {
     String? errorMessage,
     bool? isOffline,
     String? minVersionRequired,
+    bool? isSessionExpiredOffline,
   }) {
     return AuthState(
       status: status ?? this.status,
@@ -45,6 +49,8 @@ class AuthState {
       errorMessage: errorMessage,
       isOffline: isOffline ?? this.isOffline,
       minVersionRequired: minVersionRequired ?? this.minVersionRequired,
+      isSessionExpiredOffline:
+          isSessionExpiredOffline ?? this.isSessionExpiredOffline,
     );
   }
 }
@@ -52,13 +58,38 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final GrsApiClient _apiClient;
   final SecureStorageService _storage;
+  final Ref? _ref;
 
   AuthNotifier({
     required GrsApiClient apiClient,
     required SecureStorageService storage,
+    Ref? ref,
   }) : _apiClient = apiClient,
        _storage = storage,
+       _ref = ref,
        super(AuthState.initial());
+
+  bool _isJwtExpired(String? token) {
+    if (token == null || token.trim().isEmpty) return true;
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return true;
+      final normalized = base64Url.normalize(parts[1]);
+      final payloadString = utf8.decode(base64Url.decode(normalized));
+      final map = jsonDecode(payloadString) as Map<String, dynamic>;
+      final exp = map['exp'];
+      if (exp is int) {
+        final expiry = DateTime.fromMillisecondsSinceEpoch(
+          exp * 1000,
+          isUtc: true,
+        );
+        return DateTime.now().toUtc().isAfter(expiry);
+      }
+    } catch (_) {
+      return true;
+    }
+    return false;
+  }
 
   /// Checks saved session on app launch (Cold Start per M2.6)
   Future<void> checkColdStart() async {
@@ -94,25 +125,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return;
     }
 
-    // Missing or cleared tokens (e.g. after logout) must never authenticate offline
-    final hasNoTokens =
-        (accessToken == null || accessToken.trim().isEmpty) &&
-        (refreshToken == null || refreshToken.trim().isEmpty);
-    if (hasNoTokens) {
-      await _storage.clearTokens();
-      await _storage.clearActiveProfile();
-      state = const AuthState(status: AuthStatus.unauthenticated);
-      return;
-    }
-
     _apiClient.setTokens(accessToken: accessToken, refreshToken: refreshToken);
 
-    // Instantly transition to authenticated so Home Screen opens in < 50ms without blocking on the network
-    state = AuthState(
-      status: AuthStatus.authenticated,
-      profile: profile,
-      isOffline: false,
-    );
+    final isExpired = _isJwtExpired(accessToken);
 
     // Try refreshing or verifying online status in the background (fast timeout: 2.5s)
     try {
@@ -138,17 +153,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
           );
           return;
         }
-        if (state.profile?.id != res.profile.id ||
-            state.profile?.role != res.profile.role ||
-            state.profile?.fullName != res.profile.fullName ||
-            state.profile?.email != res.profile.email ||
-            state.isOffline != false) {
-          state = AuthState(
-            status: AuthStatus.authenticated,
-            profile: res.profile,
-            isOffline: false,
-          );
-        }
+        state = AuthState(
+          status: AuthStatus.authenticated,
+          profile: res.profile,
+          isOffline: false,
+          isSessionExpiredOffline: false,
+        );
         return;
       }
     } catch (e) {
@@ -164,23 +174,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = AuthState(status: AuthStatus.deactivated, profile: profile);
         return;
       }
-      if (e is GrsApiException && (e.isUnauthorized || e.statusCode == 400)) {
-        // Token invalid, revoked, malformed, or rejected
-        await _storage.clearTokens();
-        await _storage.clearActiveProfile();
-        state = const AuthState(status: AuthStatus.unauthenticated);
-        return;
-      }
+      // If server explicitly returned 401/400 while online, refresh was rejected
+      // For network errors/timeouts, device is in offline mode
     }
 
-    // Airplane-mode / Offline cold start with valid saved credentials
-    if (!state.isOffline) {
-      state = AuthState(
-        status: AuthStatus.authenticated,
-        profile: profile,
-        isOffline: true,
-      );
-    }
+    // Airplane-mode / Offline cold start (per Blueprint §7.6)
+    // If the token has expired and there is no internet, the app shows a clear message
+    // and still lets the agent keep recording data.
+    final hasNoValidToken =
+        accessToken == null || accessToken.trim().isEmpty || isExpired;
+
+    state = AuthState(
+      status: AuthStatus.authenticated,
+      profile: profile,
+      isOffline: true,
+      isSessionExpiredOffline: hasNoValidToken,
+    );
   }
 
   /// Sign in flow (M2.5) with uniform failure response (Invariant 14)
@@ -206,6 +215,32 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (!res.profile.isActive) {
         state = AuthState(status: AuthStatus.deactivated, profile: res.profile);
         return;
+      }
+
+      // User switch check (Build Plan §8.2 #7 & §12.4 #10)
+      if (_ref != null) {
+        try {
+          final db = await _ref.read(databaseProvider.future);
+          final lastUserId = await db.getMeta('last_user_id');
+          if (lastUserId != null &&
+              lastUserId.isNotEmpty &&
+              lastUserId != res.profile.id) {
+            final allClients = await db.getAllClients();
+            final hasUnsynced = allClients.any(
+              (c) => c['sync_status'] != 'synced',
+            );
+            if (hasUnsynced) {
+              state = const AuthState(
+                status: AuthStatus.unauthenticated,
+                errorMessage: 'userSwitchBlockedUnsynced',
+              );
+              return;
+            }
+            // All previous user data was synced: wipe local database to preserve data privacy
+            await db.wipeAllData();
+          }
+          await db.setMeta('last_user_id', res.profile.id);
+        } catch (_) {}
       }
 
       await _storage.saveTokens(
@@ -362,18 +397,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout({String deviceId = 'mobile-device'}) async {
-    final profileId = state.profile?.id;
     try {
       await _apiClient.logout(deviceId: deviceId);
     } catch (_) {}
     await _storage.clearTokens();
     await _storage.clearActiveProfile();
     _apiClient.clearTokens();
-    if (profileId != null) {
-      await wipeUserDatabase(userId: profileId, storage: _storage);
-    } else {
-      await wipeUserDatabase(storage: _storage);
-    }
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 }
@@ -381,5 +410,5 @@ class AuthNotifier extends StateNotifier<AuthState> {
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final apiClient = ref.watch(apiClientProvider);
   final storage = ref.watch(secureStorageProvider);
-  return AuthNotifier(apiClient: apiClient, storage: storage);
+  return AuthNotifier(apiClient: apiClient, storage: storage, ref: ref);
 });

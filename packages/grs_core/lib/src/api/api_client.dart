@@ -415,4 +415,21 @@ class GrsApiClient {
 
     _handleError(response);
   }
+
+  /// GET /v1/sync/changes?since=
+  Future<Map<String, dynamic>> getChanges({String? since}) async {
+    final queryParams = since != null
+        ? '?since=${Uri.encodeComponent(since)}'
+        : '';
+    final uri = Uri.parse('$baseUrl/v1/sync/changes$queryParams');
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+
+    _handleError(response);
+  }
 }

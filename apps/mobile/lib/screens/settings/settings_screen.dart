@@ -16,48 +16,85 @@ class SettingsScreen extends ConsumerWidget {
 
   Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
     final l10n = GrsL10n.of(context);
-    List<dynamic> pending = [];
+    List<dynamic> unsyncedRecords = [];
+    int draftCount = 0;
+    int pendingCount = 0;
+    int rejectedCount = 0;
+
     try {
       final db = await ref.read(databaseProvider.future);
-      pending = await db.getAllClients(status: SyncStatus.pending);
+      final drafts = await db.getAllClients(status: SyncStatus.draft);
+      final pending = await db.getAllClients(status: SyncStatus.pending);
+      final rejected = await db.getAllClients(status: SyncStatus.rejected);
+      draftCount = drafts.length;
+      pendingCount = pending.length;
+      rejectedCount = rejected.length;
+      unsyncedRecords = [...drafts, ...pending, ...rejected];
     } catch (_) {}
 
-    if (context.mounted) {
+    if (!context.mounted) return;
+
+    if (unsyncedRecords.isNotEmpty) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: Text(l10n.get('logoutConfirmTitle')),
+          title: Row(
+            children: [
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: GrsColors.syncRejected,
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Text(l10n.get('logoutBlockedTitle'))),
+            ],
+          ),
           content: Text(
-            pending.isNotEmpty
-                ? l10n.get('logoutWarning')
-                : 'Are you sure you want to sign out?',
+            '${l10n.get('logoutBlockedMessage')}\n\n'
+            '• ${l10n.get('statusDraft')}: $draftCount\n'
+            '• ${l10n.get('statusPending')}: $pendingCount\n'
+            '• ${l10n.get('statusRejected')}: $rejectedCount',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(l10n.get('cancel')),
-            ),
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: GrsColors.syncRejected,
-              ),
-              onPressed: () async {
-                Navigator.of(ctx).pop();
-                try {
-                  ref.invalidate(databaseProvider);
-                  await ref.read(authProvider.notifier).logout();
-                } catch (_) {}
-                if (context.mounted) context.go('/login');
-              },
-              child: Text(
-                l10n.get('logout'),
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
+              child: const Text('OK'),
             ),
           ],
         ),
       );
+      return;
     }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.get('logoutConfirmTitle')),
+        content: Text(l10n.get('logoutConfirmMessage')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l10n.get('cancel')),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: GrsColors.syncRejected,
+            ),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              try {
+                ref.invalidate(databaseProvider);
+                await ref.read(authProvider.notifier).logout();
+              } catch (_) {}
+              if (context.mounted) context.go('/login');
+            },
+            child: Text(
+              l10n.get('logout'),
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

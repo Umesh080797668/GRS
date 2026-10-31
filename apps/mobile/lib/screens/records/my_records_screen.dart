@@ -183,13 +183,7 @@ class _MyRecordsScreenState extends ConsumerState<MyRecordsScreen> {
                                     vertical: 12,
                                   ),
                                   onTap: () async {
-                                    if (status == 'synced') {
-                                      _showSyncedLockedDialog(
-                                        context,
-                                        id,
-                                        houseId,
-                                      );
-                                    } else if (status == 'rejected') {
+                                    if (status == 'rejected') {
                                       _showRejectedDialog(
                                         context,
                                         id,
@@ -323,47 +317,16 @@ class _MyRecordsScreenState extends ConsumerState<MyRecordsScreen> {
     );
   }
 
-  void _showSyncedLockedDialog(
-    BuildContext context,
-    String clientId,
-    String houseId,
-  ) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.lock_outline, color: GrsColors.primaryLight),
-            SizedBox(width: 8),
-            Text('Record Locked'),
-          ],
-        ),
-        content: const Text(
-          'This record has already been synced to the central server and is locked against further editing.\n\nEditing is only permitted for records that are still pending sync.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              context.push('/houses/$houseId/client/$clientId');
-            },
-            child: const Text('View Read-Only'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildBadge(String status, GrsL10n l10n) {
     return switch (status) {
       'synced' => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.lock_outline, size: 16, color: GrsColors.syncSynced),
+          const Icon(
+            Icons.check_circle_outline_rounded,
+            size: 16,
+            color: GrsColors.syncSynced,
+          ),
           const SizedBox(width: 4),
           GrsSyncBadge(
             status: GrsSyncStatus.synced,

@@ -680,5 +680,81 @@ describe('Security Vulnerability Fixes Verification', () => {
 
       expect(mockRateLimit.throwThrottled).toHaveBeenCalledWith(45);
     });
+
+    it('throttles login when email rate limit is exceeded (Blueprint §3.1)', async () => {
+      const mockRateLimit = {
+        checkRateLimit: jest.fn().mockImplementation((key) => {
+          if (key.startsWith('login:email:')) {
+            return Promise.resolve({ allowed: false, retryAfter: 50 });
+          }
+          return Promise.resolve({ allowed: true });
+        }),
+        throwThrottled: jest.fn().mockImplementation((retryAfter) => {
+          throw new (require('@nestjs/common').HttpException)(
+            { statusCode: 429, retryAfter },
+            429,
+          );
+        }),
+      };
+
+      const { AuthService } = require('./auth.service');
+      const auth = new AuthService(
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        mockRateLimit as any,
+      );
+
+      await expect(
+        auth.login(
+          { identifier: 'user@example.com', password: 'Password@1234' },
+          '127.0.0.1',
+        ),
+      ).rejects.toThrow();
+
+      expect(mockRateLimit.throwThrottled).toHaveBeenCalledWith(50);
+    });
+
+    it('throttles login when device rate limit is exceeded (Blueprint §3.1)', async () => {
+      const mockRateLimit = {
+        checkRateLimit: jest.fn().mockImplementation((key) => {
+          if (key.startsWith('login:device:')) {
+            return Promise.resolve({ allowed: false, retryAfter: 30 });
+          }
+          return Promise.resolve({ allowed: true });
+        }),
+        throwThrottled: jest.fn().mockImplementation((retryAfter) => {
+          throw new (require('@nestjs/common').HttpException)(
+            { statusCode: 429, retryAfter },
+            429,
+          );
+        }),
+      };
+
+      const { AuthService } = require('./auth.service');
+      const auth = new AuthService(
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        mockRateLimit as any,
+      );
+
+      await expect(
+        auth.login(
+          {
+            identifier: 'GRS1000000001',
+            password: 'Password@1234',
+            deviceId: 'dev-phone-99',
+          },
+          '127.0.0.1',
+        ),
+      ).rejects.toThrow();
+
+      expect(mockRateLimit.throwThrottled).toHaveBeenCalledWith(30);
+    });
   });
 });

@@ -163,6 +163,7 @@ export const CANONICAL_LOOKUPS: LookupItem[] = [
     labelEn: 'Pending Owner Specification',
     labelSi: 'අයිතිකරුගේ තහවුරු කිරීම අපේක්ෂිතයි',
     labelTa: 'உரிமையாளரின் உறுதிப்படுத்தல் தேவை',
+    isActive: false,
   },
 
   // 3. Interested Vocational Stream (Baseline per B1)
@@ -253,6 +254,7 @@ export const CANONICAL_LOOKUPS: LookupItem[] = [
     labelEn: 'Pending Owner Specification',
     labelSi: 'අයිතිකරුගේ තහවුරු කිරීම අපේක්ෂිතයි',
     labelTa: 'உரிமையாளரின் உறுதிப்படுத்தல் தேவை',
+    isActive: false,
   },
 
   // 4. Interested Job (Baseline per B1)
@@ -351,6 +353,7 @@ export const CANONICAL_LOOKUPS: LookupItem[] = [
     labelEn: 'Pending Owner Specification',
     labelSi: 'අයිතිකරුගේ තහවුරු කිරීම අපේක්ෂිතයි',
     labelTa: 'உரிமையாளரின் உறுதிப்படுத்தல் தேவை',
+    isActive: false,
   },
 
   // 5. Future Hopes (DD/S/001 Item 10.12)

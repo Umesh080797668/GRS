@@ -86,7 +86,7 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
         where: { OR: [{ actorId: testUserId }, { targetId: testUserId }] },
       });
       await prisma.profile.deleteMany({ where: { id: testUserId } });
-    } catch (_) {}
+    } catch (_) { }
   }
 
   it('Step 1: First Sign-In — Login with mustChangePassword: true returns restricted token', async () => {
@@ -282,6 +282,16 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
   });
 
   it('Step 5: Refresh Token Rotation & Reuse Invalidation against Real API and Database', async () => {
+    // Clear rate limits for test user to prevent hitting the 5/min limit during rapid test steps
+    await prisma.rateLimit.deleteMany({
+      where: {
+        OR: [
+          { key: { contains: testUserCode } },
+          { key: { contains: testEmail } },
+        ],
+      },
+    });
+
     // 1. Sign in to obtain an active session pair
     const loginRes = await fetch(`${baseUrl}/v1/auth/login`, {
       method: 'POST',
@@ -294,6 +304,7 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
         password: resetPassword,
       }),
     });
+    expect(loginRes.status).toBe(200);
     const loginData = await loginRes.json();
     const initialRefreshToken = loginData.refreshToken;
 

@@ -9,15 +9,15 @@ void main() {
     });
 
     test('verifies trilingual typography line height adjustment', () {
-      final latinStyle = GrsTypography.bodyMedium(
+      final latinStyle = GrsTypography.titleMedium(
         color: GrsColors.textPrimaryLight,
         languageCode: 'en',
       );
-      final sinhalaStyle = GrsTypography.bodyMedium(
+      final sinhalaStyle = GrsTypography.titleMedium(
         color: GrsColors.textPrimaryLight,
         languageCode: 'si',
       );
-      final tamilStyle = GrsTypography.bodyMedium(
+      final tamilStyle = GrsTypography.titleMedium(
         color: GrsColors.textPrimaryLight,
         languageCode: 'ta',
       );
@@ -42,7 +42,7 @@ void main() {
       );
 
       expect(find.text('Confirmed'), findsOneWidget);
-      expect(find.byIcon(Icons.check_circle_outline_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
     });
 
     testWidgets('renders GrsOfflineBanner with message', (

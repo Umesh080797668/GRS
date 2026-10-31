@@ -305,5 +305,21 @@
   "notificationPermissionTitle": "දැනුම්දීම් සහ අනතුරු ඇඟවීම්",
   "@notificationPermissionTitle": {},
   "notificationPermissionDesc": "තත්‍ය කාලීන සමමුහුර්තකරණ තත්ත්වය සහ පසුබිම් දැනුම්දීම් සඳහා අවශ්‍ය වේ.",
-  "@notificationPermissionDesc": {}
+  "@notificationPermissionDesc": {},
+  "logoutConfirmMessage": "ඔබට පිටවීමට අවශ්‍ය බව සහතිකද?",
+  "@logoutConfirmMessage": {},
+  "logoutBlockedTitle": "පිටවීම අවහිර කර ඇත",
+  "@logoutBlockedTitle": {},
+  "logoutBlockedMessage": "සමමුහුර්ත නොකළ දත්ත (කෙටුම්පත්, අපේක්ෂිත, හෝ අසාර්ථක) පවතී. දත්ත අහිමි වීම වැළැක්වීම සඳහා පිටවීම අවහිර කර ඇත. කරුණාකර පිටවීමට පෙර ඔබේ දත්ත සමමුහුර්ත කරන්න.",
+  "@logoutBlockedMessage": {},
+  "offlineSessionExpiredTitle": "වාරය කල් ඉකුත් වී ඇත (නොබැඳි මාදිලිය)",
+  "@offlineSessionExpiredTitle": {},
+  "offlineSessionExpiredNotice": "නොබැඳිව සිටියදී ඔබගේ පිවිසුම් වාරය කල් ඉකුත් වී ඇත. ඔබට දත්ත එකතු කිරීම දිගටම කරගෙන යා හැක. ඔබ නැවත මාර්ගගතව පිවිසි පසු දත්ත සමමුහුර්ත වේ.",
+  "@offlineSessionExpiredNotice": {},
+  "syncPushDisabledNotice": "සේවාදායක සමමුහුර්තකරණය 3 වන අදියරේදී ලබා ගත හැක. දත්ත නොබැඳිව ආරක්ෂිතව සුරකිනු ලැබේ.",
+  "@syncPushDisabledNotice": {},
+  "recordSyncedNotice": "සේවාදායකය සමඟ සමමුහුර්ත කර ඇත. නව සංස්කරණයන් නැවත සමමුහුර්ත කිරීම සඳහා අපේක්ෂිත ලෙස සලකුණු කෙරේ.",
+  "@recordSyncedNotice": {},
+  "userSwitchBlockedUnsynced": "පෙර පරිශීලකයාගේ සමමුහුර්ත නොකළ දත්ත මෙම උපාංගයේ පවතී. ගිණුම් මාරු කිරීමට පෙර එම පරිශීලකයා ලෙස ඇතුළු වී දත්ත සමමුහුර්ත කරන්න.",
+  "@userSwitchBlockedUnsynced": {}
 }

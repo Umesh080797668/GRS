@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:grs_core/grs_core.dart';
 import 'package:grs_ui/grs_ui.dart';
+import 'package:mobile/data/local/canonical_lookups.dart';
 import 'package:uuid/uuid.dart';
 import '../../l10n/l10n.dart';
 import '../../providers/database_provider.dart';
@@ -48,7 +49,25 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   String _infoProvidedBy = 'self';
   final _infoOtherController = TextEditingController();
 
+  List<LookupValueModel> _educationLookups = CanonicalLookups.byCategory(
+    'education',
+  );
+  List<LookupValueModel> _vocationalLookups = CanonicalLookups.byCategory(
+    'vocational_qualification',
+  );
+  List<LookupValueModel> _streamLookups = CanonicalLookups.byCategory(
+    'vocational_stream',
+  );
+  List<LookupValueModel> _jobLookups = CanonicalLookups.byCategory('job');
+  List<LookupValueModel> _futureHopeLookups = CanonicalLookups.byCategory(
+    'future_hope',
+  );
+  List<LookupValueModel> _infoProvidedByLookups = CanonicalLookups.byCategory(
+    'info_provided_by',
+  );
+
   bool _isLocked = false;
+  bool _isPreviouslySynced = false;
   bool _isDraft = true;
   bool _isConsentConfirmed = false;
   bool _isLoading = true;
@@ -74,6 +93,15 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
 
   Future<void> _loadInitialData() async {
     final db = await ref.read(databaseProvider.future);
+    _educationLookups = await db.getLookupsByCategory('education');
+    _vocationalLookups = await db.getLookupsByCategory(
+      'vocational_qualification',
+    );
+    _streamLookups = await db.getLookupsByCategory('vocational_stream');
+    _jobLookups = await db.getLookupsByCategory('job');
+    _futureHopeLookups = await db.getLookupsByCategory('future_hope');
+    _infoProvidedByLookups = await db.getLookupsByCategory('info_provided_by');
+
     final house = await db.getHouseholdById(widget.houseId);
     _household = house;
 
@@ -108,7 +136,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
 
         final syncStatus = client['sync_status'] as String;
         _isDraft = syncStatus == 'draft';
-        _isLocked = syncStatus == 'synced';
+        _isPreviouslySynced = syncStatus == 'synced';
+        _isLocked = false;
       }
     } else {
       // Pre-fill address from household
@@ -179,6 +208,9 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
 
     await db.saveClient(client: client, status: status);
     ref.read(recordsRevisionProvider.notifier).increment();
+    if (status == SyncStatus.pending) {
+      ref.read(syncProvider.notifier).triggerDebouncedSync();
+    }
     return true;
   }
 
@@ -193,6 +225,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentLang = ref.watch(languageProvider);
     final l10n = GrsL10n.of(context);
 
     if (_isLoading) {
@@ -208,8 +241,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       appBar: AppBar(
         title: Text(l10n.get('clientFormTitle')),
         actions: [
-          // Locked state indicator in app bar
-          if (_isLocked)
+          // Synced state indicator in app bar (per Blueprint §7.4 synced records remain editable)
+          if (_isPreviouslySynced)
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Container(
@@ -227,13 +260,13 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(
-                      Icons.lock_rounded,
+                      Icons.check_circle_outline_rounded,
                       size: 13,
                       color: GrsColors.syncSynced,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      'Locked',
+                      l10n.get('statusSynced'),
                       style: GrsTypography.labelSmall(
                         color: GrsColors.syncSynced,
                       ).copyWith(fontWeight: FontWeight.w700),
@@ -246,8 +279,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       ),
       body: Column(
         children: [
-          // ── Locked banner ──────────────────────────────────────────────────
-          if (_isLocked)
+          // ── Synced info banner (Blueprint §7.4) ─────────────────────────────
+          if (_isPreviouslySynced)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -257,14 +290,14 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
               child: Row(
                 children: [
                   const Icon(
-                    Icons.lock_rounded,
+                    Icons.cloud_done_outlined,
                     size: 16,
                     color: GrsColors.syncSynced,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Locked: This record has been confirmed and synced to central database. Editing is disabled.',
+                      l10n.get('recordSyncedNotice'),
                       style: GrsTypography.labelSmall(
                         color: GrsColors.syncSynced,
                       ).copyWith(fontWeight: FontWeight.w600),
@@ -467,39 +500,22 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                       index: 7,
                       child: GrsDropdown<String>(
                         label: l10n.get('highestEducationLabel'),
-                        value: _highestEducation,
+                        value:
+                            _educationLookups.any(
+                              (l) => l.code == _highestEducation,
+                            )
+                            ? _highestEducation
+                            : null,
                         enabled: !_isLocked,
                         hint: 'Select level',
-                        items: const [
-                          GrsDropdownItem(
-                            value: 'no_formal',
-                            label: 'No Formal Education',
-                          ),
-                          GrsDropdownItem(
-                            value: 'primary',
-                            label: 'Primary (Grades 1-5)',
-                          ),
-                          GrsDropdownItem(
-                            value: 'secondary',
-                            label: 'Secondary (Grades 6-10)',
-                          ),
-                          GrsDropdownItem(
-                            value: 'ol_passed',
-                            label: 'G.C.E. O/L Passed',
-                          ),
-                          GrsDropdownItem(
-                            value: 'al_passed',
-                            label: 'G.C.E. A/L Passed',
-                          ),
-                          GrsDropdownItem(
-                            value: 'diploma',
-                            label: 'Diploma / Higher Diploma',
-                          ),
-                          GrsDropdownItem(
-                            value: 'degree',
-                            label: 'Bachelor Degree or Above',
-                          ),
-                        ],
+                        items: _educationLookups
+                            .map(
+                              (l) => GrsDropdownItem(
+                                value: l.code,
+                                label: l.getLabel(currentLang),
+                              ),
+                            )
+                            .toList(),
                         onChanged: (val) =>
                             setState(() => _highestEducation = val),
                       ),
@@ -510,29 +526,22 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                       index: 8,
                       child: GrsDropdown<String>(
                         label: l10n.get('highestVocationalLabel'),
-                        value: _highestVocational,
+                        value:
+                            _vocationalLookups.any(
+                              (l) => l.code == _highestVocational,
+                            )
+                            ? _highestVocational
+                            : null,
                         enabled: !_isLocked,
                         hint: 'Select level',
-                        items: const [
-                          GrsDropdownItem(value: 'none', label: 'None'),
-                          GrsDropdownItem(
-                            value: 'nvq_1_3',
-                            label: 'NVQ Level 1-3',
-                          ),
-                          GrsDropdownItem(value: 'nvq_4', label: 'NVQ Level 4'),
-                          GrsDropdownItem(
-                            value: 'nvq_5_6',
-                            label: 'NVQ Level 5-6 (Diploma)',
-                          ),
-                          GrsDropdownItem(
-                            value: 'nvq_7',
-                            label: 'NVQ Level 7 (Degree)',
-                          ),
-                          GrsDropdownItem(
-                            value: 'other_cert',
-                            label: 'Other Vocational Certificate',
-                          ),
-                        ],
+                        items: _vocationalLookups
+                            .map(
+                              (l) => GrsDropdownItem(
+                                value: l.code,
+                                label: l.getLabel(currentLang),
+                              ),
+                            )
+                            .toList(),
                         onChanged: (val) =>
                             setState(() => _highestVocational = val),
                       ),
@@ -543,43 +552,22 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                       index: 9,
                       child: GrsDropdown<String>(
                         label: l10n.get('interestedVocationalStreamLabel'),
-                        value: _interestedVocationalStream,
+                        value:
+                            _streamLookups.any(
+                              (l) => l.code == _interestedVocationalStream,
+                            )
+                            ? _interestedVocationalStream
+                            : null,
                         enabled: !_isLocked,
                         hint: 'Select stream',
-                        items: const [
-                          GrsDropdownItem(
-                            value: 'information_technology',
-                            label: 'Information Technology & AI',
-                          ),
-                          GrsDropdownItem(
-                            value: 'electrical_electronics',
-                            label: 'Electrical & Electronics',
-                          ),
-                          GrsDropdownItem(
-                            value: 'automotive_mechanical',
-                            label: 'Automotive & Mechanical',
-                          ),
-                          GrsDropdownItem(
-                            value: 'construction_building',
-                            label: 'Construction & Carpentry',
-                          ),
-                          GrsDropdownItem(
-                            value: 'hospitality_tourism',
-                            label: 'Hospitality & Culinary Arts',
-                          ),
-                          GrsDropdownItem(
-                            value: 'agriculture_farming',
-                            label: 'Agriculture & Food Processing',
-                          ),
-                          GrsDropdownItem(
-                            value: 'healthcare_nursing',
-                            label: 'Healthcare & Nursing Assistance',
-                          ),
-                          GrsDropdownItem(
-                            value: 'apparel_textile',
-                            label: 'Textile & Apparel Design',
-                          ),
-                        ],
+                        items: _streamLookups
+                            .map(
+                              (l) => GrsDropdownItem(
+                                value: l.code,
+                                label: l.getLabel(currentLang),
+                              ),
+                            )
+                            .toList(),
                         onChanged: (val) =>
                             setState(() => _interestedVocationalStream = val),
                       ),
@@ -590,43 +578,19 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                       index: 10,
                       child: GrsDropdown<String>(
                         label: l10n.get('interestedJobLabel'),
-                        value: _interestedJob,
+                        value: _jobLookups.any((l) => l.code == _interestedJob)
+                            ? _interestedJob
+                            : null,
                         enabled: !_isLocked,
                         hint: 'Select role',
-                        items: const [
-                          GrsDropdownItem(
-                            value: 'software_technician',
-                            label: 'Software / Network Technician',
-                          ),
-                          GrsDropdownItem(
-                            value: 'electrician',
-                            label: 'Industrial Electrician',
-                          ),
-                          GrsDropdownItem(
-                            value: 'mechanic',
-                            label: 'Motor Vehicle Mechanic',
-                          ),
-                          GrsDropdownItem(
-                            value: 'chef_steward',
-                            label: 'Hotel Chef / Steward',
-                          ),
-                          GrsDropdownItem(
-                            value: 'plumber',
-                            label: 'Plumbing & Pipefitting',
-                          ),
-                          GrsDropdownItem(
-                            value: 'tailor_fashion',
-                            label: 'Garment Machine Operator',
-                          ),
-                          GrsDropdownItem(
-                            value: 'caregiver',
-                            label: 'Caregiver / Nursing Aide',
-                          ),
-                          GrsDropdownItem(
-                            value: 'entrepreneur_own',
-                            label: 'Self-Employed Entrepreneur',
-                          ),
-                        ],
+                        items: _jobLookups
+                            .map(
+                              (l) => GrsDropdownItem(
+                                value: l.code,
+                                label: l.getLabel(currentLang),
+                              ),
+                            )
+                            .toList(),
                         onChanged: (val) =>
                             setState(() => _interestedJob = val),
                       ),
@@ -719,33 +683,13 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                       child: Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: [
-                          _buildHopeChip(
-                            'higher_education',
-                            'Higher Education',
+                        children: _futureHopeLookups.map((l) {
+                          return _buildHopeChip(
+                            l.code,
+                            l.getLabel(currentLang),
                             isDark: isDark,
-                          ),
-                          _buildHopeChip(
-                            'vocational_education',
-                            'Vocational Training',
-                            isDark: isDark,
-                          ),
-                          _buildHopeChip(
-                            'entrepreneur',
-                            'Start Business / Entrepreneur',
-                            isDark: isDark,
-                          ),
-                          _buildHopeChip(
-                            'local_job',
-                            'Local Employment',
-                            isDark: isDark,
-                          ),
-                          _buildHopeChip(
-                            'foreign_job',
-                            'Foreign Employment',
-                            isDark: isDark,
-                          ),
-                        ],
+                          );
+                        }).toList(),
                       ),
                     ),
 
@@ -768,28 +712,12 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                         label: l10n.get('infoProvidedByLabel'),
                         value: _infoProvidedBy,
                         enabled: !_isLocked,
-                        items: const [
-                          GrsDropdownItem(
-                            value: 'self',
-                            label: 'Self (ප්‍රතිලාභියා විසින්ම)',
-                          ),
-                          GrsDropdownItem(
-                            value: 'mother',
-                            label: 'Mother (මව)',
-                          ),
-                          GrsDropdownItem(
-                            value: 'father',
-                            label: 'Father (පියා)',
-                          ),
-                          GrsDropdownItem(
-                            value: 'sister',
-                            label: 'Sister / Brother (සහෝදරයා / සහෝදරිය)',
-                          ),
-                          GrsDropdownItem(
-                            value: 'other',
-                            label: 'Other (වෙනත් ඥාතියෙකු)',
-                          ),
-                        ],
+                        items: _infoProvidedByLookups.map((l) {
+                          return GrsDropdownItem(
+                            value: l.code,
+                            label: l.getLabel(currentLang),
+                          );
+                        }).toList(),
                         onChanged: (val) =>
                             setState(() => _infoProvidedBy = val ?? 'self'),
                       ),
@@ -823,7 +751,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                             );
                             if (ok && context.mounted) {
                               context.pushReplacement(
-                                '/houses/${widget.houseId}/client/new?consent=true',
+                                '/houses/${widget.houseId}/consent',
                               );
                             }
                           },

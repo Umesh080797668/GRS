@@ -305,5 +305,21 @@
   "notificationPermissionTitle": "அறிவிப்புகள் மற்றும் விழிப்பூட்டல்கள்",
   "@notificationPermissionTitle": {},
   "notificationPermissionDesc": "நிகழ்நேர ஒத்திசைவு நிலை மற்றும் பின்னணி அறிவிப்புகளுக்கு தேவைப்படுகிறது.",
-  "@notificationPermissionDesc": {}
+  "@notificationPermissionDesc": {},
+  "logoutConfirmMessage": "நீங்கள் நிச்சயமாக வெளியேற விரும்புகிறீர்களா?",
+  "@logoutConfirmMessage": {},
+  "logoutBlockedTitle": "வெளியேறுவது தடுக்கப்பட்டது",
+  "@logoutBlockedTitle": {},
+  "logoutBlockedMessage": "ஒத்திசைக்கப்படாத பதிவுகள் (வரைவுகள், நிலுவையில் உள்ளவை அல்லது தோல்வியுற்றவை) உள்ளன. தரவு இழப்பைத் தடுக்க வெளியேறுவது தடுக்கப்பட்டுள்ளது. வெளியேறுவதற்கு முன் உங்கள் பதிவுகளை ஒத்திசைக்கவும்.",
+  "@logoutBlockedMessage": {},
+  "offlineSessionExpiredTitle": "அமர்வு காலாவதியானது (ஆஃப்லைன் பயன்முறை)",
+  "@offlineSessionExpiredTitle": {},
+  "offlineSessionExpiredNotice": "ஆஃப்லைனில் இருக்கும்போது உங்கள் உள்நுழைவு அமர்வு காலாவதியானது. நீங்கள் தொடர்ந்து பாதுகாப்பாக தரவை சேகரிக்கலாம். மீண்டும் ஆன்லைனில் உள்நுழையும்போது தரவு ஒத்திசைக்கப்படும்.",
+  "@offlineSessionExpiredNotice": {},
+  "syncPushDisabledNotice": "சேவையக ஒத்திசைவு கட்டம் 3 இல் கிடைக்கும். பதிவுகள் ஆஃப்லைனில் பாதுகாப்பாக சேமிக்கப்படுகின்றன.",
+  "@syncPushDisabledNotice": {},
+  "recordSyncedNotice": "சேவையகத்துடன் ஒத்திசைக்கப்பட்டது. புதிய திருத்தங்கள் மீண்டும் ஒத்திசைக்க நிலுவையில் உள்ளதாக குறிக்கப்படும்.",
+  "@recordSyncedNotice": {},
+  "userSwitchBlockedUnsynced": "முந்தைய பயனரின் ஒத்திசைக்கப்படாத தரவு இந்த சாதனத்தில் உள்ளது. கணக்கை மாற்றுவதற்கு முன் முந்தைய பயனராக உள்நுழைந்து ஒத்திசைக்கவும்.",
+  "@userSwitchBlockedUnsynced": {}
 }

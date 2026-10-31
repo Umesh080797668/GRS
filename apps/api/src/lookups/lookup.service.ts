@@ -47,14 +47,17 @@ export class LookupService implements OnModuleInit {
       if (dbItems.length > 0) {
         items = dbItems;
       } else {
-        items = category
-          ? CANONICAL_LOOKUPS.filter((l) => l.category === category)
-          : CANONICAL_LOOKUPS;
+        items = CANONICAL_LOOKUPS.filter(
+          (l) =>
+            (category ? l.category === category : true) &&
+            (l.isActive ?? true),
+        );
       }
     } catch {
-      items = category
-        ? CANONICAL_LOOKUPS.filter((l) => l.category === category)
-        : CANONICAL_LOOKUPS;
+      items = CANONICAL_LOOKUPS.filter(
+        (l) =>
+          (category ? l.category === category : true) && (l.isActive ?? true),
+      );
     }
 
     const categories: Record<string, LookupItem[]> = {};
@@ -99,7 +102,7 @@ export class LookupService implements OnModuleInit {
           labelSi: item.labelSi,
           labelTa: item.labelTa,
           sort: item.sort,
-          isActive: true,
+          isActive: item.isActive !== undefined ? item.isActive : true,
         },
         create: {
           category: item.category,
@@ -108,7 +111,7 @@ export class LookupService implements OnModuleInit {
           labelSi: item.labelSi,
           labelTa: item.labelTa,
           sort: item.sort,
-          isActive: true,
+          isActive: item.isActive !== undefined ? item.isActive : true,
         },
       });
       seeded++;

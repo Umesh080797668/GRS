@@ -176,6 +176,19 @@ class AppTranslations {
     "notificationPermissionTitle": "Notifications & Alerts",
     "notificationPermissionDesc":
         "Enables real-time push sync status, conflict alerts, and background completion notifications.",
+    "logoutConfirmMessage": "Are you sure you want to sign out?",
+    "logoutBlockedTitle": "Sign Out Blocked",
+    "logoutBlockedMessage":
+        "You have unsynced records (drafts, pending, or failed). Sign out is blocked to prevent data loss. Please sync your records before signing out.",
+    "offlineSessionExpiredTitle": "Session Expired (Offline Mode)",
+    "offlineSessionExpiredNotice":
+        "Your login session has expired while offline. You can continue collecting data safely. Records will sync when you sign in online.",
+    "syncPushDisabledNotice":
+        "Server sync push will be available in Phase 3. Records are stored safely offline.",
+    "recordSyncedNotice":
+        "Synced with server. Any new edits will be marked pending sync.",
+    "userSwitchBlockedUnsynced":
+        "Unsynced records from the previous user exist on this device. Please sign in as the previous user to sync before switching accounts.",
   };
 
   static const Map<String, String> si = {
@@ -352,6 +365,19 @@ class AppTranslations {
     "notificationPermissionTitle": "දැනුම්දීම් සහ අනතුරු ඇඟවීම්",
     "notificationPermissionDesc":
         "තත්‍ය කාලීන සමමුහුර්තකරණ තත්ත්වය සහ පසුබිම් දැනුම්දීම් සඳහා අවශ්‍ය වේ.",
+    "logoutConfirmMessage": "ඔබට පිටවීමට අවශ්‍ය බව සහතිකද?",
+    "logoutBlockedTitle": "පිටවීම අවහිර කර ඇත",
+    "logoutBlockedMessage":
+        "සමමුහුර්ත නොකළ දත්ත (කෙටුම්පත්, අපේක්ෂිත, හෝ අසාර්ථක) පවතී. දත්ත අහිමි වීම වැළැක්වීම සඳහා පිටවීම අවහිර කර ඇත. කරුණාකර පිටවීමට පෙර ඔබේ දත්ත සමමුහුර්ත කරන්න.",
+    "offlineSessionExpiredTitle": "වාරය කල් ඉකුත් වී ඇත (නොබැඳි මාදිලිය)",
+    "offlineSessionExpiredNotice":
+        "නොබැඳිව සිටියදී ඔබගේ පිවිසුම් වාරය කල් ඉකුත් වී ඇත. ඔබට දත්ත එකතු කිරීම දිගටම කරගෙන යා හැක. ඔබ නැවත මාර්ගගතව පිවිසි පසු දත්ත සමමුහුර්ත වේ.",
+    "syncPushDisabledNotice":
+        "සේවාදායක සමමුහුර්තකරණය 3 වන අදියරේදී ලබා ගත හැක. දත්ත නොබැඳිව ආරක්ෂිතව සුරකිනු ලැබේ.",
+    "recordSyncedNotice":
+        "සේවාදායකය සමඟ සමමුහුර්ත කර ඇත. නව සංස්කරණයන් නැවත සමමුහුර්ත කිරීම සඳහා අපේක්ෂිත ලෙස සලකුණු කෙරේ.",
+    "userSwitchBlockedUnsynced":
+        "පෙර පරිශීලකයාගේ සමමුහුර්ත නොකළ දත්ත මෙම උපාංගයේ පවතී. ගිණුම් මාරු කිරීමට පෙර එම පරිශීලකයා ලෙස ඇතුළු වී දත්ත සමමුහුර්ත කරන්න.",
   };
 
   static const Map<String, String> ta = {
@@ -531,6 +557,19 @@ class AppTranslations {
     "notificationPermissionTitle": "அறிவிப்புகள் மற்றும் விழிப்பூட்டல்கள்",
     "notificationPermissionDesc":
         "நிகழ்நேர ஒத்திசைவு நிலை மற்றும் பின்னணி அறிவிப்புகளுக்கு தேவைப்படுகிறது.",
+    "logoutConfirmMessage": "நீங்கள் நிச்சயமாக வெளியேற விரும்புகிறீர்களா?",
+    "logoutBlockedTitle": "வெளியேறுவது தடுக்கப்பட்டது",
+    "logoutBlockedMessage":
+        "ஒத்திசைக்கப்படாத பதிவுகள் (வரைவுகள், நிலுவையில் உள்ளவை அல்லது தோல்வியுற்றவை) உள்ளன. தரவு இழப்பைத் தடுக்க வெளியேறுவது தடுக்கப்பட்டுள்ளது. வெளியேறுவதற்கு முன் உங்கள் பதிவுகளை ஒத்திசைக்கவும்.",
+    "offlineSessionExpiredTitle": "அமர்வு காலாவதியானது (ஆஃப்லைன் பயன்முறை)",
+    "offlineSessionExpiredNotice":
+        "ஆஃப்லைனில் இருக்கும்போது உங்கள் உள்நுழைவு அமர்வு காலாவதியானது. நீங்கள் தொடர்ந்து பாதுகாப்பாக தரவை சேகரிக்கலாம். மீண்டும் ஆன்லைனில் உள்நுழையும்போது தரவு ஒத்திசைக்கப்படும்.",
+    "syncPushDisabledNotice":
+        "சேவையக ஒத்திசைவு கட்டம் 3 இல் கிடைக்கும். பதிவுகள் ஆஃப்லைனில் பாதுகாப்பாக சேமிக்கப்படுகின்றன.",
+    "recordSyncedNotice":
+        "சேவையகத்துடன் ஒத்திசைக்கப்பட்டது. புதிய திருத்தங்கள் மீண்டும் ஒத்திசைக்க நிலுவையில் உள்ளதாக குறிக்கப்படும்.",
+    "userSwitchBlockedUnsynced":
+        "முந்தைய பயனரின் ஒத்திசைக்கப்படாத தரவு இந்த சாதனத்தில் உள்ளது. கணக்கை மாற்றுவதற்கு முன் முந்தைய பயனராக உள்நுழைந்து ஒத்திசைக்கவும்.",
   };
 
   static Map<String, String> get(String lang) {

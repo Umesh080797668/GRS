@@ -86,7 +86,17 @@ export class AuthService {
         this.rateLimitService.throwThrottled(rlIp.retryAfter || 60);
       }
 
-      // 2. Identifier-level rate limit: max 5 attempts per minute per identifier
+      // 2. Identifier-level rate limit per Blueprint §3.1 (per ID and email)
+      if (type === 'email') {
+        const rlEmail = await this.rateLimitService.checkRateLimit(
+          `login:email:${value}`,
+          5,
+          60,
+        );
+        if (rlEmail && !rlEmail.allowed) {
+          this.rateLimitService.throwThrottled(rlEmail.retryAfter || 60);
+        }
+      }
       const rlId = await this.rateLimitService.checkRateLimit(
         `login:id:${value}`,
         5,
@@ -95,11 +105,46 @@ export class AuthService {
       if (rlId && !rlId.allowed) {
         this.rateLimitService.throwThrottled(rlId.retryAfter || 60);
       }
+
+      // 3. Device-level rate limit per Blueprint §3.1 (max 10 attempts per minute per device)
+      const cleanDeviceId = dto.deviceId?.trim();
+      if (cleanDeviceId) {
+        const rlDevice = await this.rateLimitService.checkRateLimit(
+          `login:device:${cleanDeviceId}`,
+          10,
+          60,
+        );
+        if (rlDevice && !rlDevice.allowed) {
+          this.rateLimitService.throwThrottled(rlDevice.retryAfter || 60);
+        }
+      }
     }
 
     const profile = await this.prisma.profile.findFirst({
       where: type === 'code' ? { userCode: value } : { email: value },
     });
+
+    if (profile && this.rateLimitService?.checkRateLimit) {
+      if (type === 'email' && profile.userCode) {
+        const rlCode = await this.rateLimitService.checkRateLimit(
+          `login:id:${profile.userCode}`,
+          5,
+          60,
+        );
+        if (rlCode && !rlCode.allowed) {
+          this.rateLimitService.throwThrottled(rlCode.retryAfter || 60);
+        }
+      } else if (type === 'code' && profile.email) {
+        const rlEmail = await this.rateLimitService.checkRateLimit(
+          `login:email:${profile.email.toLowerCase()}`,
+          5,
+          60,
+        );
+        if (rlEmail && !rlEmail.allowed) {
+          this.rateLimitService.throwThrottled(rlEmail.retryAfter || 60);
+        }
+      }
+    }
 
     if (!profile) {
       // Execute dummy verify to ensure equal timing without user enumeration

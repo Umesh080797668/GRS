@@ -68,11 +68,25 @@ describe('LookupService (M1.6)', () => {
 
     expect(versionRes.version).toBeDefined();
     expect(versionRes.version).toHaveLength(16);
-    expect(versionRes.count).toBe(CANONICAL_LOOKUPS.length);
+    const activeCount = CANONICAL_LOOKUPS.filter(
+      (l) => l.isActive ?? true,
+    ).length;
+    expect(versionRes.count).toBe(activeCount);
 
     // Assert same dataset gives same version
     const secondCall = await service.getVersion();
     expect(secondCall.version).toBe(versionRes.version);
+  });
+
+  it('excludes inactive placeholder lookups from categorized lookups', async () => {
+    const result = await service.getCategorizedLookups();
+    const allCodes = Object.values(result.categories)
+      .flat()
+      .map((i) => i.code);
+
+    expect(allCodes).not.toContain('TODO_OWNER_VOC_1');
+    expect(allCodes).not.toContain('TODO_OWNER_STREAM_1');
+    expect(allCodes).not.toContain('TODO_OWNER_JOB_1');
   });
 
   it('filters by category when query parameter is provided', async () => {
