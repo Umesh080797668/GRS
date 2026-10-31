@@ -18,7 +18,10 @@ class GrsApiClient {
   final Future<void> Function(String newAccess, String newRefresh)?
   onTokenRefreshed;
 
-  Future<LoginResponse>? _ongoingRefresh;
+  Completer<LoginResponse>? _refreshCompleter;
+
+  /// Returns true if an auth token refresh is currently in flight.
+  bool get isRefreshing => _refreshCompleter != null;
 
   GrsApiClient({
     required this.baseUrl,
@@ -116,17 +119,32 @@ class GrsApiClient {
   Future<http.Response> _sendWithAuthRetry(
     Future<http.Response> Function() requestFn,
   ) async {
+    // 1. Single-flight pre-flight gate: If a token refresh is currently in flight,
+    // wait for it to complete before sending this request with the new access token.
+    if (_refreshCompleter != null) {
+      try {
+        await _refreshCompleter!.future;
+      } catch (_) {
+        // If refresh failed, proceed and let requestFn fail with natural auth error
+      }
+    }
+
     final tokenBefore = _accessToken;
     final response = await requestFn();
     if (response.statusCode == 401 &&
         _refreshToken != null &&
         _refreshToken!.isNotEmpty) {
       try {
-        // If another concurrent request already refreshed the access token, retry immediately
+        // 2. If another concurrent request already refreshed the access token while
+        // this request was in flight, retry immediately without another refresh call
         if (_accessToken != null && _accessToken != tokenBefore) {
           return await requestFn();
         }
+
+        // 3. Single-flight deduplication: all concurrent 401s join the same in-flight refresh
         await refreshSession();
+
+        // 4. Retry the original request with the fresh access token
         return await requestFn();
       } catch (_) {
         return response;
@@ -159,12 +177,38 @@ class GrsApiClient {
 
   /// POST /v1/auth/refresh (Single-flight deduplicated)
   Future<LoginResponse> refreshSession() {
-    if (_ongoingRefresh != null) {
-      return _ongoingRefresh!;
+    // If a refresh is already in-flight, return the existing Completer future
+    if (_refreshCompleter != null) {
+      return _refreshCompleter!.future;
     }
-    return _ongoingRefresh = _doRefreshSession().whenComplete(() {
-      _ongoingRefresh = null;
-    });
+
+    if (_refreshToken == null || _refreshToken!.isEmpty) {
+      throw const GrsApiException(
+        statusCode: 401,
+        code: 'UNAUTHORIZED',
+        messageKey: 'auth.no_refresh_token',
+      );
+    }
+
+    final completer = Completer<LoginResponse>();
+    _refreshCompleter = completer;
+
+    _doRefreshSession()
+        .then((res) {
+          if (!completer.isCompleted) {
+            completer.complete(res);
+          }
+        })
+        .catchError((Object error, StackTrace st) {
+          if (!completer.isCompleted) {
+            completer.completeError(error, st);
+          }
+        })
+        .whenComplete(() {
+          _refreshCompleter = null;
+        });
+
+    return completer.future;
   }
 
   Future<LoginResponse> _doRefreshSession() async {

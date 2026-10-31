@@ -471,5 +471,153 @@ void main() {
         expect(client.accessToken, equals('single-flight-token'));
       },
     );
+
+    test(
+      'Direct concurrent refreshSession calls share the exact same in-flight Future',
+      () async {
+        int refreshNetworkCalls = 0;
+
+        final mockClient = MockClient((request) async {
+          if (request.url.path == '/v1/auth/refresh') {
+            refreshNetworkCalls++;
+            await Future.delayed(const Duration(milliseconds: 30));
+            return http.Response(
+              jsonEncode({
+                'accessToken': 'shared-future-token',
+                'refreshToken': 'shared-future-refresh',
+                'expiresIn': 900,
+                'mustChangePassword': false,
+                'profile': {
+                  'id': 'u1',
+                  'userCode': 'GRS1234567890',
+                  'fullName': 'User 1',
+                  'role': 'team_member',
+                  'preferredLanguage': 'en',
+                  'isActive': true,
+                  'mustChangePassword': false,
+                },
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response('Not Found', 404);
+        });
+
+        final client = GrsApiClient(
+          baseUrl: 'http://localhost:3000',
+          client: mockClient,
+          refreshToken: 'valid-refresh-token',
+        );
+
+        expect(client.isRefreshing, isFalse);
+
+        // Fire 4 parallel direct refreshSession calls
+        final future1 = client.refreshSession();
+        expect(client.isRefreshing, isTrue);
+
+        final future2 = client.refreshSession();
+        final future3 = client.refreshSession();
+        final future4 = client.refreshSession();
+
+        final results = await Future.wait([future1, future2, future3, future4]);
+
+        expect(client.isRefreshing, isFalse);
+        expect(refreshNetworkCalls, equals(1));
+        expect(results[0].accessToken, equals('shared-future-token'));
+        expect(results[1].accessToken, equals('shared-future-token'));
+        expect(results[2].accessToken, equals('shared-future-token'));
+        expect(results[3].accessToken, equals('shared-future-token'));
+        expect(client.accessToken, equals('shared-future-token'));
+      },
+    );
+
+    test(
+      'Requests dispatched while refresh is in-flight wait and use fresh token directly',
+      () async {
+        int refreshCalls = 0;
+        int lookupCalls = 0;
+
+        final mockClient = MockClient((request) async {
+          if (request.url.path == '/v1/auth/refresh') {
+            refreshCalls++;
+            await Future.delayed(const Duration(milliseconds: 40));
+            return http.Response(
+              jsonEncode({
+                'accessToken': 'awaited-fresh-token',
+                'refreshToken': 'awaited-refresh-token',
+                'expiresIn': 900,
+                'mustChangePassword': false,
+                'profile': {
+                  'id': 'u1',
+                  'userCode': 'GRS1234567890',
+                  'fullName': 'User 1',
+                  'role': 'team_member',
+                  'preferredLanguage': 'en',
+                  'isActive': true,
+                  'mustChangePassword': false,
+                },
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+
+          if (request.url.path == '/v1/lookups') {
+            lookupCalls++;
+            final authHeader = request.headers['authorization'] ?? '';
+            // If dispatched with old token, fail 401
+            if (!authHeader.contains('awaited-fresh-token')) {
+              return http.Response(
+                jsonEncode({
+                  'code': 'UNAUTHORIZED',
+                  'message_key': 'errors.auth.invalid_token',
+                }),
+                401,
+                headers: {'content-type': 'application/json'},
+              );
+            }
+            // Fresh token succeeded on first try!
+            return http.Response(
+              jsonEncode([
+                {
+                  'category': 'gender',
+                  'code': 'M',
+                  'labelEn': 'Male',
+                  'labelSi': 'පුරුෂ',
+                  'labelTa': 'ஆண்',
+                  'sort': 1,
+                  'isActive': true,
+                },
+              ]),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+
+          return http.Response('Not Found', 404);
+        });
+
+        final client = GrsApiClient(
+          baseUrl: 'http://localhost:3000',
+          client: mockClient,
+          accessToken: 'old-stale-token',
+          refreshToken: 'valid-refresh-token',
+        );
+
+        // Start a refresh
+        final refreshFuture = client.refreshSession();
+
+        // While refresh is in flight, dispatch an authenticated call
+        final lookupFuture = client.getLookups();
+
+        await Future.wait([refreshFuture, lookupFuture]);
+
+        expect(refreshCalls, equals(1));
+        // Crucial: getLookups waited for refresh to complete, so it used 'awaited-fresh-token'
+        // on its very first attempt and succeeded immediately without a 401 retry loop!
+        expect(lookupCalls, equals(1));
+      },
+    );
   });
 }

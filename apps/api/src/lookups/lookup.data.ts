@@ -156,15 +156,6 @@ export const CANONICAL_LOOKUPS: LookupItem[] = [
     labelSi: 'වෙනත් වෘත්තීය සුදුසුකම්',
     labelTa: 'ஏனைய தொழிற்கல்வி தகைமை',
   },
-  {
-    category: 'vocational_qualification',
-    code: 'TODO_OWNER_VOC_1',
-    sort: 999,
-    labelEn: 'Pending Owner Specification',
-    labelSi: 'අයිතිකරුගේ තහවුරු කිරීම අපේක්ෂිතයි',
-    labelTa: 'உரிமையாளரின் உறுதிப்படுத்தல் தேவை',
-    isActive: false,
-  },
 
   // 3. Interested Vocational Stream (Baseline per B1)
   {
@@ -246,15 +237,6 @@ export const CANONICAL_LOOKUPS: LookupItem[] = [
     labelEn: 'Other Stream',
     labelSi: 'වෙනත් ක්ෂේත්‍රයක්',
     labelTa: 'ஏனைய துறை',
-  },
-  {
-    category: 'vocational_stream',
-    code: 'TODO_OWNER_STREAM_1',
-    sort: 999,
-    labelEn: 'Pending Owner Specification',
-    labelSi: 'අයිතිකරුගේ තහවුරු කිරීම අපේක්ෂිතයි',
-    labelTa: 'உரிமையாளரின் உறுதிப்படுத்தல் தேவை',
-    isActive: false,
   },
 
   // 4. Interested Job (Baseline per B1)
@@ -345,15 +327,6 @@ export const CANONICAL_LOOKUPS: LookupItem[] = [
     labelEn: 'Other Job',
     labelSi: 'වෙනත් රැකියාවක්',
     labelTa: 'ஏனைய தொழில்',
-  },
-  {
-    category: 'job',
-    code: 'TODO_OWNER_JOB_1',
-    sort: 999,
-    labelEn: 'Pending Owner Specification',
-    labelSi: 'අයිතිකරුගේ තහවුරු කිරීම අපේක්ෂිතයි',
-    labelTa: 'உரிமையாளரின் உறுதிப்படுத்தல் தேவை',
-    isActive: false,
   },
 
   // 5. Future Hopes (DD/S/001 Item 10.12)

@@ -35,7 +35,6 @@ This file documents standard lookup codes and multi-lingual labels (`si`, `ta`, 
 | `VOC_NVQ_6` | 70 | NVQ Level 6 (Higher Diploma) | NVQ මට්ටම 6 (උසස් ඩිප්ලෝමා) | NVQ மட்டம் 6 (உயர் டிப்ளோமா) | Baseline |
 | `VOC_NVQ_7` | 80 | NVQ Level 7 (Degree) | NVQ මට්ටම 7 (උපාධි) | NVQ மட்டம் 7 (பட்டம்) | Baseline |
 | `VOC_OTHER` | 90 | Other Vocational Qualification | වෙනත් වෘත්තීය සුදුසුකම් | ஏனைய தொழிற்கல்வி தகைமை | Baseline |
-| `TODO_OWNER_VOC_1` | 999 | Pending Owner Specification | අයිතිකරුගේ තහවුරු කිරීම අපේක්ෂිතයි | உரிமையாளரின் உறுதிப்படுத்தல் தேவை | Stand-in |
 
 ---
 
@@ -53,7 +52,6 @@ This file documents standard lookup codes and multi-lingual labels (`si`, `ta`, 
 | `STREAM_APPAREL_GARMENT` | 80 | Textile & Garment Manufacturing | ඇඟලුම් හා රෙදිපිළි | ஆடை மற்றும் ஜவுளி | Baseline |
 | `STREAM_HEALTHCARE_CARE` | 90 | Healthcare & Nursing Support | සෞඛ්‍ය සහ උපස්ථාන සේවා | சுகாதார மற்றும் பராமரிப்பு சேவைகள் | Baseline |
 | `STREAM_OTHER` | 100 | Other Stream | වෙනත් ක්ෂේත්‍රයක් | ஏனைய துறை | Baseline |
-| `TODO_OWNER_STREAM_1` | 999 | Pending Owner Specification | අයිතිකරුගේ තහවුරු කිරීම අපේක්ෂිතයි | உரிமையாளரின் உறுதிப்படுத்தல் தேவை | Stand-in |
 
 ---
 
@@ -72,7 +70,6 @@ This file documents standard lookup codes and multi-lingual labels (`si`, `ta`, 
 | `JOB_CLERICAL_ADMIN` | 90 | Office Clerk / Data Entry | කාර්යාල ලිපිකරු / දත්ත ඇතුලත් කිරීමේ ශිල්පී | அலுவலக எழுத்தர் / தரவு உள்ளீட்டாளர் | Baseline |
 | `JOB_SALES_MARKETING` | 100 | Sales & Marketing Representative | අලෙවි නියෝජිත | விற்பனை பிரதிநிதி | Baseline |
 | `JOB_OTHER` | 110 | Other Job | වෙනත් රැකියාවක් | ஏனைய தொழில் | Baseline |
-| `TODO_OWNER_JOB_1` | 999 | Pending Owner Specification | අයිතිකරුගේ තහවුරු කිරීම අපේක්ෂිතයි | உரிமையாளரின் உறுதிப்படுத்தல் தேவை | Stand-in |
 
 ---
 

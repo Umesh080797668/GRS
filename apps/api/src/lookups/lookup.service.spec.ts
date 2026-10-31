@@ -38,7 +38,7 @@ describe('LookupService (M1.6)', () => {
   });
 
   it('Done when criterion: Every lookup code has all three labels (En, Si, Ta)', () => {
-    expect(CANONICAL_LOOKUPS.length).toBeGreaterThanOrEqual(50);
+    expect(CANONICAL_LOOKUPS.length).toBeGreaterThanOrEqual(45);
 
     for (const lookup of CANONICAL_LOOKUPS) {
       expect(lookup.code).toBeDefined();
@@ -78,15 +78,12 @@ describe('LookupService (M1.6)', () => {
     expect(secondCall.version).toBe(versionRes.version);
   });
 
-  it('excludes inactive placeholder lookups from categorized lookups', async () => {
-    const result = await service.getCategorizedLookups();
-    const allCodes = Object.values(result.categories)
-      .flat()
-      .map((i) => i.code);
-
+  it('contains zero TODO_OWNER placeholder rows in canonical dataset', async () => {
+    const allCodes = CANONICAL_LOOKUPS.map((i) => i.code);
     expect(allCodes).not.toContain('TODO_OWNER_VOC_1');
     expect(allCodes).not.toContain('TODO_OWNER_STREAM_1');
     expect(allCodes).not.toContain('TODO_OWNER_JOB_1');
+    expect(allCodes.some((code) => code.startsWith('TODO_OWNER'))).toBe(false);
   });
 
   it('filters by category when query parameter is provided', async () => {
