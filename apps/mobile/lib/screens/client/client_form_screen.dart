@@ -7,6 +7,8 @@ import 'package:grs_ui/grs_ui.dart';
 import 'package:mobile/data/local/canonical_lookups.dart';
 import 'package:uuid/uuid.dart';
 import '../../l10n/l10n.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/config_provider.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/sync_provider.dart';
 
@@ -137,7 +139,19 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
         final syncStatus = client['sync_status'] as String;
         _isDraft = syncStatus == 'draft';
         _isPreviouslySynced = syncStatus == 'synced';
-        _isLocked = false;
+
+        if (_isPreviouslySynced) {
+          final profile = ref.read(authProvider).profile;
+          final isLevel5 = profile?.role == 'team_member';
+          if (isLevel5) {
+            final canEdit = await ref.read(agentCanEditSyncedProvider.future);
+            _isLocked = !canEdit;
+          } else {
+            _isLocked = false;
+          }
+        } else {
+          _isLocked = false;
+        }
       }
     } else {
       // Pre-fill address from household
@@ -345,6 +359,50 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                         ),
                       ),
                     ),
+
+                    if (_isLocked) ...[
+                      const SizedBox(height: GrsSpacing.sm),
+                      GrsFadeSlideItem(
+                        index: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: GrsColors.syncRejected.withValues(
+                              alpha: 0.1,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: GrsColors.syncRejected.withValues(
+                                alpha: 0.3,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.lock_outline_rounded,
+                                color: GrsColors.syncRejected,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  l10n.get('recordLockedNotice'),
+                                  style: GrsTypography.bodyMedium(
+                                    color: isDark
+                                        ? GrsColors.textPrimaryDark
+                                        : GrsColors.textPrimaryLight,
+                                  ).copyWith(fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
 
                     const SizedBox(height: GrsSpacing.sectionGap),
 

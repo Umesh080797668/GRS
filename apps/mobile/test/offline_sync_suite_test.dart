@@ -298,6 +298,40 @@ void main() {
       },
     );
 
+    test(
+      'Decision C2: Server locked response marks record as rejected with RECORD_LOCKED (never false synced badge)',
+      () async {
+        final idLocked = 'c0000000-0000-0000-0000-000000000063';
+
+        await db.saveClient(
+          client: Client(
+            id: idLocked,
+            householdId: houseId,
+            name: 'Locked Record Attempt',
+            age: 28,
+            gender: 'F',
+            infoProvidedBy: 'self',
+            consentGiven: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+          status: SyncStatus.pending,
+        );
+
+        // When server responds with 'locked', updateClientSyncStatus marks it rejected
+        await db.updateClientSyncStatus(
+          idLocked,
+          status: SyncStatus.rejected,
+          errorCode:
+              'RECORD_LOCKED: Confirmed record cannot be edited by field agents (Decision C2)',
+        );
+
+        final row = await db.getClientById(idLocked);
+        expect(row!['sync_status'], 'rejected');
+        expect(row['last_error_code'], contains('RECORD_LOCKED'));
+      },
+    );
+
     // ────────────────────────────────────────────────────────────────────────
     // Scenario 7: 426 during sync — blocking screen, data intact
     // ────────────────────────────────────────────────────────────────────────

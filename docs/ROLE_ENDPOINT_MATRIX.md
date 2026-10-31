@@ -45,9 +45,9 @@
 | `/clients` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
 | `/clients` | **POST** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `team_only` |
 | `/clients/:id` | **PATCH** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `team_only` |
-| `/sync/area` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | `team_only` |
-| `/sync/changes` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | `team_only` |
-| `/sync/push` | **POST** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | `team_only` |
+| `/sync/area` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/sync/changes` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/sync/push` | **POST** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
 | `/duplicates` | **GET** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
 | `/duplicates/:id/confirm` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `team_only` |
 | `/duplicates/:id/dismiss` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `team_only` |

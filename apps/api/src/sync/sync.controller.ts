@@ -62,8 +62,11 @@ export class SyncController {
   @Roles(
     UserRole.team_member,
     UserRole.cdc_secretary,
-    UserRole.super_admin,
+    UserRole.sda,
+    UserRole.dc,
+    UserRole.cg,
     UserRole.admin,
+    UserRole.super_admin,
   )
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -84,8 +87,11 @@ export class SyncController {
   @Roles(
     UserRole.team_member,
     UserRole.cdc_secretary,
-    UserRole.super_admin,
+    UserRole.sda,
+    UserRole.dc,
+    UserRole.cg,
     UserRole.admin,
+    UserRole.super_admin,
   )
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

@@ -295,8 +295,9 @@ export class SyncService {
       return { results: [] };
     }
 
-    const results: SyncRecordResultItem[] = [];
+    const results: SyncRecordResultItem[] = new Array(dto.records.length);
     const validRecords: Array<{
+      index: number;
       record: SyncRecordPayloadDto;
       normalized: {
         householdId: string;
@@ -340,74 +341,88 @@ export class SyncService {
       'other',
     ]);
 
-    for (const record of dto.records) {
+    const seenClientIds = new Set<string>();
+
+    for (let i = 0; i < dto.records.length; i++) {
+      const record = dto.records[i];
       if (!record.id || !uuidRegex.test(record.id)) {
-        results.push({
+        results[i] = {
           id: record.id || 'unknown',
           status: 'rejected',
           code: 'INVALID_CLIENT_ID',
           message: 'Client ID must be a valid UUID',
-        });
+        };
         continue;
       }
+
+      if (seenClientIds.has(record.id)) {
+        results[i] = {
+          id: record.id,
+          status: 'rejected',
+          code: 'DUPLICATE_IN_BATCH',
+          message: 'Duplicate client ID in the same push batch',
+        };
+        continue;
+      }
+      seenClientIds.add(record.id);
 
       const data = record.data || {};
       const householdId = data.household_id || data.householdId;
       if (!householdId || !uuidRegex.test(householdId)) {
-        results.push({
+        results[i] = {
           id: record.id,
           status: 'rejected',
           code: 'INVALID_HOUSEHOLD_ID',
           message: 'Household ID must be a valid UUID',
-        });
+        };
         continue;
       }
 
       // Name validation
       const nameRes = GrsValidators.validateName(data.name);
       if (!nameRes.isValid) {
-        results.push({
+        results[i] = {
           id: record.id,
           status: 'rejected',
           code: 'INVALID_NAME',
           message: `Name validation failed: ${nameRes.error}`,
-        });
+        };
         continue;
       }
 
       // Age validation
       const ageRes = GrsValidators.validateAge(data.age);
       if (!ageRes.isValid) {
-        results.push({
+        results[i] = {
           id: record.id,
           status: 'rejected',
           code: 'INVALID_AGE',
           message: `Age validation failed: ${ageRes.error}`,
-        });
+        };
         continue;
       }
 
       // Gender validation
       const genderRes = GrsValidators.validateGender(data.gender);
       if (!genderRes.isValid) {
-        results.push({
+        results[i] = {
           id: record.id,
           status: 'rejected',
           code: 'INVALID_GENDER',
           message: `Gender validation failed: ${genderRes.error}`,
-        });
+        };
         continue;
       }
 
       // Consent validation (Invariant B2)
       const consentGiven = data.consent_given === true || data.consentGiven === true;
       if (!consentGiven) {
-        results.push({
+        results[i] = {
           id: record.id,
           status: 'rejected',
           code: 'CONSENT_REQUIRED',
           message: 'Informed consent is mandatory before recording data',
-        });
+        };
         continue;
       }
 
@@ -419,12 +434,12 @@ export class SyncService {
         if (pRes.isValid) {
           phoneE164 = pRes.value!;
         } else {
-          results.push({
+          results[i] = {
             id: record.id,
             status: 'rejected',
             code: 'INVALID_PHONE',
             message: `Phone validation failed: ${pRes.error}`,
-          });
+          };
           continue;
         }
       }
@@ -437,12 +452,12 @@ export class SyncService {
         if (wRes.isValid) {
           whatsappE164 = wRes.value!;
         } else {
-          results.push({
+          results[i] = {
             id: record.id,
             status: 'rejected',
             code: 'INVALID_WHATSAPP',
             message: `WhatsApp validation failed: ${wRes.error}`,
-          });
+          };
           continue;
         }
       }
@@ -456,24 +471,24 @@ export class SyncService {
           : [];
       const hopesRes = GrsValidators.validateFutureHopes(parsedHopesArray);
       if (!hopesRes.isValid) {
-        results.push({
+        results[i] = {
           id: record.id,
           status: 'rejected',
           code: 'INVALID_FUTURE_HOPES',
           message: `Future hopes validation failed: ${hopesRes.error}`,
-        });
+        };
         continue;
       }
 
       // Information provided by validation
       const rawInfoBy = String(data.info_provided_by || data.infoProvidedBy || 'self').toLowerCase();
       if (!validInfoProvidedBy.has(rawInfoBy)) {
-        results.push({
+        results[i] = {
           id: record.id,
           status: 'rejected',
           code: 'INVALID_INFO_PROVIDED_BY',
           message: `Information provided by must be one of: self, mother, father, sister, other`,
-        });
+        };
         continue;
       }
 
@@ -538,7 +553,7 @@ export class SyncService {
         }),
       };
 
-      validRecords.push({ record, normalized });
+      validRecords.push({ index: i, record, normalized });
     }
 
     if (validRecords.length === 0) {
@@ -586,6 +601,7 @@ export class SyncService {
 
     // --- STEP 3: Per-record business decisions in code (§8.3 #3) ---
     const toUpsert: Array<{
+      index: number;
       id: string;
       householdId: string;
       districtId: string;
@@ -598,83 +614,120 @@ export class SyncService {
     }> = [];
 
     for (const item of validRecords) {
+      const idx = item.index;
       const rec = item.record;
       const norm = item.normalized;
       const household = householdMap.get(norm.householdId);
 
       // Check household existence
       if (!household) {
-        results.push({
+        results[idx] = {
           id: rec.id,
           status: 'forbidden',
           code: 'HOUSEHOLD_NOT_FOUND',
           message: 'Target household not found',
-        });
+        };
         continue;
       }
 
-      // Check caller scope per role
-      if (user.role === 'team_member') {
+      // Check soft-deleted household (§8.3 forbidden)
+      if (household.deletedAt) {
+        results[idx] = {
+          id: rec.id,
+          status: 'forbidden',
+          code: 'HOUSEHOLD_DELETED',
+          message: 'Target household has been deleted and cannot accept client records',
+        };
+        continue;
+      }
+
+      // Check caller scope per role (§8.3 & Blueprint §10.3)
+      if (user.role === 'team_member' || user.role === 'cdc_secretary') {
+        // Level 4 (secretary) and Level 5 (agent): strictly own team's households
         if (!user.teamId || household.teamId !== user.teamId) {
-          results.push({
+          results[idx] = {
             id: rec.id,
             status: 'forbidden',
             code: 'HOUSEHOLD_OUT_OF_SCOPE',
             message: 'Household is outside caller team scope',
-          });
+          };
           continue;
         }
-      } else if (user.role === 'cdc_secretary') {
-        if (!user.gnId || (household.gnId !== user.gnId && household.teamId !== user.teamId)) {
-          results.push({
+      } else if (user.role === 'sda') {
+        // Level 3 (sda): divisional scope
+        if (!user.dsId || household.dsId !== user.dsId) {
+          results[idx] = {
             id: rec.id,
             status: 'forbidden',
             code: 'HOUSEHOLD_OUT_OF_SCOPE',
-            message: 'Household is outside caller GN division scope',
-          });
+            message: 'Household is outside caller DS division scope',
+          };
           continue;
         }
+      } else if (user.role === 'dc') {
+        // Level 2 (dc): district scope
+        if (!user.districtId || household.districtId !== user.districtId) {
+          results[idx] = {
+            id: rec.id,
+            status: 'forbidden',
+            code: 'HOUSEHOLD_OUT_OF_SCOPE',
+            message: 'Household is outside caller district scope',
+          };
+          continue;
+        }
+      } else if (
+        user.role === 'super_admin' ||
+        user.role === 'admin' ||
+        user.role === 'cg'
+      ) {
+        // Levels 00, 0, 1: National scope (any non-deleted household)
+      } else {
+        results[idx] = {
+          id: rec.id,
+          status: 'forbidden',
+          code: 'ROLE_UNAUTHORIZED',
+          message: 'Role not authorized to push client records',
+        };
+        continue;
       }
-
-      // Soft-deleted household handling (Scenario 12.4 #11):
-      // When a house is soft-deleted, clients are kept and flagged, not lost.
 
       // Check existing client row
       const existing = existingMap.get(rec.id);
       if (existing) {
         // Never overwrite someone else's record (§8.3 #3)
         if (existing.collectedBy !== user.userId) {
-          results.push({
+          results[idx] = {
             id: rec.id,
             status: 'forbidden',
             code: 'RECORD_OWNED_BY_ANOTHER_USER',
             message: 'Client survey belongs to another agent',
-          });
+          };
           continue;
         }
 
         // Retry after lost response (same content hash) -> return ok with existing server version
         if (existing.contentHash === norm.contentHash) {
-          results.push({
+          results[idx] = {
             id: rec.id,
             status: 'ok',
             server_version: existing.serverVersion,
-          });
+          };
           continue;
         }
 
         // Different content: if caller is Level 5 and base_version >= 1 -> locked (Decision C2)
         if (user.role === 'team_member' && (rec.base_version ?? 0) >= 1) {
-          results.push({
+          results[idx] = {
             id: rec.id,
             status: 'locked',
             code: 'RECORD_LOCKED',
             message: 'Confirmed records cannot be modified by Level 5 agents',
-          });
+          };
           continue;
         }
 
         toUpsert.push({
+          index: idx,
           id: rec.id,
           householdId: household.id,
           districtId: household.districtId,
@@ -687,6 +740,7 @@ export class SyncService {
         });
       } else {
         toUpsert.push({
+          index: idx,
           id: rec.id,
           householdId: household.id,
           districtId: household.districtId,
@@ -805,7 +859,8 @@ export class SyncService {
       }
 
       const bulkSql = `
-        INSERT INTO clients (
+        WITH upserted AS (
+          INSERT INTO clients (
           id, household_id, district_id, ds_id, gn_id, team_id,
           name, name_norm, age, gender, address,
           phone_raw, phone_e164, whatsapp_raw, whatsapp_e164,
@@ -855,8 +910,20 @@ export class SyncService {
           synced_at = EXCLUDED.synced_at,
           updated_by = EXCLUDED.updated_by
         WHERE clients.collected_by = EXCLUDED.collected_by
-        RETURNING id, server_version;
+        RETURNING id, server_version, team_id
+      ),
+      updated_teams AS (
+        UPDATE teams
+        SET stats_dirty_at = $${pIdx++}::timestamptz
+        WHERE id IN (
+          SELECT DISTINCT team_id FROM upserted WHERE team_id IS NOT NULL
+        )
+        RETURNING id
+      )
+      SELECT id, server_version FROM upserted;
       `;
+
+      queryParams.push(now.toISOString());
 
       try {
         const returnedRows = await this.prisma.$queryRawUnsafe<
@@ -870,32 +937,20 @@ export class SyncService {
         for (const item of toUpsert) {
           const version = returnedMap.get(item.id);
           if (version !== undefined) {
-            results.push({
+            results[item.index] = {
               id: item.id,
               status: 'ok',
               server_version: version,
-            });
+            };
           } else {
             // Missing from RETURNING means lost race against another collector
-            results.push({
+            results[item.index] = {
               id: item.id,
               status: 'forbidden',
               code: 'RACE_CONFLICT',
               message: 'Record updated by another user concurrently',
-            });
+            };
           }
-        }
-
-        // Mark teams.stats_dirty_at for all affected teams (cheap & idempotent per §8.3 #5)
-        const affectedTeamIds = [
-          ...new Set(toUpsert.map((u) => u.teamId).filter(Boolean)),
-        ] as string[];
-
-        if (affectedTeamIds.length > 0) {
-          await this.prisma.team.updateMany({
-            where: { id: { in: affectedTeamIds } },
-            data: { statsDirtyAt: now },
-          });
         }
       } catch (err: any) {
         this.logger.error(`Bulk upsert query failed: ${err.message}`, err.stack);

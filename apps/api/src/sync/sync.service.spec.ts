@@ -236,8 +236,209 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
 
     expect(clientFindManyCalls).toBe(1); // Query 1: load existing clients
     expect(householdFindManyCalls).toBe(1); // Query 2: load households
-    expect(rawSqlUpsertCalls).toBe(1); // Query 3: single bulk upsert
+    expect(rawSqlUpsertCalls).toBe(1); // Query 3: single bulk upsert with stats CTE
+    expect(mockPrisma.team.updateMany).not.toHaveBeenCalled(); // Atomic stats update inside CTE, not separate query!
     expect(totalBatchQueries).toBeLessThanOrEqual(3);
+  });
+
+  it('Batch Resilience: Duplicate client IDs in the same batch reject duplicate without Postgres 500', async () => {
+    const dupClientId = 'd0000000-0000-0000-0000-000000000001';
+    const otherClientId = 'd0000000-0000-0000-0000-000000000002';
+
+    mockPrisma.$queryRawUnsafe.mockResolvedValueOnce([
+      { id: dupClientId, server_version: 1 },
+      { id: otherClientId, server_version: 1 },
+    ]);
+
+    const dto: SyncPushDto = {
+      device_id: 'dev-dup-batch',
+      app_version: '2.0.0',
+      schema_version: 2,
+      records: [
+        {
+          id: dupClientId,
+          base_version: 0,
+          data: {
+            household_id: validHouseholdId,
+            name: 'Sunil Silva',
+            age: 30,
+            gender: 'M',
+            consent_given: true,
+          },
+        },
+        // Duplicate in same batch
+        {
+          id: dupClientId,
+          base_version: 0,
+          data: {
+            household_id: validHouseholdId,
+            name: 'Sunil Silva (Dup)',
+            age: 30,
+            gender: 'M',
+            consent_given: true,
+          },
+        },
+        {
+          id: otherClientId,
+          base_version: 0,
+          data: {
+            household_id: validHouseholdId,
+            name: 'Nimal Perera',
+            age: 35,
+            gender: 'M',
+            consent_given: true,
+          },
+        },
+      ],
+    };
+
+    const res = await service.pushRecords(caller, dto);
+    expect(res.results.length).toBe(3);
+
+    const first = res.results.find((r) => r.id === dupClientId && r.status === 'ok');
+    const duplicate = res.results.find((r) => r.id === dupClientId && r.status === 'rejected');
+    const other = res.results.find((r) => r.id === otherClientId && r.status === 'ok');
+
+    expect(first).toBeDefined();
+    expect(duplicate).toBeDefined();
+    expect(duplicate?.code).toBe('DUPLICATE_IN_BATCH');
+    expect(other).toBeDefined();
+  });
+
+  it('Soft-deleted household: Records targeting a soft-deleted household are rejected with HOUSEHOLD_DELETED (§8.3)', async () => {
+    const clientId = 'e0000000-0000-0000-0000-000000000001';
+    const deletedHouseId = 'e0000000-0000-0000-0000-000000000099';
+
+    mockPrisma.household.findMany.mockResolvedValueOnce([
+      {
+        id: deletedHouseId,
+        gnId: caller.gnId,
+        teamId: caller.teamId,
+        districtId: caller.districtId,
+        dsId: caller.dsId,
+        deletedAt: new Date('2026-10-30T10:00:00Z'),
+        deletedReason: 'Demolished',
+      },
+    ]);
+
+    const dto: SyncPushDto = {
+      device_id: 'dev-deleted-house',
+      app_version: '2.0.0',
+      schema_version: 2,
+      records: [
+        {
+          id: clientId,
+          base_version: 0,
+          data: {
+            household_id: deletedHouseId,
+            name: 'Deleted House Resident',
+            age: 40,
+            gender: 'F',
+            consent_given: true,
+          },
+        },
+      ],
+    };
+
+    const res = await service.pushRecords(caller, dto);
+    expect(res.results.length).toBe(1);
+    expect(res.results[0].status).toBe('forbidden');
+    expect(res.results[0].code).toBe('HOUSEHOLD_DELETED');
+  });
+
+  it('Role Scope Matrix: Level 4 Secretary strictly restricted to own team houses (§8.3)', async () => {
+    const secretaryCaller = {
+      userId: 'sec-001',
+      role: UserRole.cdc_secretary,
+      gnId: 'gn-001',
+      teamId: 'team-sec-1',
+      districtId: 'dist-001',
+      dsId: 'ds-001',
+    };
+
+    const otherTeamHouseId = 'f0000000-0000-0000-0000-000000000088';
+    mockPrisma.household.findMany.mockResolvedValueOnce([
+      {
+        id: otherTeamHouseId,
+        gnId: 'gn-001', // Same GN!
+        teamId: 'team-sec-OTHER', // Different team!
+        districtId: 'dist-001',
+        dsId: 'ds-001',
+        deletedAt: null,
+      },
+    ]);
+
+    const dto: SyncPushDto = {
+      device_id: 'sec-device',
+      app_version: '2.0.0',
+      schema_version: 2,
+      records: [
+        {
+          id: 'f0000000-0000-0000-0000-000000000001',
+          base_version: 0,
+          data: {
+            household_id: otherTeamHouseId,
+            name: 'Other Team Member',
+            age: 28,
+            gender: 'M',
+            consent_given: true,
+          },
+        },
+      ],
+    };
+
+    const res = await service.pushRecords(secretaryCaller, dto);
+    expect(res.results.length).toBe(1);
+    expect(res.results[0].status).toBe('forbidden');
+    expect(res.results[0].code).toBe('HOUSEHOLD_OUT_OF_SCOPE');
+  });
+
+  it('Role Scope Matrix: SDA and DC can push within their administrative divisions (Blueprint §10.3)', async () => {
+    const sdaCaller = {
+      userId: 'sda-001',
+      role: UserRole.sda,
+      districtId: 'dist-001',
+      dsId: 'ds-001',
+    };
+
+    const sdaHouseId = 'e0000000-0000-0000-0000-000000000001';
+    mockPrisma.household.findMany.mockResolvedValueOnce([
+      {
+        id: sdaHouseId,
+        gnId: 'gn-999',
+        teamId: 'team-any',
+        districtId: 'dist-001',
+        dsId: 'ds-001', // Matching DS
+        deletedAt: null,
+      },
+    ]);
+
+    mockPrisma.$queryRawUnsafe.mockResolvedValueOnce([
+      { id: 'e0000000-0000-0000-0000-000000000011', server_version: 1 },
+    ]);
+
+    const dto: SyncPushDto = {
+      device_id: 'sda-device',
+      app_version: '2.0.0',
+      schema_version: 2,
+      records: [
+        {
+          id: 'e0000000-0000-0000-0000-000000000011',
+          base_version: 0,
+          data: {
+            household_id: sdaHouseId,
+            name: 'SDA Survey Client',
+            age: 33,
+            gender: 'F',
+            consent_given: true,
+          },
+        },
+      ],
+    };
+
+    const res = await service.pushRecords(sdaCaller, dto);
+    expect(res.results.length).toBe(1);
+    expect(res.results[0].status).toBe('ok');
   });
 
   it('Idempotency: Retry after lost response (same content hash) returns ok without conflict (§8.3 & §12.4 #15)', async () => {

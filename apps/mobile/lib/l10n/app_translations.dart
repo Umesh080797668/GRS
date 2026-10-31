@@ -189,6 +189,8 @@ class AppTranslations {
         "Synced with server. Any new edits will be marked pending sync.",
     "userSwitchBlockedUnsynced":
         "Unsynced records from the previous user exist on this device. Please sign in as the previous user to sync before switching accounts.",
+    "recordLockedNotice":
+        "This record is synced and locked for editing. Only supervisors may modify confirmed records.",
   };
 
   static const Map<String, String> si = {
@@ -378,6 +380,8 @@ class AppTranslations {
         "සේවාදායකය සමඟ සමමුහුර්ත කර ඇත. නව සංස්කරණයන් නැවත සමමුහුර්ත කිරීම සඳහා අපේක්ෂිත ලෙස සලකුණු කෙරේ.",
     "userSwitchBlockedUnsynced":
         "පෙර පරිශීලකයාගේ සමමුහුර්ත නොකළ දත්ත මෙම උපාංගයේ පවතී. ගිණුම් මාරු කිරීමට පෙර එම පරිශීලකයා ලෙස ඇතුළු වී දත්ත සමමුහුර්ත කරන්න.",
+    "recordLockedNotice":
+        "මෙම දත්ත සමමුහුර්ත කර ඇති අතර සංස්කරණය සඳහා අගුළු දමා ඇත. තහවුරු කළ දත්ත වෙනස් කළ හැක්කේ අධීක්ෂකවරුන්ට පමණි.",
   };
 
   static const Map<String, String> ta = {
@@ -570,6 +574,8 @@ class AppTranslations {
         "சேவையகத்துடன் ஒத்திசைக்கப்பட்டது. புதிய திருத்தங்கள் மீண்டும் ஒத்திசைக்க நிலுவையில் உள்ளதாக குறிக்கப்படும்.",
     "userSwitchBlockedUnsynced":
         "முந்தைய பயனரின் ஒத்திசைக்கப்படாத தரவு இந்த சாதனத்தில் உள்ளது. கணக்கை மாற்றுவதற்கு முன் முந்தைய பயனராக உள்நுழைந்து ஒத்திசைக்கவும்.",
+    "recordLockedNotice":
+        "இந்த பதிவு ஒத்திசைக்கப்பட்டு திருத்துவதற்காக பூட்டப்பட்டுள்ளது. உறுதிப்படுத்தப்பட்ட பதிவுகளை மேற்பார்வையாளர்கள் மட்டுமே மாற்ற முடியும்.",
   };
 
   static Map<String, String> get(String lang) {

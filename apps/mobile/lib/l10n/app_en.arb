@@ -321,5 +321,7 @@
   "recordSyncedNotice": "Synced with server. Any new edits will be marked pending sync.",
   "@recordSyncedNotice": {},
   "userSwitchBlockedUnsynced": "Unsynced records from the previous user exist on this device. Please sign in as the previous user to sync before switching accounts.",
-  "@userSwitchBlockedUnsynced": {}
+  "@userSwitchBlockedUnsynced": {},
+  "recordLockedNotice": "This record is synced and locked for editing. Only supervisors may modify confirmed records.",
+  "@recordLockedNotice": {}
 }

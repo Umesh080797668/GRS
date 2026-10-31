@@ -346,14 +346,15 @@ class SyncNotifier extends StateNotifier<SyncState> {
               totalSynced++;
             }
           } else if (result.status == 'locked') {
-            // Server confirmed record already exists and is locked for Level 5
+            // Server confirmed record already exists and is locked for Level 5 (Decision C2)
+            totalRejected++;
             await db.updateClientSyncStatus(
               result.id,
-              status: SyncStatus.synced,
-              baseVersion: result.serverVersion ?? 1,
-              expectedLocalRevision: expectedRevision,
+              status: SyncStatus.rejected,
+              errorCode:
+                  result.code ??
+                  'RECORD_LOCKED: Confirmed record cannot be edited by field agents (Decision C2)',
             );
-            totalSynced++;
           } else if (result.status == 'rejected' ||
               result.status == 'forbidden') {
             totalRejected++;

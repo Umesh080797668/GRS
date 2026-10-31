@@ -8,6 +8,8 @@ import 'package:grs_core/grs_core.dart';
 import 'package:grs_ui/grs_ui.dart';
 import 'package:mobile/data/local/database.dart';
 import 'package:mobile/l10n/l10n.dart';
+import 'package:mobile/providers/auth_provider.dart';
+import 'package:mobile/providers/config_provider.dart';
 import 'package:mobile/providers/database_provider.dart';
 import 'package:mobile/screens/client/client_form_screen.dart';
 
@@ -211,5 +213,102 @@ void main() {
         );
       },
     );
+
+    testWidgets(
+      'Decision C2: Level 5 agent cannot edit synced records when agent_can_edit_synced is false',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(400, 1200);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final syncedClient = Client(
+          id: 'c-synced-locked',
+          householdId: 'house-101',
+          name: 'Locked Beneficiary',
+          age: 35,
+          gender: 'M',
+          infoProvidedBy: 'self',
+          consentGiven: true,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        await db.saveClient(
+          client: syncedClient,
+          status: SyncStatus.synced,
+          baseVersion: 1,
+        );
+
+        final testProfile = ProfileModel(
+          id: 'agent-1',
+          userCode: 'AG-01',
+          fullName: 'Field Agent',
+          role: 'team_member',
+          phoneE164: '+94771234567',
+          mustChangePassword: false,
+          isActive: true,
+          preferredLanguage: 'en',
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              databaseProvider.overrideWith((ref) => Future.value(db)),
+              authProvider.overrideWith(
+                (ref) => _MockAuthNotifier(
+                  AuthState(
+                    status: AuthStatus.authenticated,
+                    profile: testProfile,
+                  ),
+                ),
+              ),
+              agentCanEditSyncedProvider.overrideWith(
+                (ref) => Future.value(false),
+              ),
+            ],
+            child: const MaterialApp(
+              locale: Locale('en'),
+              localizationsDelegates: [
+                GrsLocalizationsDelegate(),
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: ClientFormScreen(
+                houseId: 'house-101',
+                clientId: 'c-synced-locked',
+                consentGiven: true,
+              ),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        // Locked notice banner MUST be displayed
+        expect(
+          find.textContaining('This record is synced and locked for editing'),
+          findsOneWidget,
+        );
+
+        // Save buttons must be HIDDEN to prevent data loss
+        expect(
+          find.widgetWithText(GrsButton, 'Save & Finish House'),
+          findsNothing,
+        );
+        expect(
+          find.widgetWithText(GrsButton, 'Save & Add Next Beneficiary'),
+          findsNothing,
+        );
+      },
+    );
   });
+}
+
+class _MockAuthNotifier extends StateNotifier<AuthState>
+    implements AuthNotifier {
+  _MockAuthNotifier(super.state);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

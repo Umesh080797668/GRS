@@ -542,8 +542,16 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     method: 'GET',
     path: '/sync/area',
     category: 'sync',
-    allowedRoles: ['team_member', 'cdc_secretary'],
-    scopeEnforcement: 'team_only',
+    allowedRoles: [
+      'team_member',
+      'cdc_secretary',
+      'sda',
+      'dc',
+      'cg',
+      'admin',
+      'super_admin',
+    ],
+    scopeEnforcement: 'hierarchical',
     description:
       'Download initial area data (paged, resumable, houses + own clients)',
   },
@@ -551,8 +559,16 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     method: 'GET',
     path: '/sync/changes',
     category: 'sync',
-    allowedRoles: ['team_member', 'cdc_secretary'],
-    scopeEnforcement: 'team_only',
+    allowedRoles: [
+      'team_member',
+      'cdc_secretary',
+      'sda',
+      'dc',
+      'cg',
+      'admin',
+      'super_admin',
+    ],
+    scopeEnforcement: 'hierarchical',
     description:
       'Incremental sync delta since cursor (called on open and sync now)',
   },
@@ -560,8 +576,16 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     method: 'POST',
     path: '/sync/push',
     category: 'sync',
-    allowedRoles: ['team_member', 'cdc_secretary'],
-    scopeEnforcement: 'team_only',
+    allowedRoles: [
+      'team_member',
+      'cdc_secretary',
+      'sda',
+      'dc',
+      'cg',
+      'admin',
+      'super_admin',
+    ],
+    scopeEnforcement: 'hierarchical',
     description:
       'Bulk upsert client records (per-record results, revision guard)',
   },
@@ -785,10 +809,10 @@ export class RoleMatrixEvaluator {
         }
       }
 
-      // Level 4 (cdc_secretary): own team or own GN
+      // Level 4 (cdc_secretary): own team for push/team_only, or own GN for gn_only
       if (role === UserRole.cdc_secretary) {
         if (
-          policy.scopeEnforcement === 'team_only' &&
+          (policy.scopeEnforcement === 'team_only' || policy.path === '/sync/push') &&
           targetScope.teamId &&
           targetScope.teamId !== callerScope.teamId
         ) {
