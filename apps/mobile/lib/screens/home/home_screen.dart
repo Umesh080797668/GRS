@@ -292,6 +292,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ],
 
+          // ── Level 4 Management Hub (CDC Secretary) ────────────────────────
+          if (authState.profile?.role == 'cdc_secretary') ...[
+            GrsFadeIn(
+              delay: const Duration(milliseconds: 140),
+              child: _Level4Hub(isDark: isDark),
+            ),
+          ],
+
           // ── Search + Filters ───────────────────────────────────────────────
           GrsFadeIn(
             delay: const Duration(milliseconds: 180),
@@ -979,6 +987,151 @@ class _SkeletonCardState extends State<_SkeletonCard>
           ),
         );
       },
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Level 4 Management Hub
+// ────────────────────────────────────────────────────────────────────────────
+
+class _Level4Hub extends StatelessWidget {
+  const _Level4Hub({required this.isDark});
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.admin_panel_settings_outlined,
+                  size: 18,
+                  color: GrsColors.primaryDark,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Level 4 Management',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : GrsColors.textPrimaryLight,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _HubButton(
+                    icon: Icons.location_city_outlined,
+                    label: 'GN Setup',
+                    onTap: () => context.push('/gn-setup'),
+                    isDark: isDark,
+                  ),
+                  const SizedBox(width: 8),
+                  _HubButton(
+                    icon: Icons.add_home_outlined,
+                    label: 'Add House',
+                    onTap: () => context.push('/houses/new'),
+                    isDark: isDark,
+                  ),
+                  const SizedBox(width: 8),
+                  _HubButton(
+                    icon: Icons.checklist_rtl_outlined,
+                    label: 'Choose Houses',
+                    onTap: () => context.push('/choose-houses'),
+                    isDark: isDark,
+                  ),
+                  const SizedBox(width: 8),
+                  _HubButton(
+                    icon: Icons.groups_outlined,
+                    label: 'Members',
+                    onTap: () => context.push('/team-members'),
+                    isDark: isDark,
+                  ),
+                  const SizedBox(width: 8),
+                  _HubButton(
+                    icon: Icons.insights_outlined,
+                    label: 'Progress',
+                    onTap: () => context.push('/team-progress'),
+                    isDark: isDark,
+                  ),
+                  const SizedBox(width: 8),
+                  _HubButton(
+                    icon: Icons.folder_shared_outlined,
+                    label: 'Records',
+                    onTap: () => context.push('/team-records'),
+                    isDark: isDark,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HubButton extends StatelessWidget {
+  const _HubButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.isDark,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0F172A) : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: GrsColors.primaryDark),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white70 : GrsColors.textPrimaryLight,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

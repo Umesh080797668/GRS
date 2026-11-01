@@ -32,11 +32,14 @@
 | `/areas/ds` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `national` |
 | `/areas/gn` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
 | `/areas/gn` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `national` |
+| `/areas/gn/:id` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/areas/gn/:id` | **PATCH** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `gn_only` |
 | `/areas/teams` | **GET** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
 | `/areas/teams` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `national` |
 | `/areas/teams/:id` | **PATCH** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `national` |
 | `/areas/import-csv` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `national` |
 | `/houses` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/houses/:id` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
 | `/houses` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `gn_only` |
 | `/houses/:id` | **PATCH** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `gn_only` |
 | `/houses/:id` | **DELETE** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `gn_only` |

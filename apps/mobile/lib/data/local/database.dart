@@ -540,10 +540,35 @@ class AppDatabase {
     for (var i = 0; i < list.length; i += 200) {
       final chunk = list.sublist(i, (i + 200).clamp(0, list.length));
       final placeholders = List.filled(chunk.length, '?').join(',');
+      // Decision C6 & M4.5: Clients are NEVER cascade-deleted; they are kept and flagged
       await _executor.runCustom(
-        'DELETE FROM clients WHERE household_id IN ($placeholders);',
+        "UPDATE clients SET last_error_code = 'HOUSE_DELETED' WHERE household_id IN ($placeholders);",
         chunk,
       );
+      await _executor.runCustom(
+        'DELETE FROM households WHERE id IN ($placeholders);',
+        chunk,
+      );
+    }
+  }
+
+  /// Handles deleted households received from changes feed (M4.5 & Decision C6).
+  /// A house deleted by Level 4 disappears on the next sync; its clients are kept and flagged.
+  Future<void> handleDeletedHouseholds(Set<String> deletedIds) async {
+    if (deletedIds.isEmpty) return;
+
+    final list = deletedIds.toList();
+    for (var i = 0; i < list.length; i += 200) {
+      final chunk = list.sublist(i, (i + 200).clamp(0, list.length));
+      final placeholders = List.filled(chunk.length, '?').join(',');
+
+      // 1. Keep clients and flag them (Decision C6 / M4.5)
+      await _executor.runCustom(
+        "UPDATE clients SET last_error_code = 'HOUSE_DELETED' WHERE household_id IN ($placeholders);",
+        chunk,
+      );
+
+      // 2. Remove the deleted households from local database
       await _executor.runCustom(
         'DELETE FROM households WHERE id IN ($placeholders);',
         chunk,
@@ -749,6 +774,66 @@ class AppDatabase {
       args,
     );
     return count > 0;
+  }
+
+  /// Updates client fields in local SQLite database (Decision C2 / C13).
+  Future<void> updateClientFields(
+    String id, {
+    String? name,
+    int? age,
+    String? gender,
+    String? address,
+    String? phoneRaw,
+    bool? hasSpecialNeeds,
+    bool? isSamurdhi,
+    bool? isAswesuma,
+  }) async {
+    final sets = <String>[];
+    final args = <dynamic>[];
+
+    if (name != null) {
+      sets.add('name = ?');
+      args.add(name);
+    }
+    if (age != null) {
+      sets.add('age = ?');
+      args.add(age);
+    }
+    if (gender != null) {
+      sets.add('gender = ?');
+      args.add(gender);
+    }
+    if (address != null) {
+      sets.add('address = ?');
+      args.add(address);
+    }
+    if (phoneRaw != null) {
+      sets.add('phone_raw = ?');
+      args.add(phoneRaw);
+    }
+    if (hasSpecialNeeds != null) {
+      sets.add('has_special_needs = ?');
+      args.add(hasSpecialNeeds ? 1 : 0);
+    }
+    if (isSamurdhi != null) {
+      sets.add('is_samurdhi = ?');
+      args.add(isSamurdhi ? 1 : 0);
+    }
+    if (isAswesuma != null) {
+      sets.add('is_aswesuma = ?');
+      args.add(isAswesuma ? 1 : 0);
+    }
+
+    if (sets.isEmpty) return;
+
+    sets.add('client_updated_at = ?');
+    args.add(DateTime.now().toUtc().toIso8601String());
+
+    args.add(id);
+    await _executor.runUpdate(
+      'UPDATE clients SET ${sets.join(', ')} WHERE id = ?',
+      args,
+    );
   }
 
   static Completer<void>? _activeLockCompleter;

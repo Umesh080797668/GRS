@@ -193,13 +193,8 @@ class SyncNotifier extends StateNotifier<SyncState> {
         final deletedIds = rawDeleted
             .map((d) => (d as Map<String, dynamic>)['id'] as String)
             .toSet();
-        // Remove deleted households from local database, keeping households with unsynced local client drafts
-        final allLocal = await db.getHouseholds();
-        final remainingIds = allLocal
-            .map((h) => h['id'] as String)
-            .where((id) => !deletedIds.contains(id))
-            .toSet();
-        await db.removeHouseholdsNotIn(remainingIds);
+        // M4.5 & Decision C6: Remove deleted households while keeping and flagging clients
+        await db.handleDeletedHouseholds(deletedIds);
       }
 
       final serverTime =

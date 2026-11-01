@@ -15,6 +15,8 @@ import { VersionGateGuard } from './config/version-gate.guard';
 import { ReleasesModule } from './releases/releases.module';
 import { JobsModule } from './jobs/jobs.module';
 import { SyncModule } from './sync/sync.module';
+import { HouseholdModule } from './households/household.module';
+import { ClientModule } from './clients/client.module';
 
 @Module({
   imports: [
@@ -33,6 +35,8 @@ import { SyncModule } from './sync/sync.module';
     JobsModule,
     ReleasesModule,
     SyncModule,
+    HouseholdModule,
+    ClientModule,
   ],
   controllers: [AppController],
   providers: [
@@ -43,4 +47,4 @@ import { SyncModule } from './sync/sync.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

@@ -191,6 +191,20 @@ class AppTranslations {
         "Unsynced records from the previous user exist on this device. Please sign in as the previous user to sync before switching accounts.",
     "recordLockedNotice":
         "This record is synced and locked for editing. Only supervisors may modify confirmed records.",
+    "level4Management": "Level 4 Management",
+    "gnSetup": "GN Division Setup",
+    "addHouse": "Add House",
+    "chooseHouses": "Choose Houses",
+    "teamMembers": "Team Members",
+    "teamProgress": "Team Progress",
+    "teamRecords": "Team Records",
+    "onlineOnlyNotice": "Internet connection required for this action.",
+    "credentialsOneTimeWarning":
+        "These credentials will only be shown once. Copy or share them now before closing.",
+    "claimHousesSuccess": "Houses claimed successfully",
+    "houseClaimConflict":
+        "Some houses could not be claimed because they were already taken by another team.",
+    "teamCapacityLimit": "Team member limit reached. Cannot add more members.",
   };
 
   static const Map<String, String> si = {
@@ -382,6 +396,21 @@ class AppTranslations {
         "පෙර පරිශීලකයාගේ සමමුහුර්ත නොකළ දත්ත මෙම උපාංගයේ පවතී. ගිණුම් මාරු කිරීමට පෙර එම පරිශීලකයා ලෙස ඇතුළු වී දත්ත සමමුහුර්ත කරන්න.",
     "recordLockedNotice":
         "මෙම දත්ත සමමුහුර්ත කර ඇති අතර සංස්කරණය සඳහා අගුළු දමා ඇත. තහවුරු කළ දත්ත වෙනස් කළ හැක්කේ අධීක්ෂකවරුන්ට පමණි.",
+    "level4Management": "4 වන මට්ටමේ කළමනාකරණය",
+    "gnSetup": "ග්‍රාම නිලධාරී වසම් සැකසුම්",
+    "addHouse": "නිවසක් එකතු කරන්න",
+    "chooseHouses": "නිවාස තෝරන්න",
+    "teamMembers": "කණ්ඩායම් සාමාජිකයින්",
+    "teamProgress": "කණ්ඩායමේ ප්‍රගතිය",
+    "teamRecords": "කණ්ඩායම් වාර්තා",
+    "onlineOnlyNotice": "මෙම ක්‍රියාව සඳහා අන්තර්ජාල සම්බන්ධතාවය අවශ්‍ය වේ.",
+    "credentialsOneTimeWarning":
+        "මෙම පරිශීලක තොරතුරු පෙන්වනු ලබන්නේ එක් වරක් පමණි. වසා දැමීමට පෙර පිටපත් කරන්න හෝ බෙදාගන්න.",
+    "claimHousesSuccess": "නිවාස සාර්ථකව පවරා ගන්නා ලදී",
+    "houseClaimConflict":
+        "වෙනත් කණ්ඩායමක් විසින් දැනටමත් ලබාගෙන ඇති නිසා සමහර නිවාස ලබා ගැනීමට නොහැකි විය.",
+    "teamCapacityLimit":
+        "කණ්ඩායමේ උපරිම සාමාජික සීමාවට ළඟා වී ඇත. තවත් සාමාජිකයින් එක් කළ නොහැක.",
   };
 
   static const Map<String, String> ta = {
@@ -576,6 +605,21 @@ class AppTranslations {
         "முந்தைய பயனரின் ஒத்திசைக்கப்படாத தரவு இந்த சாதனத்தில் உள்ளது. கணக்கை மாற்றுவதற்கு முன் முந்தைய பயனராக உள்நுழைந்து ஒத்திசைக்கவும்.",
     "recordLockedNotice":
         "இந்த பதிவு ஒத்திசைக்கப்பட்டு திருத்துவதற்காக பூட்டப்பட்டுள்ளது. உறுதிப்படுத்தப்பட்ட பதிவுகளை மேற்பார்வையாளர்கள் மட்டுமே மாற்ற முடியும்.",
+    "level4Management": "நிலை 4 முகாமைத்துவம்",
+    "gnSetup": "கிராம சேவகர் பிரிவு அமைப்பு",
+    "addHouse": "வீடு சேர்க்கவும்",
+    "chooseHouses": "வீடுகளைத் தேர்வுசெய்க",
+    "teamMembers": "குழு உறுப்பினர்கள்",
+    "teamProgress": "குழு முன்னேற்றம்",
+    "teamRecords": "குழு பதிவுகள்",
+    "onlineOnlyNotice": "இந்த செயலுக்கு இணைய இணைப்பு தேவை.",
+    "credentialsOneTimeWarning":
+        "இந்த உள்நுழைவு விபரங்கள் ஒரு முறை மட்டுமே காண்பிக்கப்படும். மூடுவதற்கு முன் நகலெடுக்கவும் அல்லது பகிரவும்.",
+    "claimHousesSuccess": "வீடுகள் வெற்றிகரமாக ஒதுக்கப்பட்டன",
+    "houseClaimConflict":
+        "வேறு ஒரு குழு ஏற்கனவே எடுத்துள்ளதால் சில வீடுகளை ஒதுக்க முடியவில்லை.",
+    "teamCapacityLimit":
+        "குழு உறுப்பினர் வரம்பை எட்டியுள்ளது. மேலும் உறுப்பினர்களைச் சேர்க்க முடியாது.",
   };
 
   static Map<String, String> get(String lang) {

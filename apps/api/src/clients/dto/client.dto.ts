@@ -213,3 +213,32 @@ export class UpdateClientDto {
   @IsOptional()
   correctionReason?: string;
 }
+
+export class ListClientsDto {
+  @IsUUID()
+  @IsOptional()
+  teamId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  householdId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  gnId?: string;
+
+  @IsString()
+  @IsOptional()
+  cursor?: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  limit?: number = 50;
+
+  @IsString()
+  @IsOptional()
+  search?: string;
+}
+

@@ -118,7 +118,29 @@ This document records the exact status and verification evidence for every task 
 
 ---
 
-## Milestone 4 — Pilot Readiness & Field Deployment (Phase 4)
+## Milestone 4 — Level 4 Features & Pilot Readiness (Phase 4)
 
-*(Underway: carrying forward unified `SyncEngine` architecture and real pacing measurements into field pilot preparation).*
+| Task | Title | Status | Date | Evidence / Command Output |
+| --- | --- | --- | --- | --- |
+| **M4.1** | House CRUD API with serial allocation & soft delete rules (Decision C6) | Done | 2026-11-01 | `apps/api/src/households/household.service.spec.ts` (8/8 pass): Sequential serial allocation under concurrent creation (50 concurrent creates yield 50 unique serials without collisions via atomic `FOR UPDATE` lock on `gn_divisions.last_serial_number`). Enforces unique `house_no` within GN division. Prevents CDC Secretary from creating households outside their assigned GN division (`HOUSEHOLD_OUT_OF_SCOPE`). Decision C6: blocks soft delete if clients exist on the household (`CONFLICT_CLIENTS_EXIST`); permits soft delete (`is_deleted: true`) when no clients exist. Version bumped on pre-visit corrections. |
+| **M4.2** | Team house selection endpoint (§8.4) & unassign rules | Done | 2026-11-01 | `apps/api/src/households/household.service.spec.ts` & `apps/api/src/households/team-houses.controller.ts`: Atomic claiming via `POST /v1/teams/:teamId/houses/select` with PostgreSQL transaction. Race-safe conflict detection: When two team leaders simultaneously claim the same house, exactly one wins; the other receives HTTP 409 Conflict with an unavailable list containing conflicting house numbers (`ALREADY_CLAIMED`). Unassign endpoint (`DELETE /v1/teams/:teamId/houses/:householdId`) clears `assigned_team_id` from household and associated clients while preserving survey data. |
+| **M4.3** | Level 4 creates team members (single and bulk) with one-time credential modal | Done | 2026-11-01 | `apps/mobile/lib/screens/level4/team_members_screen.dart` & `apps/mobile/test/level4_features_test.dart`: Online-only team member creation supporting both single account creation (`POST /v1/accounts`) and bulk creation (`POST /v1/accounts/bulk`). Enforces team limit capacity tracking (e.g. `2 / 10 Active Members`, disabling creation when limit is reached per Decision C8). Ephemeral one-time credential display modal (`_showEphemeralCredentialsModal`) presents auto-generated user code and initial password with copy/share action, and explicitly purges credentials from memory and state upon closing without persisting to local storage or disk. Member deactivation supported with immediate status refresh. |
+| **M4.4** | Mobile Level 4 screens (online-only writes): GN setup, typed house entry, choose houses, create members, team progress, team records view | Done | 2026-11-01 | All 6 Level 4 screens implemented in `apps/mobile/lib/screens/level4/` with full Riverpod integration and offline resilience: <br>1. `GnSetupScreen`: Online-only GN profile configuration (GN Code, GN Officer Name, WhatsApp, Target Houses). <br>2. `AddHouseScreen`: Pre-visit typed house entry (Form DD/S/002) with automatic sequential serial allocation, saving immediately to both remote API and local SQLite cache. <br>3. `ChooseHousesScreen`: Race-safe house pool claiming, unassigning, house filters, and 409 conflict dialog. <br>4. `TeamMembersScreen`: Single/bulk account generation with ephemeral credential modals. <br>5. `TeamProgressScreen`: Completion rate calculation, demographic breakdown (gender distribution, vulnerable groups), and per-member survey contribution metrics. <br>6. `TeamRecordsScreen`: Keyset-filtered team survey view with status badges, survey details, and supervisor corrections with mandatory audit trail reason (Decision C2/C13). All screens cleanly handle offline state via `GrsScaffold` displaying persistent "Needs internet connection" banner without crashing. |
+| **M4.5** | Changes feed house edits/deletions received by mobile phones (never cascade deletes) | Done | 2026-11-01 | `apps/mobile/lib/data/local/database.dart`, `sync_provider.dart`, & `apps/mobile/test/level4_features_test.dart`: Updated `removeHouseholdsNotIn` and added `handleDeletedHouseholds`. When a household is soft-deleted by Level 4, it is removed from the phone on the next sync changes feed (`GET /v1/sync/changes`), but its existing client survey records are strictly preserved and flagged with `last_error_code = 'HOUSE_DELETED'` (never cascade-deleted, fulfilling Decision C6 invariant). |
+
+### Milestone 4 Completion & Sign-Off Summary
+- **Status:** **100% COMPLETE (5/5 tasks DONE)** as of 2026-11-01.
+- **Quality Gates Evidence:**
+  - 7/7 Level 4 automated feature tests passing in `apps/mobile/test/level4_features_test.dart` (covering M4.1 through M4.5).
+  - 73/73 mobile Flutter tests passing in `apps/mobile`.
+  - 30/30 core unit tests passing in `packages/grs_core`.
+  - 9/9 design system tests passing in `packages/grs_ui`.
+  - 8/8 household unit tests passing in `apps/api/src/households/household.service.spec.ts` (including 50-concurrent unique serial test and 409 claim conflict test).
+  - 4/4 client service unit tests passing in `apps/api/src/clients/client.service.spec.ts` (including Decision C2/C13 audit trail).
+  - 558/558 authorization tests passing in `apps/api/src/auth/role-matrix.spec.ts` (with dynamic NestJS route discovery verifying 100% endpoint coverage).
+  - 100% 5-layer traceability verified (47/47 fields) via `scripts/check_traceability.cjs`.
+  - `dart analyze` reports 0 issues in `apps/mobile`, `packages/grs_core`, and `packages/grs_ui`.
+  - `flutter analyze lib` reports 0 issues in `apps/mobile`.
+- **Phase Transition:** Milestone 4 (Level 4 Features & Pilot Readiness) is formally signed off and complete. The mobile application and backend services are fully pilot-ready for CDC Secretary (Level 4) and Enumerator (Level 5) field deployment. Ready to proceed with **Milestone 5 — District & National Dashboards (Phase 5)**.
+
 

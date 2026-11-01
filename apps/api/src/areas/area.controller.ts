@@ -16,15 +16,18 @@ import { UserRole } from '../common/scope/scope.types';
 import {
   CreateDsDto,
   CreateGnDto,
+  UpdateGnDto,
   CreateTeamDto,
   UpdateTeamDto,
   ImportPilotAreaCsvDto,
 } from './dto/area.dto';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { ScopeContext } from '../common/scope/scope.types';
 
 @Controller('v1/areas')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AreaController {
-  constructor(private readonly areaService: AreaService) {}
+  constructor(private readonly areaService: AreaService) { }
 
   @Get('districts')
   async getDistricts() {
@@ -63,6 +66,33 @@ export class AreaController {
   @Get('gn')
   async getGn(@Query('dsId') dsId?: string) {
     return this.areaService.getGnDivisions(dsId);
+  }
+
+  @Get('gn/:id')
+  @Roles(
+    UserRole.team_member,
+    UserRole.cdc_secretary,
+    UserRole.sda,
+    UserRole.dc,
+    UserRole.cg,
+    UserRole.admin,
+    UserRole.super_admin,
+  )
+  async getGnById(
+    @CurrentUser() user: ScopeContext,
+    @Param('id') id: string,
+  ) {
+    return this.areaService.getGnDivisionById(user, id);
+  }
+
+  @Patch('gn/:id')
+  @Roles(UserRole.cdc_secretary, UserRole.super_admin)
+  async updateGn(
+    @CurrentUser() user: ScopeContext,
+    @Param('id') id: string,
+    @Body() dto: UpdateGnDto,
+  ) {
+    return this.areaService.updateGnDivision(user, id, dto);
   }
 
   @Post('teams')

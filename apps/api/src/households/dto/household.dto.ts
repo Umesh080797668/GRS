@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsInt,
   IsNotEmpty,
@@ -8,20 +9,22 @@ import {
   Max,
   MaxLength,
   Min,
+  ArrayMinSize,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateHouseholdDto {
   @IsUUID()
-  @IsNotEmpty()
-  districtId: string;
+  @IsOptional()
+  districtId?: string;
 
   @IsUUID()
-  @IsNotEmpty()
-  dsId: string;
+  @IsOptional()
+  dsId?: string;
 
   @IsUUID()
-  @IsNotEmpty()
-  gnId: string;
+  @IsOptional()
+  gnId?: string;
 
   @IsUUID()
   @IsOptional()
@@ -125,6 +128,7 @@ export class UpdateHouseholdDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(150)
   villageName?: string;
 
   @IsBoolean()
@@ -182,4 +186,48 @@ export class UpdateHouseholdDto {
   @IsUUID()
   @IsOptional()
   teamId?: string;
+}
+
+export class AssignHousesDto {
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @ArrayMinSize(1)
+  houseIds: string[];
+}
+
+export class DeleteHouseholdDto {
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  reason?: string;
+}
+
+export class ListHouseholdsDto {
+  @IsUUID()
+  @IsOptional()
+  gnId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  teamId?: string;
+
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @IsString()
+  @IsOptional()
+  cursor?: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  limit?: number = 50;
+
+  @IsBoolean()
+  @IsOptional()
+  @Type(() => Boolean)
+  unassignedOnly?: boolean;
 }

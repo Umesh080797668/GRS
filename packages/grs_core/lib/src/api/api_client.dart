@@ -476,4 +476,300 @@ class GrsApiClient {
 
     _handleError(response);
   }
+
+  // --- LEVEL 4 / MILESTONE 4 ENDPOINTS ---
+
+  /// POST /v1/houses - Typed house entry (M4.1 / M4.4)
+  Future<Map<String, dynamic>> createHousehold(
+    Map<String, dynamic> data,
+  ) async {
+    final uri = Uri.parse('$baseUrl/v1/houses');
+    final response = await _sendWithAuthRetry(
+      () => _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode(data),
+      ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// GET /v1/houses - List households with scope and filters
+  Future<Map<String, dynamic>> getHouseholds({
+    String? gnId,
+    String? teamId,
+    bool? unassignedOnly,
+    String? search,
+    int? limit,
+    String? cursor,
+  }) async {
+    final params = <String, String>{};
+    if (gnId != null) params['gnId'] = gnId;
+    if (teamId != null) params['teamId'] = teamId;
+    if (unassignedOnly != null) {
+      params['unassignedOnly'] = unassignedOnly.toString();
+    }
+    if (search != null) params['search'] = search;
+    if (limit != null) params['limit'] = limit.toString();
+    if (cursor != null) params['cursor'] = cursor;
+
+    final query = Uri(queryParameters: params).query;
+    final uri = Uri.parse(
+      '$baseUrl/v1/houses${query.isNotEmpty ? '?$query' : ''}',
+    );
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// GET /v1/houses/:id
+  Future<Map<String, dynamic>> getHousehold(String id) async {
+    final uri = Uri.parse('$baseUrl/v1/houses/$id');
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// PATCH /v1/houses/:id
+  Future<Map<String, dynamic>> updateHousehold(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    final uri = Uri.parse('$baseUrl/v1/houses/$id');
+    final response = await _sendWithAuthRetry(
+      () => _client.patch(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode(data),
+      ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// DELETE /v1/houses/:id
+  Future<Map<String, dynamic>> deleteHousehold(
+    String id, {
+    String? reason,
+  }) async {
+    final uri = Uri.parse('$baseUrl/v1/houses/$id');
+    final response = await _sendWithAuthRetry(
+      () => _client.delete(
+        uri,
+        headers: _headers(authenticated: true),
+        body: reason != null ? jsonEncode({'reason': reason}) : null,
+      ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// POST /v1/teams/:id/houses - Assign batch of houses to team (M4.2)
+  Future<Map<String, dynamic>> assignHousesToTeam(
+    String teamId,
+    List<String> houseIds,
+  ) async {
+    final uri = Uri.parse('$baseUrl/v1/teams/$teamId/houses');
+    final response = await _sendWithAuthRetry(
+      () => _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode({'houseIds': houseIds}),
+      ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// DELETE /v1/teams/:id/houses/:houseId - Unassign house from team (M4.2)
+  Future<Map<String, dynamic>> unassignHouseFromTeam(
+    String teamId,
+    String houseId,
+  ) async {
+    final uri = Uri.parse('$baseUrl/v1/teams/$teamId/houses/$houseId');
+    final response = await _sendWithAuthRetry(
+      () => _client.delete(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// GET /v1/areas/gn/:id - Get GN division setup details (M4.4)
+  Future<Map<String, dynamic>> getGnDivision(String gnId) async {
+    final uri = Uri.parse('$baseUrl/v1/areas/gn/$gnId');
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// PATCH /v1/areas/gn/:id - Update GN division setup details (M4.4)
+  Future<Map<String, dynamic>> updateGnDivision(
+    String gnId,
+    Map<String, dynamic> data,
+  ) async {
+    final uri = Uri.parse('$baseUrl/v1/areas/gn/$gnId');
+    final response = await _sendWithAuthRetry(
+      () => _client.patch(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode(data),
+      ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// POST /v1/accounts - Create single team member (M4.3)
+  Future<Map<String, dynamic>> createAccount(Map<String, dynamic> data) async {
+    final uri = Uri.parse('$baseUrl/v1/accounts');
+    final response = await _sendWithAuthRetry(
+      () => _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode(data),
+      ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// POST /v1/accounts/bulk - Create bulk team members (M4.3)
+  Future<Map<String, dynamic>> createBulkAccounts(
+    Map<String, dynamic> data,
+  ) async {
+    final uri = Uri.parse('$baseUrl/v1/accounts/bulk');
+    final response = await _sendWithAuthRetry(
+      () => _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode(data),
+      ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// GET /v1/accounts - List team members
+  Future<Map<String, dynamic>> getAccounts({
+    String? teamId,
+    String? role,
+  }) async {
+    final params = <String, String>{};
+    if (teamId != null) params['teamId'] = teamId;
+    if (role != null) params['role'] = role;
+    final query = Uri(queryParameters: params).query;
+    final uri = Uri.parse(
+      '$baseUrl/v1/accounts${query.isNotEmpty ? '?$query' : ''}',
+    );
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// PATCH /v1/accounts/:id/deactivate - Deactivate an account
+  Future<void> deactivateAccount(String targetId) async {
+    final uri = Uri.parse('$baseUrl/v1/accounts/$targetId/deactivate');
+    final response = await _sendWithAuthRetry(
+      () => _client.patch(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+    _handleError(response);
+  }
+
+  /// GET /v1/clients - List team records (M4.4)
+  Future<Map<String, dynamic>> getClients({
+    String? teamId,
+    String? householdId,
+    String? search,
+    int? limit,
+    String? cursor,
+  }) async {
+    final params = <String, String>{};
+    if (teamId != null) params['teamId'] = teamId;
+    if (householdId != null) params['householdId'] = householdId;
+    if (search != null) params['search'] = search;
+    if (limit != null) params['limit'] = limit.toString();
+    if (cursor != null) params['cursor'] = cursor;
+
+    final query = Uri(queryParameters: params).query;
+    final uri = Uri.parse(
+      '$baseUrl/v1/clients${query.isNotEmpty ? '?$query' : ''}',
+    );
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// PATCH /v1/clients/:id - Correct client record with audit trail (Decision C2 / C13)
+  Future<Map<String, dynamic>> updateClient(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    final uri = Uri.parse('$baseUrl/v1/clients/$id');
+    final response = await _sendWithAuthRetry(
+      () => _client.patch(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode(data),
+      ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
 }

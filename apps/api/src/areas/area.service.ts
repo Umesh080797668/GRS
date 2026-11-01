@@ -3,12 +3,15 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ScopeContext, UserRole } from '../common/scope/scope.types';
 import { SRI_LANKA_25_DISTRICTS } from './districts.data';
 import {
   CreateDsDto,
   CreateGnDto,
+  UpdateGnDto,
   CreateTeamDto,
   UpdateTeamDto,
 } from './dto/area.dto';
@@ -23,7 +26,7 @@ export interface PilotAreaImportResult {
 
 @Injectable()
 export class AreaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Seeds the 25 official Sri Lankan districts with trilingual names.
@@ -154,6 +157,88 @@ export class AreaService {
         teams: {
           orderBy: { teamNo: 'asc' },
         },
+      },
+    });
+  }
+
+  async getGnDivisionById(caller: ScopeContext, id: string) {
+    if (
+      caller.role === UserRole.cdc_secretary &&
+      caller.gnId &&
+      id !== caller.gnId
+    ) {
+      throw new ForbiddenException({
+        code: 'OUT_OF_SCOPE_GN',
+        message: 'CDC Secretary can only access their own GN division',
+      });
+    }
+
+    const gn = await this.prisma.gnDivision.findUnique({
+      where: { id },
+      include: {
+        ds: {
+          include: { district: true },
+        },
+        teams: {
+          orderBy: { teamNo: 'asc' },
+          include: {
+            _count: { select: { members: true, households: true } },
+          },
+        },
+        _count: {
+          select: { households: true },
+        },
+      },
+    });
+
+    if (!gn) {
+      throw new NotFoundException({
+        code: 'GN_NOT_FOUND',
+        message: 'GN division not found',
+      });
+    }
+
+    return gn;
+  }
+
+  async updateGnDivision(caller: ScopeContext, id: string, dto: UpdateGnDto) {
+    if (
+      caller.role === UserRole.cdc_secretary &&
+      caller.gnId &&
+      id !== caller.gnId
+    ) {
+      throw new ForbiddenException({
+        code: 'OUT_OF_SCOPE_GN',
+        message: 'CDC Secretary can only update their own GN division',
+      });
+    }
+
+    const gn = await this.prisma.gnDivision.findUnique({
+      where: { id },
+    });
+
+    if (!gn) {
+      throw new NotFoundException({
+        code: 'GN_NOT_FOUND',
+        message: 'GN division not found',
+      });
+    }
+
+    return this.prisma.gnDivision.update({
+      where: { id },
+      data: {
+        secretaryName:
+          dto.secretaryName !== undefined
+            ? dto.secretaryName?.trim() || null
+            : undefined,
+        secretaryContact:
+          dto.secretaryContact !== undefined
+            ? dto.secretaryContact?.trim() || null
+            : undefined,
+        secretaryEmail:
+          dto.secretaryEmail !== undefined
+            ? dto.secretaryEmail?.trim() || null
+            : undefined,
       },
     });
   }

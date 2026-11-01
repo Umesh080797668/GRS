@@ -1,0 +1,49 @@
+import {
+  Controller,
+  Post,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { UserRole, ScopeContext } from '../common/scope/scope.types';
+import { HouseholdService } from './household.service';
+import { AssignHousesDto } from './dto/household.dto';
+
+@Controller('v1/teams')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class TeamHousesController {
+  constructor(private readonly householdService: HouseholdService) { }
+
+  @Post(':id/houses')
+  @Roles(UserRole.cdc_secretary, UserRole.super_admin)
+  async assignHousesToTeam(
+    @CurrentUser() user: ScopeContext,
+    @Param('id') teamId: string,
+    @Body() dto: AssignHousesDto,
+  ) {
+    return this.householdService.assignHousesToTeam(
+      user,
+      teamId,
+      dto.houseIds,
+    );
+  }
+
+  @Delete(':id/houses/:houseId')
+  @Roles(UserRole.cdc_secretary, UserRole.super_admin)
+  async unassignHouseFromTeam(
+    @CurrentUser() user: ScopeContext,
+    @Param('id') teamId: string,
+    @Param('houseId') houseId: string,
+  ) {
+    return this.householdService.unassignHouseFromTeam(
+      user,
+      teamId,
+      houseId,
+    );
+  }
+}

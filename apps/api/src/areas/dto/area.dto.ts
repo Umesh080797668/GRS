@@ -66,6 +66,23 @@ export class CreateGnDto {
   secretaryEmail?: string;
 }
 
+export class UpdateGnDto {
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  secretaryName?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  secretaryContact?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  secretaryEmail?: string;
+}
+
 export class CreateTeamDto {
   @IsUUID()
   @IsNotEmpty()

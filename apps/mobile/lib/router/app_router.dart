@@ -17,6 +17,12 @@ import '../screens/home/home_screen.dart';
 import '../screens/house/house_detail_screen.dart';
 import '../screens/records/my_records_screen.dart';
 import '../screens/settings/settings_screen.dart';
+import '../screens/level4/gn_setup_screen.dart';
+import '../screens/level4/add_house_screen.dart';
+import '../screens/level4/choose_houses_screen.dart';
+import '../screens/level4/team_members_screen.dart';
+import '../screens/level4/team_progress_screen.dart';
+import '../screens/level4/team_records_screen.dart';
 
 class AppRouterNotifier extends ChangeNotifier {
   final Ref _ref;
@@ -160,6 +166,30 @@ final routerProvider = Provider<GoRouter>((ref) {
             );
           },
         ),
+      ),
+      GoRoute(
+        path: '/houses/new',
+        builder: (context, state) => const AddHouseScreen(),
+      ),
+      GoRoute(
+        path: '/gn-setup',
+        builder: (context, state) => const GnSetupScreen(),
+      ),
+      GoRoute(
+        path: '/choose-houses',
+        builder: (context, state) => const ChooseHousesScreen(),
+      ),
+      GoRoute(
+        path: '/team-members',
+        builder: (context, state) => const TeamMembersScreen(),
+      ),
+      GoRoute(
+        path: '/team-progress',
+        builder: (context, state) => const TeamProgressScreen(),
+      ),
+      GoRoute(
+        path: '/team-records',
+        builder: (context, state) => const TeamRecordsScreen(),
       ),
       GoRoute(
         path: '/houses/:id',

@@ -33,6 +33,8 @@ class AuthState {
     this.isSessionExpiredOffline = false,
   });
 
+  ProfileModel? get user => profile;
+
   factory AuthState.initial() => const AuthState(status: AuthStatus.initial);
 
   AuthState copyWith({
