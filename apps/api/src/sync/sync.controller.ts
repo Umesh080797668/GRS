@@ -80,7 +80,12 @@ export class SyncController {
     @CurrentUser() user: ScopeContext,
     @Query() query: SyncChangesDto,
   ) {
-    return this.syncService.getChanges(user, query.since);
+    return this.syncService.getChanges(
+      user,
+      query.since,
+      query.cursor,
+      query.limit,
+    );
   }
 
   @Post('push')

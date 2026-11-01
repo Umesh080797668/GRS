@@ -676,6 +676,7 @@ class AppDatabase {
         consent_version = excluded.consent_version,
         sync_status = excluded.sync_status,
         base_version = excluded.base_version,
+        retry_count = 0,
         last_error_code = NULL,
         local_revision = clients.local_revision + 1,
         client_updated_at = excluded.client_updated_at
@@ -760,9 +761,26 @@ class AppDatabase {
     int? baseVersion,
     String? errorCode,
     int? expectedLocalRevision,
+    int maxRetries = 5,
   }) async {
-    final args = <dynamic>[status.name];
-    var setClause = 'sync_status = ?';
+    final args = <dynamic>[];
+    String setClause;
+
+    if (status == SyncStatus.failed) {
+      setClause =
+          'sync_status = CASE WHEN retry_count + 1 >= ? THEN ? ELSE ? END, retry_count = retry_count + 1';
+      args.addAll([
+        maxRetries,
+        SyncStatus.rejected.name,
+        SyncStatus.failed.name,
+      ]);
+    } else {
+      setClause = 'sync_status = ?';
+      args.add(status.name);
+      if (status == SyncStatus.synced) {
+        setClause += ', retry_count = 0';
+      }
+    }
 
     if (baseVersion != null) {
       setClause += ', base_version = ?';
@@ -863,18 +881,29 @@ class AppDatabase {
 
   /// Marks a batch of clients as failed due to a network or transient error,
   /// incrementing retry_count and setting last_error_code (§8.2 #5).
-  Future<void> markClientsFailed(List<String> ids, {String? errorCode}) async {
+  /// If retry_count reaches maxRetries (default 5), transitions status to rejected.
+  Future<void> markClientsFailed(
+    List<String> ids, {
+    String? errorCode,
+    int maxRetries = 5,
+  }) async {
     if (ids.isEmpty) return;
     for (final id in ids) {
       await _executor.runUpdate(
         '''
         UPDATE clients
-        SET sync_status = ?,
+        SET sync_status = CASE WHEN retry_count + 1 >= ? THEN ? ELSE ? END,
             retry_count = retry_count + 1,
             last_error_code = ?
         WHERE id = ?
         ''',
-        [SyncStatus.failed.name, errorCode ?? 'NETWORK_ERROR', id],
+        [
+          maxRetries,
+          SyncStatus.rejected.name,
+          SyncStatus.failed.name,
+          errorCode ?? 'NETWORK_ERROR',
+          id,
+        ],
       );
     }
   }

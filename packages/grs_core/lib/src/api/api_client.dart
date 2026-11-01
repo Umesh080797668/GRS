@@ -460,12 +460,27 @@ class GrsApiClient {
     _handleError(response);
   }
 
-  /// GET /v1/sync/changes?since=
-  Future<Map<String, dynamic>> getChanges({String? since}) async {
-    final queryParams = since != null
-        ? '?since=${Uri.encodeComponent(since)}'
+  /// GET /v1/sync/changes?since=&cursor=&limit=
+  Future<Map<String, dynamic>> getChanges({
+    String? since,
+    String? cursor,
+    int? limit,
+  }) async {
+    final params = <String, String>{};
+    if (since != null && since.isNotEmpty) {
+      params['since'] = since;
+    }
+    if (cursor != null && cursor.isNotEmpty) {
+      params['cursor'] = cursor;
+    }
+    if (limit != null && limit > 0) {
+      params['limit'] = limit.toString();
+    }
+
+    final query = params.isNotEmpty
+        ? '?${params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}'
         : '';
-    final uri = Uri.parse('$baseUrl/v1/sync/changes$queryParams');
+    final uri = Uri.parse('$baseUrl/v1/sync/changes$query');
     final response = await _sendWithAuthRetry(
       () => _client.get(uri, headers: _headers(authenticated: true)),
     );

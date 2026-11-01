@@ -1,4 +1,5 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsInt, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class SyncChangesDto {
@@ -8,6 +9,24 @@ export class SyncChangesDto {
   @IsOptional()
   @IsString()
   since?: string;
+
+  @ApiPropertyOptional({
+    description: 'Resumable pagination cursor (UUID of last received household in changes feed)',
+  })
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @ApiPropertyOptional({
+    description: 'Maximum number of updated households per page (default 500, max 1000)',
+    default: 500,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1000)
+  limit?: number = 500;
 }
 
 export interface SyncChangesResponse {
@@ -19,4 +38,7 @@ export interface SyncChangesResponse {
     deletedReason?: string | null;
   }>;
   clients: any[];
+  nextCursor?: string | null;
+  hasMore: boolean;
 }
+

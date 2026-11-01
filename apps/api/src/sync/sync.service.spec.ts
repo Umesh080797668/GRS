@@ -630,4 +630,50 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     expect(changes.clients[0].id).toBe('client-corrected-1');
     expect(changes.clients[0].name).toBe('Corrected Person');
   });
+
+  it('getChanges uses safeServerTime buffer and supports cursor/limit pagination', async () => {
+    const caller: ScopeContext = {
+      userId: 'agent-1',
+      role: UserRole.team_member,
+      teamId: 'team-pagination-1',
+      gnId: 'gn-1',
+    };
+
+    const mockHouseholds = Array.from({ length: 5 }, (_, i) => ({
+      id: `house-page-${i + 1}`,
+      teamId: 'team-pagination-1',
+      serialNo: i + 1,
+      houseNo: `H-${i + 1}`,
+      houseNoNorm: `H${i + 1}`,
+      houseLeaderName: `Leader ${i + 1}`,
+      address: `Address ${i + 1}`,
+      version: 1,
+      createdAt: new Date('2026-10-30T00:00:00Z'),
+      updatedAt: new Date(`2026-10-30T01:00:0${i}Z`),
+    }));
+
+    (mockPrisma.household.findMany as jest.Mock).mockResolvedValueOnce(
+      mockHouseholds.slice(0, 3), // 2 items + 1 to check hasMore when limit=2
+    );
+    (mockPrisma.household.findMany as jest.Mock).mockResolvedValueOnce([]); // deletedHouseholds
+    (mockPrisma.client.findMany as jest.Mock).mockResolvedValueOnce([]); // updatedClients
+
+    const nowBefore = Date.now();
+    const page1 = await service.getChanges(
+      caller,
+      '2026-10-30T00:00:00Z',
+      undefined,
+      2,
+    );
+
+    // Verify safeServerTime is buffered backward by ~5 seconds
+    const serverTimeMs = new Date(page1.serverTime).getTime();
+    expect(serverTimeMs).toBeLessThanOrEqual(nowBefore - 4000);
+    expect(serverTimeMs).toBeGreaterThanOrEqual(nowBefore - 10000);
+
+    // Verify pagination metadata
+    expect(page1.households.length).toBe(2);
+    expect(page1.hasMore).toBe(true);
+    expect(page1.nextCursor).toBe('house-page-2');
+  });
 });

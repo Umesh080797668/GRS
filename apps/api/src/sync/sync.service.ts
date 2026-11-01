@@ -199,6 +199,8 @@ export class SyncService {
   async getChanges(
     user: ScopeContext,
     since?: string,
+    cursor?: string,
+    limit: number = 500,
   ): Promise<SyncChangesResponse> {
     if (!user || !user.role) {
       throw new ForbiddenException({
@@ -206,6 +208,12 @@ export class SyncService {
         message_key: 'errors.scope.missing_role',
       });
     }
+
+    // Take timestamp BEFORE running queries and subtract 5-second buffer (safe window)
+    // to prevent concurrent transaction overlap or clock skew from skipping updates.
+    // Client upserts are idempotent, so re-processing overlap is safe.
+    const queryStartTime = new Date();
+    const safeServerTime = new Date(queryStartTime.getTime() - 5000).toISOString();
 
     const whereScope = this.scopeService.getHouseholdScopeFilter(user);
     const sinceDate = since ? new Date(since) : new Date(0);
@@ -218,15 +226,23 @@ export class SyncService {
 
     const clientFilter = this.scopeService.getClientScopeFilter(user);
 
-    const [updatedHouseholds, deletedHouseholds, unassignedFromTeam, updatedClients] =
+    const take = limit && limit > 0 ? limit : 500;
+    const householdQueryArgs: any = {
+      where: {
+        ...householdFilter,
+        updatedAt: { gt: sinceDate },
+      },
+      orderBy: { updatedAt: 'asc' },
+      take: take + 1,
+    };
+    if (cursor) {
+      householdQueryArgs.cursor = { id: cursor };
+      householdQueryArgs.skip = 1;
+    }
+
+    const [rawUpdatedHouseholds, deletedHouseholds, unassignedFromTeam, updatedClients] =
       await Promise.all([
-        this.prisma.household.findMany({
-          where: {
-            ...householdFilter,
-            updatedAt: { gt: sinceDate },
-          },
-          orderBy: { updatedAt: 'asc' },
-        }),
+        this.prisma.household.findMany(householdQueryArgs),
         this.prisma.household.findMany({
           where: {
             ...whereScope,
@@ -259,6 +275,14 @@ export class SyncService {
           orderBy: { updatedAt: 'asc' },
         }),
       ]);
+
+    const hasMore = rawUpdatedHouseholds.length > take;
+    const updatedHouseholds = hasMore
+      ? rawUpdatedHouseholds.slice(0, take)
+      : rawUpdatedHouseholds;
+    const nextCursor = hasMore
+      ? updatedHouseholds[updatedHouseholds.length - 1].id
+      : null;
 
     // Check which unassigned houses are currently assigned to the team (re-claimed)
     const currentlyOnTeamIds = new Set<string>();
@@ -309,7 +333,7 @@ export class SyncService {
     }
 
     return {
-      serverTime: new Date().toISOString(),
+      serverTime: safeServerTime,
       households: updatedHouseholds.map((h) => ({
         id: h.id,
         districtId: h.districtId,
@@ -370,6 +394,8 @@ export class SyncService {
         createdAt: c.createdAt.toISOString(),
         updatedAt: c.updatedAt.toISOString(),
       })),
+      nextCursor,
+      hasMore,
     };
   }
 
