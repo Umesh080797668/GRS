@@ -59,9 +59,10 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
 
     final isOnline = ref.read(connectivityProvider);
     if (!isOnline) {
+      final l10n = GrsL10n.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Internet connection required for this action.'),
+        SnackBar(
+          content: Text(l10n.get('internetRequiredAction')),
           backgroundColor: GrsColors.syncRejected,
         ),
       );
@@ -118,15 +119,16 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
       await db.upsertHousehold(household);
 
       if (mounted) {
+        final dlgL10n = GrsL10n.of(context);
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.check_circle, color: GrsColors.syncSynced),
-                SizedBox(width: 8),
-                Text('House Registered'),
+                const Icon(Icons.check_circle, color: GrsColors.syncSynced),
+                const SizedBox(width: 8),
+                Text(dlgL10n.get('houseRegisteredTitle')),
               ],
             ),
             content: Column(
@@ -134,23 +136,29 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'House No: ${created['houseNo']}',
+                  '${dlgL10n.get('houseNumber')}: ${created['houseNo']}',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Allocated Serial: #${created['serialNo']}',
+                  dlgL10n.translate('allocatedSerialLabel', {
+                    'serial': '${created['serialNo']}',
+                  }),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: GrsColors.primaryLight,
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text('Leader: ${created['houseLeaderName']}'),
+                Text(
+                  dlgL10n.translate('leaderLabel', {
+                    'name': '${created['houseLeaderName']}',
+                  }),
+                ),
                 const SizedBox(height: 12),
-                const Text(
-                  'This house is now added to the GN division pool and available for team claiming.',
-                  style: TextStyle(
+                Text(
+                  dlgL10n.get('housePoolNotice'),
+                  style: const TextStyle(
                     fontSize: 12,
                     color: GrsColors.textSecondaryLight,
                   ),
@@ -163,7 +171,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                   Navigator.of(ctx).pop();
                   _resetForm();
                 },
-                child: const Text('Add Another'),
+                child: Text(dlgL10n.get('addAnother')),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -174,7 +182,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                   Navigator.of(ctx).pop();
                   Navigator.of(context).pop(true);
                 },
-                child: const Text('Done'),
+                child: Text(dlgL10n.get('done')),
               ),
             ],
           ),
@@ -184,7 +192,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
       if (mounted) {
         String msg = e.toString();
         if (msg.contains('HOUSEHOLD_ALREADY_EXISTS')) {
-          msg = 'A house with this number already exists in your GN division.';
+          msg = GrsL10n.of(context).get('houseAlreadyExists');
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg), backgroundColor: GrsColors.syncRejected),
@@ -232,21 +240,21 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const GrsCard(
+              GrsCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Pre-Visit Household Data (DD/S/002)',
-                      style: TextStyle(
+                      l10n.get('preVisitHouseholdDataTitle'),
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: GrsSpacing.sm),
+                    const SizedBox(height: GrsSpacing.sm),
                     Text(
-                      'Enter house information from election name list. Serial number is allocated automatically.',
-                      style: TextStyle(
+                      l10n.get('preVisitHouseholdDataDesc'),
+                      style: const TextStyle(
                         fontSize: 12,
                         color: GrsColors.textSecondaryLight,
                       ),
@@ -263,7 +271,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 enabled: isOnline && !_isSaving,
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) {
-                    return 'Please enter a house number.';
+                    return l10n.get('pleaseEnterHouseNo');
                   }
                   return null;
                 },
@@ -277,7 +285,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 enabled: isOnline && !_isSaving,
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) {
-                    return 'Please enter house leader name.';
+                    return l10n.get('pleaseEnterLeaderName');
                   }
                   return null;
                 },
@@ -286,7 +294,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               GrsTextField(
                 controller: _addressCtrl,
                 label: l10n.get('address'),
-                hint: 'Optional street address',
+                hint: l10n.get('optionalStreetAddressHint'),
                 prefixIcon: const Icon(Icons.location_on_outlined),
                 enabled: isOnline && !_isSaving,
               ),
@@ -294,7 +302,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               GrsTextField(
                 controller: _villageNameCtrl,
                 label: l10n.get('village'),
-                hint: 'e.g. Walpola',
+                hint: l10n.get('villageHint'),
                 prefixIcon: const Icon(Icons.map_outlined),
                 enabled: isOnline && !_isSaving,
               ),
@@ -348,9 +356,12 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 contentPadding: EdgeInsets.zero,
               ),
               const SizedBox(height: GrsSpacing.lg),
-              const Text(
-                'Target Demographics',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              Text(
+                l10n.get('targetDemographics'),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: GrsSpacing.sm),
               Row(
@@ -381,8 +392,8 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               const SizedBox(height: GrsSpacing.md),
               GrsTextField(
                 controller: _ageGroupCtrl,
-                label: 'Age Group',
-                hint: 'e.g. 18-25',
+                label: l10n.get('ageGroup'),
+                hint: l10n.get('ageGroupHint'),
                 prefixIcon: const Icon(Icons.calendar_month_outlined),
                 enabled: isOnline && !_isSaving,
               ),
@@ -398,21 +409,21 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 spacing: GrsSpacing.sm,
                 children: [
                   FilterChip(
-                    label: const Text('Sinhala (සිංහල)'),
+                    label: Text(l10n.get('sinhalaOption')),
                     selected: _langSinhala,
                     onSelected: isOnline && !_isSaving
                         ? (s) => setState(() => _langSinhala = s)
                         : null,
                   ),
                   FilterChip(
-                    label: const Text('Tamil (தமிழ்)'),
+                    label: Text(l10n.get('tamilOption')),
                     selected: _langTamil,
                     onSelected: isOnline && !_isSaving
                         ? (s) => setState(() => _langTamil = s)
                         : null,
                   ),
                   FilterChip(
-                    label: const Text('English'),
+                    label: Text(l10n.get('englishOption')),
                     selected: _langEnglish,
                     onSelected: isOnline && !_isSaving
                         ? (s) => setState(() => _langEnglish = s)

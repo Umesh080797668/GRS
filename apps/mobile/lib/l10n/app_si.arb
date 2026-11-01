@@ -517,5 +517,195 @@
   "createHouse": "නිවස ලියාපදිංචි කරන්න",
   "@createHouse": {},
   "houseCreatedSuccess": "නිවස සාර්ථකව ලියාපදිංචි කරන ලදී!",
-  "@houseCreatedSuccess": {}
+  "@houseCreatedSuccess": {},
+  "internetRequiredAction": "මෙම ක්‍රියාව සඳහා අන්තර්ජාල සම්බන්ධතාවය අවශ්‍ය වේ.",
+  "@internetRequiredAction": {},
+  "houseRegisteredTitle": "නිවස ලියාපදිංචි කරන ලදී",
+  "@houseRegisteredTitle": {},
+  "allocatedSerialLabel": "වෙන් කළ අනුක්‍රමික අංකය: #{serial}",
+  "@allocatedSerialLabel": {
+    "placeholders": {
+      "serial": {
+        "type": "String"
+      }
+    }
+  },
+  "leaderLabel": "ප්‍රධානියා: {name}",
+  "@leaderLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "housePoolNotice": "මෙම නිවස දැන් ග්‍රාම නිලධාරී වසමේ සංචිතයට එකතු කර ඇති අතර කණ්ඩායම් වලට තෝරා ගත හැක.",
+  "@housePoolNotice": {},
+  "addAnother": "තවත් එකතු කරන්න",
+  "@addAnother": {},
+  "done": "අවසන්",
+  "@done": {},
+  "houseAlreadyExists": "මෙම අංකය සහිත නිවසක් ඔබේ ග්‍රාම නිලධාරී වසමේ දැනටමත් පවතී.",
+  "@houseAlreadyExists": {},
+  "preVisitHouseholdDataTitle": "පූර්ව-සංචාරක ගෘහ දත්ත (DD/S/002)",
+  "@preVisitHouseholdDataTitle": {},
+  "preVisitHouseholdDataDesc": "ඡන්ද නාම ලේඛනයෙන් නිවසේ තොරතුරු ඇතුළත් කරන්න. අනුක්‍රමික අංකය ස්වයංක්‍රීයව වෙන් කෙරේ.",
+  "@preVisitHouseholdDataDesc": {},
+  "pleaseEnterHouseNo": "කරුණාකර නිවසේ අංකය ඇතුළත් කරන්න.",
+  "@pleaseEnterHouseNo": {},
+  "pleaseEnterLeaderName": "කරුණාකර පවුලේ ප්‍රධානියාගේ නම ඇතුළත් කරන්න.",
+  "@pleaseEnterLeaderName": {},
+  "optionalStreetAddressHint": "විකල්ප වීදි ලිපිනය",
+  "@optionalStreetAddressHint": {},
+  "villageHint": "උදා: වල්පොල",
+  "@villageHint": {},
+  "targetDemographics": "ඉලක්කගත ජන විකාශනය",
+  "@targetDemographics": {},
+  "ageGroupHint": "උදා: 18-25",
+  "@ageGroupHint": {},
+  "sinhalaOption": "සිංහල (Sinhala)",
+  "@sinhalaOption": {},
+  "tamilOption": "දෙමළ (Tamil)",
+  "@tamilOption": {},
+  "englishOption": "ඉංග්‍රීසි (English)",
+  "@englishOption": {},
+  "internetRequiredHouses": "නිවාස බැලීමට සහ තෝරා ගැනීමට අන්තර්ජාල සම්බන්ධතාවය අවශ්‍ය වේ.",
+  "@internetRequiredHouses": {},
+  "noGnDivisionAssigned": "මෙම පරිශීලකයාට ග්‍රාම නිලධාරී වසමක් පවරා නැත.",
+  "@noGnDivisionAssigned": {},
+  "failedToLoadHouses": "නිවාස ලබා ගැනීම අසාර්ථක විය: {error}",
+  "@failedToLoadHouses": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noTeamAssigned": "ඔබගේ ගිණුමට කණ්ඩායමක් පවරා නැත.",
+  "@noTeamAssigned": {},
+  "housesClaimedSuccess": "ඔබගේ කණ්ඩායම සඳහා නිවාස {count} ක් සාර්ථකව ලබා ගන්නා ලදී.",
+  "@housesClaimedSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "claimConflictTitle": "ලබා ගැනීමේ ගැටුමක්",
+  "@claimConflictTitle": {},
+  "claimConflictMessage": "වෙනත් කණ්ඩායමක් විසින් දැනටමත් ලබාගෙන ඇති නිසා එක් හෝ කිහිපයක් නිවාස ලබා ගැනීමට නොහැකි විය.\n\nලබා ගත නොහැකි නිවාස සංඛ්‍යාව: {count}\n\nලැයිස්තුව දැන් අලුත් වනු ඇත.",
+  "@claimConflictMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "refreshList": "ලැයිස්තුව අලුත් කරන්න",
+  "@refreshList": {},
+  "errorClaimingHouses": "නිවාස ලබා ගැනීමේ දෝෂයක්: {error}",
+  "@errorClaimingHouses": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "unassignHouseTitle": "නිවස කණ්ඩායමෙන් ඉවත් කරන්න",
+  "@unassignHouseTitle": {},
+  "unassignHouseConfirm": "ඔබගේ කණ්ඩායමෙන් {houseNo} නිවස ඉවත් කරන්නද?",
+  "@unassignHouseConfirm": {
+    "placeholders": {
+      "houseNo": {
+        "type": "String"
+      }
+    }
+  },
+  "unassign": "ඉවත් කරන්න",
+  "@unassign": {},
+  "houseUnassignedSuccess": "{houseNo} නිවස ඉවත් කරන ලදී.",
+  "@houseUnassignedSuccess": {
+    "placeholders": {
+      "houseNo": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToUnassignHouse": "නිවස ඉවත් කිරීම අසාර්ථක විය: {error}",
+  "@failedToUnassignHouse": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "teamBadge": "කණ්ඩායම {teamNo}",
+  "@teamBadge": {
+    "placeholders": {
+      "teamNo": {
+        "type": "String"
+      }
+    }
+  },
+  "unassignFromTeamTooltip": "කණ්ඩායමෙන් ඉවත් කරන්න",
+  "@unassignFromTeamTooltip": {},
+  "internetRequiredTeamMembers": "කණ්ඩායම් සාමාජිකයන් බැලීමට අන්තර්ජාල සම්බන්ධතාවය අවශ්‍ය වේ.",
+  "@internetRequiredTeamMembers": {},
+  "noTeamAssignedUser": "වත්මන් පරිශීලකයාට කණ්ඩායමක් පවරා නැත.",
+  "@noTeamAssignedUser": {},
+  "failedToLoadTeamMembers": "කණ්ඩායම් සාමාජිකයන් ලබා ගැනීම අසාර්ථක විය: {error}",
+  "@failedToLoadTeamMembers": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "memberDeactivatedSuccess": "\"{name}\" සාමාජිකයා අක්‍රිය කරන ලදී",
+  "@memberDeactivatedSuccess": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pleaseEnterFullName": "කරුණාකර සාමාජිකයාගේ සම්පූර්ණ නම ඇතුළත් කරන්න",
+  "@pleaseEnterFullName": {},
+  "create": "සාදන්න",
+  "@create": {},
+  "pleaseEnterCount": "කරුණාකර සංඛ්‍යාවක් ඇතුළත් කරන්න",
+  "@pleaseEnterCount": {},
+  "countBetween1And10": "සංඛ්‍යාව 1 සහ 10 අතර විය යුතුය",
+  "@countBetween1And10": {},
+  "exceedsAvailableCapacity": "පවතින ධාරිතාව ඉක්මවා ඇත ({count} ඉඩ ප්‍රමාණයක්)",
+  "@exceedsAvailableCapacity": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "internetRequiredSave": "වෙනස්කම් සුරැකීමට අන්තර්ජාල සම්බන්ධතාවය අවශ්‍ය වේ.",
+  "@internetRequiredSave": {},
+  "gnDetailsUpdatedSuccess": "ග්‍රාම නිලධාරී වසමේ විස්තර සාර්ථකව යාවත්කාලීන කරන ලදී.",
+  "@gnDetailsUpdatedSuccess": {},
+  "failedToUpdateGn": "ග්‍රාම නිලධාරී වසම යාවත්කාලීන කිරීම අසාර්ථක විය: {error}",
+  "@failedToUpdateGn": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noWelfareFlags": "සුබසාධන දර්ශක සටහන් කර නොමැත.",
+  "@noWelfareFlags": {},
+  "clientRecordUpdatedSuccess": "ප්‍රතිලාභී වාර්තාව යාවත්කාලීන කර විගණන සටහන ලොග් කරන ලදී.",
+  "@clientRecordUpdatedSuccess": {},
+  "failedWithError": "අසාර්ථක විය: {error}",
+  "@failedWithError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }

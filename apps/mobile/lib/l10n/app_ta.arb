@@ -517,5 +517,195 @@
   "createHouse": "வீட்டைப் பதிவு செய்க",
   "@createHouse": {},
   "houseCreatedSuccess": "குடும்பம் வெற்றிகரமாக உருவாக்கப்பட்டது!",
-  "@houseCreatedSuccess": {}
+  "@houseCreatedSuccess": {},
+  "internetRequiredAction": "இந்தச் செயலுக்கு இணைய இணைப்பு தேவை.",
+  "@internetRequiredAction": {},
+  "houseRegisteredTitle": "வீடு பதிவு செய்யப்பட்டது",
+  "@houseRegisteredTitle": {},
+  "allocatedSerialLabel": "ஒதுக்கப்பட்ட தொடர் எண்: #{serial}",
+  "@allocatedSerialLabel": {
+    "placeholders": {
+      "serial": {
+        "type": "String"
+      }
+    }
+  },
+  "leaderLabel": "தலைவர்: {name}",
+  "@leaderLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "housePoolNotice": "இந்த வீடு இப்போது கிராம அலுவலர் பிரிவு தொகுப்பில் சேர்க்கப்பட்டு குழு கோரலுக்கு கிடைக்கிறது.",
+  "@housePoolNotice": {},
+  "addAnother": "மற்றொன்றைச் சேர்க்கவும்",
+  "@addAnother": {},
+  "done": "முடிந்தது",
+  "@done": {},
+  "houseAlreadyExists": "இந்த எண்ணைக் கொண்ட ஒரு வீடு ஏற்கனவே உங்கள் கிராம அலுவலர் பிரிவில் உள்ளது.",
+  "@houseAlreadyExists": {},
+  "preVisitHouseholdDataTitle": "முன் வருகை குடும்பத் தரவு (DD/S/002)",
+  "@preVisitHouseholdDataTitle": {},
+  "preVisitHouseholdDataDesc": "தேர்தல் பெயர் பட்டியலிலிருந்து வீட்டு தகவல்களை உள்ளிடவும். தொடர் எண் தானாகவே ஒதுக்கப்படுகிறது.",
+  "@preVisitHouseholdDataDesc": {},
+  "pleaseEnterHouseNo": "தயவுசெய்து வீட்டு எண்ணை உள்ளிடவும்.",
+  "@pleaseEnterHouseNo": {},
+  "pleaseEnterLeaderName": "தயவுசெய்து குடும்பத் தலைவரின் பெயரை உள்ளிடவும்.",
+  "@pleaseEnterLeaderName": {},
+  "optionalStreetAddressHint": "விருப்ப தெரு முகவரி",
+  "@optionalStreetAddressHint": {},
+  "villageHint": "எ.கா. வல்போல",
+  "@villageHint": {},
+  "targetDemographics": "இலக்கு புள்ளிவிவரங்கள்",
+  "@targetDemographics": {},
+  "ageGroupHint": "எ.கா. 18-25",
+  "@ageGroupHint": {},
+  "sinhalaOption": "சிங்களம் (Sinhala)",
+  "@sinhalaOption": {},
+  "tamilOption": "தமிழ் (Tamil)",
+  "@tamilOption": {},
+  "englishOption": "ஆங்கிலம் (English)",
+  "@englishOption": {},
+  "internetRequiredHouses": "வீடுகளைப் பார்க்கவும் தேர்ந்தெடுக்கவும் இணைய இணைப்பு தேவை.",
+  "@internetRequiredHouses": {},
+  "noGnDivisionAssigned": "இந்த பயனருக்கு கிராம அலுவலர் பிரிவு ஒதுக்கப்படவில்லை.",
+  "@noGnDivisionAssigned": {},
+  "failedToLoadHouses": "வீடுகளை ஏற்றுவதில் தோல்வி: {error}",
+  "@failedToLoadHouses": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noTeamAssigned": "உங்கள் கணக்கிற்கு எந்த குழுவும் ஒதுக்கப்படவில்லை.",
+  "@noTeamAssigned": {},
+  "housesClaimedSuccess": "உங்கள் குழுவிற்காக {count} வீடுகள் வெற்றிகரமாக கோரப்பட்டன.",
+  "@housesClaimedSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "claimConflictTitle": "கோரல் முரண்பாடு",
+  "@claimConflictTitle": {},
+  "claimConflictMessage": "வேறொரு குழு ஏற்கனவே எடுத்துக்கொண்டதால் ஒன்று அல்லது அதற்கு மேற்பட்ட வீடுகளை கோர முடியவில்லை.\n\nகிடைக்காத வீடுகளின் எண்ணிக்கை: {count}\n\nபட்டியல் இப்போது புதுப்பிக்கப்படும்.",
+  "@claimConflictMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "refreshList": "பட்டியலை புதுப்பிக்கவும்",
+  "@refreshList": {},
+  "errorClaimingHouses": "வீடுகளைக் கோருவதில் பிழை: {error}",
+  "@errorClaimingHouses": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "unassignHouseTitle": "வீட்டை குழுவிலிருந்து நீக்கு",
+  "@unassignHouseTitle": {},
+  "unassignHouseConfirm": "உங்கள் குழுவிலிருந்து {houseNo} வீட்டை நீக்கவா?",
+  "@unassignHouseConfirm": {
+    "placeholders": {
+      "houseNo": {
+        "type": "String"
+      }
+    }
+  },
+  "unassign": "நீக்கு",
+  "@unassign": {},
+  "houseUnassignedSuccess": "{houseNo} வீடு நீக்கப்பட்டது.",
+  "@houseUnassignedSuccess": {
+    "placeholders": {
+      "houseNo": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToUnassignHouse": "வீட்டை நீக்குவதில் தோல்வி: {error}",
+  "@failedToUnassignHouse": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "teamBadge": "குழு {teamNo}",
+  "@teamBadge": {
+    "placeholders": {
+      "teamNo": {
+        "type": "String"
+      }
+    }
+  },
+  "unassignFromTeamTooltip": "குழுவிலிருந்து நீக்கு",
+  "@unassignFromTeamTooltip": {},
+  "internetRequiredTeamMembers": "குழு உறுப்பினர்களைப் பார்க்க இணைய இணைப்பு தேவை.",
+  "@internetRequiredTeamMembers": {},
+  "noTeamAssignedUser": "தற்போதைய பயனருக்கு குழு ஒதுக்கப்படவில்லை.",
+  "@noTeamAssignedUser": {},
+  "failedToLoadTeamMembers": "குழு உறுப்பினர்களை ஏற்றுவதில் தோல்வி: {error}",
+  "@failedToLoadTeamMembers": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "memberDeactivatedSuccess": "\"{name}\" உறுப்பினர் செயலிழக்கச் செய்யப்பட்டார்",
+  "@memberDeactivatedSuccess": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pleaseEnterFullName": "தயவுசெய்து உறுப்பினரின் முழுப் பெயரை உள்ளிடவும்",
+  "@pleaseEnterFullName": {},
+  "create": "உருவாக்கு",
+  "@create": {},
+  "pleaseEnterCount": "தயவுசெய்து எண்ணிக்கையை உள்ளிடவும்",
+  "@pleaseEnterCount": {},
+  "countBetween1And10": "எண்ணிக்கை 1 முதல் 10 வரை இருக்க வேண்டும்",
+  "@countBetween1And10": {},
+  "exceedsAvailableCapacity": "கிடைக்கும் திறனை விட அதிகமாக உள்ளது ({count} இடங்கள்)",
+  "@exceedsAvailableCapacity": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "internetRequiredSave": "மாற்றங்களைச் சேமிக்க இணைய இணைப்பு தேவை.",
+  "@internetRequiredSave": {},
+  "gnDetailsUpdatedSuccess": "கிராம அலுவலர் பிரிவு விவரங்கள் வெற்றிகரமாக புதுப்பிக்கப்பட்டன.",
+  "@gnDetailsUpdatedSuccess": {},
+  "failedToUpdateGn": "கிராம அலுவலர் பிரிவை புதுப்பிப்பதில் தோல்வி: {error}",
+  "@failedToUpdateGn": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noWelfareFlags": "நலன்புரி குறிகாட்டிகள் எதுவும் பதிவு செய்யப்படவில்லை.",
+  "@noWelfareFlags": {},
+  "clientRecordUpdatedSuccess": "பயனாளி பதிவு புதுப்பிக்கப்பட்டு தணிக்கை பதிவு செய்யப்பட்டது.",
+  "@clientRecordUpdatedSuccess": {},
+  "failedWithError": "தோல்வி: {error}",
+  "@failedWithError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }

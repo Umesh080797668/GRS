@@ -97,9 +97,10 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
 
     final isOnline = ref.read(connectivityProvider);
     if (!isOnline) {
+      final l10n = GrsL10n.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Internet connection required to save changes.'),
+        SnackBar(
+          content: Text(l10n.get('internetRequiredSave')),
           backgroundColor: GrsColors.syncRejected,
         ),
       );
@@ -127,20 +128,24 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
       });
 
       if (mounted) {
+        final l10n = GrsL10n.of(context);
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('GN division details updated successfully.'),
+          SnackBar(
+            content: Text(l10n.get('gnDetailsUpdatedSuccess')),
             backgroundColor: GrsColors.syncSynced,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
+        final l10n = GrsL10n.of(context);
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update GN division: ${e.toString()}'),
+            content: Text(
+              l10n.translate('failedToUpdateGn', {'error': e.toString()}),
+            ),
             backgroundColor: GrsColors.syncRejected,
           ),
         );

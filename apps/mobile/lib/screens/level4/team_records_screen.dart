@@ -178,6 +178,7 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
           maxChildSize: 0.95,
           expand: false,
           builder: (ctx, scrollCtrl) {
+            final l10n = GrsL10n.of(ctx);
             return SingleChildScrollView(
               controller: scrollCtrl,
               padding: const EdgeInsets.all(GrsSpacing.lg),
@@ -300,7 +301,7 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                       if (aswesuma)
                         _buildStatusBadge('Aswesuma', GrsColors.syncSynced),
                       if (!specialNeeds && !samurdhi && !aswesuma)
-                        const Text('No welfare flags recorded.'),
+                        Text(l10n.get('noWelfareFlags')),
                     ],
                   ),
 
@@ -371,9 +372,10 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
           } catch (_) {}
 
           if (mounted) {
+            final l10n = GrsL10n.of(context);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Client record updated and audit trail logged.'),
+              SnackBar(
+                content: Text(l10n.get('clientRecordUpdatedSuccess')),
                 backgroundColor: GrsColors.syncSynced,
               ),
             );
@@ -381,9 +383,12 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
           }
         } catch (e) {
           if (mounted) {
+            final l10n = GrsL10n.of(context);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Failed: ${e.toString()}'),
+                content: Text(
+                  l10n.translate('failedWithError', {'error': e.toString()}),
+                ),
                 backgroundColor: GrsColors.syncRejected,
               ),
             );

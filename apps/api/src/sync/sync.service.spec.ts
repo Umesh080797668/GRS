@@ -676,4 +676,85 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     expect(page1.hasMore).toBe(true);
     expect(page1.nextCursor).toBe('house-page-2');
   });
+
+  it('pages correctly across >500 houses sharing identical timestamp using id tiebreaker', async () => {
+    const caller: ScopeContext = {
+      userId: 'agent-1',
+      role: UserRole.team_member,
+      teamId: 'team-tie-1',
+      gnId: 'gn-1',
+    };
+
+    const sharedTimestamp = new Date('2026-10-30T10:00:00.000Z');
+    // Generate 600 houses sharing the EXACT same updatedAt timestamp
+    const all600Households = Array.from({ length: 600 }, (_, i) => {
+      const padIndex = String(i + 1).padStart(3, '0');
+      return {
+        id: `house-bulk-${padIndex}`,
+        teamId: 'team-tie-1',
+        serialNo: i + 1,
+        houseNo: `H-${padIndex}`,
+        houseNoNorm: `H${padIndex}`,
+        houseLeaderName: `Leader ${padIndex}`,
+        address: `Address ${padIndex}`,
+        version: 1,
+        createdAt: sharedTimestamp,
+        updatedAt: sharedTimestamp,
+      };
+    });
+
+    // Page 1: fetch first 500 (Prisma takes limit + 1 = 501)
+    (mockPrisma.household.findMany as jest.Mock).mockImplementationOnce((args) => {
+      expect(args.orderBy).toEqual([{ updatedAt: 'asc' }, { id: 'asc' }]);
+      expect(args.take).toBe(501);
+      expect(args.cursor).toBeUndefined();
+      return Promise.resolve(all600Households.slice(0, 501));
+    });
+    (mockPrisma.household.findMany as jest.Mock).mockResolvedValueOnce([]); // deletedHouseholds
+    (mockPrisma.client.findMany as jest.Mock).mockResolvedValueOnce([]); // updatedClients
+
+    const page1 = await service.getChanges(
+      caller,
+      '2026-10-30T00:00:00Z',
+      undefined,
+      500,
+    );
+
+    expect(page1.households.length).toBe(500);
+    expect(page1.hasMore).toBe(true);
+    expect(page1.nextCursor).toBe('house-bulk-500');
+
+    // Page 2: fetch remaining using nextCursor 'house-bulk-500'
+    (mockPrisma.household.findMany as jest.Mock).mockImplementationOnce((args) => {
+      expect(args.orderBy).toEqual([{ updatedAt: 'asc' }, { id: 'asc' }]);
+      expect(args.take).toBe(501);
+      expect(args.cursor).toEqual({ id: 'house-bulk-500' });
+      expect(args.skip).toBe(1);
+      return Promise.resolve(all600Households.slice(500));
+    });
+    (mockPrisma.household.findMany as jest.Mock).mockResolvedValueOnce([]); // deletedHouseholds
+    (mockPrisma.client.findMany as jest.Mock).mockResolvedValueOnce([]); // updatedClients
+
+    const page2 = await service.getChanges(
+      caller,
+      '2026-10-30T00:00:00Z',
+      page1.nextCursor!,
+      500,
+    );
+
+    expect(page2.households.length).toBe(100);
+    expect(page2.hasMore).toBe(false);
+    expect(page2.nextCursor).toBeNull();
+
+    // Verify union of IDs across page1 and page2 has no duplicates and no missing items
+    const collectedIds = new Set([
+      ...page1.households.map((h) => h.id),
+      ...page2.households.map((h) => h.id),
+    ]);
+    expect(collectedIds.size).toBe(600);
+    expect(collectedIds.has('house-bulk-001')).toBe(true);
+    expect(collectedIds.has('house-bulk-500')).toBe(true);
+    expect(collectedIds.has('house-bulk-501')).toBe(true);
+    expect(collectedIds.has('house-bulk-600')).toBe(true);
+  });
 });

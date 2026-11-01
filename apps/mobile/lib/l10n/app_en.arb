@@ -517,5 +517,195 @@
   "createHouse": "Create House",
   "@createHouse": {},
   "houseCreatedSuccess": "Household created successfully!",
-  "@houseCreatedSuccess": {}
+  "@houseCreatedSuccess": {},
+  "internetRequiredAction": "Internet connection required for this action.",
+  "@internetRequiredAction": {},
+  "houseRegisteredTitle": "House Registered",
+  "@houseRegisteredTitle": {},
+  "allocatedSerialLabel": "Allocated Serial: #{serial}",
+  "@allocatedSerialLabel": {
+    "placeholders": {
+      "serial": {
+        "type": "String"
+      }
+    }
+  },
+  "leaderLabel": "Leader: {name}",
+  "@leaderLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "housePoolNotice": "This house is now added to the GN division pool and available for team claiming.",
+  "@housePoolNotice": {},
+  "addAnother": "Add Another",
+  "@addAnother": {},
+  "done": "Done",
+  "@done": {},
+  "houseAlreadyExists": "A house with this number already exists in your GN division.",
+  "@houseAlreadyExists": {},
+  "preVisitHouseholdDataTitle": "Pre-Visit Household Data (DD/S/002)",
+  "@preVisitHouseholdDataTitle": {},
+  "preVisitHouseholdDataDesc": "Enter house information from election name list. Serial number is allocated automatically.",
+  "@preVisitHouseholdDataDesc": {},
+  "pleaseEnterHouseNo": "Please enter a house number.",
+  "@pleaseEnterHouseNo": {},
+  "pleaseEnterLeaderName": "Please enter house leader name.",
+  "@pleaseEnterLeaderName": {},
+  "optionalStreetAddressHint": "Optional street address",
+  "@optionalStreetAddressHint": {},
+  "villageHint": "e.g. Walpola",
+  "@villageHint": {},
+  "targetDemographics": "Target Demographics",
+  "@targetDemographics": {},
+  "ageGroupHint": "e.g. 18-25",
+  "@ageGroupHint": {},
+  "sinhalaOption": "Sinhala (සිංහල)",
+  "@sinhalaOption": {},
+  "tamilOption": "Tamil (தமிழ்)",
+  "@tamilOption": {},
+  "englishOption": "English",
+  "@englishOption": {},
+  "internetRequiredHouses": "Internet connection required to view and select houses.",
+  "@internetRequiredHouses": {},
+  "noGnDivisionAssigned": "No GN division assigned to this user.",
+  "@noGnDivisionAssigned": {},
+  "failedToLoadHouses": "Failed to load houses: {error}",
+  "@failedToLoadHouses": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noTeamAssigned": "No team assigned to your account.",
+  "@noTeamAssigned": {},
+  "housesClaimedSuccess": "Successfully claimed {count} houses for your team.",
+  "@housesClaimedSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "claimConflictTitle": "Claim Conflict",
+  "@claimConflictTitle": {},
+  "claimConflictMessage": "One or more houses could not be claimed because they were already taken by another team.\n\nUnavailable House IDs: {count}\n\nThe list will now refresh.",
+  "@claimConflictMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "refreshList": "Refresh List",
+  "@refreshList": {},
+  "errorClaimingHouses": "Error claiming houses: {error}",
+  "@errorClaimingHouses": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "unassignHouseTitle": "Unassign House",
+  "@unassignHouseTitle": {},
+  "unassignHouseConfirm": "Unassign House {houseNo} from your team?",
+  "@unassignHouseConfirm": {
+    "placeholders": {
+      "houseNo": {
+        "type": "String"
+      }
+    }
+  },
+  "unassign": "Unassign",
+  "@unassign": {},
+  "houseUnassignedSuccess": "House {houseNo} unassigned.",
+  "@houseUnassignedSuccess": {
+    "placeholders": {
+      "houseNo": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToUnassignHouse": "Failed to unassign house: {error}",
+  "@failedToUnassignHouse": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "teamBadge": "Team {teamNo}",
+  "@teamBadge": {
+    "placeholders": {
+      "teamNo": {
+        "type": "String"
+      }
+    }
+  },
+  "unassignFromTeamTooltip": "Unassign from team",
+  "@unassignFromTeamTooltip": {},
+  "internetRequiredTeamMembers": "Internet connection required to view team members.",
+  "@internetRequiredTeamMembers": {},
+  "noTeamAssignedUser": "No team assigned to current user.",
+  "@noTeamAssignedUser": {},
+  "failedToLoadTeamMembers": "Failed to load team members: {error}",
+  "@failedToLoadTeamMembers": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "memberDeactivatedSuccess": "Member \"{name}\" deactivated",
+  "@memberDeactivatedSuccess": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pleaseEnterFullName": "Please enter member full name",
+  "@pleaseEnterFullName": {},
+  "create": "Create",
+  "@create": {},
+  "pleaseEnterCount": "Please enter a count",
+  "@pleaseEnterCount": {},
+  "countBetween1And10": "Count must be between 1 and 10",
+  "@countBetween1And10": {},
+  "exceedsAvailableCapacity": "Exceeds available capacity ({count} slots)",
+  "@exceedsAvailableCapacity": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "internetRequiredSave": "Internet connection required to save changes.",
+  "@internetRequiredSave": {},
+  "gnDetailsUpdatedSuccess": "GN division details updated successfully.",
+  "@gnDetailsUpdatedSuccess": {},
+  "failedToUpdateGn": "Failed to update GN division: {error}",
+  "@failedToUpdateGn": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noWelfareFlags": "No welfare flags recorded.",
+  "@noWelfareFlags": {},
+  "clientRecordUpdatedSuccess": "Client record updated and audit trail logged.",
+  "@clientRecordUpdatedSuccess": {},
+  "failedWithError": "Failed: {error}",
+  "@failedWithError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }

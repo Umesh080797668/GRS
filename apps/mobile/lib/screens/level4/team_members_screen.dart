@@ -78,7 +78,7 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
     if (!isOnline) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Internet connection required to view team members.';
+        _errorMessage = GrsL10n.of(context).get('internetRequiredTeamMembers');
       });
       return;
     }
@@ -89,7 +89,7 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
       if (teamId == null || teamId.isEmpty) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'No team assigned to current user.';
+          _errorMessage = GrsL10n.of(context).get('noTeamAssignedUser');
         });
         return;
       }
@@ -118,7 +118,9 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'Failed to load team members: ${e.toString()}';
+          _errorMessage = GrsL10n.of(
+            context,
+          ).translate('failedToLoadTeamMembers', {'error': e.toString()});
         });
       }
     }
@@ -477,9 +479,12 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
       final apiClient = ref.read(apiClientProvider);
       await apiClient.deactivateAccount(memberId);
       if (mounted) {
+        final l10n = GrsL10n.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Member "$fullName" deactivated'),
+            content: Text(
+              l10n.translate('memberDeactivatedSuccess', {'name': fullName}),
+            ),
             backgroundColor: GrsColors.syncSynced,
           ),
         );
@@ -817,7 +822,7 @@ class _AddSingleMemberDialogState extends State<_AddSingleMemberDialog> {
                 prefixIcon: const Icon(Icons.person_outline),
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) {
-                    return 'Please enter member full name';
+                    return dlgL10n.get('pleaseEnterFullName');
                   }
                   return null;
                 },
@@ -837,10 +842,19 @@ class _AddSingleMemberDialogState extends State<_AddSingleMemberDialog> {
                   labelText: dlgL10n.get('preferredLanguage'),
                   border: const OutlineInputBorder(),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'si', child: Text('Sinhala (සිංහල)')),
-                  DropdownMenuItem(value: 'ta', child: Text('Tamil (தமிழ்)')),
-                  DropdownMenuItem(value: 'en', child: Text('English')),
+                items: [
+                  DropdownMenuItem(
+                    value: 'si',
+                    child: Text(dlgL10n.get('sinhalaOption')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'ta',
+                    child: Text(dlgL10n.get('tamilOption')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'en',
+                    child: Text(dlgL10n.get('englishOption')),
+                  ),
                 ],
                 onChanged: (val) {
                   if (val != null) {
@@ -892,7 +906,7 @@ class _AddSingleMemberDialogState extends State<_AddSingleMemberDialog> {
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Create'),
+              : Text(dlgL10n.get('create')),
         ),
       ],
     );
@@ -971,14 +985,16 @@ class _BulkAddDialogState extends State<_BulkAddDialog> {
                 keyboardType: TextInputType.number,
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) {
-                    return 'Please enter a count';
+                    return dlgL10n.get('pleaseEnterCount');
                   }
                   final parsed = int.tryParse(val.trim());
                   if (parsed == null || parsed < 1 || parsed > 10) {
-                    return 'Count must be between 1 and 10';
+                    return dlgL10n.get('countBetween1And10');
                   }
                   if (parsed > widget.availableSlots) {
-                    return 'Exceeds available capacity (${widget.availableSlots} slots)';
+                    return dlgL10n.translate('exceedsAvailableCapacity', {
+                      'count': '${widget.availableSlots}',
+                    });
                   }
                   return null;
                 },
@@ -990,10 +1006,19 @@ class _BulkAddDialogState extends State<_BulkAddDialog> {
                   labelText: dlgL10n.get('preferredLanguage'),
                   border: const OutlineInputBorder(),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'si', child: Text('Sinhala (සිංහල)')),
-                  DropdownMenuItem(value: 'ta', child: Text('Tamil (தமிழ்)')),
-                  DropdownMenuItem(value: 'en', child: Text('English')),
+                items: [
+                  DropdownMenuItem(
+                    value: 'si',
+                    child: Text(dlgL10n.get('sinhalaOption')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'ta',
+                    child: Text(dlgL10n.get('tamilOption')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'en',
+                    child: Text(dlgL10n.get('englishOption')),
+                  ),
                 ],
                 onChanged: (val) {
                   if (val != null) {

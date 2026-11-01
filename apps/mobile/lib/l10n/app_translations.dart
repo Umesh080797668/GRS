@@ -283,6 +283,64 @@ class AppTranslations {
     "etf": "ETF",
     "createHouse": "Create House",
     "houseCreatedSuccess": "Household created successfully!",
+    "internetRequiredAction": "Internet connection required for this action.",
+    "houseRegisteredTitle": "House Registered",
+    "allocatedSerialLabel": "Allocated Serial: #{serial}",
+    "leaderLabel": "Leader: {name}",
+    "housePoolNotice":
+        "This house is now added to the GN division pool and available for team claiming.",
+    "addAnother": "Add Another",
+    "done": "Done",
+    "houseAlreadyExists":
+        "A house with this number already exists in your GN division.",
+    "preVisitHouseholdDataTitle": "Pre-Visit Household Data (DD/S/002)",
+    "preVisitHouseholdDataDesc":
+        "Enter house information from election name list. Serial number is allocated automatically.",
+    "pleaseEnterHouseNo": "Please enter a house number.",
+    "pleaseEnterLeaderName": "Please enter house leader name.",
+    "optionalStreetAddressHint": "Optional street address",
+    "villageHint": "e.g. Walpola",
+    "targetDemographics": "Target Demographics",
+    "ageGroupHint": "e.g. 18-25",
+    "sinhalaOption": "Sinhala (සිංහල)",
+    "tamilOption": "Tamil (தமிழ்)",
+    "englishOption": "English",
+    "internetRequiredHouses":
+        "Internet connection required to view and select houses.",
+    "noGnDivisionAssigned": "No GN division assigned to this user.",
+    "failedToLoadHouses": "Failed to load houses: {error}",
+    "noTeamAssigned": "No team assigned to your account.",
+    "housesClaimedSuccess":
+        "Successfully claimed {count} houses for your team.",
+    "claimConflictTitle": "Claim Conflict",
+    "claimConflictMessage":
+        "One or more houses could not be claimed because they were already taken by another team.\n\nUnavailable House IDs: {count}\n\nThe list will now refresh.",
+    "refreshList": "Refresh List",
+    "errorClaimingHouses": "Error claiming houses: {error}",
+    "unassignHouseTitle": "Unassign House",
+    "unassignHouseConfirm": "Unassign House {houseNo} from your team?",
+    "unassign": "Unassign",
+    "houseUnassignedSuccess": "House {houseNo} unassigned.",
+    "failedToUnassignHouse": "Failed to unassign house: {error}",
+    "teamBadge": "Team {teamNo}",
+    "unassignFromTeamTooltip": "Unassign from team",
+    "internetRequiredTeamMembers":
+        "Internet connection required to view team members.",
+    "noTeamAssignedUser": "No team assigned to current user.",
+    "failedToLoadTeamMembers": "Failed to load team members: {error}",
+    "memberDeactivatedSuccess": "Member \"{name}\" deactivated",
+    "pleaseEnterFullName": "Please enter member full name",
+    "create": "Create",
+    "pleaseEnterCount": "Please enter a count",
+    "countBetween1And10": "Count must be between 1 and 10",
+    "exceedsAvailableCapacity": "Exceeds available capacity ({count} slots)",
+    "internetRequiredSave": "Internet connection required to save changes.",
+    "gnDetailsUpdatedSuccess": "GN division details updated successfully.",
+    "failedToUpdateGn": "Failed to update GN division: {error}",
+    "noWelfareFlags": "No welfare flags recorded.",
+    "clientRecordUpdatedSuccess":
+        "Client record updated and audit trail logged.",
+    "failedWithError": "Failed: {error}",
   };
 
   static const Map<String, String> si = {
@@ -568,6 +626,70 @@ class AppTranslations {
     "etf": "සේ.භා.අ.",
     "createHouse": "නිවස ලියාපදිංචි කරන්න",
     "houseCreatedSuccess": "නිවස සාර්ථකව ලියාපදිංචි කරන ලදී!",
+    "internetRequiredAction":
+        "මෙම ක්‍රියාව සඳහා අන්තර්ජාල සම්බන්ධතාවය අවශ්‍ය වේ.",
+    "houseRegisteredTitle": "නිවස ලියාපදිංචි කරන ලදී",
+    "allocatedSerialLabel": "වෙන් කළ අනුක්‍රමික අංකය: #{serial}",
+    "leaderLabel": "ප්‍රධානියා: {name}",
+    "housePoolNotice":
+        "මෙම නිවස දැන් ග්‍රාම නිලධාරී වසමේ සංචිතයට එකතු කර ඇති අතර කණ්ඩායම් වලට තෝරා ගත හැක.",
+    "addAnother": "තවත් එකතු කරන්න",
+    "done": "අවසන්",
+    "houseAlreadyExists":
+        "මෙම අංකය සහිත නිවසක් ඔබේ ග්‍රාම නිලධාරී වසමේ දැනටමත් පවතී.",
+    "preVisitHouseholdDataTitle": "පූර්ව-සංචාරක ගෘහ දත්ත (DD/S/002)",
+    "preVisitHouseholdDataDesc":
+        "ඡන්ද නාම ලේඛනයෙන් නිවසේ තොරතුරු ඇතුළත් කරන්න. අනුක්‍රමික අංකය ස්වයංක්‍රීයව වෙන් කෙරේ.",
+    "pleaseEnterHouseNo": "කරුණාකර නිවසේ අංකය ඇතුළත් කරන්න.",
+    "pleaseEnterLeaderName": "කරුණාකර පවුලේ ප්‍රධානියාගේ නම ඇතුළත් කරන්න.",
+    "optionalStreetAddressHint": "විකල්ප වීදි ලිපිනය",
+    "villageHint": "උදා: වල්පොල",
+    "targetDemographics": "ඉලක්කගත ජන විකාශනය",
+    "ageGroupHint": "උදා: 18-25",
+    "sinhalaOption": "සිංහල (Sinhala)",
+    "tamilOption": "දෙමළ (Tamil)",
+    "englishOption": "ඉංග්‍රීසි (English)",
+    "internetRequiredHouses":
+        "නිවාස බැලීමට සහ තෝරා ගැනීමට අන්තර්ජාල සම්බන්ධතාවය අවශ්‍ය වේ.",
+    "noGnDivisionAssigned": "මෙම පරිශීලකයාට ග්‍රාම නිලධාරී වසමක් පවරා නැත.",
+    "failedToLoadHouses": "නිවාස ලබා ගැනීම අසාර්ථක විය: {error}",
+    "noTeamAssigned": "ඔබගේ ගිණුමට කණ්ඩායමක් පවරා නැත.",
+    "housesClaimedSuccess":
+        "ඔබගේ කණ්ඩායම සඳහා නිවාස {count} ක් සාර්ථකව ලබා ගන්නා ලදී.",
+    "claimConflictTitle": "ලබා ගැනීමේ ගැටුමක්",
+    "claimConflictMessage":
+        "වෙනත් කණ්ඩායමක් විසින් දැනටමත් ලබාගෙන ඇති නිසා එක් හෝ කිහිපයක් නිවාස ලබා ගැනීමට නොහැකි විය.\n\nලබා ගත නොහැකි නිවාස සංඛ්‍යාව: {count}\n\nලැයිස්තුව දැන් අලුත් වනු ඇත.",
+    "refreshList": "ලැයිස්තුව අලුත් කරන්න",
+    "errorClaimingHouses": "නිවාස ලබා ගැනීමේ දෝෂයක්: {error}",
+    "unassignHouseTitle": "නිවස කණ්ඩායමෙන් ඉවත් කරන්න",
+    "unassignHouseConfirm": "ඔබගේ කණ්ඩායමෙන් {houseNo} නිවස ඉවත් කරන්නද?",
+    "unassign": "ඉවත් කරන්න",
+    "houseUnassignedSuccess": "{houseNo} නිවස ඉවත් කරන ලදී.",
+    "failedToUnassignHouse": "නිවස ඉවත් කිරීම අසාර්ථක විය: {error}",
+    "teamBadge": "කණ්ඩායම {teamNo}",
+    "unassignFromTeamTooltip": "කණ්ඩායමෙන් ඉවත් කරන්න",
+    "internetRequiredTeamMembers":
+        "කණ්ඩායම් සාමාජිකයන් බැලීමට අන්තර්ජාල සම්බන්ධතාවය අවශ්‍ය වේ.",
+    "noTeamAssignedUser": "වත්මන් පරිශීලකයාට කණ්ඩායමක් පවරා නැත.",
+    "failedToLoadTeamMembers":
+        "කණ්ඩායම් සාමාජිකයන් ලබා ගැනීම අසාර්ථක විය: {error}",
+    "memberDeactivatedSuccess": "\"{name}\" සාමාජිකයා අක්‍රිය කරන ලදී",
+    "pleaseEnterFullName": "කරුණාකර සාමාජිකයාගේ සම්පූර්ණ නම ඇතුළත් කරන්න",
+    "create": "සාදන්න",
+    "pleaseEnterCount": "කරුණාකර සංඛ්‍යාවක් ඇතුළත් කරන්න",
+    "countBetween1And10": "සංඛ්‍යාව 1 සහ 10 අතර විය යුතුය",
+    "exceedsAvailableCapacity":
+        "පවතින ධාරිතාව ඉක්මවා ඇත ({count} ඉඩ ප්‍රමාණයක්)",
+    "internetRequiredSave":
+        "වෙනස්කම් සුරැකීමට අන්තර්ජාල සම්බන්ධතාවය අවශ්‍ය වේ.",
+    "gnDetailsUpdatedSuccess":
+        "ග්‍රාම නිලධාරී වසමේ විස්තර සාර්ථකව යාවත්කාලීන කරන ලදී.",
+    "failedToUpdateGn":
+        "ග්‍රාම නිලධාරී වසම යාවත්කාලීන කිරීම අසාර්ථක විය: {error}",
+    "noWelfareFlags": "සුබසාධන දර්ශක සටහන් කර නොමැත.",
+    "clientRecordUpdatedSuccess":
+        "ප්‍රතිලාභී වාර්තාව යාවත්කාලීන කර විගණන සටහන ලොග් කරන ලදී.",
+    "failedWithError": "අසාර්ථක විය: {error}",
   };
 
   static const Map<String, String> ta = {
@@ -857,6 +979,68 @@ class AppTranslations {
     "etf": "ஈ.டி.எஃப்",
     "createHouse": "வீட்டைப் பதிவு செய்க",
     "houseCreatedSuccess": "குடும்பம் வெற்றிகரமாக உருவாக்கப்பட்டது!",
+    "internetRequiredAction": "இந்தச் செயலுக்கு இணைய இணைப்பு தேவை.",
+    "houseRegisteredTitle": "வீடு பதிவு செய்யப்பட்டது",
+    "allocatedSerialLabel": "ஒதுக்கப்பட்ட தொடர் எண்: #{serial}",
+    "leaderLabel": "தலைவர்: {name}",
+    "housePoolNotice":
+        "இந்த வீடு இப்போது கிராம அலுவலர் பிரிவு தொகுப்பில் சேர்க்கப்பட்டு குழு கோரலுக்கு கிடைக்கிறது.",
+    "addAnother": "மற்றொன்றைச் சேர்க்கவும்",
+    "done": "முடிந்தது",
+    "houseAlreadyExists":
+        "இந்த எண்ணைக் கொண்ட ஒரு வீடு ஏற்கனவே உங்கள் கிராம அலுவலர் பிரிவில் உள்ளது.",
+    "preVisitHouseholdDataTitle": "முன் வருகை குடும்பத் தரவு (DD/S/002)",
+    "preVisitHouseholdDataDesc":
+        "தேர்தல் பெயர் பட்டியலிலிருந்து வீட்டு தகவல்களை உள்ளிடவும். தொடர் எண் தானாகவே ஒதுக்கப்படுகிறது.",
+    "pleaseEnterHouseNo": "தயவுசெய்து வீட்டு எண்ணை உள்ளிடவும்.",
+    "pleaseEnterLeaderName": "தயவுசெய்து குடும்பத் தலைவரின் பெயரை உள்ளிடவும்.",
+    "optionalStreetAddressHint": "விருப்ப தெரு முகவரி",
+    "villageHint": "எ.கா. வல்போல",
+    "targetDemographics": "இலக்கு புள்ளிவிவரங்கள்",
+    "ageGroupHint": "எ.கா. 18-25",
+    "sinhalaOption": "சிங்களம் (Sinhala)",
+    "tamilOption": "தமிழ் (Tamil)",
+    "englishOption": "ஆங்கிலம் (English)",
+    "internetRequiredHouses":
+        "வீடுகளைப் பார்க்கவும் தேர்ந்தெடுக்கவும் இணைய இணைப்பு தேவை.",
+    "noGnDivisionAssigned":
+        "இந்த பயனருக்கு கிராம அலுவலர் பிரிவு ஒதுக்கப்படவில்லை.",
+    "failedToLoadHouses": "வீடுகளை ஏற்றுவதில் தோல்வி: {error}",
+    "noTeamAssigned": "உங்கள் கணக்கிற்கு எந்த குழுவும் ஒதுக்கப்படவில்லை.",
+    "housesClaimedSuccess":
+        "உங்கள் குழுவிற்காக {count} வீடுகள் வெற்றிகரமாக கோரப்பட்டன.",
+    "claimConflictTitle": "கோரல் முரண்பாடு",
+    "claimConflictMessage":
+        "வேறொரு குழு ஏற்கனவே எடுத்துக்கொண்டதால் ஒன்று அல்லது அதற்கு மேற்பட்ட வீடுகளை கோர முடியவில்லை.\n\nகிடைக்காத வீடுகளின் எண்ணிக்கை: {count}\n\nபட்டியல் இப்போது புதுப்பிக்கப்படும்.",
+    "refreshList": "பட்டியலை புதுப்பிக்கவும்",
+    "errorClaimingHouses": "வீடுகளைக் கோருவதில் பிழை: {error}",
+    "unassignHouseTitle": "வீட்டை குழுவிலிருந்து நீக்கு",
+    "unassignHouseConfirm": "உங்கள் குழுவிலிருந்து {houseNo} வீட்டை நீக்கவா?",
+    "unassign": "நீக்கு",
+    "houseUnassignedSuccess": "{houseNo} வீடு நீக்கப்பட்டது.",
+    "failedToUnassignHouse": "வீட்டை நீக்குவதில் தோல்வி: {error}",
+    "teamBadge": "குழு {teamNo}",
+    "unassignFromTeamTooltip": "குழுவிலிருந்து நீக்கு",
+    "internetRequiredTeamMembers":
+        "குழு உறுப்பினர்களைப் பார்க்க இணைய இணைப்பு தேவை.",
+    "noTeamAssignedUser": "தற்போதைய பயனருக்கு குழு ஒதுக்கப்படவில்லை.",
+    "failedToLoadTeamMembers": "குழு உறுப்பினர்களை ஏற்றுவதில் தோல்வி: {error}",
+    "memberDeactivatedSuccess":
+        "\"{name}\" உறுப்பினர் செயலிழக்கச் செய்யப்பட்டார்",
+    "pleaseEnterFullName": "தயவுசெய்து உறுப்பினரின் முழுப் பெயரை உள்ளிடவும்",
+    "create": "உருவாக்கு",
+    "pleaseEnterCount": "தயவுசெய்து எண்ணிக்கையை உள்ளிடவும்",
+    "countBetween1And10": "எண்ணிக்கை 1 முதல் 10 வரை இருக்க வேண்டும்",
+    "exceedsAvailableCapacity":
+        "கிடைக்கும் திறனை விட அதிகமாக உள்ளது ({count} இடங்கள்)",
+    "internetRequiredSave": "மாற்றங்களைச் சேமிக்க இணைய இணைப்பு தேவை.",
+    "gnDetailsUpdatedSuccess":
+        "கிராம அலுவலர் பிரிவு விவரங்கள் வெற்றிகரமாக புதுப்பிக்கப்பட்டன.",
+    "failedToUpdateGn": "கிராம அலுவலர் பிரிவை புதுப்பிப்பதில் தோல்வி: {error}",
+    "noWelfareFlags": "நலன்புரி குறிகாட்டிகள் எதுவும் பதிவு செய்யப்படவில்லை.",
+    "clientRecordUpdatedSuccess":
+        "பயனாளி பதிவு புதுப்பிக்கப்பட்டு தணிக்கை பதிவு செய்யப்பட்டது.",
+    "failedWithError": "தோல்வி: {error}",
   };
 
   static Map<String, String> get(String lang) {

@@ -232,7 +232,7 @@ export class SyncService {
         ...householdFilter,
         updatedAt: { gt: sinceDate },
       },
-      orderBy: { updatedAt: 'asc' },
+      orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
       take: take + 1,
     };
     if (cursor) {
@@ -253,6 +253,7 @@ export class SyncService {
             deletedAt: true,
             deletedReason: true,
           },
+          orderBy: [{ deletedAt: 'asc' }, { id: 'asc' }],
         }),
         user.teamId && this.prisma.householdUnassignment
           ? this.prisma.householdUnassignment.findMany({
@@ -264,7 +265,7 @@ export class SyncService {
               householdId: true,
               unassignedAt: true,
             },
-            orderBy: { unassignedAt: 'asc' },
+            orderBy: [{ unassignedAt: 'asc' }, { id: 'asc' }],
           })
           : Promise.resolve([]),
         this.prisma.client.findMany({
@@ -272,7 +273,7 @@ export class SyncService {
             ...clientFilter,
             updatedAt: { gt: sinceDate },
           },
-          orderBy: { updatedAt: 'asc' },
+          orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
         }),
       ]);
 

@@ -47,8 +47,7 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
     if (!isOnline) {
       setState(() {
         _isLoading = false;
-        _errorMessage =
-            'Internet connection required to view and select houses.';
+        _errorMessage = GrsL10n.of(context).get('internetRequiredHouses');
       });
       return;
     }
@@ -59,7 +58,7 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
       if (gnId == null || gnId.isEmpty) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'No GN division assigned to this user.';
+          _errorMessage = GrsL10n.of(context).get('noGnDivisionAssigned');
         });
         return;
       }
@@ -93,7 +92,9 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'Failed to load houses: ${e.toString()}';
+          _errorMessage = GrsL10n.of(
+            context,
+          ).translate('failedToLoadHouses', {'error': e.toString()});
         });
       }
     }
@@ -105,9 +106,10 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
     final auth = ref.read(authProvider);
     final teamId = auth.user?.teamId;
     if (teamId == null || teamId.isEmpty) {
+      final l10n = GrsL10n.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No team assigned to your account.'),
+        SnackBar(
+          content: Text(l10n.get('noTeamAssigned')),
           backgroundColor: GrsColors.syncRejected,
         ),
       );
@@ -125,9 +127,12 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
 
       final count = res['assignedCount'] ?? _selectedHouseIds.length;
       if (mounted) {
+        final l10n = GrsL10n.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Successfully claimed $count houses for your team.'),
+            content: Text(
+              l10n.translate('housesClaimedSuccess', {'count': '$count'}),
+            ),
             backgroundColor: GrsColors.syncSynced,
           ),
         );
@@ -143,23 +148,24 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
             [];
 
         if (mounted) {
+          final dlgL10n = GrsL10n.of(context);
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Row(
+              title: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.warning_amber_rounded,
                     color: GrsColors.syncRejected,
                   ),
-                  SizedBox(width: 8),
-                  Text('Claim Conflict'),
+                  const SizedBox(width: 8),
+                  Text(dlgL10n.get('claimConflictTitle')),
                 ],
               ),
               content: Text(
-                'One or more houses could not be claimed because they were already taken by another team.\n\n'
-                'Unavailable House IDs: ${unavailable.length}\n\n'
-                'The list will now refresh.',
+                dlgL10n.translate('claimConflictMessage', {
+                  'count': '${unavailable.length}',
+                }),
               ),
               actions: [
                 ElevatedButton(
@@ -167,7 +173,7 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                     Navigator.of(ctx).pop();
                     _fetchHouses();
                   },
-                  child: const Text('Refresh List'),
+                  child: Text(dlgL10n.get('refreshList')),
                 ),
               ],
             ),
@@ -175,9 +181,14 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
         }
       } else {
         if (mounted) {
+          final l10n = GrsL10n.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error claiming houses: ${apiErr.messageKey}'),
+              content: Text(
+                l10n.translate('errorClaimingHouses', {
+                  'error': apiErr.messageKey,
+                }),
+              ),
               backgroundColor: GrsColors.syncRejected,
             ),
           );
@@ -185,9 +196,12 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final l10n = GrsL10n.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error claiming houses: ${e.toString()}'),
+            content: Text(
+              l10n.translate('errorClaimingHouses', {'error': e.toString()}),
+            ),
             backgroundColor: GrsColors.syncRejected,
           ),
         );
@@ -204,22 +218,25 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
     final teamId = auth.user?.teamId;
     if (teamId == null) return;
 
+    final dlgL10n = GrsL10n.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Unassign House'),
-        content: Text('Unassign House $houseNo from your team?'),
+        title: Text(dlgL10n.get('unassignHouseTitle')),
+        content: Text(
+          dlgL10n.translate('unassignHouseConfirm', {'houseNo': houseNo}),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(dlgL10n.get('cancel')),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: ElevatedButton.styleFrom(
               backgroundColor: GrsColors.syncRejected,
             ),
-            child: const Text('Unassign'),
+            child: Text(dlgL10n.get('unassign')),
           ),
         ],
       ),
@@ -231,9 +248,12 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
       final apiClient = ref.read(apiClientProvider);
       await apiClient.unassignHouseFromTeam(teamId, houseId);
       if (mounted) {
+        final l10n = GrsL10n.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('House $houseNo unassigned.'),
+            content: Text(
+              l10n.translate('houseUnassignedSuccess', {'houseNo': houseNo}),
+            ),
             backgroundColor: GrsColors.syncSynced,
           ),
         );
@@ -241,9 +261,12 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final l10n = GrsL10n.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to unassign house: ${e.toString()}'),
+            content: Text(
+              l10n.translate('failedToUnassignHouse', {'error': e.toString()}),
+            ),
             backgroundColor: GrsColors.syncRejected,
           ),
         );
@@ -482,7 +505,9 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                                   ),
                                   child: Text(
                                     teamNo != null
-                                        ? 'Team $teamNo'
+                                        ? l10n.translate('teamBadge', {
+                                            'teamNo': '$teamNo',
+                                          })
                                         : l10n.get('filterTaken'),
                                     style: const TextStyle(
                                       fontSize: 11,
@@ -527,7 +552,7 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                                     Icons.link_off,
                                     color: GrsColors.syncRejected,
                                   ),
-                                  tooltip: 'Unassign from team',
+                                  tooltip: l10n.get('unassignFromTeamTooltip'),
                                   onPressed: isOnline
                                       ? () => _unassignHouse(id, houseNo)
                                       : null,
