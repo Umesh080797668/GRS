@@ -14,4 +14,3 @@ export interface ReleaseManifest {
   message?: string;
   currentVersion?: string;
 }
-

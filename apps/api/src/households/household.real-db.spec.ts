@@ -309,7 +309,7 @@ describe('Real PostgreSQL HouseholdService, Concurrency & Milestone 4 Invariants
       expect(fulfilled.length).toBe(1);
       expect(rejected.length).toBe(1);
 
-      const failedResult = rejected[0] as PromiseRejectedResult;
+      const failedResult = rejected[0];
       expect(failedResult.reason).toBeInstanceOf(ConflictException);
       expect(failedResult.reason.response.code).toBe('HOUSE_CLAIM_CONFLICT');
       expect(failedResult.reason.response.unavailableHouseIds).toContain(
@@ -538,7 +538,10 @@ describe('Real PostgreSQL HouseholdService, Concurrency & Milestone 4 Invariants
       );
 
       // 3. Team 1 calls /sync/changes with cursor
-      const changes = await syncService.getChanges(team1LeaderScope, syncCursor);
+      const changes = await syncService.getChanges(
+        team1LeaderScope,
+        syncCursor,
+      );
 
       // 4. Verify unassigned house IS returned in deletedHouseholds for Team 1
       const deletedEntry = changes.deletedHouseholds.find(

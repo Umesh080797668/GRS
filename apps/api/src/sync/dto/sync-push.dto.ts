@@ -21,7 +21,10 @@ export class SyncRecordPayloadDto {
   @IsString()
   id!: string;
 
-  @ApiPropertyOptional({ description: 'Base server version known to client', default: 0 })
+  @ApiPropertyOptional({
+    description: 'Base server version known to client',
+    default: 0,
+  })
   @IsOptional()
   @IsInt()
   base_version?: number = 0;
@@ -53,7 +56,8 @@ export class SyncPushDto {
   schema_version?: number = 1;
 
   @ApiProperty({
-    description: 'Array of records to sync (up to 50 records per batch per Build Plan §8.3)',
+    description:
+      'Array of records to sync (up to 50 records per batch per Build Plan §8.3)',
     type: [SyncRecordPayloadDto],
   })
   @IsArray()

@@ -167,16 +167,20 @@ export class ScopeService {
       return true;
     if (scope.role === UserRole.dc) {
       return (
-        target.districtId === scope.districtId ||
+        (!!scope.districtId && target.districtId === scope.districtId) ||
         target.collectedBy === scope.userId
       );
     }
     if (scope.role === UserRole.sda) {
-      return target.dsId === scope.dsId || target.collectedBy === scope.userId;
+      return (
+        (!!scope.dsId && target.dsId === scope.dsId) ||
+        target.collectedBy === scope.userId
+      );
     }
     if (scope.role === UserRole.cdc_secretary) {
       return (
-        target.teamId === scope.teamId || target.collectedBy === scope.userId
+        (!!scope.teamId && target.teamId === scope.teamId) ||
+        target.collectedBy === scope.userId
       );
     }
     if (scope.role === UserRole.team_member) {

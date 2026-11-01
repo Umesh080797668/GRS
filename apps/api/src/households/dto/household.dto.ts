@@ -226,6 +226,9 @@ export class ListHouseholdsDto {
 
   @IsBoolean()
   @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true || value === 1 || value === '1')
+  @Transform(
+    ({ value }) =>
+      value === 'true' || value === true || value === 1 || value === '1',
+  )
   unassignedOnly?: boolean;
 }

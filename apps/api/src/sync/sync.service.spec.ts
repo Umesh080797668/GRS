@@ -48,14 +48,16 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
       team: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
-      $queryRawUnsafe: jest.fn().mockImplementation(async (sql: string, ...params: any[]) => {
-        // Return simulated returning rows for all inserted IDs
-        const ids = [];
-        for (let i = 0; i < params.length; i += 36) {
-          if (params[i]) ids.push(params[i]);
-        }
-        return ids.map((id) => ({ id, server_version: 1 }));
-      }),
+      $queryRawUnsafe: jest
+        .fn()
+        .mockImplementation(async (sql: string, ...params: any[]) => {
+          // Return simulated returning rows for all inserted IDs
+          const ids = [];
+          for (let i = 0; i < params.length; i += 36) {
+            if (params[i]) ids.push(params[i]);
+          }
+          return ids.map((id) => ({ id, server_version: 1 }));
+        }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -63,7 +65,10 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
         SyncService,
         ScopeService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: LookupService, useValue: { getCategorizedLookups: jest.fn() } },
+        {
+          provide: LookupService,
+          useValue: { getCategorizedLookups: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -233,9 +238,11 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
 
     // Count Prisma calls
     const clientFindManyCalls = mockPrisma.client.findMany.mock.calls.length;
-    const householdFindManyCalls = mockPrisma.household.findMany.mock.calls.length;
+    const householdFindManyCalls =
+      mockPrisma.household.findMany.mock.calls.length;
     const rawSqlUpsertCalls = mockPrisma.$queryRawUnsafe.mock.calls.length;
-    const totalBatchQueries = clientFindManyCalls + householdFindManyCalls + rawSqlUpsertCalls;
+    const totalBatchQueries =
+      clientFindManyCalls + householdFindManyCalls + rawSqlUpsertCalls;
 
     expect(clientFindManyCalls).toBe(1); // Query 1: load existing clients
     expect(householdFindManyCalls).toBe(1); // Query 2: load households
@@ -298,9 +305,15 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     const res = await service.pushRecords(caller, dto);
     expect(res.results.length).toBe(3);
 
-    const first = res.results.find((r) => r.id === dupClientId && r.status === 'ok');
-    const duplicate = res.results.find((r) => r.id === dupClientId && r.status === 'rejected');
-    const other = res.results.find((r) => r.id === otherClientId && r.status === 'ok');
+    const first = res.results.find(
+      (r) => r.id === dupClientId && r.status === 'ok',
+    );
+    const duplicate = res.results.find(
+      (r) => r.id === dupClientId && r.status === 'rejected',
+    );
+    const other = res.results.find(
+      (r) => r.id === otherClientId && r.status === 'ok',
+    );
 
     expect(first).toBeDefined();
     expect(duplicate).toBeDefined();
@@ -624,7 +637,9 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     expect(changes.households.length).toBe(1);
     expect(changes.households[0].id).toBe(reClaimedHouseId);
     // Unassignment for reClaimedHouseId should be dropped!
-    expect(changes.deletedHouseholds.find((d) => d.id === reClaimedHouseId)).toBeUndefined();
+    expect(
+      changes.deletedHouseholds.find((d) => d.id === reClaimedHouseId),
+    ).toBeUndefined();
     // Corrected client should be returned!
     expect(changes.clients.length).toBe(1);
     expect(changes.clients[0].id).toBe('client-corrected-1');
@@ -704,12 +719,14 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     });
 
     // Page 1: fetch first 500 (Prisma takes limit + 1 = 501)
-    (mockPrisma.household.findMany as jest.Mock).mockImplementationOnce((args) => {
-      expect(args.orderBy).toEqual([{ updatedAt: 'asc' }, { id: 'asc' }]);
-      expect(args.take).toBe(501);
-      expect(args.cursor).toBeUndefined();
-      return Promise.resolve(all600Households.slice(0, 501));
-    });
+    (mockPrisma.household.findMany as jest.Mock).mockImplementationOnce(
+      (args) => {
+        expect(args.orderBy).toEqual([{ updatedAt: 'asc' }, { id: 'asc' }]);
+        expect(args.take).toBe(501);
+        expect(args.cursor).toBeUndefined();
+        return Promise.resolve(all600Households.slice(0, 501));
+      },
+    );
     (mockPrisma.household.findMany as jest.Mock).mockResolvedValueOnce([]); // deletedHouseholds
     (mockPrisma.client.findMany as jest.Mock).mockResolvedValueOnce([]); // updatedClients
 
@@ -725,13 +742,15 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     expect(page1.nextCursor).toBe('house-bulk-500');
 
     // Page 2: fetch remaining using nextCursor 'house-bulk-500'
-    (mockPrisma.household.findMany as jest.Mock).mockImplementationOnce((args) => {
-      expect(args.orderBy).toEqual([{ updatedAt: 'asc' }, { id: 'asc' }]);
-      expect(args.take).toBe(501);
-      expect(args.cursor).toEqual({ id: 'house-bulk-500' });
-      expect(args.skip).toBe(1);
-      return Promise.resolve(all600Households.slice(500));
-    });
+    (mockPrisma.household.findMany as jest.Mock).mockImplementationOnce(
+      (args) => {
+        expect(args.orderBy).toEqual([{ updatedAt: 'asc' }, { id: 'asc' }]);
+        expect(args.take).toBe(501);
+        expect(args.cursor).toEqual({ id: 'house-bulk-500' });
+        expect(args.skip).toBe(1);
+        return Promise.resolve(all600Households.slice(500));
+      },
+    );
     (mockPrisma.household.findMany as jest.Mock).mockResolvedValueOnce([]); // deletedHouseholds
     (mockPrisma.client.findMany as jest.Mock).mockResolvedValueOnce([]); // updatedClients
 

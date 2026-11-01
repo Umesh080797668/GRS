@@ -860,7 +860,8 @@ export class RoleMatrixEvaluator {
       // Level 4 (cdc_secretary): own team for push/team_only, or own GN for gn_only
       if (role === UserRole.cdc_secretary) {
         if (
-          (policy.scopeEnforcement === 'team_only' || policy.path === '/sync/push') &&
+          (policy.scopeEnforcement === 'team_only' ||
+            policy.path === '/sync/push') &&
           targetScope.teamId &&
           targetScope.teamId !== callerScope.teamId
         ) {

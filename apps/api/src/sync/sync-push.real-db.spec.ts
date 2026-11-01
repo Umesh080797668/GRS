@@ -145,11 +145,14 @@ describe('Real PostgreSQL Push Sync & Atomic Invariants (M3.1)', () => {
 
   afterAll(async () => {
     try {
-      if (houseA) await prisma.client.deleteMany({ where: { householdId: houseA.id } });
-      if (houseB) await prisma.client.deleteMany({ where: { householdId: houseB.id } });
+      if (houseA)
+        await prisma.client.deleteMany({ where: { householdId: houseA.id } });
+      if (houseB)
+        await prisma.client.deleteMany({ where: { householdId: houseB.id } });
       if (houseA) await prisma.household.delete({ where: { id: houseA.id } });
       if (houseB) await prisma.household.delete({ where: { id: houseB.id } });
-      if (houseDeleted) await prisma.household.delete({ where: { id: houseDeleted.id } });
+      if (houseDeleted)
+        await prisma.household.delete({ where: { id: houseDeleted.id } });
       if (teamA) await prisma.team.delete({ where: { id: teamA.id } });
       if (teamB) await prisma.team.delete({ where: { id: teamB.id } });
     } catch (_) { }
@@ -194,7 +197,9 @@ describe('Real PostgreSQL Push Sync & Atomic Invariants (M3.1)', () => {
     expect(res.results[0].server_version).toBe(1);
 
     // Verify row in real Postgres
-    const clientRow = await prisma.client.findUnique({ where: { id: clientId } });
+    const clientRow = await prisma.client.findUnique({
+      where: { id: clientId },
+    });
     expect(clientRow).toBeDefined();
     expect(clientRow!.name).toBe('Sunil Perera');
     expect(clientRow!.serverVersion).toBe(1);

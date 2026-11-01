@@ -17,18 +17,30 @@ import { CANONICAL_LOOKUPS } from '../lookups/lookup.data';
 import { SyncService } from '../sync/sync.service';
 
 const VALID_EDUCATION_CODES = new Set(
-  CANONICAL_LOOKUPS.filter((l) => l.category === 'education').map((l) => l.code),
+  CANONICAL_LOOKUPS.filter((l) => l.category === 'education').map(
+    (l) => l.code,
+  ),
 );
 const VALID_VOCATIONAL_CODES = new Set(
-  CANONICAL_LOOKUPS.filter((l) => l.category === 'vocational_qualification').map((l) => l.code),
+  CANONICAL_LOOKUPS.filter(
+    (l) => l.category === 'vocational_qualification',
+  ).map((l) => l.code),
 );
 const VALID_STREAM_CODES = new Set(
-  CANONICAL_LOOKUPS.filter((l) => l.category === 'vocational_stream').map((l) => l.code),
+  CANONICAL_LOOKUPS.filter((l) => l.category === 'vocational_stream').map(
+    (l) => l.code,
+  ),
 );
 const VALID_JOB_CODES = new Set(
   CANONICAL_LOOKUPS.filter((l) => l.category === 'job').map((l) => l.code),
 );
-const VALID_INFO_PROVIDED_BY = new Set(['self', 'mother', 'father', 'sister', 'other']);
+const VALID_INFO_PROVIDED_BY = new Set([
+  'self',
+  'mother',
+  'father',
+  'sister',
+  'other',
+]);
 
 @Injectable()
 export class ClientService {
@@ -162,14 +174,20 @@ export class ClientService {
       });
     }
 
-    if (caller.role === UserRole.team_member && client.collectedBy !== caller.userId) {
+    if (
+      caller.role === UserRole.team_member &&
+      client.collectedBy !== caller.userId
+    ) {
       throw new ForbiddenException({
         code: 'OUT_OF_SCOPE_RECORD',
         message: 'You can only access records you entered',
       });
     }
 
-    if (caller.role === UserRole.cdc_secretary && client.teamId !== caller.teamId) {
+    if (
+      caller.role === UserRole.cdc_secretary &&
+      client.teamId !== caller.teamId
+    ) {
       throw new ForbiddenException({
         code: 'OUT_OF_SCOPE_TEAM',
         message: 'You can only access records entered by your team',
@@ -194,11 +212,15 @@ export class ClientService {
       });
     }
 
-    if (caller.role === UserRole.team_member || caller.role === UserRole.cdc_secretary) {
+    if (
+      caller.role === UserRole.team_member ||
+      caller.role === UserRole.cdc_secretary
+    ) {
       if (household.teamId !== caller.teamId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_HOUSEHOLD',
-          message: 'Cannot create client in household not assigned to your team',
+          message:
+            'Cannot create client in household not assigned to your team',
         });
       }
     }
@@ -267,19 +289,28 @@ export class ClientService {
     }
 
     // Dropdown codes validation
-    if (dto.highestEducation && !VALID_EDUCATION_CODES.has(dto.highestEducation)) {
+    if (
+      dto.highestEducation &&
+      !VALID_EDUCATION_CODES.has(dto.highestEducation)
+    ) {
       throw new BadRequestException({
         code: 'INVALID_LOOKUP_CODE',
         message: `Invalid highest education code: ${dto.highestEducation}`,
       });
     }
-    if (dto.highestVocational && !VALID_VOCATIONAL_CODES.has(dto.highestVocational)) {
+    if (
+      dto.highestVocational &&
+      !VALID_VOCATIONAL_CODES.has(dto.highestVocational)
+    ) {
       throw new BadRequestException({
         code: 'INVALID_LOOKUP_CODE',
         message: `Invalid highest vocational qualification code: ${dto.highestVocational}`,
       });
     }
-    if (dto.interestedVocationalStream && !VALID_STREAM_CODES.has(dto.interestedVocationalStream)) {
+    if (
+      dto.interestedVocationalStream &&
+      !VALID_STREAM_CODES.has(dto.interestedVocationalStream)
+    ) {
       throw new BadRequestException({
         code: 'INVALID_LOOKUP_CODE',
         message: `Invalid interested vocational stream code: ${dto.interestedVocationalStream}`,
@@ -304,7 +335,8 @@ export class ClientService {
     if (!VALID_INFO_PROVIDED_BY.has(rawInfoBy)) {
       throw new BadRequestException({
         code: 'INVALID_INFO_PROVIDED_BY',
-        message: 'Information provided by must be one of: self, mother, father, sister, other',
+        message:
+          'Information provided by must be one of: self, mother, father, sister, other',
       });
     }
 
@@ -413,11 +445,15 @@ export class ClientService {
     if (caller.role === UserRole.team_member) {
       throw new ForbiddenException({
         code: 'LOCKED_RECORD',
-        message: 'Enumerators cannot edit records after sync. Contact your team leader (Decision C2).',
+        message:
+          'Enumerators cannot edit records after sync. Contact your team leader (Decision C2).',
       });
     }
 
-    if (caller.role === UserRole.cdc_secretary && client.teamId !== caller.teamId) {
+    if (
+      caller.role === UserRole.cdc_secretary &&
+      client.teamId !== caller.teamId
+    ) {
       throw new ForbiddenException({
         code: 'OUT_OF_SCOPE_TEAM',
         message: 'CDC Secretary can only correct records from their own team',
@@ -529,7 +565,11 @@ export class ClientService {
     }
 
     // Dropdown codes validation
-    if (dto.highestEducation !== undefined && dto.highestEducation !== null && dto.highestEducation !== '') {
+    if (
+      dto.highestEducation !== undefined &&
+      dto.highestEducation !== null &&
+      dto.highestEducation !== ''
+    ) {
       if (!VALID_EDUCATION_CODES.has(dto.highestEducation)) {
         throw new BadRequestException({
           code: 'INVALID_LOOKUP_CODE',
@@ -537,7 +577,11 @@ export class ClientService {
         });
       }
     }
-    if (dto.highestVocational !== undefined && dto.highestVocational !== null && dto.highestVocational !== '') {
+    if (
+      dto.highestVocational !== undefined &&
+      dto.highestVocational !== null &&
+      dto.highestVocational !== ''
+    ) {
       if (!VALID_VOCATIONAL_CODES.has(dto.highestVocational)) {
         throw new BadRequestException({
           code: 'INVALID_LOOKUP_CODE',
@@ -545,7 +589,11 @@ export class ClientService {
         });
       }
     }
-    if (dto.interestedVocationalStream !== undefined && dto.interestedVocationalStream !== null && dto.interestedVocationalStream !== '') {
+    if (
+      dto.interestedVocationalStream !== undefined &&
+      dto.interestedVocationalStream !== null &&
+      dto.interestedVocationalStream !== ''
+    ) {
       if (!VALID_STREAM_CODES.has(dto.interestedVocationalStream)) {
         throw new BadRequestException({
           code: 'INVALID_LOOKUP_CODE',
@@ -553,7 +601,11 @@ export class ClientService {
         });
       }
     }
-    if (dto.interestedJob !== undefined && dto.interestedJob !== null && dto.interestedJob !== '') {
+    if (
+      dto.interestedJob !== undefined &&
+      dto.interestedJob !== null &&
+      dto.interestedJob !== ''
+    ) {
       if (!VALID_JOB_CODES.has(dto.interestedJob)) {
         throw new BadRequestException({
           code: 'INVALID_LOOKUP_CODE',
@@ -561,7 +613,11 @@ export class ClientService {
         });
       }
     }
-    if (dto.futureHopes !== undefined && dto.futureHopes !== null && dto.futureHopes.length > 0) {
+    if (
+      dto.futureHopes !== undefined &&
+      dto.futureHopes !== null &&
+      dto.futureHopes.length > 0
+    ) {
       const hopesRes = GrsValidators.validateFutureHopes(dto.futureHopes);
       if (!hopesRes.isValid) {
         throw new BadRequestException({
@@ -575,31 +631,49 @@ export class ClientService {
       if (!VALID_INFO_PROVIDED_BY.has(rawInfoBy)) {
         throw new BadRequestException({
           code: 'INVALID_INFO_PROVIDED_BY',
-          message: 'Information provided by must be one of: self, mother, father, sister, other',
+          message:
+            'Information provided by must be one of: self, mother, father, sister, other',
         });
       }
     }
 
     // Recompute contentHash
     const mergedHighestEducation =
-      dto.highestEducation !== undefined ? dto.highestEducation : client.highestEducation;
+      dto.highestEducation !== undefined
+        ? dto.highestEducation
+        : client.highestEducation;
     const mergedHighestVocational =
-      dto.highestVocational !== undefined ? dto.highestVocational : client.highestVocational;
+      dto.highestVocational !== undefined
+        ? dto.highestVocational
+        : client.highestVocational;
     const mergedInterestedVocationalStream =
-      dto.interestedVocationalStream !== undefined ? dto.interestedVocationalStream : client.interestedVocationalStream;
+      dto.interestedVocationalStream !== undefined
+        ? dto.interestedVocationalStream
+        : client.interestedVocationalStream;
     const mergedInterestedJob =
-      dto.interestedJob !== undefined ? dto.interestedJob : client.interestedJob;
+      dto.interestedJob !== undefined
+        ? dto.interestedJob
+        : client.interestedJob;
     const mergedIsEpf = dto.isEpf !== undefined ? dto.isEpf : client.isEpf;
     const mergedIsEtf = dto.isEtf !== undefined ? dto.isEtf : client.isEtf;
-    const mergedIsAswesuma = dto.isAswesuma !== undefined ? dto.isAswesuma : client.isAswesuma;
-    const mergedIsSamurdhi = dto.isSamurdhi !== undefined ? dto.isSamurdhi : client.isSamurdhi;
+    const mergedIsAswesuma =
+      dto.isAswesuma !== undefined ? dto.isAswesuma : client.isAswesuma;
+    const mergedIsSamurdhi =
+      dto.isSamurdhi !== undefined ? dto.isSamurdhi : client.isSamurdhi;
     const mergedHasSpecialNeeds =
-      dto.hasSpecialNeeds !== undefined ? dto.hasSpecialNeeds : client.hasSpecialNeeds;
-    const mergedFutureHopes = dto.futureHopes !== undefined ? dto.futureHopes : client.futureHopes;
+      dto.hasSpecialNeeds !== undefined
+        ? dto.hasSpecialNeeds
+        : client.hasSpecialNeeds;
+    const mergedFutureHopes =
+      dto.futureHopes !== undefined ? dto.futureHopes : client.futureHopes;
     const mergedInfoProvidedBy =
-      dto.infoProvidedBy !== undefined ? String(dto.infoProvidedBy) : client.infoProvidedBy;
+      dto.infoProvidedBy !== undefined
+        ? String(dto.infoProvidedBy)
+        : client.infoProvidedBy;
     const mergedInfoProvidedByOther =
-      dto.infoProvidedByOther !== undefined ? dto.infoProvidedByOther?.trim() || null : client.infoProvidedByOther;
+      dto.infoProvidedByOther !== undefined
+        ? dto.infoProvidedByOther?.trim() || null
+        : client.infoProvidedByOther;
     const mergedAddress =
       dto.address !== undefined ? dto.address?.trim() || null : client.address;
 
@@ -632,9 +706,10 @@ export class ClientService {
         data: {
           clientId: id,
           changedBy: caller.userId,
-          reason: dto.correctionReason?.trim() || 'Correction by Level 4 Team Leader',
-          before: client as any,
-          after: { ...client, ...dto } as any,
+          reason:
+            dto.correctionReason?.trim() || 'Correction by Level 4 Team Leader',
+          before: client,
+          after: { ...client, ...dto },
         },
       });
 
@@ -645,11 +720,12 @@ export class ClientService {
           name: dto.name ? validatedName : undefined,
           nameNorm,
           age: dto.age !== undefined ? validatedAge : undefined,
-          gender: dto.gender !== undefined ? (validatedGender as any) : undefined,
+          gender: dto.gender !== undefined ? validatedGender : undefined,
           address: dto.address !== undefined ? mergedAddress : undefined,
           phoneRaw: dto.phoneRaw !== undefined ? resolvedPhoneRaw : undefined,
           phoneE164: resolvedPhoneE164,
-          whatsappRaw: dto.whatsappRaw !== undefined ? resolvedWhatsappRaw : undefined,
+          whatsappRaw:
+            dto.whatsappRaw !== undefined ? resolvedWhatsappRaw : undefined,
           whatsappE164: resolvedWhatsappE164,
           highestEducation: mergedHighestEducation,
           highestVocational: mergedHighestVocational,

@@ -424,6 +424,63 @@ describe('Real PostgreSQL AccountService, Team Capacity & Concurrency (M1.4 & M1
       });
       expect(audit).toBeDefined();
     }, 60000);
+
+    it('fail-closed on deactivation: secretary with no team cannot deactivate lower-ranked account with no team', async () => {
+      const user = await service.createAccount(testAdminScope, {
+        fullName: 'Target User No Team',
+        role: UserRole.team_member,
+      });
+
+      const secretaryNoTeamScope: ScopeContext = {
+        userId: 'sec-no-team-123',
+        role: UserRole.cdc_secretary,
+        teamId: null,
+      };
+
+      await expect(
+        service.deactivateAccount(secretaryNoTeamScope, user.user.id),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.reactivateAccount(secretaryNoTeamScope, user.user.id),
+      ).rejects.toThrow(ForbiddenException);
+    }, 60000);
+
+    it('allows DC to manage and reissue password for an SDA they created', async () => {
+      const dcUser = await service.createAccount(testAdminScope, {
+        fullName: 'District Commissioner Test',
+        role: UserRole.dc,
+        districtId: testDistrictId,
+      });
+
+      const dcScope: ScopeContext = {
+        userId: dcUser.user.id,
+        role: UserRole.dc,
+        districtId: testDistrictId,
+      };
+
+      const sdaUser = await service.createAccount(dcScope, {
+        fullName: 'SDA Test Subordinate',
+        role: UserRole.sda,
+        districtId: testDistrictId,
+        dsId: testDsId,
+      });
+
+      const reissued = await service.reissuePassword(dcScope, sdaUser.user.id);
+      expect(reissued.initialPassword).toBeDefined();
+
+      await service.deactivateAccount(dcScope, sdaUser.user.id);
+      let target = await prisma.profile.findUnique({
+        where: { id: sdaUser.user.id },
+      });
+      expect(target?.isActive).toBe(false);
+
+      await service.reactivateAccount(dcScope, sdaUser.user.id);
+      target = await prisma.profile.findUnique({
+        where: { id: sdaUser.user.id },
+      });
+      expect(target?.isActive).toBe(true);
+    }, 60000);
   });
 
   afterAll(async () => {

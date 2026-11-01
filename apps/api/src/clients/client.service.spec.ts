@@ -35,7 +35,8 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       }),
       findMany: jest.fn().mockImplementation(({ where }) => {
         let results = [...mockClients];
-        if (where.teamId) results = results.filter((c) => c.teamId === where.teamId);
+        if (where.teamId)
+          results = results.filter((c) => c.teamId === where.teamId);
         if (where.collectedBy)
           results = results.filter((c) => c.collectedBy === where.collectedBy);
         if (where.deletedAt === null)
@@ -44,7 +45,8 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       }),
       count: jest.fn().mockImplementation(({ where }) => {
         let results = [...mockClients];
-        if (where.teamId) results = results.filter((c) => c.teamId === where.teamId);
+        if (where.teamId)
+          results = results.filter((c) => c.teamId === where.teamId);
         if (where.collectedBy)
           results = results.filter((c) => c.collectedBy === where.collectedBy);
         if (where.deletedAt === null)
@@ -65,7 +67,9 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
         return Promise.resolve(updated);
       }),
       findFirst: jest.fn().mockImplementation(({ where }) => {
-        const found = mockClients.find((c) => c.contentHash === where.contentHash);
+        const found = mockClients.find(
+          (c) => c.contentHash === where.contentHash,
+        );
         return Promise.resolve(found || null);
       }),
       create: jest.fn().mockImplementation(({ data }) => {
@@ -178,10 +182,14 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
         serverVersion: 1,
       });
 
-      const updated = await service.updateClient(cdcSecretaryScope, 'client-1', {
-        name: 'Corrected Beneficiary Name',
-        correctionReason: 'Typo fixed per NIC presentation',
-      });
+      const updated = await service.updateClient(
+        cdcSecretaryScope,
+        'client-1',
+        {
+          name: 'Corrected Beneficiary Name',
+          correctionReason: 'Typo fixed per NIC presentation',
+        },
+      );
 
       expect(updated.name).toBe('Corrected Beneficiary Name');
       expect(updated.serverVersion).toBe(2);
@@ -223,10 +231,14 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       ).rejects.toThrow(BadRequestException);
 
       // Valid update updates contentHash
-      const updated = await service.updateClient(cdcSecretaryScope, 'client-val-1', {
-        age: 30,
-        highestEducation: 'EDU_AL_PASSED',
-      });
+      const updated = await service.updateClient(
+        cdcSecretaryScope,
+        'client-val-1',
+        {
+          age: 30,
+          highestEducation: 'EDU_AL_PASSED',
+        },
+      );
       expect(updated.age).toBe(30);
       expect(updated.highestEducation).toBe('EDU_AL_PASSED');
       expect(updated.contentHash).not.toBe('old-content-hash');
@@ -302,7 +314,9 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       });
 
       expect(findManySpy).toHaveBeenCalled();
-      const lastCallArgs = findManySpy.mock.calls[findManySpy.mock.calls.length - 1][0] as any;
+      const lastCallArgs = findManySpy.mock.calls[
+        findManySpy.mock.calls.length - 1
+      ][0] as any;
       const where = lastCallArgs.where;
 
       // Territorial scope OR must be preserved inside AND alongside search OR
@@ -310,13 +324,16 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       expect(where.AND).toBeDefined();
       expect(Array.isArray(where.AND)).toBe(true);
 
-      const scopeOr = where.AND.find((item: any) =>
-        item.OR && item.OR.some((cond: any) => cond.districtId === 'district-1'),
+      const scopeOr = where.AND.find(
+        (item: any) =>
+          item.OR &&
+          item.OR.some((cond: any) => cond.districtId === 'district-1'),
       );
       expect(scopeOr).toBeDefined();
 
-      const searchOr = where.AND.find((item: any) =>
-        item.OR && item.OR.some((cond: any) => cond.name !== undefined),
+      const searchOr = where.AND.find(
+        (item: any) =>
+          item.OR && item.OR.some((cond: any) => cond.name !== undefined),
       );
       expect(searchOr).toBeDefined();
     });
@@ -335,7 +352,9 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       });
 
       expect(findManySpy).toHaveBeenCalled();
-      const lastCallArgs = findManySpy.mock.calls[findManySpy.mock.calls.length - 1][0] as any;
+      const lastCallArgs = findManySpy.mock.calls[
+        findManySpy.mock.calls.length - 1
+      ][0] as any;
       expect(lastCallArgs.cursor).toEqual({ id: 'client-cursor-456' });
       expect(lastCallArgs.skip).toBe(1);
     });

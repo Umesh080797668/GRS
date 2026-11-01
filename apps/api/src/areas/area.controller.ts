@@ -78,10 +78,7 @@ export class AreaController {
     UserRole.admin,
     UserRole.super_admin,
   )
-  async getGnById(
-    @CurrentUser() user: ScopeContext,
-    @Param('id') id: string,
-  ) {
+  async getGnById(@CurrentUser() user: ScopeContext, @Param('id') id: string) {
     return this.areaService.getGnDivisionById(user, id);
   }
 

@@ -4,21 +4,24 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class SyncChangesDto {
   @ApiPropertyOptional({
-    description: 'ISO-8601 timestamp of last sync cursor. Returns changes since this timestamp.',
+    description:
+      'ISO-8601 timestamp of last sync cursor. Returns changes since this timestamp.',
   })
   @IsOptional()
   @IsString()
   since?: string;
 
   @ApiPropertyOptional({
-    description: 'Resumable pagination cursor (UUID of last received household in changes feed)',
+    description:
+      'Resumable pagination cursor (UUID of last received household in changes feed)',
   })
   @IsOptional()
   @IsString()
   cursor?: string;
 
   @ApiPropertyOptional({
-    description: 'Maximum number of updated households per page (default 500, max 1000)',
+    description:
+      'Maximum number of updated households per page (default 500, max 1000)',
     default: 500,
   })
   @IsOptional()
@@ -41,4 +44,3 @@ export interface SyncChangesResponse {
   nextCursor?: string | null;
   hasMore: boolean;
 }
-

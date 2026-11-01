@@ -70,7 +70,8 @@ export class SyncController {
   )
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Incremental sync delta since cursor (called on open and sync now)',
+    summary:
+      'Incremental sync delta since cursor (called on open and sync now)',
   })
   @ApiResponse({
     status: 200,
@@ -106,10 +107,7 @@ export class SyncController {
     status: 200,
     description: 'Per-record sync status results returned',
   })
-  async pushSync(
-    @CurrentUser() user: ScopeContext,
-    @Body() dto: SyncPushDto,
-  ) {
+  async pushSync(@CurrentUser() user: ScopeContext, @Body() dto: SyncPushDto) {
     return this.syncService.pushRecords(user, dto);
   }
 }

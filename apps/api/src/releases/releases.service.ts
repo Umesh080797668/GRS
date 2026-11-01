@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReleaseManifest } from './release-manifest.interface';
 
@@ -75,7 +80,7 @@ export class ReleasesService {
         return null;
       }
 
-      const data = (await res.json()) as any;
+      const data = await res.json();
       if (!data || !data.tag_name) return null;
 
       const tag = String(data.tag_name);
@@ -174,7 +179,9 @@ export class ReleasesService {
             releasedAt,
           },
         });
-        this.logger.log(`Successfully synced release v${version} into database.`);
+        this.logger.log(
+          `Successfully synced release v${version} into database.`,
+        );
       } catch (dbErr) {
         this.logger.warn(`Could not persist synced release to DB: ${dbErr}`);
       }
@@ -205,7 +212,8 @@ export class ReleasesService {
 
     // 2. In normal runtime (or when explicitly enabled in tests), sync from GitHub if no DB release or cache expired
     const shouldSyncGithub =
-      process.env.NODE_ENV !== 'test' || process.env.ENABLE_GITHUB_SYNC === 'true';
+      process.env.NODE_ENV !== 'test' ||
+      process.env.ENABLE_GITHUB_SYNC === 'true';
 
     let latestManifest: ReleaseManifest | null = null;
 
@@ -224,12 +232,17 @@ export class ReleasesService {
     }
 
     // Check GitHub if DB is empty or cache expired
-    if (shouldSyncGithub && (!latestManifest || Date.now() > this.cacheExpiry)) {
+    if (
+      shouldSyncGithub &&
+      (!latestManifest || Date.now() > this.cacheExpiry)
+    ) {
       const ghRelease = await this.syncFromGitHub();
       if (ghRelease) {
         if (!latestManifest) {
           latestManifest = ghRelease;
-        } else if (this.compareSemver(ghRelease.version, latestManifest.version) > 0) {
+        } else if (
+          this.compareSemver(ghRelease.version, latestManifest.version) > 0
+        ) {
           latestManifest = ghRelease;
         }
       }
@@ -287,7 +300,8 @@ export class ReleasesService {
   async checkUpdate(currentVersion?: string) {
     const release = await this.getLatestRelease(currentVersion);
     const clientVer = currentVersion || release.version;
-    const isUpdateAvailable = this.compareSemver(release.version, clientVer) > 0;
+    const isUpdateAvailable =
+      this.compareSemver(release.version, clientVer) > 0;
 
     return {
       isUpdateAvailable,
@@ -360,4 +374,3 @@ export class ReleasesService {
     };
   }
 }
-

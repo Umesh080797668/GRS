@@ -39,7 +39,7 @@ export class AccountService {
     private readonly prisma: PrismaService,
     private readonly credentialService: CredentialService,
     private readonly scopeService: ScopeService,
-  ) {}
+  ) { }
 
   /**
    * Creates a single account with generated credentials.
@@ -318,15 +318,43 @@ export class AccountService {
       });
     }
 
-    // CDC Secretary can only deactivate members in their own team
-    if (
-      adminScope.role === UserRole.cdc_secretary &&
-      target.teamId !== adminScope.teamId
-    ) {
-      throw new ForbiddenException({
-        code: 'OUT_OF_SCOPE',
-        message: 'Cannot deactivate an account outside your team',
-      });
+    // CDC Secretary can only deactivate members in their own team (fail-closed if teamId is missing or doesn't match)
+    if (adminScope.role === UserRole.cdc_secretary) {
+      if (
+        !adminScope.teamId ||
+        !target.teamId ||
+        target.teamId !== adminScope.teamId
+      ) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE',
+          message: 'Cannot deactivate an account outside your team',
+        });
+      }
+    }
+
+    // SDA can only deactivate accounts in their DS division or accounts they created
+    if (adminScope.role === UserRole.sda) {
+      const isCreator = target.createdBy === adminScope.userId;
+      const inScope = !!adminScope.dsId && target.dsId === adminScope.dsId;
+      if (!isCreator && !inScope) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE',
+          message: 'Cannot deactivate an account outside your DS division',
+        });
+      }
+    }
+
+    // DC can only deactivate accounts in their district or accounts they created
+    if (adminScope.role === UserRole.dc) {
+      const isCreator = target.createdBy === adminScope.userId;
+      const inScope =
+        !!adminScope.districtId && target.districtId === adminScope.districtId;
+      if (!isCreator && !inScope) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE',
+          message: 'Cannot deactivate an account outside your district',
+        });
+      }
     }
 
     await this.prisma.$transaction(
@@ -383,14 +411,43 @@ export class AccountService {
       });
     }
 
-    if (
-      adminScope.role === UserRole.cdc_secretary &&
-      target.teamId !== adminScope.teamId
-    ) {
-      throw new ForbiddenException({
-        code: 'OUT_OF_SCOPE',
-        message: 'Cannot reactivate an account outside your team',
-      });
+    // CDC Secretary can only reactivate members in their own team (fail-closed if teamId is missing or doesn't match)
+    if (adminScope.role === UserRole.cdc_secretary) {
+      if (
+        !adminScope.teamId ||
+        !target.teamId ||
+        target.teamId !== adminScope.teamId
+      ) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE',
+          message: 'Cannot reactivate an account outside your team',
+        });
+      }
+    }
+
+    // SDA can only reactivate accounts in their DS division or accounts they created
+    if (adminScope.role === UserRole.sda) {
+      const isCreator = target.createdBy === adminScope.userId;
+      const inScope = !!adminScope.dsId && target.dsId === adminScope.dsId;
+      if (!isCreator && !inScope) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE',
+          message: 'Cannot reactivate an account outside your DS division',
+        });
+      }
+    }
+
+    // DC can only reactivate accounts in their district or accounts they created
+    if (adminScope.role === UserRole.dc) {
+      const isCreator = target.createdBy === adminScope.userId;
+      const inScope =
+        !!adminScope.districtId && target.districtId === adminScope.districtId;
+      if (!isCreator && !inScope) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE',
+          message: 'Cannot reactivate an account outside your district',
+        });
+      }
     }
 
     await this.prisma.$transaction(
@@ -422,8 +479,8 @@ export class AccountService {
   }
 
   /**
-   * Reissues an initial password for an account (Decision C14 & C18).
-   * Restricted to the original creator or Level 00 super admin.
+   * Reissues an initial password for an account (Decision C14 & C18, Blueprint §3.1).
+   * Restricted to the original creator, active territorial admin of higher rank, or Level 00 super admin.
    */
   async reissuePassword(
     adminScope: ScopeContext,
@@ -442,12 +499,25 @@ export class AccountService {
 
     const isCreator = target.createdBy === adminScope.userId;
     const isSuperAdmin = adminScope.role === UserRole.super_admin;
+    const isTerritorialAdmin =
+      getRoleRank(adminScope.role) > getRoleRank(target.role) &&
+      ((adminScope.role === UserRole.dc &&
+        !!adminScope.districtId &&
+        target.districtId === adminScope.districtId) ||
+        (adminScope.role === UserRole.sda &&
+          !!adminScope.dsId &&
+          target.dsId === adminScope.dsId) ||
+        (adminScope.role === UserRole.cdc_secretary &&
+          !!adminScope.teamId &&
+          target.teamId === adminScope.teamId) ||
+        adminScope.role === UserRole.cg ||
+        adminScope.role === UserRole.admin);
 
-    if (!isCreator && !isSuperAdmin) {
+    if (!isCreator && !isSuperAdmin && !isTerritorialAdmin) {
       throw new ForbiddenException({
         code: 'REISSUE_FORBIDDEN',
         message:
-          'Password reissue is restricted to the account creator or Super Admin',
+          'Password reissue is restricted to the account creator, territorial admin, or Super Admin',
       });
     }
 
@@ -686,6 +756,22 @@ export class AccountService {
     });
     if (!batch) {
       throw new NotFoundException(`Account batch ${batchId} not found`);
+    }
+
+    const isCreator = batch.createdBy === adminScope.userId;
+    const isSuperAdmin = adminScope.role === UserRole.super_admin;
+    const isHigherRank =
+      adminScope.role === UserRole.cg ||
+      adminScope.role === UserRole.admin ||
+      adminScope.role === UserRole.dc ||
+      adminScope.role === UserRole.sda;
+
+    if (!isCreator && !isSuperAdmin && !isHigherRank) {
+      throw new ForbiddenException({
+        code: 'REISSUE_FORBIDDEN',
+        message:
+          'Batch password reissue is restricted to the batch creator or superior admin',
+      });
     }
 
     // Find accounts created under this batch that haven't changed password

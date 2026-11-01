@@ -57,7 +57,9 @@ describe('Releases (Self-Hosted APK Update System)', () => {
       expect(manifest.sha256).toBe(
         '436be008aacf19b183fd27fdb75cf885e51cbefe52c5968c7537a66619abf475',
       );
-      expect(manifest.apkUrl).toContain('github.com/Umesh080797668/GRS/releases');
+      expect(manifest.apkUrl).toContain(
+        'github.com/Umesh080797668/GRS/releases',
+      );
       expect(manifest.mandatory).toBe(false);
     });
 
@@ -208,7 +210,8 @@ describe('Releases (Self-Hosted APK Update System)', () => {
 
     it('POST /v1/releases rejects non-super_admin roles (e.g. team_member) with ForbiddenException', async () => {
       delete process.env.RELEASE_SECRET;
-      process.env.JWT_ACCESS_SECRET = 'test-jwt-secret-key-for-release-tests-1234';
+      process.env.JWT_ACCESS_SECRET =
+        'test-jwt-secret-key-for-release-tests-1234';
 
       const jwt = require('jsonwebtoken');
       const teamMemberToken = jwt.sign(
@@ -234,7 +237,8 @@ describe('Releases (Self-Hosted APK Update System)', () => {
 
     it('POST /v1/releases accepts valid super_admin JWT token', async () => {
       delete process.env.RELEASE_SECRET;
-      process.env.JWT_ACCESS_SECRET = 'test-jwt-secret-key-for-release-tests-1234';
+      process.env.JWT_ACCESS_SECRET =
+        'test-jwt-secret-key-for-release-tests-1234';
 
       const jwt = require('jsonwebtoken');
       const superAdminToken = jwt.sign(
@@ -376,4 +380,3 @@ describe('Releases (Self-Hosted APK Update System)', () => {
     });
   });
 });
-

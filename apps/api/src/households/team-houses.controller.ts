@@ -27,11 +27,7 @@ export class TeamHousesController {
     @Param('id') teamId: string,
     @Body() dto: AssignHousesDto,
   ) {
-    return this.householdService.assignHousesToTeam(
-      user,
-      teamId,
-      dto.houseIds,
-    );
+    return this.householdService.assignHousesToTeam(user, teamId, dto.houseIds);
   }
 
   @Delete(':id/houses/:houseId')
@@ -41,11 +37,7 @@ export class TeamHousesController {
     @Param('id') teamId: string,
     @Param('houseId') houseId: string,
   ) {
-    return this.householdService.unassignHouseFromTeam(
-      user,
-      teamId,
-      houseId,
-    );
+    return this.householdService.unassignHouseFromTeam(user, teamId, houseId);
   }
 
   @Post(':id/houses/:houseId/reassign')
@@ -55,10 +47,6 @@ export class TeamHousesController {
     @Param('id') teamId: string,
     @Param('houseId') houseId: string,
   ) {
-    return this.householdService.reassignHouseToTeam(
-      user,
-      teamId,
-      houseId,
-    );
+    return this.householdService.reassignHouseToTeam(user, teamId, houseId);
   }
 }

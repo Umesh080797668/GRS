@@ -25,7 +25,7 @@ import { UpdateAccountDto } from './dto/update-account.dto';
 @Controller('v1/accounts')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AccountController {
-  constructor(private readonly accountService: AccountService) {}
+  constructor(private readonly accountService: AccountService) { }
 
   @Post()
   @Roles(
@@ -90,7 +90,14 @@ export class AccountController {
   }
 
   @Patch(':id/deactivate')
-  @Roles(UserRole.super_admin, UserRole.cdc_secretary)
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+    UserRole.cdc_secretary,
+  )
   @HttpCode(HttpStatus.NO_CONTENT)
   async deactivateAccount(
     @CurrentUser() user: ScopeContext,
@@ -100,7 +107,14 @@ export class AccountController {
   }
 
   @Patch(':id/reactivate')
-  @Roles(UserRole.super_admin, UserRole.cdc_secretary)
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+    UserRole.cdc_secretary,
+  )
   @HttpCode(HttpStatus.NO_CONTENT)
   async reactivateAccount(
     @CurrentUser() user: ScopeContext,
@@ -110,7 +124,14 @@ export class AccountController {
   }
 
   @Post(':id/reissue-password')
-  @Roles(UserRole.super_admin, UserRole.cdc_secretary)
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+    UserRole.cdc_secretary,
+  )
   async reissuePassword(
     @CurrentUser() user: ScopeContext,
     @Param('id') targetId: string,
@@ -119,7 +140,14 @@ export class AccountController {
   }
 
   @Post(':id/reset-password')
-  @Roles(UserRole.super_admin, UserRole.cdc_secretary)
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+    UserRole.cdc_secretary,
+  )
   async resetPassword(
     @CurrentUser() user: ScopeContext,
     @Param('id') targetId: string,
@@ -128,7 +156,14 @@ export class AccountController {
   }
 
   @Post('batches/:id/reissue')
-  @Roles(UserRole.super_admin, UserRole.cdc_secretary)
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+    UserRole.cdc_secretary,
+  )
   async reissueBatch(
     @CurrentUser() user: ScopeContext,
     @Param('id') batchId: string,

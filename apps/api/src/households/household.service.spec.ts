@@ -1,8 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  ConflictException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { HouseholdService } from './household.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScopeService } from '../common/scope/scope.service';
@@ -159,43 +156,48 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       // Mock transaction executor with queryRawUnsafe for serial locks and batch updates
       const tx = {
         ...mockPrisma,
-        $queryRawUnsafe: jest.fn().mockImplementation((query: string, ...args: any[]) => {
-          if (query.includes('SELECT next_serial FROM gn_divisions')) {
-            const current = gnNextSerial;
-            return Promise.resolve([{ next_serial: current }]);
-          }
-          if (query.includes('UPDATE gn_divisions SET next_serial')) {
-            gnNextSerial++;
-            return Promise.resolve({ count: 1 });
-          }
-          if (query.includes('UPDATE households') && query.includes('SET team_id')) {
-            const targetTeamId = args[0];
-            const requestedHouseIds = args[1] as string[];
-            const gnId = args[2];
-
-            const updatedIds: Array<{ id: string }> = [];
-            for (const house of mockHouseholds) {
-              if (
-                requestedHouseIds.includes(house.id) &&
-                house.gnId === gnId &&
-                house.teamId === null &&
-                house.deletedAt === null
-              ) {
-                house.teamId = targetTeamId;
-                house.version += 1;
-                updatedIds.push({ id: house.id });
-              }
+        $queryRawUnsafe: jest
+          .fn()
+          .mockImplementation((query: string, ...args: any[]) => {
+            if (query.includes('SELECT next_serial FROM gn_divisions')) {
+              const current = gnNextSerial;
+              return Promise.resolve([{ next_serial: current }]);
             }
-            return Promise.resolve(updatedIds);
-          }
-          if (query.includes('UPDATE clients SET team_id')) {
-            return Promise.resolve({ count: 1 });
-          }
-          if (query.includes('UPDATE teams SET stats_dirty_at')) {
-            return Promise.resolve({ count: 1 });
-          }
-          return Promise.resolve([]);
-        }),
+            if (query.includes('UPDATE gn_divisions SET next_serial')) {
+              gnNextSerial++;
+              return Promise.resolve({ count: 1 });
+            }
+            if (
+              query.includes('UPDATE households') &&
+              query.includes('SET team_id')
+            ) {
+              const targetTeamId = args[0];
+              const requestedHouseIds = args[1] as string[];
+              const gnId = args[2];
+
+              const updatedIds: Array<{ id: string }> = [];
+              for (const house of mockHouseholds) {
+                if (
+                  requestedHouseIds.includes(house.id) &&
+                  house.gnId === gnId &&
+                  house.teamId === null &&
+                  house.deletedAt === null
+                ) {
+                  house.teamId = targetTeamId;
+                  house.version += 1;
+                  updatedIds.push({ id: house.id });
+                }
+              }
+              return Promise.resolve(updatedIds);
+            }
+            if (query.includes('UPDATE clients SET team_id')) {
+              return Promise.resolve({ count: 1 });
+            }
+            if (query.includes('UPDATE teams SET stats_dirty_at')) {
+              return Promise.resolve({ count: 1 });
+            }
+            return Promise.resolve([]);
+          }),
       };
       const run = async () => {
         await lockQueue;
@@ -323,7 +325,9 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       });
 
       expect(res.success).toBe(true);
-      expect(mockHouseholds.find((h) => h.id === house.id)?.deletedAt).toBeDefined();
+      expect(
+        mockHouseholds.find((h) => h.id === house.id)?.deletedAt,
+      ).toBeDefined();
     });
 
     it('Decision C6: permits soft delete when attached clients are already soft-deleted', async () => {
@@ -345,7 +349,9 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       });
 
       expect(res.success).toBe(true);
-      expect(mockHouseholds.find((h) => h.id === house.id)?.deletedAt).toBeDefined();
+      expect(
+        mockHouseholds.find((h) => h.id === house.id)?.deletedAt,
+      ).toBeDefined();
     });
 
     it('validates hierarchy (district, DS, team) against GN division', async () => {
@@ -387,10 +393,14 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
         houseLeaderName: 'Old Leader',
       });
 
-      const updated = await service.updateHousehold(cdcSecretaryScope, house.id, {
-        houseLeaderName: 'New Leader',
-        isAswesuma: true,
-      });
+      const updated = await service.updateHousehold(
+        cdcSecretaryScope,
+        house.id,
+        {
+          houseLeaderName: 'New Leader',
+          isAswesuma: true,
+        },
+      );
 
       expect(updated.houseLeaderName).toBe('New Leader');
       expect(updated.isAswesuma).toBe(true);
@@ -457,7 +467,9 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
         houseLeaderName: 'Leader 301',
       });
 
-      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [house.id]);
+      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [
+        house.id,
+      ]);
 
       // 1. If clients exist, unassign MUST be blocked per §8.4
       mockClients.push({
@@ -500,10 +512,11 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       });
 
       // Pass duplicate IDs: [house.id, house.id]
-      const result = await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [
-        house.id,
-        house.id,
-      ]);
+      const result = await service.assignHousesToTeam(
+        cdcSecretaryScope,
+        mockTeamId,
+        [house.id, house.id],
+      );
 
       expect(result.success).toBe(true);
       expect(result.assignedCount).toBe(1);
@@ -511,7 +524,10 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
     });
 
     it('assignHousesToTeam: rejects if house count exceeds cap of 200', async () => {
-      const largeList = Array.from({ length: 201 }, (_, i) => `house-fake-${i}`);
+      const largeList = Array.from(
+        { length: 201 },
+        (_, i) => `house-fake-${i}`,
+      );
       await expect(
         service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, largeList),
       ).rejects.toThrow();
@@ -532,7 +548,9 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       });
 
       expect(findManySpy).toHaveBeenCalled();
-      const lastCallArgs = findManySpy.mock.calls[findManySpy.mock.calls.length - 1][0] as any;
+      const lastCallArgs = findManySpy.mock.calls[
+        findManySpy.mock.calls.length - 1
+      ][0] as any;
       const where = lastCallArgs.where;
 
       // Territorial scope OR must be preserved inside AND alongside search OR
@@ -540,13 +558,17 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       expect(where.AND).toBeDefined();
       expect(Array.isArray(where.AND)).toBe(true);
 
-      const scopeOr = where.AND.find((item: any) =>
-        item.OR && item.OR.some((cond: any) => cond.districtId === mockDistrictId),
+      const scopeOr = where.AND.find(
+        (item: any) =>
+          item.OR &&
+          item.OR.some((cond: any) => cond.districtId === mockDistrictId),
       );
       expect(scopeOr).toBeDefined();
 
-      const searchOr = where.AND.find((item: any) =>
-        item.OR && item.OR.some((cond: any) => cond.houseLeaderName !== undefined),
+      const searchOr = where.AND.find(
+        (item: any) =>
+          item.OR &&
+          item.OR.some((cond: any) => cond.houseLeaderName !== undefined),
       );
       expect(searchOr).toBeDefined();
     });
@@ -560,9 +582,46 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       });
 
       expect(findManySpy).toHaveBeenCalled();
-      const lastCallArgs = findManySpy.mock.calls[findManySpy.mock.calls.length - 1][0] as any;
+      const lastCallArgs = findManySpy.mock.calls[
+        findManySpy.mock.calls.length - 1
+      ][0] as any;
       expect(lastCallArgs.cursor).toEqual({ id: 'house-cursor-123' });
       expect(lastCallArgs.skip).toBe(1);
+    });
+
+    it('getHouseholds: prevents search probing of masked house leaders by CDC Secretary', async () => {
+      const findManySpy = jest.spyOn(mockPrisma.household, 'findMany');
+
+      await service.getHouseholds(cdcSecretaryScope, {
+        search: 'Perera',
+        limit: 20,
+      });
+
+      expect(findManySpy).toHaveBeenCalled();
+      const lastCallArgs = findManySpy.mock.calls[
+        findManySpy.mock.calls.length - 1
+      ][0] as any;
+      const where = lastCallArgs.where;
+
+      expect(where.gnId).toBe(mockGnId);
+      expect(where.OR).toBeDefined();
+
+      const leaderCondition = where.OR.find(
+        (cond: any) =>
+          cond.AND &&
+          cond.AND.some((c: any) => c.houseLeaderName !== undefined),
+      );
+      expect(leaderCondition).toBeDefined();
+      expect(leaderCondition.AND[0].houseLeaderName).toEqual({
+        contains: 'Perera',
+        mode: 'insensitive',
+      });
+      const scopeFilter = leaderCondition.AND[1];
+      expect(scopeFilter.OR).toEqual([
+        { teamId: mockTeamId },
+        { teamId: null },
+        { createdBy: 'user-cdc-sec' },
+      ]);
     });
   });
 });

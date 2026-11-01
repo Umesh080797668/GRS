@@ -114,10 +114,15 @@ export class HouseholdService {
           message: 'Team does not belong to the specified GN division',
         });
       }
-      if (creator.role === UserRole.cdc_secretary && creator.teamId && dto.teamId !== creator.teamId) {
+      if (
+        creator.role === UserRole.cdc_secretary &&
+        creator.teamId &&
+        dto.teamId !== creator.teamId
+      ) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_TEAM',
-          message: 'CDC Secretary can only assign new households to their own team',
+          message:
+            'CDC Secretary can only assign new households to their own team',
         });
       }
     }
@@ -195,7 +200,8 @@ export class HouseholdService {
       if (err instanceof ConflictException) throw err;
       if (
         err?.code === 'P2002' ||
-        (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')
+        (err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === 'P2002')
       ) {
         throw new ConflictException({
           code: 'DUPLICATE_HOUSE_NUMBER',
@@ -251,9 +257,28 @@ export class HouseholdService {
 
     if (query.search) {
       const search = query.search.trim();
+      const callerTeamFilter = caller.teamId
+        ? [{ teamId: caller.teamId }]
+        : [];
+      const leaderNameCondition =
+        caller.role === UserRole.cdc_secretary
+          ? {
+            AND: [
+              { houseLeaderName: { contains: search, mode: 'insensitive' } },
+              {
+                OR: [
+                  ...callerTeamFilter,
+                  { teamId: null },
+                  { createdBy: caller.userId },
+                ],
+              },
+            ],
+          }
+          : { houseLeaderName: { contains: search, mode: 'insensitive' } };
+
       const searchConditions = [
         { houseNo: { contains: search, mode: 'insensitive' } },
-        { houseLeaderName: { contains: search, mode: 'insensitive' } },
+        leaderNameCondition,
         { villageName: { contains: search, mode: 'insensitive' } },
       ];
 
@@ -370,8 +395,19 @@ export class HouseholdService {
           message: 'Household is outside your GN division',
         });
       }
+      if (household.teamId && household.teamId !== caller.teamId) {
+        return {
+          ...household,
+          houseLeaderName: `[Assigned to Team ${household.team?.teamNo ?? ''}]`,
+          address: null,
+          isTaken: true,
+        };
+      }
     } else if (caller.role === UserRole.team_member) {
-      if (household.teamId !== caller.teamId && household.createdBy !== caller.userId) {
+      if (
+        household.teamId !== caller.teamId &&
+        household.createdBy !== caller.userId
+      ) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_TEAM',
           message: 'Household is not assigned to your team',
@@ -435,9 +471,17 @@ export class HouseholdService {
               data: {
                 houseNo: dto.houseNo ? dto.houseNo.trim() : undefined,
                 houseNoNorm,
-                houseLeaderName: dto.houseLeaderName ? dto.houseLeaderName.trim() : undefined,
-                address: dto.address !== undefined ? dto.address?.trim() || null : undefined,
-                villageName: dto.villageName !== undefined ? dto.villageName?.trim() || null : undefined,
+                houseLeaderName: dto.houseLeaderName
+                  ? dto.houseLeaderName.trim()
+                  : undefined,
+                address:
+                  dto.address !== undefined
+                    ? dto.address?.trim() || null
+                    : undefined,
+                villageName:
+                  dto.villageName !== undefined
+                    ? dto.villageName?.trim() || null
+                    : undefined,
                 isEpf: dto.isEpf,
                 isEtf: dto.isEtf,
                 isAswesuma: dto.isAswesuma,
@@ -461,9 +505,17 @@ export class HouseholdService {
         return await this.prisma.household.update({
           where: { id },
           data: {
-            houseLeaderName: dto.houseLeaderName ? dto.houseLeaderName.trim() : undefined,
-            address: dto.address !== undefined ? dto.address?.trim() || null : undefined,
-            villageName: dto.villageName !== undefined ? dto.villageName?.trim() || null : undefined,
+            houseLeaderName: dto.houseLeaderName
+              ? dto.houseLeaderName.trim()
+              : undefined,
+            address:
+              dto.address !== undefined
+                ? dto.address?.trim() || null
+                : undefined,
+            villageName:
+              dto.villageName !== undefined
+                ? dto.villageName?.trim() || null
+                : undefined,
             isEpf: dto.isEpf,
             isEtf: dto.isEtf,
             isAswesuma: dto.isAswesuma,
@@ -485,7 +537,8 @@ export class HouseholdService {
       if (err instanceof ConflictException) throw err;
       if (
         err?.code === 'P2002' ||
-        (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')
+        (err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === 'P2002')
       ) {
         throw new ConflictException({
           code: 'DUPLICATE_HOUSE_NUMBER',
@@ -510,33 +563,36 @@ export class HouseholdService {
   ): Promise<{ success: boolean; id: string }> {
     const household = await this.getHouseholdById(caller, id);
 
-    return this.prisma.$transaction(async (tx) => {
-      // Decision C6 check: Are any ACTIVE clients attached to this household?
-      const clientCount = await tx.client.count({
-        where: { householdId: id, deletedAt: null },
-      });
-
-      if (clientCount > 0) {
-        throw new ConflictException({
-          code: 'HOUSEHOLD_HAS_CLIENTS',
-          message:
-            'Cannot delete household with attached active clients. Reassign or delete active clients first per Decision C6.',
-          attachedClientsCount: clientCount,
+    return this.prisma.$transaction(
+      async (tx) => {
+        // Decision C6 check: Are any ACTIVE clients attached to this household?
+        const clientCount = await tx.client.count({
+          where: { householdId: id, deletedAt: null },
         });
-      }
 
-      await tx.household.update({
-        where: { id },
-        data: {
-          deletedAt: new Date(),
-          deletedReason: dto?.reason?.trim() || 'Deleted by user',
-          version: { increment: 1 },
-          updatedBy: caller.userId,
-        },
-      });
+        if (clientCount > 0) {
+          throw new ConflictException({
+            code: 'HOUSEHOLD_HAS_CLIENTS',
+            message:
+              'Cannot delete household with attached active clients. Reassign or delete active clients first per Decision C6.',
+            attachedClientsCount: clientCount,
+          });
+        }
 
-      return { success: true, id };
-    }, { maxWait: 10000, timeout: 10000 });
+        await tx.household.update({
+          where: { id },
+          data: {
+            deletedAt: new Date(),
+            deletedReason: dto?.reason?.trim() || 'Deleted by user',
+            version: { increment: 1 },
+            updatedBy: caller.userId,
+          },
+        });
+
+        return { success: true, id };
+      },
+      { maxWait: 10000, timeout: 10000 },
+    );
   }
 
   /**
@@ -597,7 +653,8 @@ export class HouseholdService {
       if (!caller.gnId || team.gnId !== caller.gnId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_GN',
-          message: 'CDC Secretary can only assign houses in their own assigned GN division',
+          message:
+            'CDC Secretary can only assign houses in their own assigned GN division',
         });
       }
     }
@@ -629,7 +686,13 @@ export class HouseholdService {
 
           const conflicts = await tx.household.findMany({
             where: { id: { in: unavailable } },
-            select: { id: true, houseNo: true, teamId: true, deletedAt: true, gnId: true },
+            select: {
+              id: true,
+              houseNo: true,
+              teamId: true,
+              deletedAt: true,
+              gnId: true,
+            },
           });
 
           throw new ConflictException({
@@ -711,7 +774,8 @@ export class HouseholdService {
       if (!caller.gnId || house.gnId !== caller.gnId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_GN',
-          message: 'CDC Secretary can only unassign houses in their own assigned GN division',
+          message:
+            'CDC Secretary can only unassign houses in their own assigned GN division',
         });
       }
     }
@@ -826,52 +890,55 @@ export class HouseholdService {
 
     const previousTeamId = house.teamId;
 
-    return this.prisma.$transaction(async (tx) => {
-      // 1. Update household team
-      await tx.household.update({
-        where: { id: houseId },
-        data: {
-          teamId: targetTeamId,
-          version: { increment: 1 },
-          updatedBy: caller.userId,
-        },
-      });
-
-      // 2. Build Plan §8.4: Update those clients' denormalized team_id in the same transaction
-      const clientUpdate = await tx.client.updateMany({
-        where: { householdId: houseId, deletedAt: null },
-        data: { teamId: targetTeamId },
-      });
-
-      // 3. If it had a previous team, record unassignment so the previous team's phones get notified via /sync/changes
-      if (previousTeamId && previousTeamId !== targetTeamId) {
-        await tx.householdUnassignment.create({
+    return this.prisma.$transaction(
+      async (tx) => {
+        // 1. Update household team
+        await tx.household.update({
+          where: { id: houseId },
           data: {
-            householdId: houseId,
-            teamId: previousTeamId,
-            unassignedBy: caller.userId,
+            teamId: targetTeamId,
+            version: { increment: 1 },
+            updatedBy: caller.userId,
           },
         });
 
+        // 2. Build Plan §8.4: Update those clients' denormalized team_id in the same transaction
+        const clientUpdate = await tx.client.updateMany({
+          where: { householdId: houseId, deletedAt: null },
+          data: { teamId: targetTeamId },
+        });
+
+        // 3. If it had a previous team, record unassignment so the previous team's phones get notified via /sync/changes
+        if (previousTeamId && previousTeamId !== targetTeamId) {
+          await tx.householdUnassignment.create({
+            data: {
+              householdId: houseId,
+              teamId: previousTeamId,
+              unassignedBy: caller.userId,
+            },
+          });
+
+          await tx.team.update({
+            where: { id: previousTeamId },
+            data: { statsDirtyAt: new Date() },
+          });
+        }
+
+        // 4. Dirty target team stats
         await tx.team.update({
-          where: { id: previousTeamId },
+          where: { id: targetTeamId },
           data: { statsDirtyAt: new Date() },
         });
-      }
 
-      // 4. Dirty target team stats
-      await tx.team.update({
-        where: { id: targetTeamId },
-        data: { statsDirtyAt: new Date() },
-      });
-
-      return {
-        success: true,
-        householdId: houseId,
-        previousTeamId,
-        newTeamId: targetTeamId,
-        reassignedClientsCount: clientUpdate.count,
-      };
-    }, { maxWait: 30000, timeout: 30000 });
+        return {
+          success: true,
+          householdId: houseId,
+          previousTeamId,
+          newTeamId: targetTeamId,
+          reassignedClientsCount: clientUpdate.count,
+        };
+      },
+      { maxWait: 30000, timeout: 30000 },
+    );
   }
 }

@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { LookupService } from '../lookups/lookup.service';
@@ -213,7 +209,9 @@ export class SyncService {
     // to prevent concurrent transaction overlap or clock skew from skipping updates.
     // Client upserts are idempotent, so re-processing overlap is safe.
     const queryStartTime = new Date();
-    const safeServerTime = new Date(queryStartTime.getTime() - 5000).toISOString();
+    const safeServerTime = new Date(
+      queryStartTime.getTime() - 5000,
+    ).toISOString();
 
     const whereScope = this.scopeService.getHouseholdScopeFilter(user);
     const sinceDate = since ? new Date(since) : new Date(0);
@@ -240,42 +238,46 @@ export class SyncService {
       householdQueryArgs.skip = 1;
     }
 
-    const [rawUpdatedHouseholds, deletedHouseholds, unassignedFromTeam, updatedClients] =
-      await Promise.all([
-        this.prisma.household.findMany(householdQueryArgs),
-        this.prisma.household.findMany({
+    const [
+      rawUpdatedHouseholds,
+      deletedHouseholds,
+      unassignedFromTeam,
+      updatedClients,
+    ] = await Promise.all([
+      this.prisma.household.findMany(householdQueryArgs),
+      this.prisma.household.findMany({
+        where: {
+          ...whereScope,
+          deletedAt: { gt: sinceDate },
+        },
+        select: {
+          id: true,
+          deletedAt: true,
+          deletedReason: true,
+        },
+        orderBy: [{ deletedAt: 'asc' }, { id: 'asc' }],
+      }),
+      user.teamId && this.prisma.householdUnassignment
+        ? this.prisma.householdUnassignment.findMany({
           where: {
-            ...whereScope,
-            deletedAt: { gt: sinceDate },
+            teamId: user.teamId,
+            unassignedAt: { gt: sinceDate },
           },
           select: {
-            id: true,
-            deletedAt: true,
-            deletedReason: true,
+            householdId: true,
+            unassignedAt: true,
           },
-          orderBy: [{ deletedAt: 'asc' }, { id: 'asc' }],
-        }),
-        user.teamId && this.prisma.householdUnassignment
-          ? this.prisma.householdUnassignment.findMany({
-            where: {
-              teamId: user.teamId,
-              unassignedAt: { gt: sinceDate },
-            },
-            select: {
-              householdId: true,
-              unassignedAt: true,
-            },
-            orderBy: [{ unassignedAt: 'asc' }, { id: 'asc' }],
-          })
-          : Promise.resolve([]),
-        this.prisma.client.findMany({
-          where: {
-            ...clientFilter,
-            updatedAt: { gt: sinceDate },
-          },
-          orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
-        }),
-      ]);
+          orderBy: [{ unassignedAt: 'asc' }, { id: 'asc' }],
+        })
+        : Promise.resolve([]),
+      this.prisma.client.findMany({
+        where: {
+          ...clientFilter,
+          updatedAt: { gt: sinceDate },
+        },
+        orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+      }),
+    ]);
 
     const hasMore = rawUpdatedHouseholds.length > take;
     const updatedHouseholds = hasMore
@@ -544,7 +546,8 @@ export class SyncService {
       }
 
       // Consent validation (Invariant B2)
-      const consentGiven = data.consent_given === true || data.consentGiven === true;
+      const consentGiven =
+        data.consent_given === true || data.consentGiven === true;
       if (!consentGiven) {
         results[i] = {
           id: record.id,
@@ -610,7 +613,9 @@ export class SyncService {
       }
 
       // Information provided by validation
-      const rawInfoBy = String(data.info_provided_by || data.infoProvidedBy || 'self').toLowerCase();
+      const rawInfoBy = String(
+        data.info_provided_by || data.infoProvidedBy || 'self',
+      ).toLowerCase();
       if (!validInfoProvidedBy.has(rawInfoBy)) {
         results[i] = {
           id: record.id,
@@ -622,12 +627,20 @@ export class SyncService {
       }
 
       const nameNorm = SyncService.normalizeName(nameRes.value!);
-      const consentAt = data.consent_at || data.consentAt
-        ? new Date(data.consent_at || data.consentAt)
-        : new Date();
-      const clientUpdatedAt = record.client_updated_at || data.client_updated_at || data.clientUpdatedAt
-        ? new Date(record.client_updated_at || data.client_updated_at || data.clientUpdatedAt)
-        : new Date();
+      const consentAt =
+        data.consent_at || data.consentAt
+          ? new Date(data.consent_at || data.consentAt)
+          : new Date();
+      const clientUpdatedAt =
+        record.client_updated_at ||
+          data.client_updated_at ||
+          data.clientUpdatedAt
+          ? new Date(
+            record.client_updated_at ||
+            data.client_updated_at ||
+            data.clientUpdatedAt,
+          )
+          : new Date();
 
       const normalized = {
         householdId,
@@ -640,10 +653,14 @@ export class SyncService {
         phoneE164,
         whatsappRaw: whatsappRaw ? String(whatsappRaw).trim() : null,
         whatsappE164,
-        highestEducation: data.highest_education || data.highestEducation || null,
-        highestVocational: data.highest_vocational || data.highestVocational || null,
+        highestEducation:
+          data.highest_education || data.highestEducation || null,
+        highestVocational:
+          data.highest_vocational || data.highestVocational || null,
         interestedVocationalStream:
-          data.interested_vocational_stream || data.interestedVocationalStream || null,
+          data.interested_vocational_stream ||
+          data.interestedVocationalStream ||
+          null,
         interestedJob: data.interested_job || data.interestedJob || null,
         isEpf: !!(data.is_epf ?? data.isEpf),
         isEtf: !!(data.is_etf ?? data.isEtf),
@@ -652,10 +669,12 @@ export class SyncService {
         hasSpecialNeeds: !!(data.has_special_needs ?? data.hasSpecialNeeds),
         futureHopes: hopesRes.value!,
         infoProvidedBy: rawInfoBy,
-        infoProvidedByOther: data.info_provided_by_other || data.infoProvidedByOther || null,
+        infoProvidedByOther:
+          data.info_provided_by_other || data.infoProvidedByOther || null,
         consentGiven: true,
         consentAt,
-        consentVersion: data.consent_version || data.consentVersion || 'consent.v0',
+        consentVersion:
+          data.consent_version || data.consentVersion || 'consent.v0',
         clientUpdatedAt,
         contentHash: SyncService.computeContentHash({
           householdId,
@@ -668,7 +687,8 @@ export class SyncService {
           highestEducation: data.highest_education || data.highestEducation,
           highestVocational: data.highest_vocational || data.highestVocational,
           interestedVocationalStream:
-            data.interested_vocational_stream || data.interestedVocationalStream,
+            data.interested_vocational_stream ||
+            data.interestedVocationalStream,
           interestedJob: data.interested_job || data.interestedJob,
           isEpf: !!(data.is_epf ?? data.isEpf),
           isEtf: !!(data.is_etf ?? data.isEtf),
@@ -677,7 +697,8 @@ export class SyncService {
           hasSpecialNeeds: !!(data.has_special_needs ?? data.hasSpecialNeeds),
           futureHopes: hopesRes.value!,
           infoProvidedBy: rawInfoBy,
-          infoProvidedByOther: data.info_provided_by_other || data.infoProvidedByOther,
+          infoProvidedByOther:
+            data.info_provided_by_other || data.infoProvidedByOther,
           consentGiven: true,
         }),
       };
@@ -765,7 +786,8 @@ export class SyncService {
           id: rec.id,
           status: 'forbidden',
           code: 'HOUSEHOLD_DELETED',
-          message: 'Target household has been deleted and cannot accept client records',
+          message:
+            'Target household has been deleted and cannot accept client records',
         };
         continue;
       }
@@ -937,13 +959,7 @@ export class SyncService {
           $${pIdx++}::uuid
         )`);
 
-        queryParams.push(
-          u.id,
-          u.householdId,
-          u.districtId,
-          u.dsId,
-          u.gnId,
-        );
+        queryParams.push(u.id, u.householdId, u.districtId, u.dsId, u.gnId);
         if (u.teamId) {
           queryParams.push(u.teamId);
         }
@@ -1082,7 +1098,10 @@ export class SyncService {
           }
         }
       } catch (err: any) {
-        this.logger.error(`Bulk upsert query failed: ${err.message}`, err.stack);
+        this.logger.error(
+          `Bulk upsert query failed: ${err.message}`,
+          err.stack,
+        );
         throw err;
       }
     }
