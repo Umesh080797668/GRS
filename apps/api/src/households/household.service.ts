@@ -57,31 +57,36 @@ export class HouseholdService {
       });
     }
 
-    const houseNoNorm = GrsValidators.normalizeHouseNo(dto.houseNo);
-    if (!houseNoNorm) {
+    const normResult = GrsValidators.normalizeHouseNo(dto.houseNo);
+    if (!normResult.isValid || !normResult.value) {
       throw new BadRequestException({
         code: 'INVALID_HOUSE_NO',
         message: 'House number is required and cannot be empty',
       });
     }
+    const houseNoNorm = normResult.value;
 
-    // Resolve GN division hierarchy (District and DS)
-    const gn = await this.prisma.gnDivision.findUnique({
-      where: { id: targetGnId },
-      include: {
-        ds: true,
-      },
-    });
+    let resolvedDistrictId = dto.districtId || (creator.gnId === targetGnId ? creator.districtId : undefined);
+    let resolvedDsId = dto.dsId || (creator.gnId === targetGnId ? creator.dsId : undefined);
 
-    if (!gn) {
-      throw new NotFoundException({
-        code: 'GN_NOT_FOUND',
-        message: 'GN division not found',
+    if (!resolvedDistrictId || !resolvedDsId) {
+      const gn = await this.prisma.gnDivision.findUnique({
+        where: { id: targetGnId },
+        include: {
+          ds: true,
+        },
       });
-    }
 
-    const resolvedDistrictId = dto.districtId || gn.ds.districtId;
-    const resolvedDsId = dto.dsId || gn.dsId;
+      if (!gn) {
+        throw new NotFoundException({
+          code: 'GN_NOT_FOUND',
+          message: 'GN division not found',
+        });
+      }
+
+      resolvedDistrictId = resolvedDistrictId || gn.ds.districtId;
+      resolvedDsId = resolvedDsId || gn.dsId;
+    }
 
     // Concurrency-safe atomic serial allocation and duplicate house number check inside transaction
     return this.prisma.$transaction(
@@ -149,7 +154,7 @@ export class HouseholdService {
 
         return household;
       },
-      { maxWait: 15000, timeout: 20000 },
+      { maxWait: 120000, timeout: 120000 },
     );
   }
 
@@ -312,7 +317,14 @@ export class HouseholdService {
 
     let houseNoNorm = household.houseNoNorm;
     if (dto.houseNo && dto.houseNo !== household.houseNo) {
-      houseNoNorm = GrsValidators.normalizeHouseNo(dto.houseNo);
+      const normResult = GrsValidators.normalizeHouseNo(dto.houseNo);
+      if (!normResult.isValid || !normResult.value) {
+        throw new BadRequestException({
+          code: 'INVALID_HOUSE_NO',
+          message: 'House number cannot be empty',
+        });
+      }
+      houseNoNorm = normResult.value;
       // Check duplicate within same GN
       const duplicate = await this.prisma.household.findFirst({
         where: {
@@ -398,7 +410,7 @@ export class HouseholdService {
       });
 
       return { success: true, id };
-    });
+    }, { maxWait: 30000, timeout: 30000 });
   }
 
   /**
@@ -512,7 +524,7 @@ export class HouseholdService {
           houseIds: updated.map((u) => u.id),
         };
       },
-      { maxWait: 10000, timeout: 15000 },
+      { maxWait: 30000, timeout: 30000 },
     );
   }
 
@@ -556,27 +568,166 @@ export class HouseholdService {
       });
     }
 
+    return this.prisma.$transaction(
+      async (tx) => {
+        // Build Plan §8.4 / Unassign rules:
+        // Unassign is permitted ONLY when there are no clients. If clients exist, reassign instead.
+        const clientCount = await tx.client.count({
+          where: { householdId: houseId, deletedAt: null },
+        });
+
+        if (clientCount > 0) {
+          throw new ConflictException({
+            code: 'HOUSEHOLD_HAS_CLIENTS',
+            message:
+              'Cannot unassign house with existing client records. Reassign to another team instead per Build Plan §8.4.',
+            attachedClientsCount: clientCount,
+          });
+        }
+
+        await tx.household.update({
+          where: { id: houseId },
+          data: {
+            teamId: null,
+            version: { increment: 1 },
+            updatedBy: caller.userId,
+          },
+        });
+
+        // Record unassignment for this team so /sync/changes will inform the phone to remove it
+        await tx.householdUnassignment.create({
+          data: {
+            householdId: houseId,
+            teamId: teamId,
+            unassignedBy: caller.userId,
+          },
+        });
+
+        await tx.team.update({
+          where: { id: teamId },
+          data: { statsDirtyAt: new Date() },
+        });
+
+        return { success: true, unassignedHouseId: houseId };
+      },
+      { maxWait: 30000, timeout: 30000 },
+    );
+  }
+
+  /**
+   * Reassigns a house from one team to another (Build Plan §8.4):
+   * When reassigning a house that already has clients, updates the household's team_id
+   * AND updates those clients' denormalized team_id in the same atomic transaction.
+   * Also records an unassignment event for the old team so their phones remove it.
+   */
+  async reassignHouseToTeam(
+    caller: ScopeContext,
+    targetTeamId: string,
+    houseId: string,
+  ): Promise<{
+    success: boolean;
+    householdId: string;
+    previousTeamId: string | null;
+    newTeamId: string;
+    reassignedClientsCount: number;
+  }> {
+    const house = await this.prisma.household.findUnique({
+      where: { id: houseId },
+      include: { team: true },
+    });
+
+    if (!house || house.deletedAt !== null) {
+      throw new NotFoundException({
+        code: 'HOUSEHOLD_NOT_FOUND',
+        message: 'Household not found',
+      });
+    }
+
+    const targetTeam = await this.prisma.team.findUnique({
+      where: { id: targetTeamId },
+    });
+
+    if (!targetTeam) {
+      throw new NotFoundException({
+        code: 'TEAM_NOT_FOUND',
+        message: 'Target team not found',
+      });
+    }
+
+    if (targetTeam.gnId !== house.gnId) {
+      throw new BadRequestException({
+        code: 'TEAM_GN_MISMATCH',
+        message: 'Target team must be in the same GN division as the household',
+      });
+    }
+
+    // Scope check: Level 4 can only reassign within their GN division
+    if (caller.role === UserRole.cdc_secretary) {
+      if (caller.gnId && house.gnId !== caller.gnId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_GN',
+          message:
+            'CDC Secretary can only reassign houses within their assigned GN division',
+        });
+      }
+    } else if (
+      caller.role !== UserRole.super_admin &&
+      caller.role !== UserRole.admin
+    ) {
+      throw new ForbiddenException({
+        code: 'CANNOT_REASSIGN_HOUSE',
+        message: `Role ${caller.role} is not permitted to reassign houses`,
+      });
+    }
+
+    const previousTeamId = house.teamId;
+
     return this.prisma.$transaction(async (tx) => {
+      // 1. Update household team
       await tx.household.update({
         where: { id: houseId },
         data: {
-          teamId: null,
+          teamId: targetTeamId,
           version: { increment: 1 },
           updatedBy: caller.userId,
         },
       });
 
-      await tx.client.updateMany({
-        where: { householdId: houseId },
-        data: { teamId: null },
+      // 2. Build Plan §8.4: Update those clients' denormalized team_id in the same transaction
+      const clientUpdate = await tx.client.updateMany({
+        where: { householdId: houseId, deletedAt: null },
+        data: { teamId: targetTeamId },
       });
 
+      // 3. If it had a previous team, record unassignment so the previous team's phones get notified via /sync/changes
+      if (previousTeamId && previousTeamId !== targetTeamId) {
+        await tx.householdUnassignment.create({
+          data: {
+            householdId: houseId,
+            teamId: previousTeamId,
+            unassignedBy: caller.userId,
+          },
+        });
+
+        await tx.team.update({
+          where: { id: previousTeamId },
+          data: { statsDirtyAt: new Date() },
+        });
+      }
+
+      // 4. Dirty target team stats
       await tx.team.update({
-        where: { id: teamId },
+        where: { id: targetTeamId },
         data: { statsDirtyAt: new Date() },
       });
 
-      return { success: true, unassignedHouseId: houseId };
-    });
+      return {
+        success: true,
+        householdId: houseId,
+        previousTeamId,
+        newTeamId: targetTeamId,
+        reassignedClientsCount: clientUpdate.count,
+      };
+    }, { maxWait: 30000, timeout: 30000 });
   }
 }

@@ -11,14 +11,15 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { CurrentUser } from '../auth/current-user.decorator';
-import { UserRole, ScopeContext } from '../common/scope/scope.types';
+import { UserRole } from '../common/scope/scope.types';
+import type { ScopeContext } from '../common/scope/scope.types';
 import { ClientService } from './client.service';
 import {
   CreateClientDto,
   UpdateClientDto,
   ListClientsDto,
 } from './dto/client.dto';
+import { CurrentUser } from '../auth/current-user.decorator';
 
 @Controller('v1/clients')
 @UseGuards(JwtAuthGuard, RolesGuard)

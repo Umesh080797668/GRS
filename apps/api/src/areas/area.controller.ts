@@ -22,7 +22,7 @@ import {
   ImportPilotAreaCsvDto,
 } from './dto/area.dto';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { ScopeContext } from '../common/scope/scope.types';
+import type { ScopeContext } from '../common/scope/scope.types';
 
 @Controller('v1/areas')
 @UseGuards(JwtAuthGuard, RolesGuard)

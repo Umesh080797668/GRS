@@ -182,7 +182,7 @@ export class AreaService {
         teams: {
           orderBy: { teamNo: 'asc' },
           include: {
-            _count: { select: { members: true, households: true } },
+            _count: { select: { households: true } },
           },
         },
         _count: {

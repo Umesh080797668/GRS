@@ -13,6 +13,7 @@ import {
   UpdateClientDto,
   ListClientsDto,
 } from './dto/client.dto';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class ClientService {
@@ -209,6 +210,10 @@ export class ClientService {
           consentAt: dto.consentAt ? new Date(dto.consentAt) : new Date(),
           consentVersion: dto.consentVersion || '1.0',
           collectedBy: caller.userId,
+          collectedAt: new Date(),
+          clientUpdatedAt: new Date(),
+          contentHash: 'client-create-' + randomUUID().substring(0, 8),
+          createdBy: caller.userId,
         },
       });
 
@@ -267,10 +272,10 @@ export class ClientService {
       await tx.clientAudit.create({
         data: {
           clientId: id,
-          actorId: caller.userId,
-          action: 'correction',
+          changedBy: caller.userId,
           reason: dto.correctionReason?.trim() || 'Correction by Level 4 Team Leader',
-          changes: dto as any,
+          before: client as any,
+          after: { ...client, ...dto } as any,
         },
       });
 

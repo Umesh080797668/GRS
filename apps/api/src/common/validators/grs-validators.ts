@@ -296,18 +296,5 @@ export class GrsValidators {
 
     return { isValid: true, value: result };
   }
-
-  /**
-   * Normalizes house number per Build Plan §9:
-   * trim, uppercase, remove inner spaces, \ -> /, strip leading zeros of numeric parts (025 -> 25, 25 a -> 25/A).
-   */
-  static normalizeHouseNo(input?: string | null): string {
-    if (!input) return '';
-    let normalized = input.trim().replace(/\\/g, '/');
-    normalized = normalized.replace(/\s+/g, '');
-    normalized = normalized.toUpperCase();
-    normalized = normalized.replace(/(^|[^0-9])0+([0-9]+)/g, '$1$2');
-    return normalized;
-  }
 }
 

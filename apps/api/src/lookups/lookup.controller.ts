@@ -5,7 +5,6 @@ import {
   Query,
   Res,
   UseGuards,
-  HttpStatus,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { LookupService } from './lookup.service';
@@ -16,7 +15,7 @@ import { UserRole } from '../common/scope/scope.types';
 
 @Controller('v1/lookups')
 export class LookupController {
-  constructor(private readonly lookupService: LookupService) {}
+  constructor(private readonly lookupService: LookupService) { }
 
   @Get()
   async getLookups(

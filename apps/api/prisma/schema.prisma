@@ -532,3 +532,14 @@ model SyncLog {
   @@index([userId, createdAt])
   @@map("sync_log")
 }
+
+model HouseholdUnassignment {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  householdId  String   @map("household_id") @db.Uuid
+  teamId       String   @map("team_id") @db.Uuid
+  unassignedAt DateTime @default(now()) @map("unassigned_at") @db.Timestamptz(6)
+  unassignedBy String   @map("unassigned_by") @db.Uuid
+
+  @@index([teamId, unassignedAt])
+  @@map("household_unassignments")
+}

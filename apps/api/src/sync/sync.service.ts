@@ -210,27 +210,69 @@ export class SyncService {
     const whereScope = this.scopeService.getHouseholdScopeFilter(user);
     const sinceDate = since ? new Date(since) : new Date(0);
 
-    const [updatedHouseholds, deletedHouseholds] = await Promise.all([
-      this.prisma.household.findMany({
-        where: {
-          ...whereScope,
-          updatedAt: { gt: sinceDate },
-          deletedAt: null,
-        },
-        orderBy: { updatedAt: 'asc' },
-      }),
-      this.prisma.household.findMany({
-        where: {
-          ...whereScope,
-          deletedAt: { gt: sinceDate },
-        },
-        select: {
-          id: true,
-          deletedAt: true,
-          deletedReason: true,
-        },
-      }),
-    ]);
+    // If caller belongs to a team (Level 4 or Level 5), active households must strictly match their teamId.
+    // An unassigned house (teamId: null) or reassigned house must NOT be returned in updatedHouseholds.
+    const householdFilter = user.teamId
+      ? { teamId: user.teamId, deletedAt: null }
+      : { ...whereScope, deletedAt: null };
+
+    const [updatedHouseholds, deletedHouseholds, unassignedFromTeam] =
+      await Promise.all([
+        this.prisma.household.findMany({
+          where: {
+            ...householdFilter,
+            updatedAt: { gt: sinceDate },
+          },
+          orderBy: { updatedAt: 'asc' },
+        }),
+        this.prisma.household.findMany({
+          where: {
+            ...whereScope,
+            deletedAt: { gt: sinceDate },
+          },
+          select: {
+            id: true,
+            deletedAt: true,
+            deletedReason: true,
+          },
+        }),
+        user.teamId && this.prisma.householdUnassignment
+          ? this.prisma.householdUnassignment.findMany({
+            where: {
+              teamId: user.teamId,
+              unassignedAt: { gt: sinceDate },
+            },
+            select: {
+              householdId: true,
+              unassignedAt: true,
+            },
+            orderBy: { unassignedAt: 'asc' },
+          })
+          : Promise.resolve([]),
+      ]);
+
+    const deletedMap = new Map<
+      string,
+      { id: string; deletedAt: string; deletedReason?: string | null }
+    >();
+
+    for (const d of deletedHouseholds) {
+      deletedMap.set(d.id, {
+        id: d.id,
+        deletedAt: d.deletedAt!.toISOString(),
+        deletedReason: d.deletedReason,
+      });
+    }
+
+    for (const u of unassignedFromTeam) {
+      if (!deletedMap.has(u.householdId)) {
+        deletedMap.set(u.householdId, {
+          id: u.householdId,
+          deletedAt: u.unassignedAt.toISOString(),
+          deletedReason: 'unassigned_from_team',
+        });
+      }
+    }
 
     return {
       serverTime: new Date().toISOString(),
@@ -262,11 +304,7 @@ export class SyncService {
         createdAt: h.createdAt.toISOString(),
         updatedAt: h.updatedAt.toISOString(),
       })),
-      deletedHouseholds: deletedHouseholds.map((d) => ({
-        id: d.id,
-        deletedAt: d.deletedAt!.toISOString(),
-        deletedReason: d.deletedReason,
-      })),
+      deletedHouseholds: Array.from(deletedMap.values()),
       clients: [],
     };
   }

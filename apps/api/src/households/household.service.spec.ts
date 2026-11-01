@@ -149,6 +149,10 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       }),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
+    householdUnassignment: {
+      create: jest.fn().mockResolvedValue({ id: 'mock-unassign-id' }),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     $transaction: jest.fn().mockImplementation(async (cb) => {
       // Mock transaction executor with queryRawUnsafe for serial locks and batch updates
       const tx = {
@@ -390,7 +394,7 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       expect(house3Check.teamId).toBeNull();
     });
 
-    it('unassigns a house from a team and resets clients team assignment', async () => {
+    it('unassigns a house only when no clients exist, otherwise blocks with 409', async () => {
       const house = await service.createHousehold(cdcSecretaryScope, {
         gnId: mockGnId,
         houseNo: '301',
@@ -398,6 +402,28 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       });
 
       await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [house.id]);
+
+      // 1. If clients exist, unassign MUST be blocked per §8.4
+      mockClients.push({
+        id: 'client-on-house-301',
+        householdId: house.id,
+        teamId: mockTeamId,
+      });
+
+      try {
+        await service.unassignHouseFromTeam(
+          cdcSecretaryScope,
+          mockTeamId,
+          house.id,
+        );
+        fail('Expected ConflictException when clients exist');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(ConflictException);
+        expect(err.response.code).toBe('HOUSEHOLD_HAS_CLIENTS');
+      }
+
+      // 2. When no clients exist, unassign succeeds
+      mockClients = mockClients.filter((c) => c.householdId !== house.id);
 
       const unassign = await service.unassignHouseFromTeam(
         cdcSecretaryScope,

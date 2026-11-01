@@ -42,6 +42,9 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
         ]),
         count: jest.fn().mockResolvedValue(1),
       },
+      householdUnassignment: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       team: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
