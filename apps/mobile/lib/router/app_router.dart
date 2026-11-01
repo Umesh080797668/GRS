@@ -42,6 +42,7 @@ class AppRouterNotifier extends ChangeNotifier {
 
   AuthStatus get status => _ref.read(authProvider).status;
   bool get isPermissionGranted => _ref.read(permissionGateProvider).isGranted;
+  String? get role => _ref.read(authProvider).profile?.role;
 }
 
 final appRouterNotifierProvider = Provider<AppRouterNotifier>((ref) {
@@ -104,6 +105,24 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (status == AuthStatus.authenticated && isAuthRoute) {
         return '/home';
+      }
+
+      // Role check on Level 4 routes: only cdc_secretary and super_admin may access
+      const level4Routes = {
+        '/houses/new',
+        '/gn-setup',
+        '/choose-houses',
+        '/team-members',
+        '/team-progress',
+        '/team-records',
+      };
+
+      if (level4Routes.contains(location)) {
+        final role = notifier.role;
+        final isAllowed = role == 'cdc_secretary' || role == 'super_admin';
+        if (!isAllowed) {
+          return '/home';
+        }
       }
 
       return null;

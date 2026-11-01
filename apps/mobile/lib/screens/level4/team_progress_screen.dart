@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grs_ui/grs_ui.dart';
+import '../../l10n/l10n.dart';
 import '../../providers/api_client_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/connectivity_provider.dart';
@@ -219,17 +220,17 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = GrsL10n.of(context);
     final isOnline = ref.watch(connectivityProvider);
     final double completionRate = _totalHouses > 0
         ? (_completedHouses / _totalHouses).clamp(0.0, 1.0)
         : 0.0;
 
     return GrsScaffold(
-      title: 'Team Progress',
+      title: l10n.get('teamProgress'),
       showBackButton: true,
       isOffline: !isOnline,
-      offlineMessage:
-          'Offline. Showing locally cached progress. Connect to internet for synchronized totals.',
+      offlineMessage: l10n.get('offlineMetricsNotice'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
@@ -253,7 +254,7 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                     const SizedBox(height: GrsSpacing.md),
                     ElevatedButton(
                       onPressed: _loadProgress,
-                      child: const Text('Retry'),
+                      child: Text(l10n.get('retry')),
                     ),
                   ],
                 ),
@@ -275,9 +276,9 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'Households Surveyed',
-                                style: TextStyle(
+                              Text(
+                                l10n.get('householdsSurveyed'),
+                                style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -309,22 +310,22 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
                               _buildMetricItem(
-                                'Total Houses',
+                                l10n.get('totalHouseholds'),
                                 '$_totalHouses',
                                 GrsColors.textPrimaryLight,
                               ),
                               _buildMetricItem(
-                                'Completed',
+                                l10n.get('completed'),
                                 '$_completedHouses',
                                 GrsColors.syncSynced,
                               ),
                               _buildMetricItem(
-                                'In Progress',
+                                l10n.get('inProgress'),
                                 '$_inProgressHouses',
                                 GrsColors.syncPending,
                               ),
                               _buildMetricItem(
-                                'Pending',
+                                l10n.get('pending'),
                                 '$_notStartedHouses',
                                 GrsColors.textSecondaryLight,
                               ),
@@ -347,16 +348,16 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                                 color: GrsColors.primaryLight,
                               ),
                               const SizedBox(width: GrsSpacing.sm),
-                              const Text(
-                                'Beneficiaries Registered',
-                                style: TextStyle(
+                              Text(
+                                l10n.get('beneficiariesRegistered'),
+                                style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               const Spacer(),
                               Text(
-                                '$_totalClients Total',
+                                '$_totalClients ${l10n.get('totalBeneficiaries')}',
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
@@ -371,14 +372,14 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                               Expanded(
                                 child: _buildDetailTile(
                                   icon: Icons.man,
-                                  label: 'Male',
+                                  label: l10n.get('male'),
                                   value: '$_maleClients',
                                 ),
                               ),
                               Expanded(
                                 child: _buildDetailTile(
                                   icon: Icons.woman,
-                                  label: 'Female',
+                                  label: l10n.get('female'),
                                   value: '$_femaleClients',
                                 ),
                               ),
@@ -390,14 +391,14 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                               Expanded(
                                 child: _buildDetailTile(
                                   icon: Icons.school_outlined,
-                                  label: 'Youth (18-35)',
+                                  label: l10n.get('youth'),
                                   value: '$_youthClients',
                                 ),
                               ),
                               Expanded(
                                 child: _buildDetailTile(
                                   icon: Icons.elderly_outlined,
-                                  label: 'Seniors (60+)',
+                                  label: l10n.get('seniors'),
                                   value: '$_seniorClients',
                                 ),
                               ),
@@ -413,16 +414,16 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.health_and_safety_outlined,
                                 color: GrsColors.syncPending,
                               ),
-                              SizedBox(width: GrsSpacing.sm),
+                              const SizedBox(width: GrsSpacing.sm),
                               Text(
-                                'Vulnerability & Welfare Flags',
-                                style: TextStyle(
+                                l10n.get('vulnerabilityFlags'),
+                                style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -431,21 +432,21 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                           ),
                           const Divider(height: GrsSpacing.lg),
                           _buildVulnerabilityRow(
-                            'Special Needs / Disability',
+                            l10n.get('specialNeeds'),
                             _specialNeedsClients,
                             _totalClients,
                             GrsColors.syncPending,
                           ),
                           const SizedBox(height: GrsSpacing.sm),
                           _buildVulnerabilityRow(
-                            'Samurdhi Beneficiaries',
+                            l10n.get('samurdhiBeneficiary'),
                             _samurdhiClients,
                             _totalClients,
                             GrsColors.primaryMid,
                           ),
                           const SizedBox(height: GrsSpacing.sm),
                           _buildVulnerabilityRow(
-                            'Aswesuma Beneficiaries',
+                            l10n.get('aswesumaBeneficiary'),
                             _aswesumaClients,
                             _totalClients,
                             GrsColors.syncSynced,
@@ -457,9 +458,9 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
 
                     // Team Member Contributions
                     if (_memberStats.isNotEmpty) ...[
-                      const Text(
-                        'Member Contributions',
-                        style: TextStyle(
+                      Text(
+                        l10n.get('teamPerformance'),
+                        style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),

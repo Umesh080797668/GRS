@@ -143,7 +143,9 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
     client: {
       count: jest.fn().mockImplementation(({ where }) => {
         const count = mockClients.filter(
-          (c) => c.householdId === where.householdId,
+          (c) =>
+            c.householdId === where.householdId &&
+            (where.deletedAt === null ? !c.deletedAt : true),
         ).length;
         return Promise.resolve(count);
       }),
@@ -324,6 +326,60 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       expect(mockHouseholds.find((h) => h.id === house.id)?.deletedAt).toBeDefined();
     });
 
+    it('Decision C6: permits soft delete when attached clients are already soft-deleted', async () => {
+      const house = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: '101-SD',
+        houseLeaderName: 'Leader SoftDeleted Client',
+      });
+
+      // Attach client that is soft-deleted
+      mockClients.push({
+        id: 'client-soft-deleted',
+        householdId: house.id,
+        deletedAt: new Date(),
+      });
+
+      const res = await service.deleteHousehold(cdcSecretaryScope, house.id, {
+        reason: 'Demolished with soft deleted clients',
+      });
+
+      expect(res.success).toBe(true);
+      expect(mockHouseholds.find((h) => h.id === house.id)?.deletedAt).toBeDefined();
+    });
+
+    it('validates hierarchy (district, DS, team) against GN division', async () => {
+      // Invalid district
+      await expect(
+        service.createHousehold(cdcSecretaryScope, {
+          gnId: mockGnId,
+          houseNo: '101-B',
+          houseLeaderName: 'Bad District',
+          districtId: 'wrong-district-uuid',
+        }),
+      ).rejects.toThrow();
+
+      // Invalid DS
+      await expect(
+        service.createHousehold(cdcSecretaryScope, {
+          gnId: mockGnId,
+          houseNo: '101-C',
+          houseLeaderName: 'Bad DS',
+          dsId: 'wrong-ds-uuid',
+        }),
+      ).rejects.toThrow();
+
+      // Invalid Team (wrong GN)
+      await expect(
+        service.createHousehold(cdcSecretaryScope, {
+          gnId: mockGnId,
+          houseNo: '101-D',
+          houseLeaderName: 'Bad Team',
+          teamId: 'non-existent-team',
+        }),
+      ).rejects.toThrow();
+    });
+
     it('corrects household pre-visit data and bumps version', async () => {
       const house = await service.createHousehold(cdcSecretaryScope, {
         gnId: mockGnId,
@@ -434,6 +490,31 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       expect(unassign.success).toBe(true);
       const houseCheck = mockHouseholds.find((h) => h.id === house.id);
       expect(houseCheck.teamId).toBeNull();
+    });
+
+    it('assignHousesToTeam: repeated house IDs are deduplicated and do not cause false 409', async () => {
+      const house = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: '401',
+        houseLeaderName: 'Leader 401',
+      });
+
+      // Pass duplicate IDs: [house.id, house.id]
+      const result = await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [
+        house.id,
+        house.id,
+      ]);
+
+      expect(result.success).toBe(true);
+      expect(result.assignedCount).toBe(1);
+      expect(result.houseIds).toEqual([house.id]);
+    });
+
+    it('assignHousesToTeam: rejects if house count exceeds cap of 200', async () => {
+      const largeList = Array.from({ length: 201 }, (_, i) => `house-fake-${i}`);
+      await expect(
+        service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, largeList),
+      ).rejects.toThrow();
     });
   });
 });

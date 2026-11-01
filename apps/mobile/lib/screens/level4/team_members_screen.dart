@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grs_ui/grs_ui.dart';
+import 'package:share_plus/share_plus.dart';
+import '../../l10n/l10n.dart';
 import '../../providers/api_client_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/connectivity_provider.dart';
+import '../../services/security_service.dart';
 
 /// Screen for Level 4 (CDC Secretary) to manage team members (M4.3).
 ///
@@ -23,7 +27,40 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
   String? _errorMessage;
   List<Map<String, dynamic>> _members = [];
   final int _maxMembers = 10;
-  bool _actionInProgress = false;
+  Timer? _clipboardTimer;
+
+  @override
+  void dispose() {
+    _clipboardTimer?.cancel();
+    super.dispose();
+  }
+
+  void _copyToClipboardWithAutoClear(
+    String text,
+    BuildContext ctx,
+    String msg,
+  ) async {
+    _clipboardTimer?.cancel();
+    await Clipboard.setData(ClipboardData(text: text));
+    if (ctx.mounted) {
+      final l10n = GrsL10n.of(ctx);
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        SnackBar(
+          content: Text('$msg (${l10n.get('credentialsAutoClearNotice')})'),
+          backgroundColor: GrsColors.syncSynced,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+    _clipboardTimer = Timer(const Duration(seconds: 30), () async {
+      try {
+        final current = await Clipboard.getData(Clipboard.kTextPlain);
+        if (current?.text == text) {
+          await Clipboard.setData(const ClipboardData(text: ''));
+        }
+      } catch (_) {}
+    });
+  }
 
   @override
   void initState() {
@@ -90,327 +127,89 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
   int get _activeCount => _members.where((m) => m['isActive'] != false).length;
 
   Future<void> _showAddSingleMemberDialog() async {
-    final formKey = GlobalKey<FormState>();
-    final nameCtrl = TextEditingController();
-    final phoneCtrl = TextEditingController();
-    String selectedLang = 'si';
-
-    await showDialog<bool>(
+    final createdCreds = await showDialog<Map<String, String>>(
       context: context,
-      barrierDismissible: !_actionInProgress,
-      builder: (dialogCtx) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Add Team Member'),
-              content: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      GrsTextField(
-                        controller: nameCtrl,
-                        label: 'Full Name',
-                        hint: 'e.g. Kasun Silva',
-                        prefixIcon: const Icon(Icons.person_outline),
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Please enter member full name';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: GrsSpacing.md),
-                      GrsTextField(
-                        controller: phoneCtrl,
-                        label: 'Phone Number (Optional)',
-                        hint: 'e.g. +94771234567',
-                        prefixIcon: const Icon(Icons.phone_outlined),
-                        keyboardType: TextInputType.phone,
-                      ),
-                      const SizedBox(height: GrsSpacing.md),
-                      DropdownButtonFormField<String>(
-                        initialValue: selectedLang,
-                        decoration: const InputDecoration(
-                          labelText: 'Preferred Language',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'si',
-                            child: Text('Sinhala (සිංහල)'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'ta',
-                            child: Text('Tamil (தமிழ்)'),
-                          ),
-                          DropdownMenuItem(value: 'en', child: Text('English')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() => selectedLang = val);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: _actionInProgress
-                      ? null
-                      : () => Navigator.of(dialogCtx).pop(false),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: _actionInProgress
-                      ? null
-                      : () async {
-                          if (!formKey.currentState!.validate()) return;
-                          setDialogState(() => _actionInProgress = true);
+      barrierDismissible: true,
+      builder: (dialogCtx) => _AddSingleMemberDialog(
+        onSubmit: (name, phone, lang) async {
+          final auth = ref.read(authProvider);
+          final teamId = auth.user?.teamId;
+          final gnId = auth.user?.gnId;
 
-                          try {
-                            final auth = ref.read(authProvider);
-                            final teamId = auth.user?.teamId;
-                            final gnId = auth.user?.gnId;
+          final apiClient = ref.read(apiClientProvider);
+          final payload = <String, dynamic>{
+            'fullName': name,
+            'role': 'team_member',
+            'preferredLanguage': lang,
+            'teamId': teamId,
+            'gnId': gnId,
+          };
+          if (phone != null && phone.isNotEmpty) {
+            payload['phoneE164'] = phone;
+          }
 
-                            final apiClient = ref.read(apiClientProvider);
-                            final payload = <String, dynamic>{
-                              'fullName': nameCtrl.text.trim(),
-                              'role': 'team_member',
-                              'preferredLanguage': selectedLang,
-                              'teamId': teamId,
-                              'gnId': gnId,
-                            };
-                            if (phoneCtrl.text.trim().isNotEmpty) {
-                              payload['phoneE164'] = phoneCtrl.text.trim();
-                            }
+          final res = await apiClient.createAccount(payload);
+          final user =
+              (res['user'] is Map<String, dynamic> ? res['user'] : res)
+                  as Map<String, dynamic>?;
 
-                            final res = await apiClient.createAccount(payload);
-                            setDialogState(() => _actionInProgress = false);
-
-                            if (dialogCtx.mounted) {
-                              Navigator.of(dialogCtx).pop(true);
-                            }
-
-                            // Show ephemeral one-time credentials
-                            final user = res['user'] as Map<String, dynamic>?;
-                            if (user != null && mounted) {
-                              await _showEphemeralCredentialsModal([
-                                {
-                                  'fullName':
-                                      user['fullName'] ?? nameCtrl.text.trim(),
-                                  'userCode': user['userCode'] ?? '',
-                                  'initialPassword':
-                                      user['initialPassword'] ?? '',
-                                },
-                              ]);
-                              _fetchMembers();
-                            }
-                          } catch (e) {
-                            setDialogState(() => _actionInProgress = false);
-                            if (dialogCtx.mounted) {
-                              Navigator.of(dialogCtx).pop(false);
-                            }
-                            _handleError(e);
-                          }
-                        },
-                  child: _actionInProgress
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Create'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+          return {
+            'fullName': user?['fullName']?.toString() ?? name,
+            'userCode': user?['userCode']?.toString() ?? '',
+            'initialPassword': user?['initialPassword']?.toString() ?? '',
+          };
+        },
+        onError: _handleError,
+      ),
     );
 
-    nameCtrl.dispose();
-    phoneCtrl.dispose();
+    if (createdCreds != null && mounted) {
+      await _showEphemeralCredentialsModal([createdCreds]);
+      _fetchMembers();
+    }
   }
 
   Future<void> _showBulkAddDialog() async {
-    final formKey = GlobalKey<FormState>();
-    final countCtrl = TextEditingController(text: '2');
-    String selectedLang = 'si';
-
-    await showDialog<bool>(
+    final availableSlots = _maxMembers - _activeCount;
+    final bulkCreds = await showDialog<List<Map<String, String>>>(
       context: context,
-      barrierDismissible: !_actionInProgress,
-      builder: (dialogCtx) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final availableSlots = _maxMembers - _activeCount;
-            return AlertDialog(
-              title: const Text('Bulk Add Team Members'),
-              content: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Create multiple accounts at once. System will automatically generate sequential IDs and passwords.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: GrsColors.textSecondaryLight,
-                        ),
-                      ),
-                      const SizedBox(height: GrsSpacing.sm),
-                      Container(
-                        padding: const EdgeInsets.all(GrsSpacing.sm),
-                        decoration: BoxDecoration(
-                          color: GrsColors.primaryLight.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'Available capacity: $availableSlots slot(s) remaining.',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: GrsColors.primaryLight,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: GrsSpacing.md),
-                      GrsTextField(
-                        controller: countCtrl,
-                        label: 'Number of Members (1 - 10)',
-                        hint: 'e.g. 3',
-                        prefixIcon: const Icon(Icons.group_add_outlined),
-                        keyboardType: TextInputType.number,
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Please enter a count';
-                          }
-                          final parsed = int.tryParse(val.trim());
-                          if (parsed == null || parsed < 1 || parsed > 10) {
-                            return 'Count must be between 1 and 10';
-                          }
-                          if (parsed > availableSlots) {
-                            return 'Exceeds available capacity ($availableSlots slots)';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: GrsSpacing.md),
-                      DropdownButtonFormField<String>(
-                        initialValue: selectedLang,
-                        decoration: const InputDecoration(
-                          labelText: 'Preferred Language for All',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'si',
-                            child: Text('Sinhala (සිංහල)'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'ta',
-                            child: Text('Tamil (தமிழ்)'),
-                          ),
-                          DropdownMenuItem(value: 'en', child: Text('English')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() => selectedLang = val);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: _actionInProgress
-                      ? null
-                      : () => Navigator.of(dialogCtx).pop(false),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: _actionInProgress
-                      ? null
-                      : () async {
-                          if (!formKey.currentState!.validate()) return;
-                          final count = int.parse(countCtrl.text.trim());
-                          setDialogState(() => _actionInProgress = true);
+      barrierDismissible: true,
+      builder: (dialogCtx) => _BulkAddDialog(
+        availableSlots: availableSlots,
+        onSubmit: (count, lang) async {
+          final auth = ref.read(authProvider);
+          final teamId = auth.user?.teamId;
+          final gnId = auth.user?.gnId;
 
-                          try {
-                            final auth = ref.read(authProvider);
-                            final teamId = auth.user?.teamId;
-                            final gnId = auth.user?.gnId;
+          final apiClient = ref.read(apiClientProvider);
+          final payload = <String, dynamic>{
+            'role': 'team_member',
+            'count': count,
+            'teamId': teamId,
+            'gnId': gnId,
+          };
 
-                            final apiClient = ref.read(apiClientProvider);
-                            final payload = <String, dynamic>{
-                              'role': 'team_member',
-                              'count': count,
-                              'teamId': teamId,
-                              'gnId': gnId,
-                            };
-
-                            final res = await apiClient.createBulkAccounts(
-                              payload,
-                            );
-                            setDialogState(() => _actionInProgress = false);
-
-                            if (dialogCtx.mounted) {
-                              Navigator.of(dialogCtx).pop(true);
-                            }
-
-                            // Show ephemeral one-time credentials
-                            final users = res['users'] as List?;
-                            if (users != null && mounted) {
-                              final credList = users
-                                  .whereType<Map<String, dynamic>>()
-                                  .map<Map<String, String>>(
-                                    (u) => {
-                                      'fullName':
-                                          (u['fullName'] ?? 'Team Member')
-                                              .toString(),
-                                      'userCode': (u['userCode'] ?? '')
-                                          .toString(),
-                                      'initialPassword':
-                                          (u['initialPassword'] ?? '')
-                                              .toString(),
-                                    },
-                                  )
-                                  .toList();
-                              await _showEphemeralCredentialsModal(credList);
-                              _fetchMembers();
-                            }
-                          } catch (e) {
-                            setDialogState(() => _actionInProgress = false);
-                            if (dialogCtx.mounted) {
-                              Navigator.of(dialogCtx).pop(false);
-                            }
-                            _handleError(e);
-                          }
-                        },
-                  child: _actionInProgress
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Create Batch'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+          final res = await apiClient.createBulkAccounts(payload);
+          final users = res['users'] as List?;
+          return (users ?? [])
+              .whereType<Map<String, dynamic>>()
+              .map<Map<String, String>>(
+                (u) => {
+                  'fullName': (u['fullName'] ?? 'Team Member').toString(),
+                  'userCode': (u['userCode'] ?? '').toString(),
+                  'initialPassword': (u['initialPassword'] ?? '').toString(),
+                },
+              )
+              .toList();
+        },
+        onError: _handleError,
+      ),
     );
 
-    countCtrl.dispose();
+    if (bulkCreds != null && bulkCreds.isNotEmpty && mounted) {
+      await _showEphemeralCredentialsModal(bulkCreds);
+      _fetchMembers();
+    }
   }
 
   /// M4.3: Ephemeral credential screen with copy/share.
@@ -430,186 +229,245 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
     }
     final formattedCredentials = buffer.toString();
 
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (modalCtx) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.security, color: GrsColors.syncPending),
-              SizedBox(width: GrsSpacing.sm),
-              Expanded(
-                child: Text(
-                  'One-Time Credentials',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(GrsSpacing.sm),
-                    decoration: BoxDecoration(
-                      color: GrsColors.syncPendingBg,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: GrsColors.syncPending.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: const Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.warning_amber_rounded,
-                          color: GrsColors.syncPending,
-                          size: 20,
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'WARNING: These passwords will ONLY be displayed once! They will NOT be accessible after closing this window. Please copy or share them now.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF78350F),
-                            ),
-                          ),
-                        ),
-                      ],
+    try {
+      // Screenshot protection: prevent OS snapshots/recents capture while credentials are shown
+      await SecurityService.enableScreenshotProtection();
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (modalCtx) {
+          final modalL10n = GrsL10n.of(modalCtx);
+          return AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.security, color: GrsColors.syncPending),
+                const SizedBox(width: GrsSpacing.sm),
+                Expanded(
+                  child: Text(
+                    modalL10n.get('oneTimeCredentials'),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: GrsSpacing.md),
-                  ...credentials.map((c) {
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: GrsSpacing.sm),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
                       padding: const EdgeInsets.all(GrsSpacing.sm),
                       decoration: BoxDecoration(
-                        color: GrsColors.surfaceLight,
-                        border: Border.all(color: GrsColors.outlineLight),
+                        color: GrsColors.syncPendingBg,
                         borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: GrsColors.syncPending.withValues(alpha: 0.3),
+                        ),
                       ),
-                      child: Column(
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            c['fullName'] ?? 'Member',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
+                          const Icon(
+                            Icons.warning_amber_rounded,
+                            color: GrsColors.syncPending,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              modalL10n.get('credentialsOneTimeWarning'),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF78350F),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Text(
-                                'User ID: ',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: GrsColors.textSecondaryLight,
-                                ),
-                              ),
-                              SelectableText(
-                                c['userCode'] ?? '',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              const Text(
-                                'Password: ',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: GrsColors.textSecondaryLight,
-                                ),
-                              ),
-                              SelectableText(
-                                c['initialPassword'] ?? '',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: GrsColors.primaryLight,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                            ],
                           ),
                         ],
                       ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            OutlinedButton.icon(
-              icon: const Icon(Icons.copy, size: 18),
-              label: const Text('Copy All'),
-              onPressed: () async {
-                await Clipboard.setData(
-                  ClipboardData(text: formattedCredentials),
-                );
-                if (modalCtx.mounted) {
-                  ScaffoldMessenger.of(modalCtx).showSnackBar(
-                    const SnackBar(
-                      content: Text('Credentials copied to clipboard!'),
-                      backgroundColor: GrsColors.syncSynced,
                     ),
-                  );
-                }
-              },
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: GrsColors.primaryMid,
-                foregroundColor: Colors.white,
+                    const SizedBox(height: GrsSpacing.md),
+                    ...credentials.map((c) {
+                      final memberText =
+                          'GRS Account:\nName: ${c['fullName']}\nUser ID: ${c['userCode']}\nPassword: ${c['initialPassword']}';
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: GrsSpacing.sm),
+                        padding: const EdgeInsets.all(GrsSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: GrsColors.surfaceLight,
+                          border: Border.all(color: GrsColors.outlineLight),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    c['fullName'] ?? 'Member',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.copy, size: 16),
+                                  tooltip: modalL10n.get('copy'),
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () {
+                                    _copyToClipboardWithAutoClear(
+                                      memberText,
+                                      modalCtx,
+                                      modalL10n.get('credentialsCopied'),
+                                    );
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.share, size: 16),
+                                  tooltip: modalL10n.get('share'),
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () async {
+                                    try {
+                                      await SharePlus.instance.share(
+                                        ShareParams(text: memberText),
+                                      );
+                                    } catch (_) {}
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Text(
+                                  '${modalL10n.get('userId')}: ',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: GrsColors.textSecondaryLight,
+                                  ),
+                                ),
+                                SelectableText(
+                                  c['userCode'] ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Text(
+                                  '${modalL10n.get('password')}: ',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: GrsColors.textSecondaryLight,
+                                  ),
+                                ),
+                                SelectableText(
+                                  c['initialPassword'] ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: GrsColors.primaryLight,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
               ),
-              onPressed: () {
-                Navigator.of(modalCtx).pop();
-              },
-              child: const Text('I Have Saved Them'),
             ),
-          ],
-        );
-      },
-    );
+            actions: [
+              OutlinedButton.icon(
+                icon: const Icon(Icons.copy, size: 18),
+                label: Text(modalL10n.get('copyAll')),
+                onPressed: () {
+                  _copyToClipboardWithAutoClear(
+                    formattedCredentials,
+                    modalCtx,
+                    modalL10n.get('credentialsCopied'),
+                  );
+                },
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.share, size: 18),
+                label: Text(modalL10n.get('shareAll')),
+                onPressed: () async {
+                  try {
+                    await SharePlus.instance.share(
+                      ShareParams(text: formattedCredentials),
+                    );
+                  } catch (_) {}
+                },
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: GrsColors.primaryMid,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  Navigator.of(modalCtx).pop();
+                },
+                child: Text(modalL10n.get('savedCredentials')),
+              ),
+            ],
+          );
+        },
+      );
+    } finally {
+      // 1. Clear screenshot protection once the modal closes
+      await SecurityService.disableScreenshotProtection();
+
+      // 2. Clear all sensitive credentials from memory
+      for (final c in credentials) {
+        c.clear();
+      }
+      credentials.clear();
+      buffer.clear();
+    }
   }
 
   Future<void> _deactivateMember(String memberId, String fullName) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Deactivate Member?'),
-        content: Text(
-          'Are you sure you want to deactivate "$fullName"? They will no longer be able to log in or collect survey responses.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+      builder: (ctx) {
+        final dlgL10n = GrsL10n.of(ctx);
+        return AlertDialog(
+          title: Text(dlgL10n.get('deactivateMemberTitle')),
+          content: Text(
+            dlgL10n.translate('deactivateMemberConfirm', {'name': fullName}),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: GrsColors.syncRejected,
-              foregroundColor: Colors.white,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(dlgL10n.get('cancel')),
             ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Deactivate'),
-          ),
-        ],
-      ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: GrsColors.syncRejected,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(dlgL10n.get('deactivate')),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed != true) return;
@@ -636,11 +494,12 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
   }
 
   void _handleError(dynamic e) {
+    final l10n = GrsL10n.of(context);
     String msg = e.toString();
     if (msg.contains('TEAM_MEMBER_LIMIT_EXCEEDED') ||
         msg.contains('capacity') ||
         msg.contains('limit exceeded')) {
-      msg = 'Cannot add member: Team capacity limit reached (max 10 members).';
+      msg = l10n.get('teamCapacityLimit');
     }
 
     if (mounted) {
@@ -656,15 +515,15 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = GrsL10n.of(context);
     final isOnline = ref.watch(connectivityProvider);
     final activeCount = _activeCount;
 
     return GrsScaffold(
-      title: 'Team Members',
+      title: l10n.get('teamMembers'),
       showBackButton: true,
       isOffline: !isOnline,
-      offlineMessage:
-          'Offline mode. Team member management requires an internet connection.',
+      offlineMessage: l10n.get('onlineOnlyNotice'),
       body: Column(
         children: [
           // Team Capacity Status Card
@@ -690,16 +549,16 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Team Capacity',
-                          style: TextStyle(
+                        Text(
+                          l10n.get('teamCapacity'),
+                          style: const TextStyle(
                             fontSize: 12,
                             color: GrsColors.textSecondaryLight,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '$activeCount / $_maxMembers Members',
+                          '$activeCount / $_maxMembers ${l10n.get('activeMembers')}',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -714,13 +573,13 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                   if (activeCount < _maxMembers && isOnline) ...[
                     IconButton.filledTonal(
                       icon: const Icon(Icons.person_add_outlined),
-                      tooltip: 'Add Single Member',
+                      tooltip: l10n.get('addMember'),
                       onPressed: _showAddSingleMemberDialog,
                     ),
                     const SizedBox(width: GrsSpacing.xs),
                     IconButton.filled(
                       icon: const Icon(Icons.group_add_outlined),
-                      tooltip: 'Bulk Add Members',
+                      tooltip: l10n.get('bulkAdd'),
                       onPressed: _showBulkAddDialog,
                     ),
                   ],
@@ -754,7 +613,7 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                           const SizedBox(height: GrsSpacing.md),
                           ElevatedButton(
                             onPressed: _fetchMembers,
-                            child: const Text('Retry'),
+                            child: Text(l10n.get('retry')),
                           ),
                         ],
                       ),
@@ -771,9 +630,9 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                           color: GrsColors.textSecondaryLight,
                         ),
                         const SizedBox(height: GrsSpacing.sm),
-                        const Text(
-                          'No team members registered yet.',
-                          style: TextStyle(
+                        Text(
+                          l10n.get('noTeamMembersFound'),
+                          style: const TextStyle(
                             fontSize: 14,
                             color: GrsColors.textSecondaryLight,
                           ),
@@ -782,7 +641,7 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                         if (isOnline)
                           ElevatedButton.icon(
                             icon: const Icon(Icons.person_add),
-                            label: const Text('Add First Member'),
+                            label: Text(l10n.get('addMember')),
                             onPressed: _showAddSingleMemberDialog,
                           ),
                       ],
@@ -850,9 +709,9 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                                       color: GrsColors.outlineLight,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
-                                    child: const Text(
-                                      'Deactivated',
-                                      style: TextStyle(
+                                    child: Text(
+                                      l10n.get('deactivate'),
+                                      style: const TextStyle(
                                         fontSize: 10,
                                         color: GrsColors.textSecondaryLight,
                                       ),
@@ -872,7 +731,7 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                                 ),
                                 if (phone.isNotEmpty)
                                   Text(
-                                    'Phone: $phone',
+                                    '${l10n.get('phoneNumber')}: $phone',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: GrsColors.textSecondaryLight,
@@ -887,7 +746,7 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                                       Icons.person_remove_outlined,
                                       color: GrsColors.syncRejected,
                                     ),
-                                    tooltip: 'Deactivate Member',
+                                    tooltip: l10n.get('deactivate'),
                                     onPressed: () =>
                                         _deactivateMember(id, name),
                                   )
@@ -900,6 +759,288 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AddSingleMemberDialog extends StatefulWidget {
+  final Future<Map<String, String>?> Function(
+    String fullName,
+    String? phone,
+    String lang,
+  )
+  onSubmit;
+  final void Function(dynamic error) onError;
+
+  const _AddSingleMemberDialog({required this.onSubmit, required this.onError});
+
+  @override
+  State<_AddSingleMemberDialog> createState() => _AddSingleMemberDialogState();
+}
+
+class _AddSingleMemberDialogState extends State<_AddSingleMemberDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _phoneCtrl;
+  String _selectedLang = 'si';
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController();
+    _phoneCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dlgL10n = GrsL10n.of(context);
+    return AlertDialog(
+      title: Text(dlgL10n.get('addTeamMember')),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GrsTextField(
+                controller: _nameCtrl,
+                label: dlgL10n.get('fullName'),
+                hint: 'e.g. Kasun Silva',
+                prefixIcon: const Icon(Icons.person_outline),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter member full name';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: GrsSpacing.md),
+              GrsTextField(
+                controller: _phoneCtrl,
+                label: dlgL10n.get('phoneNumber'),
+                hint: 'e.g. +94771234567',
+                prefixIcon: const Icon(Icons.phone_outlined),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: GrsSpacing.md),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedLang,
+                decoration: InputDecoration(
+                  labelText: dlgL10n.get('preferredLanguage'),
+                  border: const OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'si', child: Text('Sinhala (සිංහල)')),
+                  DropdownMenuItem(value: 'ta', child: Text('Tamil (தமிழ்)')),
+                  DropdownMenuItem(value: 'en', child: Text('English')),
+                ],
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() => _selectedLang = val);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(null),
+          child: Text(dlgL10n.get('cancel')),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading
+              ? null
+              : () async {
+                  if (!_formKey.currentState!.validate()) {
+                    return;
+                  }
+                  setState(() => _isLoading = true);
+                  try {
+                    final res = await widget.onSubmit(
+                      _nameCtrl.text.trim(),
+                      _phoneCtrl.text.trim().isEmpty
+                          ? null
+                          : _phoneCtrl.text.trim(),
+                      _selectedLang,
+                    );
+                    if (context.mounted) {
+                      Navigator.of(context).pop(res);
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      setState(() => _isLoading = false);
+                    }
+                    if (context.mounted) {
+                      Navigator.of(context).pop(null);
+                    }
+                    widget.onError(e);
+                  }
+                },
+          child: _isLoading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Create'),
+        ),
+      ],
+    );
+  }
+}
+
+class _BulkAddDialog extends StatefulWidget {
+  final int availableSlots;
+  final Future<List<Map<String, String>>?> Function(int count, String lang)
+  onSubmit;
+  final void Function(dynamic error) onError;
+
+  const _BulkAddDialog({
+    required this.availableSlots,
+    required this.onSubmit,
+    required this.onError,
+  });
+
+  @override
+  State<_BulkAddDialog> createState() => _BulkAddDialogState();
+}
+
+class _BulkAddDialogState extends State<_BulkAddDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _countCtrl;
+  String _selectedLang = 'si';
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _countCtrl = TextEditingController(text: '2');
+  }
+
+  @override
+  void dispose() {
+    _countCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dlgL10n = GrsL10n.of(context);
+    return AlertDialog(
+      title: Text(dlgL10n.get('bulkAddMembers')),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(GrsSpacing.sm),
+                decoration: BoxDecoration(
+                  color: GrsColors.primaryLight.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  dlgL10n.translate('availableCapacity', {
+                    'count': '${widget.availableSlots}',
+                  }),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: GrsColors.primaryLight,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: GrsSpacing.md),
+              GrsTextField(
+                controller: _countCtrl,
+                label: dlgL10n.get('numberOfMembers'),
+                hint: 'e.g. 3',
+                prefixIcon: const Icon(Icons.group_add_outlined),
+                keyboardType: TextInputType.number,
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter a count';
+                  }
+                  final parsed = int.tryParse(val.trim());
+                  if (parsed == null || parsed < 1 || parsed > 10) {
+                    return 'Count must be between 1 and 10';
+                  }
+                  if (parsed > widget.availableSlots) {
+                    return 'Exceeds available capacity (${widget.availableSlots} slots)';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: GrsSpacing.md),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedLang,
+                decoration: InputDecoration(
+                  labelText: dlgL10n.get('preferredLanguage'),
+                  border: const OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'si', child: Text('Sinhala (සිංහල)')),
+                  DropdownMenuItem(value: 'ta', child: Text('Tamil (தமிழ்)')),
+                  DropdownMenuItem(value: 'en', child: Text('English')),
+                ],
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() => _selectedLang = val);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(null),
+          child: Text(dlgL10n.get('cancel')),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading
+              ? null
+              : () async {
+                  if (!_formKey.currentState!.validate()) return;
+                  final count = int.parse(_countCtrl.text.trim());
+                  setState(() => _isLoading = true);
+                  try {
+                    final res = await widget.onSubmit(count, _selectedLang);
+                    if (context.mounted) {
+                      Navigator.of(context).pop(res);
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      setState(() => _isLoading = false);
+                    }
+                    if (context.mounted) {
+                      Navigator.of(context).pop(null);
+                    }
+                    widget.onError(e);
+                  }
+                },
+          child: _isLoading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(dlgL10n.get('createBatch')),
+        ),
+      ],
     );
   }
 }

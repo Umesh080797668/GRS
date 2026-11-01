@@ -10,6 +10,7 @@ import {
   MaxLength,
   Min,
   ArrayMinSize,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
@@ -188,6 +189,7 @@ export class AssignHousesDto {
   @IsArray()
   @IsUUID('4', { each: true })
   @ArrayMinSize(1)
+  @ArrayMaxSize(200)
   houseIds: string[];
 }
 

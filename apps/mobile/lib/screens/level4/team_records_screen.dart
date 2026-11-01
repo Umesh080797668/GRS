@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grs_ui/grs_ui.dart';
+import '../../l10n/l10n.dart';
 import '../../providers/api_client_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/connectivity_provider.dart';
@@ -452,15 +453,15 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = GrsL10n.of(context);
     final isOnline = ref.watch(connectivityProvider);
     final filtered = _filteredRecords;
 
     return GrsScaffold(
-      title: 'Team Records',
+      title: l10n.get('teamRecords'),
       showBackButton: true,
       isOffline: !isOnline,
-      offlineMessage:
-          'Offline. Viewing local records. Official supervisor corrections require internet.',
+      offlineMessage: l10n.get('onlineOnlyNotice'),
       body: Column(
         children: [
           // Search and Filters
@@ -470,8 +471,8 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
               children: [
                 GrsTextField(
                   controller: _searchCtrl,
-                  label: 'Search Records',
-                  hint: 'Search by client name, phone, or household...',
+                  label: l10n.get('searchRecordsHint'),
+                  hint: l10n.get('searchRecordsHint'),
                   prefixIcon: const Icon(Icons.search),
                   onChanged: (_) => setState(() {}),
                 ),
@@ -480,13 +481,19 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      _buildFilterChip('all', 'All (${_records.length})'),
+                      _buildFilterChip(
+                        'all',
+                        '${l10n.get('allTab')} (${_records.length})',
+                      ),
                       const SizedBox(width: GrsSpacing.xs),
-                      _buildFilterChip('special_needs', 'Special Needs'),
+                      _buildFilterChip(
+                        'special_needs',
+                        l10n.get('specialNeeds'),
+                      ),
                       const SizedBox(width: GrsSpacing.xs),
-                      _buildFilterChip('samurdhi', 'Samurdhi'),
+                      _buildFilterChip('samurdhi', l10n.get('samurdhi')),
                       const SizedBox(width: GrsSpacing.xs),
-                      _buildFilterChip('aswesuma', 'Aswesuma'),
+                      _buildFilterChip('aswesuma', l10n.get('aswesuma')),
                     ],
                   ),
                 ),
@@ -519,17 +526,17 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                           const SizedBox(height: GrsSpacing.md),
                           ElevatedButton(
                             onPressed: _fetchRecords,
-                            child: const Text('Retry'),
+                            child: Text(l10n.get('retry')),
                           ),
                         ],
                       ),
                     ),
                   )
                 : filtered.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
-                      'No client records match criteria.',
-                      style: TextStyle(
+                      l10n.get('noRecordsFound'),
+                      style: const TextStyle(
                         fontSize: 14,
                         color: GrsColors.textSecondaryLight,
                       ),
@@ -706,8 +713,9 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = GrsL10n.of(context);
     return AlertDialog(
-      title: const Text('Correct Client Record'),
+      title: Text(l10n.get('supervisorCorrection')),
       content: SizedBox(
         width: double.maxFinite,
         child: SingleChildScrollView(
@@ -717,24 +725,9 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(GrsSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: GrsColors.primaryLight.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'Decision C2/C13: As Level 4 CDC Secretary, you can correct field survey errors. An immutable audit record will log this change with your reason.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: GrsColors.primaryLight,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: GrsSpacing.md),
                 GrsTextField(
                   controller: _nameCtrl,
-                  label: 'Full Name *',
+                  label: '${l10n.get('fullName')} *',
                   prefixIcon: const Icon(Icons.person_outline),
                   validator: (val) {
                     if (val == null || val.trim().isEmpty) {
@@ -768,15 +761,20 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         initialValue: _selectedGender,
-                        decoration: const InputDecoration(
-                          labelText: 'Gender',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l10n.get('gender') == 'gender'
+                              ? 'Gender'
+                              : l10n.get('gender'),
+                          border: const OutlineInputBorder(),
                         ),
-                        items: const [
-                          DropdownMenuItem(value: 'male', child: Text('Male')),
+                        items: [
+                          DropdownMenuItem(
+                            value: 'male',
+                            child: Text(l10n.get('male')),
+                          ),
                           DropdownMenuItem(
                             value: 'female',
-                            child: Text('Female'),
+                            child: Text(l10n.get('female')),
                           ),
                         ],
                         onChanged: (val) {
@@ -791,45 +789,48 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                 const SizedBox(height: GrsSpacing.md),
                 GrsTextField(
                   controller: _phoneCtrl,
-                  label: 'Phone Number',
+                  label: l10n.get('phoneNumber'),
                   prefixIcon: const Icon(Icons.phone_outlined),
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: GrsSpacing.md),
                 GrsTextField(
                   controller: _addressCtrl,
-                  label: 'Address',
+                  label: l10n.get('address'),
                   prefixIcon: const Icon(Icons.home_outlined),
                 ),
                 const SizedBox(height: GrsSpacing.md),
-                const Text(
-                  'Welfare Status',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                Text(
+                  l10n.get('vulnerabilityFlags'),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 CheckboxListTile(
                   dense: true,
-                  title: const Text('Special Needs / Disability'),
+                  title: Text(l10n.get('specialNeeds')),
                   value: _specialNeeds,
                   onChanged: (val) =>
                       setState(() => _specialNeeds = val ?? false),
                 ),
                 CheckboxListTile(
                   dense: true,
-                  title: const Text('Samurdhi Beneficiary'),
+                  title: Text(l10n.get('samurdhiBeneficiary')),
                   value: _samurdhi,
                   onChanged: (val) => setState(() => _samurdhi = val ?? false),
                 ),
                 CheckboxListTile(
                   dense: true,
-                  title: const Text('Aswesuma Beneficiary'),
+                  title: Text(l10n.get('aswesumaBeneficiary')),
                   value: _aswesuma,
                   onChanged: (val) => setState(() => _aswesuma = val ?? false),
                 ),
                 const SizedBox(height: GrsSpacing.md),
                 GrsTextField(
                   controller: _reasonCtrl,
-                  label: 'Correction Reason (Required) *',
-                  hint: 'Explain why this correction is being made',
+                  label: '${l10n.get('correctionReason')} *',
+                  hint: l10n.get('correctionReasonHint'),
                   prefixIcon: const Icon(Icons.rate_review_outlined),
                   maxLines: 2,
                   validator: (val) {
@@ -847,7 +848,7 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(null),
-          child: const Text('Cancel'),
+          child: Text(l10n.get('cancel')),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
@@ -869,7 +870,7 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
             };
             Navigator.of(context).pop(payload);
           },
-          child: const Text('Save Correction'),
+          child: Text(l10n.get('saveCorrection')),
         ),
       ],
     );

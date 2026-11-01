@@ -3,6 +3,7 @@ package lk.gov.grs.mobile
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.view.WindowManager
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -11,10 +12,31 @@ import java.io.File
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "lk.gov.grs/updater"
+    private val SECURITY_CHANNEL = "lk.gov.grs/security"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SECURITY_CHANNEL)
+                .setMethodCallHandler { call, result ->
+                    when (call.method) {
+                        "enableSecureScreen" -> {
+                            window.setFlags(
+                                    WindowManager.LayoutParams.FLAG_SECURE,
+                                    WindowManager.LayoutParams.FLAG_SECURE
+                            )
+                            result.success(true)
+                        }
+                        "disableSecureScreen" -> {
+                            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                            result.success(true)
+                        }
+                        else -> result.notImplemented()
+                    }
+                }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler {
+                call,
+                result ->
             when (call.method) {
                 "installApk" -> {
                     val filePath = call.argument<String>("filePath")
@@ -29,20 +51,25 @@ class MainActivity : FlutterActivity() {
                     }
 
                     try {
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            val apkUri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                                FileProvider.getUriForFile(
-                                    context,
-                                    "${context.packageName}.fileProvider",
-                                    file
-                                )
-                            } else {
-                                Uri.fromFile(file)
-                            }
-                            setDataAndType(apkUri, "application/vnd.android.package-archive")
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
+                        val intent =
+                                Intent(Intent.ACTION_VIEW).apply {
+                                    val apkUri: Uri =
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                                FileProvider.getUriForFile(
+                                                        context,
+                                                        "${context.packageName}.fileProvider",
+                                                        file
+                                                )
+                                            } else {
+                                                Uri.fromFile(file)
+                                            }
+                                    setDataAndType(
+                                            apkUri,
+                                            "application/vnd.android.package-archive"
+                                    )
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
                         context.startActivity(intent)
                         result.success(true)
                     } catch (e: Exception) {

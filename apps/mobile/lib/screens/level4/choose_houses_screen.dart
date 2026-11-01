@@ -306,7 +306,7 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                   controller: _searchCtrl,
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.search),
-                    hintText: 'Search by house no. or leader name',
+                    hintText: l10n.get('searchHousesHint'),
                     suffixIcon: _searchCtrl.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear),
@@ -325,7 +325,9 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                   child: Row(
                     children: [
                       FilterChip(
-                        label: Text('All (${_houses.length})'),
+                        label: Text(
+                          '${l10n.get('allTab')} (${_houses.length})',
+                        ),
                         selected: _selectedFilter == 'all',
                         onSelected: (_) =>
                             setState(() => _selectedFilter = 'all'),
@@ -333,7 +335,7 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                       const SizedBox(width: 6),
                       FilterChip(
                         label: Text(
-                          'Available (${_houses.where((h) => h['teamId'] == null).length})',
+                          '${l10n.get('filterAvailable')} (${_houses.where((h) => h['teamId'] == null).length})',
                         ),
                         selected: _selectedFilter == 'available',
                         onSelected: (_) =>
@@ -342,7 +344,7 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                       const SizedBox(width: 6),
                       FilterChip(
                         label: Text(
-                          'My Team (${_houses.where((h) => h['teamId'] == myTeamId).length})',
+                          '${l10n.get('filterMyTeam')} (${_houses.where((h) => h['teamId'] == myTeamId).length})',
                         ),
                         selected: _selectedFilter == 'my_team',
                         onSelected: (_) =>
@@ -351,7 +353,7 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                       const SizedBox(width: 6),
                       FilterChip(
                         label: Text(
-                          'Other Teams (${_houses.where((h) => h['teamId'] != null && h['teamId'] != myTeamId).length})',
+                          '${l10n.get('filterTaken')} (${_houses.where((h) => h['teamId'] != null && h['teamId'] != myTeamId).length})',
                         ),
                         selected: _selectedFilter == 'taken',
                         onSelected: (_) =>
@@ -383,13 +385,16 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                           const SizedBox(height: 8),
                           Text(_errorMessage!, textAlign: TextAlign.center),
                           const SizedBox(height: 16),
-                          GrsButton(label: 'Retry', onPressed: _fetchHouses),
+                          GrsButton(
+                            label: l10n.get('retry'),
+                            onPressed: _fetchHouses,
+                          ),
                         ],
                       ),
                     ),
                   )
                 : filtered.isEmpty
-                ? const Center(child: Text('No houses matching filter.'))
+                ? Center(child: Text(l10n.get('noHousesFound')))
                 : RefreshIndicator(
                     onRefresh: _fetchHouses,
                     child: ListView.separated(
@@ -425,7 +430,7 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                           title: Row(
                             children: [
                               Text(
-                                'House $houseNo',
+                                '${l10n.get('houseNumber')}: $houseNo',
                                 style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
@@ -455,9 +460,9 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                                       color: GrsColors.syncSynced,
                                     ),
                                   ),
-                                  child: const Text(
-                                    'My Team',
-                                    style: TextStyle(
+                                  child: Text(
+                                    l10n.get('filterMyTeam'),
+                                    style: const TextStyle(
                                       fontSize: 11,
                                       color: GrsColors.syncSynced,
                                       fontWeight: FontWeight.bold,
@@ -476,7 +481,9 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                                     border: Border.all(color: Colors.grey),
                                   ),
                                   child: Text(
-                                    teamNo != null ? 'Team $teamNo' : 'Taken',
+                                    teamNo != null
+                                        ? 'Team $teamNo'
+                                        : l10n.get('filterTaken'),
                                     style: const TextStyle(
                                       fontSize: 11,
                                       color: Colors.grey,
@@ -496,9 +503,9 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                                     ),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: const Text(
-                                    'Available',
-                                    style: TextStyle(
+                                  child: Text(
+                                    l10n.get('filterAvailable'),
+                                    style: const TextStyle(
                                       fontSize: 11,
                                       color: GrsColors.primaryLight,
                                       fontWeight: FontWeight.bold,
@@ -550,7 +557,9 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        '${_selectedHouseIds.length} houses selected',
+                        l10n.translate('housesSelected', {
+                          'count': '${_selectedHouseIds.length}',
+                        }),
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -558,7 +567,9 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                       ),
                     ),
                     GrsButton(
-                      label: _isClaiming ? 'Claiming...' : 'Claim for Team',
+                      label: _isClaiming
+                          ? '...'
+                          : l10n.get('claimSelectedHouses'),
                       icon: Icons.check,
                       onPressed: isOnline && !_isClaiming
                           ? _claimSelectedHouses

@@ -257,8 +257,8 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               const SizedBox(height: GrsSpacing.lg),
               GrsTextField(
                 controller: _houseNoCtrl,
-                label: 'House Number *',
-                hint: 'e.g. 24/A or 105',
+                label: '${l10n.get('houseNumber')} *',
+                hint: l10n.get('houseNumberHint'),
                 prefixIcon: const Icon(Icons.home_outlined),
                 enabled: isOnline && !_isSaving,
                 validator: (val) {
@@ -271,8 +271,8 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               const SizedBox(height: GrsSpacing.md),
               GrsTextField(
                 controller: _leaderNameCtrl,
-                label: 'House Leader Name *',
-                hint: 'Full name of head of household',
+                label: '${l10n.get('houseLeaderName')} *',
+                hint: l10n.get('houseLeaderNameHint'),
                 prefixIcon: const Icon(Icons.person_outline),
                 enabled: isOnline && !_isSaving,
                 validator: (val) {
@@ -285,7 +285,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               const SizedBox(height: GrsSpacing.md),
               GrsTextField(
                 controller: _addressCtrl,
-                label: 'Street / Address',
+                label: l10n.get('address'),
                 hint: 'Optional street address',
                 prefixIcon: const Icon(Icons.location_on_outlined),
                 enabled: isOnline && !_isSaving,
@@ -293,19 +293,22 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               const SizedBox(height: GrsSpacing.md),
               GrsTextField(
                 controller: _villageNameCtrl,
-                label: 'Village Name',
+                label: l10n.get('village'),
                 hint: 'e.g. Walpola',
                 prefixIcon: const Icon(Icons.map_outlined),
                 enabled: isOnline && !_isSaving,
               ),
               const SizedBox(height: GrsSpacing.lg),
-              const Text(
-                'Beneficiary Flags (Per House)',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              Text(
+                l10n.get('welfarePrograms'),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: GrsSpacing.xs),
               CheckboxListTile(
-                title: const Text('EPF (Employees Provident Fund)'),
+                title: Text(l10n.get('epf')),
                 value: _isEpf,
                 onChanged: isOnline && !_isSaving
                     ? (v) => setState(() => _isEpf = v ?? false)
@@ -313,7 +316,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 contentPadding: EdgeInsets.zero,
               ),
               CheckboxListTile(
-                title: const Text('ETF (Employees Trust Fund)'),
+                title: Text(l10n.get('etf')),
                 value: _isEtf,
                 onChanged: isOnline && !_isSaving
                     ? (v) => setState(() => _isEtf = v ?? false)
@@ -321,7 +324,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 contentPadding: EdgeInsets.zero,
               ),
               CheckboxListTile(
-                title: const Text('Aswesuma Beneficiary'),
+                title: Text(l10n.get('aswesuma')),
                 value: _isAswesuma,
                 onChanged: isOnline && !_isSaving
                     ? (v) => setState(() => _isAswesuma = v ?? false)
@@ -329,7 +332,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 contentPadding: EdgeInsets.zero,
               ),
               CheckboxListTile(
-                title: const Text('Samurdhi Beneficiary'),
+                title: Text(l10n.get('samurdhi')),
                 value: _isSamurdhi,
                 onChanged: isOnline && !_isSaving
                     ? (v) => setState(() => _isSamurdhi = v ?? false)
@@ -337,7 +340,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 contentPadding: EdgeInsets.zero,
               ),
               CheckboxListTile(
-                title: const Text('Special Needs in Household'),
+                title: Text(l10n.get('specialNeeds')),
                 value: _hasSpecialNeeds,
                 onChanged: isOnline && !_isSaving
                     ? (v) => setState(() => _hasSpecialNeeds = v ?? false)
@@ -355,7 +358,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                   Expanded(
                     child: GrsTextField(
                       controller: _targetFemaleCtrl,
-                      label: 'Target Female',
+                      label: l10n.get('female'),
                       hint: '0',
                       prefixIcon: const Icon(Icons.woman),
                       keyboardType: TextInputType.number,
@@ -366,7 +369,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                   Expanded(
                     child: GrsTextField(
                       controller: _targetMaleCtrl,
-                      label: 'Target Male',
+                      label: l10n.get('male'),
                       hint: '0',
                       prefixIcon: const Icon(Icons.man),
                       keyboardType: TextInputType.number,
@@ -384,9 +387,12 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 enabled: isOnline && !_isSaving,
               ),
               const SizedBox(height: GrsSpacing.lg),
-              const Text(
-                'Languages Used',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              Text(
+                l10n.get('preferredLanguage'),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               Wrap(
                 spacing: GrsSpacing.sm,
@@ -416,9 +422,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               ),
               const SizedBox(height: GrsSpacing.xl),
               GrsButton(
-                label: _isSaving
-                    ? 'Registering...'
-                    : 'Register House (Allocates Serial)',
+                label: _isSaving ? '...' : l10n.get('createHouse'),
                 onPressed: isOnline && !_isSaving ? _submitHouse : null,
               ),
             ],

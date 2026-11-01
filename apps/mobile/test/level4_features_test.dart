@@ -115,6 +115,7 @@ void main() {
         child: MaterialApp(
           locale: const Locale('en'),
           localizationsDelegates: const [
+            GrsLocalizationsDelegate(),
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
@@ -165,7 +166,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Team Capacity'), findsOneWidget);
-        expect(find.text('2 / 10 Members'), findsOneWidget);
+        expect(find.text('2 / 10 Active Members'), findsOneWidget);
         expect(find.text('Kamal Silva'), findsOneWidget);
         expect(find.text('Nimal Dias'), findsOneWidget);
       },
@@ -217,7 +218,7 @@ void main() {
       expect(find.text('Old Secretary'), findsOneWidget);
 
       // Tap Save button
-      await tester.tap(find.text('Save GN Division Details'));
+      await tester.tap(find.text('Save Changes'));
       await tester.pumpAndSettle();
 
       expect(updateCalled, isTrue);
@@ -267,7 +268,7 @@ void main() {
 
         // Enter House No & Leader Name
         await tester.enterText(
-          find.widgetWithText(GrsTextField, 'House Number *'),
+          find.widgetWithText(GrsTextField, 'House No *'),
           '25/B',
         );
         await tester.enterText(
@@ -277,11 +278,9 @@ void main() {
         await tester.pump();
 
         // Submit
-        await tester.ensureVisible(
-          find.text('Register House (Allocates Serial)'),
-        );
+        await tester.ensureVisible(find.text('Create House'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Register House (Allocates Serial)'));
+        await tester.tap(find.text('Create House'));
         await tester.pumpAndSettle();
 
         // Verify Success dialog showing allocated serial
@@ -341,17 +340,17 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('House 10'), findsOneWidget);
+        expect(find.text('House No: 10'), findsOneWidget);
         expect(find.text('Available'), findsOneWidget);
 
         // Select checkbox
         await tester.tap(find.byType(CheckboxListTile));
         await tester.pumpAndSettle();
 
-        expect(find.text('1 houses selected'), findsOneWidget);
+        expect(find.text('1 house(s) selected'), findsOneWidget);
 
         // Tap Claim button
-        await tester.tap(find.text('Claim for Team'));
+        await tester.tap(find.text('Claim Selected Houses'));
         await tester.pumpAndSettle();
 
         // Verify 409 Claim Conflict dialog appears
@@ -436,7 +435,10 @@ void main() {
 
         expect(find.text('Households Surveyed'), findsOneWidget);
         expect(find.text('50.0%'), findsOneWidget); // 1 completed of 2 houses
-        expect(find.text('1 Total'), findsOneWidget); // 1 beneficiary
+        expect(
+          find.text('1 Total Beneficiaries'),
+          findsOneWidget,
+        ); // 1 beneficiary
         expect(find.text('Special Needs / Disability'), findsOneWidget);
         expect(find.text('Samurdhi Beneficiaries'), findsOneWidget);
       },
@@ -510,7 +512,7 @@ void main() {
         await tester.tap(find.text('Correct Client Record (Decision C2)'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Correct Client Record'), findsOneWidget);
+        expect(find.text('Supervisor Correction'), findsOneWidget);
 
         // Edit name and fill correction reason
         await tester.enterText(
@@ -518,7 +520,10 @@ void main() {
           'Corrected Name',
         );
         await tester.enterText(
-          find.widgetWithText(GrsTextField, 'Correction Reason (Required) *'),
+          find.widgetWithText(
+            GrsTextField,
+            'Reason for Correction (Mandatory) *',
+          ),
           'Typo in name corrected by CDC Secretary',
         );
         await tester.pump();

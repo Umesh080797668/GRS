@@ -188,7 +188,10 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: GrsSpacing.md),
-                      GrsButton(label: 'Retry', onPressed: _loadGnDetails),
+                      GrsButton(
+                        label: l10n.get('retry'),
+                        onPressed: _loadGnDetails,
+                      ),
                     ],
                   ),
                 )
@@ -197,9 +200,9 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'GN Division Info',
-                        style: TextStyle(
+                      Text(
+                        l10n.get('gnDivisionDetails'),
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -211,9 +214,9 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'GN Number',
-                                  style: TextStyle(
+                                Text(
+                                  l10n.get('gnNumber'),
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     color: GrsColors.textSecondaryLight,
                                   ),
@@ -232,9 +235,9 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'GN Name',
-                                  style: TextStyle(
+                                Text(
+                                  l10n.get('gnName'),
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     color: GrsColors.textSecondaryLight,
                                   ),
@@ -255,14 +258,9 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
                   ),
                 ),
                 const SizedBox(height: GrsSpacing.lg),
-                const Text(
-                  'CDC Secretary Contact Details',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: GrsSpacing.md),
                 GrsTextField(
                   controller: _nameController,
-                  label: 'Secretary Full Name',
+                  label: l10n.get('fullName'),
                   hint: 'Enter CDC Secretary full name',
                   enabled: isOnline && !_isSaving,
                   prefixIcon: const Icon(Icons.person_outline),
@@ -276,7 +274,7 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
                 const SizedBox(height: GrsSpacing.md),
                 GrsTextField(
                   controller: _contactController,
-                  label: 'Contact Number',
+                  label: l10n.get('phoneNumber'),
                   hint: 'e.g. +94771234567',
                   keyboardType: TextInputType.phone,
                   enabled: isOnline && !_isSaving,
@@ -285,7 +283,7 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
                 const SizedBox(height: GrsSpacing.md),
                 GrsTextField(
                   controller: _emailController,
-                  label: 'Email Address',
+                  label: 'Email',
                   hint: 'e.g. secretary@gn.gov.lk',
                   keyboardType: TextInputType.emailAddress,
                   enabled: isOnline && !_isSaving,
@@ -304,7 +302,7 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
                 ),
                 const SizedBox(height: GrsSpacing.xl),
                 GrsButton(
-                  label: _isSaving ? 'Saving...' : 'Save GN Division Details',
+                  label: _isSaving ? '...' : l10n.get('saveChanges'),
                   onPressed: isOnline && !_isSaving ? _saveGnDetails : null,
                 ),
               ],

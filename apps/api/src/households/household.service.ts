@@ -15,6 +15,7 @@ import {
   DeleteHouseholdDto,
   ListHouseholdsDto,
 } from './dto/household.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class HouseholdService {
@@ -66,96 +67,143 @@ export class HouseholdService {
     }
     const houseNoNorm = normResult.value;
 
-    let resolvedDistrictId = dto.districtId || (creator.gnId === targetGnId ? creator.districtId : undefined);
-    let resolvedDsId = dto.dsId || (creator.gnId === targetGnId ? creator.dsId : undefined);
+    const gn = await this.prisma.gnDivision.findUnique({
+      where: { id: targetGnId },
+      include: {
+        ds: true,
+      },
+    });
 
-    if (!resolvedDistrictId || !resolvedDsId) {
-      const gn = await this.prisma.gnDivision.findUnique({
-        where: { id: targetGnId },
-        include: {
-          ds: true,
-        },
+    if (!gn) {
+      throw new NotFoundException({
+        code: 'GN_NOT_FOUND',
+        message: 'GN division not found',
       });
+    }
 
-      if (!gn) {
+    if (dto.districtId && dto.districtId !== gn.ds.districtId) {
+      throw new BadRequestException({
+        code: 'INVALID_DISTRICT_HIERARCHY',
+        message: 'Provided districtId does not match the GN division hierarchy',
+      });
+    }
+
+    if (dto.dsId && dto.dsId !== gn.dsId) {
+      throw new BadRequestException({
+        code: 'INVALID_DS_HIERARCHY',
+        message: 'Provided dsId does not match the GN division hierarchy',
+      });
+    }
+
+    const resolvedDistrictId = gn.ds.districtId;
+    const resolvedDsId = gn.dsId;
+
+    if (dto.teamId) {
+      const team = await this.prisma.team.findUnique({
+        where: { id: dto.teamId },
+      });
+      if (!team) {
         throw new NotFoundException({
-          code: 'GN_NOT_FOUND',
-          message: 'GN division not found',
+          code: 'TEAM_NOT_FOUND',
+          message: 'Assigned team not found',
         });
       }
-
-      resolvedDistrictId = resolvedDistrictId || gn.ds.districtId;
-      resolvedDsId = resolvedDsId || gn.dsId;
+      if (team.gnId !== targetGnId) {
+        throw new BadRequestException({
+          code: 'INVALID_TEAM_HIERARCHY',
+          message: 'Team does not belong to the specified GN division',
+        });
+      }
+      if (creator.role === UserRole.cdc_secretary && creator.teamId && dto.teamId !== creator.teamId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_TEAM',
+          message: 'CDC Secretary can only assign new households to their own team',
+        });
+      }
     }
 
     // Concurrency-safe atomic serial allocation and duplicate house number check inside transaction
-    return this.prisma.$transaction(
-      async (tx) => {
-        // 1. Check duplicate house number in GN division (deletedAt IS NULL)
-        const duplicate = await tx.household.findFirst({
-          where: {
-            gnId: targetGnId,
-            houseNoNorm,
-            deletedAt: null,
-          },
-        });
+    try {
+      return await this.prisma.$transaction(
+        async (tx) => {
+          // 1. Take row-level lock on gn_divisions FIRST to serialize concurrent creates and checks in this GN
+          // Guaranteed: 50 concurrent creates yield 50 unique serial numbers (1..50)
+          const gnRows = await tx.$queryRawUnsafe<
+            Array<{ next_serial: number }>
+          >(
+            `SELECT next_serial FROM gn_divisions WHERE id = $1::uuid FOR UPDATE`,
+            targetGnId,
+          );
 
-        if (duplicate) {
-          throw new ConflictException({
-            code: 'DUPLICATE_HOUSE_NUMBER',
-            message: `House number '${dto.houseNo}' already exists in this GN division`,
+          const allocatedSerial = gnRows[0]?.next_serial ?? 1;
+
+          // 2. Check duplicate house number in GN division (deletedAt IS NULL) under row lock
+          const duplicate = await tx.household.findFirst({
+            where: {
+              gnId: targetGnId,
+              houseNoNorm,
+              deletedAt: null,
+            },
           });
-        }
 
-        // 2. Concurrency-safe serial allocation using row-level locking on gn_divisions
-        // Guaranteed: 50 concurrent creates yield 50 unique serial numbers (1..50)
-        const gnRows = await tx.$queryRawUnsafe<
-          Array<{ next_serial: number }>
-        >(
-          `SELECT next_serial FROM gn_divisions WHERE id = $1::uuid FOR UPDATE`,
-          targetGnId,
-        );
+          if (duplicate) {
+            throw new ConflictException({
+              code: 'DUPLICATE_HOUSE_NUMBER',
+              message: `House number '${dto.houseNo}' already exists in this GN division`,
+            });
+          }
 
-        const allocatedSerial = gnRows[0]?.next_serial ?? 1;
+          await tx.$queryRawUnsafe(
+            `UPDATE gn_divisions SET next_serial = next_serial + 1, updated_at = now() WHERE id = $1::uuid`,
+            targetGnId,
+          );
 
-        await tx.$queryRawUnsafe(
-          `UPDATE gn_divisions SET next_serial = next_serial + 1, updated_at = now() WHERE id = $1::uuid`,
-          targetGnId,
-        );
+          // 3. Insert household record
+          const household = await tx.household.create({
+            data: {
+              gnId: targetGnId,
+              dsId: resolvedDsId,
+              districtId: resolvedDistrictId,
+              teamId: dto.teamId || null,
+              serialNo: allocatedSerial,
+              houseNo: dto.houseNo.trim(),
+              houseNoNorm,
+              houseLeaderName: dto.houseLeaderName.trim(),
+              address: dto.address?.trim() || null,
+              villageName: dto.villageName?.trim() || null,
+              isEpf: dto.isEpf ?? false,
+              isEtf: dto.isEtf ?? false,
+              isAswesuma: dto.isAswesuma ?? false,
+              isSamurdhi: dto.isSamurdhi ?? false,
+              hasSpecialNeeds: dto.hasSpecialNeeds ?? false,
+              targetFemale: dto.targetFemale ?? 0,
+              targetMale: dto.targetMale ?? 0,
+              ageGroupMin: dto.ageGroupMin ?? null,
+              ageGroupMax: dto.ageGroupMax ?? null,
+              langSinhala: dto.langSinhala ?? false,
+              langTamil: dto.langTamil ?? false,
+              langEnglish: dto.langEnglish ?? false,
+              createdBy: creator.userId,
+            },
+          });
 
-        // 3. Insert household record
-        const household = await tx.household.create({
-          data: {
-            gnId: targetGnId,
-            dsId: resolvedDsId,
-            districtId: resolvedDistrictId,
-            teamId: dto.teamId || null,
-            serialNo: allocatedSerial,
-            houseNo: dto.houseNo.trim(),
-            houseNoNorm,
-            houseLeaderName: dto.houseLeaderName.trim(),
-            address: dto.address?.trim() || null,
-            villageName: dto.villageName?.trim() || null,
-            isEpf: dto.isEpf ?? false,
-            isEtf: dto.isEtf ?? false,
-            isAswesuma: dto.isAswesuma ?? false,
-            isSamurdhi: dto.isSamurdhi ?? false,
-            hasSpecialNeeds: dto.hasSpecialNeeds ?? false,
-            targetFemale: dto.targetFemale ?? 0,
-            targetMale: dto.targetMale ?? 0,
-            ageGroupMin: dto.ageGroupMin ?? null,
-            ageGroupMax: dto.ageGroupMax ?? null,
-            langSinhala: dto.langSinhala ?? false,
-            langTamil: dto.langTamil ?? false,
-            langEnglish: dto.langEnglish ?? false,
-            createdBy: creator.userId,
-          },
+          return household;
+        },
+        { maxWait: 10000, timeout: 30000 },
+      );
+    } catch (err: any) {
+      if (err instanceof ConflictException) throw err;
+      if (
+        err?.code === 'P2002' ||
+        (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')
+      ) {
+        throw new ConflictException({
+          code: 'DUPLICATE_HOUSE_NUMBER',
+          message: `House number '${dto.houseNo}' already exists in this GN division`,
         });
-
-        return household;
-      },
-      { maxWait: 120000, timeout: 120000 },
-    );
+      }
+      throw err;
+    }
   }
 
   /**
@@ -316,7 +364,8 @@ export class HouseholdService {
     const household = await this.getHouseholdById(caller, id);
 
     let houseNoNorm = household.houseNoNorm;
-    if (dto.houseNo && dto.houseNo !== household.houseNo) {
+    const isHouseNoChanged = dto.houseNo && dto.houseNo !== household.houseNo;
+    if (isHouseNoChanged) {
       const normResult = GrsValidators.normalizeHouseNo(dto.houseNo);
       if (!normResult.isValid || !normResult.value) {
         throw new BadRequestException({
@@ -325,55 +374,104 @@ export class HouseholdService {
         });
       }
       houseNoNorm = normResult.value;
-      // Check duplicate within same GN
-      const duplicate = await this.prisma.household.findFirst({
-        where: {
-          gnId: household.gnId,
-          houseNoNorm,
-          deletedAt: null,
-          id: { not: id },
-        },
-      });
-      if (duplicate) {
-        throw new ConflictException({
-          code: 'DUPLICATE_HOUSE_NUMBER',
-          message: `House number '${dto.houseNo}' already exists in this GN division`,
-        });
-      }
     }
 
-    const updated = await this.prisma.household.update({
-      where: { id },
-      data: {
-        houseNo: dto.houseNo ? dto.houseNo.trim() : undefined,
-        houseNoNorm,
-        houseLeaderName: dto.houseLeaderName ? dto.houseLeaderName.trim() : undefined,
-        address: dto.address !== undefined ? dto.address?.trim() || null : undefined,
-        villageName: dto.villageName !== undefined ? dto.villageName?.trim() || null : undefined,
-        isEpf: dto.isEpf,
-        isEtf: dto.isEtf,
-        isAswesuma: dto.isAswesuma,
-        isSamurdhi: dto.isSamurdhi,
-        hasSpecialNeeds: dto.hasSpecialNeeds,
-        targetFemale: dto.targetFemale,
-        targetMale: dto.targetMale,
-        ageGroupMin: dto.ageGroupMin,
-        ageGroupMax: dto.ageGroupMax,
-        langSinhala: dto.langSinhala,
-        langTamil: dto.langTamil,
-        langEnglish: dto.langEnglish,
-        version: { increment: 1 },
-        updatedBy: caller.userId,
-      },
-    });
+    try {
+      if (isHouseNoChanged) {
+        return await this.prisma.$transaction(
+          async (tx) => {
+            // Row lock GN division to serialize house number updates/creations
+            await tx.$queryRawUnsafe(
+              `SELECT id FROM gn_divisions WHERE id = $1::uuid FOR UPDATE`,
+              household.gnId,
+            );
 
-    return updated;
+            const duplicate = await tx.household.findFirst({
+              where: {
+                gnId: household.gnId,
+                houseNoNorm,
+                deletedAt: null,
+                id: { not: id },
+              },
+            });
+            if (duplicate) {
+              throw new ConflictException({
+                code: 'DUPLICATE_HOUSE_NUMBER',
+                message: `House number '${dto.houseNo}' already exists in this GN division`,
+              });
+            }
+
+            return await tx.household.update({
+              where: { id },
+              data: {
+                houseNo: dto.houseNo ? dto.houseNo.trim() : undefined,
+                houseNoNorm,
+                houseLeaderName: dto.houseLeaderName ? dto.houseLeaderName.trim() : undefined,
+                address: dto.address !== undefined ? dto.address?.trim() || null : undefined,
+                villageName: dto.villageName !== undefined ? dto.villageName?.trim() || null : undefined,
+                isEpf: dto.isEpf,
+                isEtf: dto.isEtf,
+                isAswesuma: dto.isAswesuma,
+                isSamurdhi: dto.isSamurdhi,
+                hasSpecialNeeds: dto.hasSpecialNeeds,
+                targetFemale: dto.targetFemale,
+                targetMale: dto.targetMale,
+                ageGroupMin: dto.ageGroupMin,
+                ageGroupMax: dto.ageGroupMax,
+                langSinhala: dto.langSinhala,
+                langTamil: dto.langTamil,
+                langEnglish: dto.langEnglish,
+                version: { increment: 1 },
+                updatedBy: caller.userId,
+              },
+            });
+          },
+          { maxWait: 10000, timeout: 30000 },
+        );
+      } else {
+        return await this.prisma.household.update({
+          where: { id },
+          data: {
+            houseLeaderName: dto.houseLeaderName ? dto.houseLeaderName.trim() : undefined,
+            address: dto.address !== undefined ? dto.address?.trim() || null : undefined,
+            villageName: dto.villageName !== undefined ? dto.villageName?.trim() || null : undefined,
+            isEpf: dto.isEpf,
+            isEtf: dto.isEtf,
+            isAswesuma: dto.isAswesuma,
+            isSamurdhi: dto.isSamurdhi,
+            hasSpecialNeeds: dto.hasSpecialNeeds,
+            targetFemale: dto.targetFemale,
+            targetMale: dto.targetMale,
+            ageGroupMin: dto.ageGroupMin,
+            ageGroupMax: dto.ageGroupMax,
+            langSinhala: dto.langSinhala,
+            langTamil: dto.langTamil,
+            langEnglish: dto.langEnglish,
+            version: { increment: 1 },
+            updatedBy: caller.userId,
+          },
+        });
+      }
+    } catch (err: any) {
+      if (err instanceof ConflictException) throw err;
+      if (
+        err?.code === 'P2002' ||
+        (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')
+      ) {
+        throw new ConflictException({
+          code: 'DUPLICATE_HOUSE_NUMBER',
+          message: `House number '${dto.houseNo || household.houseNo}' already exists in this GN division`,
+        });
+      }
+      throw err;
+    }
   }
 
   /**
    * Soft deletes a household.
    * Decision C6:
-   * Deletion blocked if clients exist unless explicitly reassigned or archived.
+   * Deletion blocked if active clients exist unless explicitly reassigned or deleted.
+   * Soft-deleted clients do not block household deletion.
    * Clients are never cascade-deleted.
    */
   async deleteHousehold(
@@ -384,16 +482,16 @@ export class HouseholdService {
     const household = await this.getHouseholdById(caller, id);
 
     return this.prisma.$transaction(async (tx) => {
-      // Decision C6 check: Are any clients attached to this household?
+      // Decision C6 check: Are any ACTIVE clients attached to this household?
       const clientCount = await tx.client.count({
-        where: { householdId: id },
+        where: { householdId: id, deletedAt: null },
       });
 
       if (clientCount > 0) {
         throw new ConflictException({
           code: 'HOUSEHOLD_HAS_CLIENTS',
           message:
-            'Cannot delete household with attached clients. Reassign or archive clients first per Decision C6.',
+            'Cannot delete household with attached active clients. Reassign or delete active clients first per Decision C6.',
           attachedClientsCount: clientCount,
         });
       }
@@ -409,7 +507,7 @@ export class HouseholdService {
       });
 
       return { success: true, id };
-    }, { maxWait: 30000, timeout: 30000 });
+    }, { maxWait: 10000, timeout: 10000 });
   }
 
   /**
@@ -419,12 +517,23 @@ export class HouseholdService {
   async assignHousesToTeam(
     caller: ScopeContext,
     teamId: string,
-    houseIds: string[],
+    rawHouseIds: string[],
   ): Promise<{ success: boolean; assignedCount: number; houseIds: string[] }> {
-    if (!houseIds || houseIds.length === 0) {
+    if (!rawHouseIds || rawHouseIds.length === 0) {
       throw new BadRequestException({
         code: 'EMPTY_HOUSE_LIST',
         message: 'Must provide at least one house ID to assign',
+      });
+    }
+
+    // Deduplicate house IDs to avoid false conflicts from repeated IDs
+    const houseIds = Array.from(new Set(rawHouseIds));
+
+    // Cap array size to prevent database overload
+    if (houseIds.length > 200) {
+      throw new BadRequestException({
+        code: 'TOO_MANY_HOUSES',
+        message: 'Cannot assign more than 200 houses in a single request',
       });
     }
 
