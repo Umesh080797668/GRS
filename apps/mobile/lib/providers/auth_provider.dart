@@ -58,16 +58,15 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final GrsApiClient _apiClient;
   final SecureStorageService _storage;
-  final Ref? _ref;
 
   AuthNotifier({
     required GrsApiClient apiClient,
     required SecureStorageService storage,
     Ref? ref,
+    AuthState? initialState,
   }) : _apiClient = apiClient,
        _storage = storage,
-       _ref = ref,
-       super(AuthState.initial());
+       super(initialState ?? AuthState.initial());
 
   bool _isJwtExpired(String? token) {
     if (token == null || token.trim().isEmpty) return true;
@@ -218,30 +217,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
 
       // User switch check (Build Plan §8.2 #7 & §12.4 #10)
-      if (_ref != null) {
-        try {
-          final db = await _ref.read(databaseProvider.future);
-          final lastUserId = await db.getMeta('last_user_id');
-          if (lastUserId != null &&
-              lastUserId.isNotEmpty &&
-              lastUserId != res.profile.id) {
-            final allClients = await db.getAllClients();
-            final hasUnsynced = allClients.any(
-              (c) => c['sync_status'] != 'synced',
-            );
-            if (hasUnsynced) {
-              state = const AuthState(
-                status: AuthStatus.unauthenticated,
-                errorMessage: 'userSwitchBlockedUnsynced',
-              );
-              return;
-            }
-            // All previous user data was synced: wipe local database to preserve data privacy
-            await db.wipeAllData();
-          }
-          await db.setMeta('last_user_id', res.profile.id);
-        } catch (_) {}
+      final lastUserId = await _storage.getLastUserId();
+      if (lastUserId != null &&
+          lastUserId.isNotEmpty &&
+          lastUserId != res.profile.id) {
+        final hasUnsynced = await hasUnsyncedRecordsForUser(
+          userId: lastUserId,
+          storage: _storage,
+        );
+        if (hasUnsynced) {
+          state = const AuthState(
+            status: AuthStatus.unauthenticated,
+            errorMessage: 'userSwitchBlockedUnsynced',
+          );
+          return;
+        }
+        // All previous user data was synced: wipe previous user's database and key
+        await wipeUserDatabase(userId: lastUserId, storage: _storage);
       }
+      await _storage.saveLastUserId(res.profile.id);
 
       await _storage.saveTokens(
         accessToken: res.accessToken,
@@ -394,6 +388,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   void skipAddEmail() {
     state = AuthState(status: AuthStatus.authenticated, profile: state.profile);
+  }
+
+  void setDeactivatedState() {
+    state = AuthState(
+      status: AuthStatus.deactivated,
+      profile: state.profile,
+      errorMessage:
+          'Your account has been deactivated. Contact your administrator.',
+    );
   }
 
   Future<void> logout({String deviceId = 'mobile-device'}) async {

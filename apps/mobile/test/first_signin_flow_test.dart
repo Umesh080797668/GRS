@@ -41,9 +41,18 @@ class FakeSecureStorageService extends SecureStorageService {
     _data.remove('grs_access_token');
     _data.remove('grs_refresh_token');
   }
+
+  @override
+  Future<String?> getLastUserId() async => _data['grs_last_user_id'];
+
+  @override
+  Future<void> saveLastUserId(String userId) async {
+    _data['grs_last_user_id'] = userId;
+  }
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('First Sign-in Flow & Invariant 14 Tests (M2.5)', () {
     test(
       'Wrong ID and wrong password produce identical uniform error (Invariant 14)',

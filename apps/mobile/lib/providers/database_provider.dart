@@ -58,3 +58,32 @@ Future<void> wipeUserDatabase({
 
   await storage.clearDatabaseKey(userId: userId);
 }
+
+/// Checks if the specified user has unsynced local records in their isolated database file (Build Plan §8.2 #7).
+Future<bool> hasUnsyncedRecordsForUser({
+  required String userId,
+  required SecureStorageService storage,
+  bool requireCipher = true,
+}) async {
+  try {
+    final appDocDir = await getApplicationDocumentsDirectory();
+    final dbFile = File('${appDocDir.path}/grs_offline_$userId.db');
+    if (!await dbFile.exists()) {
+      return false;
+    }
+    final cipherKey = await storage.getDatabaseKey(userId: userId);
+    if (cipherKey == null) {
+      return false;
+    }
+    final db = await AppDatabase.open(
+      file: dbFile,
+      cipherKey: cipherKey,
+      requireCipher: requireCipher,
+    );
+    final allClients = await db.getAllClients();
+    await db.close();
+    return allClients.any((c) => c['sync_status'] != 'synced');
+  } catch (_) {
+    return false;
+  }
+}

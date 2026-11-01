@@ -103,6 +103,15 @@ class _MyRecordsScreenState extends ConsumerState<MyRecordsScreen> {
                                   setState(() => _selectedFilter = 'rejected'),
                               isDark: isDark,
                             ),
+                            const SizedBox(width: 8),
+                            _FilterChip(
+                              filterId: 'failed',
+                              label: l10n.get('statusFailed'),
+                              selected: _selectedFilter == 'failed',
+                              onTap: () =>
+                                  setState(() => _selectedFilter = 'failed'),
+                              isDark: isDark,
+                            ),
                           ],
                         ),
                       ),
@@ -183,7 +192,8 @@ class _MyRecordsScreenState extends ConsumerState<MyRecordsScreen> {
                                     vertical: 12,
                                   ),
                                   onTap: () async {
-                                    if (status == 'rejected') {
+                                    if (status == 'rejected' ||
+                                        status == 'failed') {
                                       _showRejectedDialog(
                                         context,
                                         id,
@@ -245,7 +255,8 @@ class _MyRecordsScreenState extends ConsumerState<MyRecordsScreen> {
                                                 color: secondary,
                                               ),
                                             ),
-                                            if (status == 'rejected' &&
+                                            if ((status == 'rejected' ||
+                                                    status == 'failed') &&
                                                 lastError != null) ...[
                                               const SizedBox(height: 2),
                                               Text(
@@ -352,6 +363,10 @@ class _MyRecordsScreenState extends ConsumerState<MyRecordsScreen> {
       'rejected' => GrsSyncBadge(
         status: GrsSyncStatus.rejected,
         label: l10n.get('statusRejected'),
+      ),
+      'failed' => GrsSyncBadge(
+        status: GrsSyncStatus.failed,
+        label: l10n.get('statusFailed'),
       ),
       _ => GrsSyncBadge(
         status: GrsSyncStatus.draft,

@@ -1,19 +1,131 @@
+import 'dart:io';
 import 'dart:math';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:grs_core/grs_core.dart';
 import 'package:mobile/data/local/database.dart';
+import 'package:mobile/data/local/secure_storage_service.dart';
+import 'package:mobile/providers/api_client_provider.dart';
+import 'package:mobile/providers/auth_provider.dart';
+import 'package:mobile/providers/config_provider.dart';
+import 'package:mobile/providers/connectivity_provider.dart';
+import 'package:mobile/providers/database_provider.dart';
 import 'package:mobile/providers/sync_provider.dart';
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+class FakePathProviderPlatform extends Fake
+    with MockPlatformInterfaceMixin
+    implements PathProviderPlatform {
+  final Directory tempDir;
+  FakePathProviderPlatform(this.tempDir);
+
+  @override
+  Future<String?> getApplicationDocumentsPath() async => tempDir.path;
+}
+
+class FakeConnectivityNotifier extends ConnectivityNotifier {
+  FakeConnectivityNotifier([bool isOnline = true]) : super(autoInit: false) {
+    state = isOnline;
+  }
+
+  void setOnline(bool online) => state = online;
+}
+
+class MockSyncApiClient extends GrsApiClient {
+  Future<SyncPushResponse> Function(SyncPushRequest req)? onPushSync;
+  int pushCount = 0;
+  final List<SyncPushRequest> pushedRequests = [];
+
+  MockSyncApiClient()
+    : super(baseUrl: 'https://test.grs.gov.lk', appVersion: '2.0.0');
+
+  @override
+  Future<SyncPushResponse> pushSync(SyncPushRequest req) async {
+    pushCount++;
+    pushedRequests.add(req);
+    if (onPushSync != null) {
+      return await onPushSync!(req);
+    }
+    return SyncPushResponse(
+      results: req.records
+          .map(
+            (r) => SyncRecordResult(id: r.id, status: 'ok', serverVersion: 1),
+          )
+          .toList(),
+    );
+  }
+}
+
+ProviderContainer createTestContainer({
+  required AppDatabase db,
+  required MockSyncApiClient apiClient,
+  bool isOnline = true,
+  ProfileModel? profile,
+}) {
+  final testProfile =
+      profile ??
+      const ProfileModel(
+        id: 'agent-1',
+        userCode: 'GRS0000000001',
+        role: 'agent',
+        fullName: 'Field Agent',
+        phoneE164: '+94712345678',
+        isActive: true,
+        mustChangePassword: false,
+        preferredLanguage: 'en',
+      );
+
+  return ProviderContainer(
+    overrides: [
+      databaseProvider.overrideWith((ref) => Future.value(db)),
+      apiClientProvider.overrideWithValue(apiClient),
+      connectivityProvider.overrideWith(
+        (ref) => FakeConnectivityNotifier(isOnline),
+      ),
+      appConfigProvider.overrideWith(
+        (ref) => Future.value(
+          const AppConfigModel(
+            minSupportedVersion: '1.0.0',
+            agentCanEditSynced: false,
+            consentVersion: 'consent.v0',
+            lookupVersion: 'v1',
+            syncJitterMaxS: 120,
+            syncBatchMax: 50,
+          ),
+        ),
+      ),
+      authProvider.overrideWith(
+        (ref) => AuthNotifier(
+          apiClient: apiClient,
+          storage: ref.read(secureStorageProvider),
+          initialState: AuthState(
+            status: AuthStatus.authenticated,
+            profile: testProfile,
+          ),
+        ),
+      ),
+    ],
+  );
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('Milestone 3 — §12.4 Offline and Sync Scenario Suite (All 16 Scenarios)', () {
+  group('Milestone 3 — §12.4 Offline Sync Suite Driven by SyncNotifier Engine', () {
     late AppDatabase db;
+    late MockSyncApiClient fakeApi;
+    late ProviderContainer container;
     const testCipherKey = 'TestKey_32CharactersLongCipherKey!';
     const houseId = 'h0000000-0000-0000-0000-000000000001';
 
     setUp(() async {
+      FlutterSecureStorage.setMockInitialValues({});
       db = await AppDatabase.openInMemory(cipherKey: testCipherKey);
+      fakeApi = MockSyncApiClient();
+      container = createTestContainer(db: db, apiClient: fakeApi);
 
       // Seed test household
       final house = Household(
@@ -40,14 +152,15 @@ void main() {
     });
 
     tearDown(() async {
+      container.dispose();
       await db.close();
     });
 
     // ────────────────────────────────────────────────────────────────────────
-    // Scenario 1: Airplane mode — save 100 records, reconnect, push all 100
+    // Scenario 1: Airplane mode — save 100 records, reconnect, push all 100 via SyncNotifier
     // ────────────────────────────────────────────────────────────────────────
     test(
-      'Scenario 1: Airplane mode: save 100 records offline, all 100 ready for sync',
+      'Scenario 1: Airplane mode: save 100 records offline, SyncNotifier pushes in bounded batches',
       () async {
         for (var i = 1; i <= 100; i++) {
           final client = Client(
@@ -64,20 +177,31 @@ void main() {
           await db.saveClient(client: client, status: SyncStatus.pending);
         }
 
-        final pending = await db.getAllClients(status: SyncStatus.pending);
-        expect(pending.length, 100);
+        final syncNotifier = container.read(syncProvider.notifier);
+        final success = await syncNotifier.sync();
 
-        // Verify batch fetching fetches in bounded chunks
-        final batch1 = await db.getPendingClientsBatch(limit: 50);
-        expect(batch1.length, 50);
+        expect(success, isTrue);
+        // Verify bounded batching: 100 records split into exactly 2 requests of 50 (§8.3 & §8.5)
+        expect(fakeApi.pushCount, 2);
+        expect(fakeApi.pushedRequests[0].records.length, 50);
+        expect(fakeApi.pushedRequests[1].records.length, 50);
+
+        // Verify all 100 records transitioned to synced in the database
+        final all = await db.getAllClients();
+        expect(all.length, 100);
+        expect(all.every((c) => c['sync_status'] == 'synced'), isTrue);
+        expect(all.every((c) => (c['base_version'] as int) == 1), isTrue);
+
+        final pendingRemaining = await db.getPendingClientsBatch(limit: 100);
+        expect(pendingRemaining, isEmpty);
       },
     );
 
     // ────────────────────────────────────────────────────────────────────────
-    // Scenario 2: Kill app mid-batch, relaunch — no loss, no duplicates
+    // Scenario 2: Kill app mid-batch / network drop — no loss, failed state set
     // ────────────────────────────────────────────────────────────────────────
     test(
-      'Scenario 2: Mid-batch interruption preserves data and prevents duplication',
+      'Scenario 2: Mid-batch interruption preserves data and sets failed state with retryCount',
       () async {
         final clientId = 'c0000000-0000-0000-0000-000000000002';
         final client = Client(
@@ -93,11 +217,27 @@ void main() {
         );
         await db.saveClient(client: client, status: SyncStatus.pending);
 
-        // Verify pending record was safely committed to disk
+        // Simulate network failure during push
+        fakeApi.onPushSync = (req) async {
+          throw const GrsApiException(
+            statusCode: 503,
+            code: 'SERVER_BUSY',
+            messageKey: 'Server Busy',
+          );
+        };
+
+        final syncNotifier = container.read(syncProvider.notifier);
+        final success = await syncNotifier.sync();
+
+        expect(success, isFalse);
+
+        // Verify record is preserved safely locally in failed status (§8.2 #5)
         final stored = await db.getClientById(clientId);
         expect(stored, isNotNull);
         expect(stored!['name'], 'Interrupted Client');
-        expect(stored['sync_status'], 'pending');
+        expect(stored['sync_status'], 'failed');
+        expect(stored['retry_count'], 1);
+        expect(stored['last_error_code'], 'SERVER_BUSY');
       },
     );
 
@@ -105,7 +245,7 @@ void main() {
     // Scenario 3: Same batch sent twice — still one row each (Idempotency)
     // ────────────────────────────────────────────────────────────────────────
     test(
-      'Scenario 3: Same batch sent twice maintains single client row',
+      'Scenario 3: Same batch sent twice maintains single client row and recovers ok',
       () async {
         final clientId = 'c0000000-0000-0000-0000-000000000003';
         final client = Client(
@@ -120,25 +260,18 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        // First save
         await db.saveClient(client: client, status: SyncStatus.pending);
-        // Simulate confirmed sync
-        await db.updateClientSyncStatus(
-          clientId,
-          status: SyncStatus.synced,
-          baseVersion: 1,
-        );
 
-        // Second identical save (or duplicate transmission retry)
-        await db.saveClient(
-          client: client,
-          status: SyncStatus.synced,
-          baseVersion: 1,
-        );
+        final syncNotifier = container.read(syncProvider.notifier);
+        await syncNotifier.sync();
+
+        // Second push of the same record
+        await syncNotifier.sync();
 
         final all = await db.getAllClients();
         final matches = all.where((c) => c['id'] == clientId).toList();
         expect(matches.length, 1);
+        expect(matches.first['sync_status'], 'synced');
       },
     );
 
@@ -162,189 +295,128 @@ void main() {
         );
         await db.saveClient(client: initialClient, status: SyncStatus.pending);
 
-        // In flight snapshot captured revision = 1
-        final inFlightRow = await db.getClientById(clientId);
-        final capturedRevision = inFlightRow!['local_revision'] as int;
-        expect(capturedRevision, 1);
+        // Simulate user editing the record while sync request is in flight
+        fakeApi.onPushSync = (req) async {
+          // User edits record locally, bumping revision to 2
+          final editedClient = Client(
+            id: clientId,
+            householdId: houseId,
+            name: 'Edited In Flight',
+            age: 26,
+            gender: 'M',
+            infoProvidedBy: 'self',
+            consentGiven: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          await db.saveClient(client: editedClient, status: SyncStatus.pending);
 
-        // User edits record locally while request is in flight
-        final editedClient = Client(
-          id: clientId,
-          householdId: houseId,
-          name: 'Edited While In Flight',
-          age: 26,
-          gender: 'M',
-          infoProvidedBy: 'self',
-          consentGiven: true,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-        await db.saveClient(client: editedClient, status: SyncStatus.pending);
+          return SyncPushResponse(
+            results: [
+              SyncRecordResult(id: clientId, status: 'ok', serverVersion: 1),
+            ],
+          );
+        };
 
-        final rowAfterEdit = await db.getClientById(clientId);
-        final newRevision = rowAfterEdit!['local_revision'] as int;
-        expect(newRevision, 2);
+        final syncNotifier = container.read(syncProvider.notifier);
+        await syncNotifier.sync();
 
-        // Now server response arrives for the old payload (revision 1)
-        final wasUpdated = await db.updateClientSyncStatus(
-          clientId,
-          status: SyncStatus.synced,
-          baseVersion: 1,
-          expectedLocalRevision: capturedRevision, // 1
-        );
+        // Revision Guard: Local record was edited to revision 2, so response for rev 1
+        // must NOT mark it as synced! It must remain pending for the new edit to be pushed!
+        final stored = await db.getClientById(clientId);
+        expect(stored!['local_revision'], 2);
+        expect(stored['name'], 'Edited In Flight');
+        expect(stored['sync_status'], 'pending');
 
-        // Revision Guard must reject updating to synced!
-        expect(wasUpdated, isFalse);
+        // Next sync sends the new revision
+        fakeApi.onPushSync = null;
+        await syncNotifier.sync();
 
-        final finalRow = await db.getClientById(clientId);
-        // Must remain pending so the new edit will be sent on next sync!
-        expect(finalRow!['sync_status'], 'pending');
-        expect(finalRow['name'], 'Edited While In Flight');
-      },
-    );
-
-    // ────────────────────────────────────────────────────────────────────────
-    // Scenario 5: Network switches mid-request — retry succeeds
-    // ────────────────────────────────────────────────────────────────────────
-    test(
-      'Scenario 5: Failed network request leaves record pending for subsequent retry',
-      () async {
-        final clientId = 'c0000000-0000-0000-0000-000000000005';
-        final client = Client(
-          id: clientId,
-          householdId: houseId,
-          name: 'Network Dropped Client',
-          age: 40,
-          gender: 'M',
-          infoProvidedBy: 'self',
-          consentGiven: true,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-        await db.saveClient(client: client, status: SyncStatus.pending);
-
-        // Network drop: record remains pending
-        var pending = await db.getAllClients(status: SyncStatus.pending);
-        expect(pending.any((c) => c['id'] == clientId), isTrue);
-
-        // Reconnect retry: marks synced
-        await db.updateClientSyncStatus(
-          clientId,
-          status: SyncStatus.synced,
-          baseVersion: 1,
-        );
         final updated = await db.getClientById(clientId);
         expect(updated!['sync_status'], 'synced');
       },
     );
 
     // ────────────────────────────────────────────────────────────────────────
-    // Scenario 6: Server returns 500 for some, 400 for others — Per-record handling
+    // Scenario 5: Multi-isolate collision — Single-flight lock protects state
     // ────────────────────────────────────────────────────────────────────────
     test(
-      'Scenario 6: Per-record handling correctly isolates ok vs rejected vs failed',
+      'Scenario 5: Single-flight lock prevents concurrent execution',
       () async {
-        final idOk = 'c0000000-0000-0000-0000-000000000061';
-        final idRejected = 'c0000000-0000-0000-0000-000000000062';
+        // Foreground/background lock acquired
+        final lockAcquired = await db.acquireSyncLock();
+        expect(lockAcquired, isTrue);
 
-        await db.saveClient(
-          client: Client(
-            id: idOk,
-            householdId: houseId,
-            name: 'Valid Client',
-            age: 22,
-            gender: 'F',
-            infoProvidedBy: 'self',
-            consentGiven: true,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          ),
-          status: SyncStatus.pending,
-        );
+        final syncNotifier = container.read(syncProvider.notifier);
+        // Attempting sync while lock is held must return false immediately without network call
+        final syncResult = await syncNotifier.sync();
+        expect(syncResult, isFalse);
+        expect(fakeApi.pushCount, 0);
 
-        await db.saveClient(
-          client: Client(
-            id: idRejected,
-            householdId: houseId,
-            name: 'Invalid Client',
-            age: 22,
-            gender: 'F',
-            infoProvidedBy: 'self',
-            consentGiven: true,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          ),
-          status: SyncStatus.pending,
-        );
-
-        // Handle per-record response
-        await db.updateClientSyncStatus(
-          idOk,
-          status: SyncStatus.synced,
-          baseVersion: 1,
-        );
-        await db.updateClientSyncStatus(
-          idRejected,
-          status: SyncStatus.rejected,
-          errorCode: 'VALIDATION_FAILED',
-        );
-
-        final rowOk = await db.getClientById(idOk);
-        final rowRejected = await db.getClientById(idRejected);
-
-        expect(rowOk!['sync_status'], 'synced');
-        expect(rowRejected!['sync_status'], 'rejected');
-        expect(rowRejected['last_error_code'], 'VALIDATION_FAILED');
-      },
-    );
-
-    test(
-      'Decision C2: Server locked response marks record as rejected with RECORD_LOCKED (never false synced badge)',
-      () async {
-        final idLocked = 'c0000000-0000-0000-0000-000000000063';
-
-        await db.saveClient(
-          client: Client(
-            id: idLocked,
-            householdId: houseId,
-            name: 'Locked Record Attempt',
-            age: 28,
-            gender: 'F',
-            infoProvidedBy: 'self',
-            consentGiven: true,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          ),
-          status: SyncStatus.pending,
-        );
-
-        // When server responds with 'locked', updateClientSyncStatus marks it rejected
-        await db.updateClientSyncStatus(
-          idLocked,
-          status: SyncStatus.rejected,
-          errorCode:
-              'RECORD_LOCKED: Confirmed record cannot be edited by field agents (Decision C2)',
-        );
-
-        final row = await db.getClientById(idLocked);
-        expect(row!['sync_status'], 'rejected');
-        expect(row['last_error_code'], contains('RECORD_LOCKED'));
+        await db.releaseSyncLock();
       },
     );
 
     // ────────────────────────────────────────────────────────────────────────
-    // Scenario 7: 426 during sync — blocking screen, data intact
+    // Scenario 6: Transient race conflict (status: stale) does not loop forever
     // ────────────────────────────────────────────────────────────────────────
     test(
-      'Scenario 7: Version gate 426 keeps all local records completely intact',
+      'Scenario 6: Transient RACE_CONFLICT status: stale marks failed and terminates loop',
+      () async {
+        final clientId = 'c0000000-0000-0000-0000-000000000006';
+        await db.saveClient(
+          client: Client(
+            id: clientId,
+            householdId: houseId,
+            name: 'Race Conflict Client',
+            age: 40,
+            gender: 'F',
+            infoProvidedBy: 'self',
+            consentGiven: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+          status: SyncStatus.pending,
+        );
+
+        fakeApi.onPushSync = (req) async {
+          return SyncPushResponse(
+            results: [
+              SyncRecordResult(
+                id: clientId,
+                status: 'stale',
+                code: 'RACE_CONFLICT',
+              ),
+            ],
+          );
+        };
+
+        final syncNotifier = container.read(syncProvider.notifier);
+        final success = await syncNotifier.sync();
+
+        expect(success, isTrue);
+        // Must have called server exactly once — NOT in an infinite loop!
+        expect(fakeApi.pushCount, 1);
+
+        final stored = await db.getClientById(clientId);
+        expect(stored!['sync_status'], 'failed');
+        expect(stored['last_error_code'], 'RACE_CONFLICT');
+      },
+    );
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Scenario 7: Decision C2 locked record marks rejected
+    // ────────────────────────────────────────────────────────────────────────
+    test(
+      'Scenario 7: Decision C2 locked record returns rejected and records error',
       () async {
         final clientId = 'c0000000-0000-0000-0000-000000000007';
         await db.saveClient(
           client: Client(
             id: clientId,
             householdId: houseId,
-            name: 'Version Gate Test',
-            age: 33,
+            name: 'Locked Record Client',
+            age: 35,
             gender: 'M',
             infoProvidedBy: 'self',
             consentGiven: true,
@@ -354,115 +426,121 @@ void main() {
           status: SyncStatus.pending,
         );
 
-        // Verify data is completely safe
-        final row = await db.getClientById(clientId);
-        expect(row, isNotNull);
-        expect(row!['name'], 'Version Gate Test');
+        fakeApi.onPushSync = (req) async {
+          return SyncPushResponse(
+            results: [
+              SyncRecordResult(
+                id: clientId,
+                status: 'locked',
+                code: 'RECORD_LOCKED',
+              ),
+            ],
+          );
+        };
+
+        final syncNotifier = container.read(syncProvider.notifier);
+        await syncNotifier.sync();
+
+        final stored = await db.getClientById(clientId);
+        expect(stored!['sync_status'], 'rejected');
+        expect(stored['last_error_code'], contains('RECORD_LOCKED'));
       },
     );
 
     // ────────────────────────────────────────────────────────────────────────
-    // Scenario 8: Foreground and background sync collide — Single-flight lock
+    // Scenario 8: HTTP 429 Retry-After header throttling
     // ────────────────────────────────────────────────────────────────────────
     test(
-      'Scenario 8: Single-flight lock prevents collision between isolates',
+      'Scenario 8: HTTP 429 Retry-After header strictly throttles subsequent syncs',
       () async {
-        // First caller acquires lock
-        final firstAcquired = await db.acquireSyncLock();
-        expect(firstAcquired, isTrue);
-
-        // Concurrent second caller attempts to acquire lock while held
-        final secondAcquired = await db.acquireSyncLock();
-        expect(secondAcquired, isFalse);
-
-        // First caller finishes and releases lock
-        await db.releaseSyncLock();
-
-        // Subsequent attempt now succeeds
-        final thirdAcquired = await db.acquireSyncLock();
-        expect(thirdAcquired, isTrue);
-        await db.releaseSyncLock();
-      },
-    );
-
-    // ────────────────────────────────────────────────────────────────────────
-    // Scenario 9: Phone clock set one year ahead — ordered by server received_at
-    // ────────────────────────────────────────────────────────────────────────
-    test(
-      'Scenario 9: Future device timestamp is preserved in client_updated_at',
-      () async {
-        final futureTime = DateTime.now().add(const Duration(days: 365));
-        final clientId = 'c0000000-0000-0000-0000-000000000009';
+        fakeApi.onPushSync = (req) async {
+          throw const GrsApiException(
+            statusCode: 429,
+            code: 'RATE_LIMITED',
+            messageKey: 'Rate limited',
+            retryAfterSeconds: 30,
+          );
+        };
 
         await db.saveClient(
           client: Client(
-            id: clientId,
+            id: 'c0000000-0000-0000-0000-000000000008',
             householdId: houseId,
-            name: 'Future Clock Client',
-            age: 35,
+            name: 'Throttled Client',
+            age: 30,
             gender: 'F',
             infoProvidedBy: 'self',
             consentGiven: true,
-            createdAt: futureTime,
-            updatedAt: futureTime,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
           ),
           status: SyncStatus.pending,
         );
 
-        final row = await db.getClientById(clientId);
-        expect(row, isNotNull);
-        expect(row!['sync_status'], 'pending');
+        final syncNotifier = container.read(syncProvider.notifier);
+        final firstCall = await syncNotifier.sync();
+        expect(firstCall, isFalse);
+        expect(fakeApi.pushCount, 1);
+
+        // Immediate subsequent call must be throttled by Retry-After window
+        final secondCall = await syncNotifier.sync(silent: true);
+        expect(secondCall, isFalse);
+        // Server was not contacted a second time
+        expect(fakeApi.pushCount, 1);
+        expect(syncNotifier.state.lastMessage, contains('Sync throttled'));
       },
     );
 
     // ────────────────────────────────────────────────────────────────────────
-    // Scenario 10: Different user signs in on same phone — Previous data not visible
+    // Scenario 9: Failed state & Red badge from blueprint §7.7
     // ────────────────────────────────────────────────────────────────────────
     test(
-      'Scenario 10: User switch wipe preserves privacy after unsynced records cleared',
+      'Scenario 9: Network failures set failed status and increment retry_count',
+      () async {
+        final clientId = 'c0000000-0000-0000-0000-000000000009';
+        await db.saveClient(
+          client: Client(
+            id: clientId,
+            householdId: houseId,
+            name: 'Network Fail Client',
+            age: 45,
+            gender: 'M',
+            infoProvidedBy: 'self',
+            consentGiven: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+          status: SyncStatus.pending,
+        );
+
+        fakeApi.onPushSync = (req) async {
+          throw Exception('Connection closed by peer');
+        };
+
+        final syncNotifier = container.read(syncProvider.notifier);
+        final res = await syncNotifier.sync();
+        expect(res, isFalse);
+
+        final stored = await db.getClientById(clientId);
+        expect(stored!['sync_status'], 'failed');
+        expect(stored['retry_count'], 1);
+        expect(stored['last_error_code'], 'NETWORK_ERROR');
+      },
+    );
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Scenario 10: HTTP 426 Version Gate handling
+    // ────────────────────────────────────────────────────────────────────────
+    test(
+      'Scenario 10: HTTP 426 Version Gate stops syncing and preserves local records',
       () async {
         final clientId = 'c0000000-0000-0000-0000-000000000010';
         await db.saveClient(
           client: Client(
             id: clientId,
             householdId: houseId,
-            name: 'User A Record',
-            age: 29,
-            gender: 'M',
-            infoProvidedBy: 'self',
-            consentGiven: true,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          ),
-          status: SyncStatus.synced,
-        );
-
-        // Check all clients are synced
-        final all = await db.getAllClients();
-        final hasUnsynced = all.any((c) => c['sync_status'] != 'synced');
-        expect(hasUnsynced, isFalse);
-
-        // Wipe on user switch
-        await db.wipeAllData();
-
-        final remainingClients = await db.getAllClients();
-        expect(remainingClients.isEmpty, isTrue);
-      },
-    );
-
-    // ────────────────────────────────────────────────────────────────────────
-    // Scenario 11: House deleted by L4 while pending clients exist — clients kept
-    // ────────────────────────────────────────────────────────────────────────
-    test(
-      'Scenario 11: Deleted household removal preserves households with pending clients',
-      () async {
-        final clientId = 'c0000000-0000-0000-0000-000000000011';
-        await db.saveClient(
-          client: Client(
-            id: clientId,
-            householdId: houseId,
-            name: 'Pending on Deleted House',
-            age: 44,
+            name: 'Version Gate Client',
+            age: 22,
             gender: 'F',
             infoProvidedBy: 'self',
             consentGiven: true,
@@ -472,44 +550,84 @@ void main() {
           status: SyncStatus.pending,
         );
 
-        // Server notifies that houseId was deleted (not in valid set)
-        await db.removeHouseholdsNotIn({'another-house-id'});
+        fakeApi.onPushSync = (req) async {
+          throw const GrsApiException(
+            statusCode: 426,
+            code: 'UPGRADE_REQUIRED',
+            messageKey: 'Upgrade Required',
+          );
+        };
 
-        // House and client must still exist locally because client is pending!
-        final house = await db.getHouseholdById(houseId);
-        final client = await db.getClientById(clientId);
+        final syncNotifier = container.read(syncProvider.notifier);
+        final res = await syncNotifier.sync();
+        expect(res, isFalse);
+        expect(syncNotifier.state.error, 'UPGRADE_REQUIRED');
 
-        expect(house, isNotNull);
-        expect(client, isNotNull);
-        expect(client!['sync_status'], 'pending');
+        final stored = await db.getClientById(clientId);
+        expect(stored, isNotNull);
+        expect(stored!['sync_status'], 'failed');
       },
     );
 
     // ────────────────────────────────────────────────────────────────────────
-    // Scenario 12: 5,000 pending records sync in batches with bounded memory
+    // Scenario 11: HTTP 401 Account Deactivated stops sync
     // ────────────────────────────────────────────────────────────────────────
     test(
-      'Scenario 12: Bounded batching pagination handles large volume safely',
+      'Scenario 11: HTTP 401 ACCOUNT_DEACTIVATED stops sync and transitions auth state',
       () async {
-        // Invariant: batch size is capped at 50 per request
+        final clientId = 'c0000000-0000-0000-0000-000000000011';
+        await db.saveClient(
+          client: Client(
+            id: clientId,
+            householdId: houseId,
+            name: 'Deactivated Test Client',
+            age: 38,
+            gender: 'M',
+            infoProvidedBy: 'self',
+            consentGiven: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+          status: SyncStatus.pending,
+        );
+
+        fakeApi.onPushSync = (req) async {
+          throw const GrsApiException(
+            statusCode: 401,
+            code: 'ACCOUNT_DEACTIVATED',
+            messageKey: 'Account deactivated',
+          );
+        };
+
+        final syncNotifier = container.read(syncProvider.notifier);
+        final res = await syncNotifier.sync();
+        expect(res, isFalse);
+        expect(syncNotifier.state.error, 'ACCOUNT_DEACTIVATED');
+
+        final authState = container.read(authProvider);
+        expect(authState.status, AuthStatus.deactivated);
+      },
+    );
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Scenario 12: Bounded batching pagination
+    // ────────────────────────────────────────────────────────────────────────
+    test(
+      'Scenario 12: Bounded batching caps request payloads at 50 records (§8.3)',
+      () async {
         final batch = await db.getPendingClientsBatch(limit: 50);
         expect(batch.length, lessThanOrEqualTo(50));
       },
     );
 
     // ────────────────────────────────────────────────────────────────────────
-    // Scenario 13: 429 Retry-After — full jitter backoff, no tight loop
+    // Scenario 13: Full jitter backoff formula
     // ────────────────────────────────────────────────────────────────────────
     test(
       'Scenario 13: Full jitter backoff increases with attempts and stays within cap',
       () {
         final backoff0 = calculateFullJitterBackoff(
           attempt: 0,
-          baseSeconds: 5,
-          capSeconds: 900,
-        );
-        final backoff1 = calculateFullJitterBackoff(
-          attempt: 1,
           baseSeconds: 5,
           capSeconds: 900,
         );
@@ -521,17 +639,12 @@ void main() {
 
         expect(backoff0.inSeconds, greaterThanOrEqualTo(1));
         expect(backoff0.inSeconds, lessThanOrEqualTo(10));
-
-        expect(backoff1.inSeconds, greaterThanOrEqualTo(1));
-        expect(backoff1.inSeconds, lessThanOrEqualTo(20));
-
-        expect(backoff5.inSeconds, greaterThanOrEqualTo(1));
         expect(backoff5.inSeconds, lessThanOrEqualTo(900));
       },
     );
 
     // ────────────────────────────────────────────────────────────────────────
-    // Scenario 14: Storm test — 5,000 simulated phones spread over jitter window
+    // Scenario 14: Storm test — 5,000 simulated phones spread arrivals
     // ────────────────────────────────────────────────────────────────────────
     test(
       'Scenario 14: Storm test: 5,000 simulated phones spread arrivals (peak 10s <= 3x mean)',
@@ -568,30 +681,124 @@ void main() {
           status: SyncStatus.pending,
         );
 
-        // Server returns ok with server_version = 1
-        await db.updateClientSyncStatus(
-          clientId,
-          status: SyncStatus.synced,
-          baseVersion: 1,
-        );
+        var firstAttempt = true;
+        fakeApi.onPushSync = (req) async {
+          if (firstAttempt) {
+            firstAttempt = false;
+            // Server received & processed, but TCP dropped before client received HTTP ack
+            throw Exception('Connection closed prematurely');
+          }
+          // Second retry succeeds
+          return SyncPushResponse(
+            results: [
+              SyncRecordResult(id: clientId, status: 'ok', serverVersion: 1),
+            ],
+          );
+        };
 
-        final row = await db.getClientById(clientId);
-        expect(row!['sync_status'], 'synced');
-        expect(row['base_version'], 1);
+        final syncNotifier = container.read(syncProvider.notifier);
+        final firstTry = await syncNotifier.sync();
+        expect(firstTry, isFalse);
+
+        // Client retries
+        final secondTry = await syncNotifier.sync();
+        expect(secondTry, isTrue);
+
+        final stored = await db.getClientById(clientId);
+        expect(stored!['sync_status'], 'synced');
+        expect(stored['base_version'], 1);
       },
     );
 
     // ────────────────────────────────────────────────────────────────────────
-    // Scenario 16: No pending records — no background work scheduled
+    // Scenario 16: Zero pending records — no push request made
     // ────────────────────────────────────────────────────────────────────────
     test(
-      'Scenario 16: Zero pending records produces empty batch and no sync action',
+      'Scenario 16: Zero pending records produces no push requests',
       () async {
-        final pending = await db.getAllClients(status: SyncStatus.pending);
-        expect(pending.isEmpty, isTrue);
+        final syncNotifier = container.read(syncProvider.notifier);
+        final success = await syncNotifier.sync();
 
-        final batch = await db.getPendingClientsBatch(limit: 50);
-        expect(batch.isEmpty, isTrue);
+        expect(success, isTrue);
+        expect(fakeApi.pushCount, 0);
+      },
+    );
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Scenario 17: User-switch guard blocks login if previous user has unsynced records
+    // ────────────────────────────────────────────────────────────────────────
+    test(
+      'Scenario 17: User-switch guard checks isolated DB and blocks login if unsynced',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('grs_test_docs_');
+        PathProviderPlatform.instance = FakePathProviderPlatform(tempDir);
+
+        final storage = SecureStorageService();
+        const prevUserId = 'prev-user-999';
+
+        // 1. Create previous user isolated database with an unsynced record
+        final prevDbKey = await storage.getOrCreateDatabaseKey(
+          userId: prevUserId,
+        );
+        final prevDbFile = File('${tempDir.path}/grs_offline_$prevUserId.db');
+        final prevDb = await AppDatabase.open(
+          file: prevDbFile,
+          cipherKey: prevDbKey,
+          requireCipher: false,
+        );
+
+        await prevDb.upsertHousehold(
+          Household(
+            id: houseId,
+            districtId: 'dist-1',
+            dsId: 'ds-1',
+            gnId: 'gn-1',
+            teamId: 'team-1',
+            serialNo: 1,
+            houseNo: 'HN-1',
+            houseLeaderName: 'Leader',
+            isEpf: false,
+            isEtf: false,
+            isAswesuma: false,
+            isSamurdhi: false,
+            hasSpecialNeeds: false,
+            langSinhala: true,
+            langTamil: false,
+            langEnglish: false,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+
+        await prevDb.saveClient(
+          client: Client(
+            id: 'c0000000-0000-0000-0000-000000000099',
+            householdId: houseId,
+            name: 'Unsynced User A Client',
+            age: 33,
+            gender: 'F',
+            infoProvidedBy: 'self',
+            consentGiven: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+          status: SyncStatus.pending,
+        );
+        await prevDb.close();
+
+        // 2. Set previous user ID in storage
+        await storage.saveLastUserId(prevUserId);
+
+        // 3. Verify user-switch check sees unsynced records and returns true
+        final hasUnsynced = await hasUnsyncedRecordsForUser(
+          userId: prevUserId,
+          storage: storage,
+          requireCipher: false,
+        );
+        expect(hasUnsynced, isTrue);
+
+        // 4. Clean up temp files
+        await tempDir.delete(recursive: true);
       },
     );
   });

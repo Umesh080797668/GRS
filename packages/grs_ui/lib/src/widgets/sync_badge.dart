@@ -5,7 +5,7 @@ import '../tokens/typography.dart';
 import '../tokens/motions.dart';
 
 /// Sync status values.
-enum GrsSyncStatus { draft, pending, synced, rejected }
+enum GrsSyncStatus { draft, pending, synced, rejected, failed }
 
 /// Status badge — v2.
 ///
@@ -47,6 +47,11 @@ class GrsSyncBadge extends StatelessWidget {
         GrsColors.syncRejected,
         isDark ? GrsColors.syncRejectedBgDark : GrsColors.syncRejectedBg,
         Icons.error_rounded,
+      ),
+      GrsSyncStatus.failed => (
+        GrsColors.syncRejected,
+        isDark ? GrsColors.syncRejectedBgDark : GrsColors.syncRejectedBg,
+        Icons.refresh_rounded,
       ),
     };
 

@@ -9,6 +9,8 @@ import 'providers/auth_provider.dart';
 import 'providers/database_provider.dart';
 import 'providers/theme_provider.dart';
 import 'router/app_router.dart';
+import 'services/background_sync_service.dart';
+import 'providers/sync_provider.dart';
 
 /// Global HTTP overrides ensuring seamless SSL and connection reliability
 /// on Android 10+ and Android 14+ (where Conscrypt APEX containers manage CA roots).
@@ -35,9 +37,10 @@ class GrsHttpOverrides extends HttpOverrides {
   }
 }
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = GrsHttpOverrides();
+  await BackgroundSyncService.initialize();
   runApp(const ProviderScope(child: GrsMobileApp()));
 }
 
@@ -54,6 +57,11 @@ class _GrsMobileAppState extends ConsumerState<GrsMobileApp> {
     super.initState();
     // Cold Start session check kicks off immediately so Home screen opens instantly (M2.6)
     ref.read(authProvider.notifier).checkColdStart();
+
+    // Trigger paced sync on app open (§8.5)
+    Future.microtask(() {
+      ref.read(syncProvider.notifier).triggerPacedSync();
+    });
 
     // Concurrently restore saved API server URL
     Future.microtask(() async {

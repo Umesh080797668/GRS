@@ -16,9 +16,26 @@ class SecureStorageService {
   static const String _keyPreferredLanguage = 'grs_pref_lang';
   static const String _keyApiBaseUrl = 'grs_api_base_url';
   static const String _keyThemeMode = 'grs_theme_mode';
+  static const String _keyLastUserId = 'grs_last_user_id';
 
   SecureStorageService({FlutterSecureStorage? storage})
     : _storage = storage ?? const FlutterSecureStorage();
+
+  /// Retrieves the existing encryption key for a user without generating a new one.
+  Future<String?> getDatabaseKey({String? userId}) async {
+    final storageKey = userId != null && userId.isNotEmpty
+        ? 'grs_db_cipher_key_$userId'
+        : _keyDbCipher;
+    return await _storage.read(key: storageKey);
+  }
+
+  Future<void> saveLastUserId(String userId) async {
+    await _storage.write(key: _keyLastUserId, value: userId);
+  }
+
+  Future<String?> getLastUserId() async {
+    return await _storage.read(key: _keyLastUserId);
+  }
 
   /// Retrieves or generates a cryptographically random 32-byte hex encryption key, isolated per user.
   Future<String> getOrCreateDatabaseKey({String? userId}) async {

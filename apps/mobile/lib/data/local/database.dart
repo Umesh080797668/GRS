@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:drift/drift.dart';
@@ -750,37 +751,84 @@ class AppDatabase {
     return count > 0;
   }
 
-  /// Retrieves up to limit pending client records for batch sync processing (§8.3 & §8.5).
+  static Completer<void>? _activeLockCompleter;
+
+  /// Retrieves up to limit pending or failed client records for batch sync processing (§8.3 & §8.5).
   Future<List<Map<String, dynamic>>> getPendingClientsBatch({
     int limit = 50,
   }) async {
     return await _executor.runSelect(
-      'SELECT * FROM clients WHERE sync_status = ? ORDER BY created_at ASC LIMIT ?',
-      [SyncStatus.pending.name, limit],
+      'SELECT * FROM clients WHERE sync_status IN (?, ?) ORDER BY created_at ASC LIMIT ?',
+      [SyncStatus.pending.name, SyncStatus.failed.name, limit],
     );
+  }
+
+  /// Marks a batch of clients as failed due to a network or transient error,
+  /// incrementing retry_count and setting last_error_code (§8.2 #5).
+  Future<void> markClientsFailed(List<String> ids, {String? errorCode}) async {
+    if (ids.isEmpty) return;
+    for (final id in ids) {
+      await _executor.runUpdate(
+        '''
+        UPDATE clients
+        SET sync_status = ?,
+            retry_count = retry_count + 1,
+            last_error_code = ?
+        WHERE id = ?
+        ''',
+        [SyncStatus.failed.name, errorCode ?? 'NETWORK_ERROR', id],
+      );
+    }
   }
 
   /// Single-flight lock per Build Plan §8.2 #3.
   /// Prevents foreground sync and background workers from colliding.
+  /// Atomic across Dart async event loops and SQLite database connections.
   Future<bool> acquireSyncLock({
     Duration timeout = const Duration(minutes: 5),
   }) async {
-    final now = DateTime.now();
-    final lockVal = await getMeta('sync_lock');
-    if (lockVal != null && lockVal.isNotEmpty) {
-      final expiry = DateTime.tryParse(lockVal);
-      if (expiry != null && now.isBefore(expiry)) {
-        return false; // Lock is currently active
-      }
+    while (_activeLockCompleter != null) {
+      await _activeLockCompleter!.future;
     }
-    final newExpiry = now.add(timeout).toUtc().toIso8601String();
-    await setMeta('sync_lock', newExpiry);
-    return true;
+    final completer = Completer<void>();
+    _activeLockCompleter = completer;
+
+    try {
+      final now = DateTime.now().toUtc();
+      final nowIso = now.toIso8601String();
+      final newExpiry = now.add(timeout).toIso8601String();
+
+      // Ensure sync_lock row exists in meta
+      await _executor.runInsert(
+        "INSERT OR IGNORE INTO meta (key, value) VALUES ('sync_lock', '');",
+        [],
+      );
+
+      // Atomic SQLite conditional update:
+      // Only updates if value is empty or expired (<= nowIso)
+      final rowsUpdated = await _executor.runUpdate(
+        '''
+        UPDATE meta
+        SET value = ?
+        WHERE key = 'sync_lock'
+          AND (value = '' OR value <= ?);
+        ''',
+        [newExpiry, nowIso],
+      );
+
+      return rowsUpdated > 0;
+    } finally {
+      _activeLockCompleter = null;
+      completer.complete();
+    }
   }
 
   /// Releases the single-flight sync lock.
   Future<void> releaseSyncLock() async {
-    await setMeta('sync_lock', '');
+    await _executor.runUpdate(
+      "UPDATE meta SET value = '' WHERE key = 'sync_lock';",
+      [],
+    );
   }
 
   Future<bool> deleteDraftClient(String id) async {

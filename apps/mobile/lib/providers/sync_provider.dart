@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grs_core/grs_core.dart';
 import 'api_client_provider.dart';
 import 'auth_provider.dart';
+import 'config_provider.dart';
 import 'connectivity_provider.dart';
 import 'database_provider.dart';
 import '../data/local/database.dart';
+import '../services/background_sync_service.dart';
 
 /// Calculates full jitter backoff duration per Build Plan §8.5 & AWS Architecture guidelines.
 /// sleep = random(0, min(cap, base * 2^attempt))
@@ -66,12 +68,12 @@ class RecordsRevisionNotifier extends StateNotifier<int> {
   }
 }
 
-/// Real-time pending client records count.
+/// Real-time pending client records count (pending + failed).
 final pendingCountProvider = FutureProvider<int>((ref) async {
   ref.watch(recordsRevisionProvider);
   try {
     final db = await ref.watch(databaseProvider.future);
-    final pending = await db.getAllClients(status: SyncStatus.pending);
+    final pending = await db.getPendingClientsBatch(limit: 1000);
     return pending.length;
   } catch (_) {
     return 0;
@@ -155,11 +157,37 @@ class SyncNotifier extends StateNotifier<SyncState> {
     // Listen to network changes for auto-sync when reconnecting (Rule 8.5)
     _ref.listen<bool>(connectivityProvider, (previous, current) {
       if (previous == false && current == true) {
-        // Auto-sync pending records when coming back online
-        sync(silent: true);
+        // Auto-sync pending records with jitter when coming back online (§8.5)
+        triggerPacedSync(isManual: false);
         pullChanges();
       }
     });
+  }
+
+  /// Triggers a paced sync with random jitter delay from /config (§8.5).
+  /// Manual "Sync now" skips the jitter and runs immediately.
+  Future<void> triggerPacedSync({
+    bool isManual = false,
+    math.Random? random,
+  }) async {
+    if (isManual) {
+      await sync();
+      return;
+    }
+
+    try {
+      final config = await _ref.read(appConfigProvider.future);
+      final jitterMax = config.syncJitterMaxS;
+      if (jitterMax > 0) {
+        final rnd = random ?? math.Random();
+        final jitterSec = rnd.nextInt(jitterMax + 1);
+        if (jitterSec > 0) {
+          await Future.delayed(Duration(seconds: jitterSec));
+        }
+      }
+    } catch (_) {}
+
+    await sync(silent: true);
   }
 
   /// Triggers a debounced sync when an agent saves a client survey online.
@@ -212,11 +240,20 @@ class SyncNotifier extends StateNotifier<SyncState> {
     }
   }
 
+  /// Resets backoff and throttling window.
+  void resetBackoff() {
+    _consecutiveFailures = 0;
+    _retryAfterUntil = null;
+  }
+
   /// Main sync push engine implementing all Milestone 3 invariants (§8.2, §8.3, §8.5):
   /// 1. Single-flight lock (no collisions between foreground and background)
   /// 2. Bounded batching (chunks of up to 50 records per request)
   /// 3. Revision guard (edits made during in-flight push survive)
   /// 4. Full jitter backoff on 429/503/errors (no tight loop retries)
+  /// 5. Retry-After header support
+  /// 6. Transient network failures transition to failed state with incremented retry_count
+  /// 7. HTTP 426 Version Gate and 401 Account Deactivated handling
   Future<bool> sync({bool silent = false}) async {
     final isOnline = _ref.read(connectivityProvider);
     if (!isOnline) {
@@ -228,9 +265,9 @@ class SyncNotifier extends StateNotifier<SyncState> {
       return false;
     }
 
-    // Check backoff throttle window (§8.5)
+    // Check backoff throttle window (§8.5: Manual "Sync now" has no delay)
     final now = DateTime.now();
-    if (_retryAfterUntil != null && now.isBefore(_retryAfterUntil!)) {
+    if (silent && _retryAfterUntil != null && now.isBefore(_retryAfterUntil!)) {
       state = state.copyWith(
         isSyncing: false,
         lastMessage: 'Sync throttled. Retrying shortly.',
@@ -249,22 +286,33 @@ class SyncNotifier extends StateNotifier<SyncState> {
 
     state = state.copyWith(isSyncing: true, error: null);
 
+    final attemptedIds = <String>{};
+    List<String> currentBatchIds = [];
+
     try {
       var totalSynced = 0;
       var totalRejected = 0;
+      var totalFailed = 0;
 
       // Loop processing batches of up to 50 pending records (§12.4 #12)
       while (true) {
-        final pendingRows = await db.getPendingClientsBatch(limit: 50);
+        final allPendingRows = await db.getPendingClientsBatch(limit: 50);
+        final pendingRows = allPendingRows
+            .where((r) => !attemptedIds.contains(r['id'] as String))
+            .toList();
+
         if (pendingRows.isEmpty) {
           break;
         }
 
         final payloads = <SyncRecordPayload>[];
         final localRevisions = <String, int>{};
+        currentBatchIds = [];
 
         for (final row in pendingRows) {
           final clientId = row['id'] as String;
+          attemptedIds.add(clientId);
+          currentBatchIds.add(clientId);
           final revision = (row['local_revision'] as int?) ?? 1;
           localRevisions[clientId] = revision;
 
@@ -363,6 +411,22 @@ class SyncNotifier extends StateNotifier<SyncState> {
               status: SyncStatus.rejected,
               errorCode: result.code ?? 'REJECTED_BY_SERVER',
             );
+          } else if (result.status == 'stale') {
+            // Concurrency race or stale version: transient error, mark failed for retry
+            totalFailed++;
+            await db.updateClientSyncStatus(
+              result.id,
+              status: SyncStatus.failed,
+              errorCode: result.code ?? 'RACE_CONFLICT',
+            );
+          } else {
+            // Any unknown status: mark as failed with error code, DO NOT loop forever
+            totalFailed++;
+            await db.updateClientSyncStatus(
+              result.id,
+              status: SyncStatus.failed,
+              errorCode: result.code ?? 'UNKNOWN_STATUS_${result.status}',
+            );
           }
         }
 
@@ -374,28 +438,79 @@ class SyncNotifier extends StateNotifier<SyncState> {
       _consecutiveFailures = 0;
       _retryAfterUntil = null;
 
-      final remaining = await db.getAllClients(status: SyncStatus.pending);
+      final remaining = await db.getPendingClientsBatch(limit: 100);
+
+      // Manage Workmanager background sync task (§8.5)
+      if (remaining.isNotEmpty) {
+        await BackgroundSyncService.scheduleSyncIfPending(
+          pendingCount: remaining.length,
+          jitterMaxSeconds: 120,
+        );
+      } else {
+        await BackgroundSyncService.cancel();
+      }
 
       state = state.copyWith(
         isSyncing: false,
         pendingCount: remaining.length,
         lastSyncTime: DateTime.now(),
         lastMessage: totalSynced > 0
-            ? 'Synced $totalSynced record${totalSynced > 1 ? 's' : ''}${totalRejected > 0 ? ' ($totalRejected rejected)' : ''}.'
-            : 'All records are up to date.',
+            ? 'Synced $totalSynced record${totalSynced > 1 ? 's' : ''}${totalRejected > 0 ? ' ($totalRejected rejected)' : ''}${totalFailed > 0 ? ' ($totalFailed failed)' : ''}.'
+            : (totalFailed > 0
+                  ? '$totalFailed record${totalFailed > 1 ? 's' : ''} failed. Will retry.'
+                  : 'All records are up to date.'),
       );
 
       return true;
     } on GrsApiException catch (e) {
       _consecutiveFailures++;
-      if (e.statusCode == 429 || e.statusCode == 503) {
-        // Compute full jitter backoff (§8.5 & §12.4 #13)
-        final backoff = calculateFullJitterBackoff(
-          attempt: _consecutiveFailures,
-          baseSeconds: 5,
-          capSeconds: 900,
+
+      // Mark current attempted batch records as failed (§8.2 #5)
+      if (currentBatchIds.isNotEmpty) {
+        await db.markClientsFailed(currentBatchIds, errorCode: e.code);
+        _ref.read(recordsRevisionProvider.notifier).increment();
+      }
+
+      // Invariant §8.2 #10: HTTP 426 Version Gate shows blocking update screen
+      if (e.statusCode == 426 || e.isVersionGate) {
+        state = state.copyWith(
+          isSyncing: false,
+          error: 'UPGRADE_REQUIRED',
+          lastMessage: 'App update required (HTTP 426).',
         );
-        _retryAfterUntil = DateTime.now().add(backoff);
+        return false;
+      }
+
+      // Invariant §8.2 #11: Account deactivation stops sync, shows Contact your admin
+      if (e.isAccountDeactivated ||
+          (e.statusCode == 401 &&
+              (e.code == 'ACCOUNT_DEACTIVATED' ||
+                  e.messageKey.contains('deactivated')))) {
+        // Set authProvider state to deactivated
+        _ref.read(authProvider.notifier).setDeactivatedState();
+        state = state.copyWith(
+          isSyncing: false,
+          error: 'ACCOUNT_DEACTIVATED',
+          lastMessage: 'Account deactivated. Contact your admin.',
+        );
+        return false;
+      }
+
+      if (e.statusCode == 429 || e.statusCode == 503) {
+        // Honor Retry-After header if returned by server (§8.5)
+        if (e.retryAfterSeconds != null && e.retryAfterSeconds! > 0) {
+          _retryAfterUntil = DateTime.now().add(
+            Duration(seconds: e.retryAfterSeconds!),
+          );
+        } else {
+          // Compute full jitter backoff (§8.5 & §12.4 #13)
+          final backoff = calculateFullJitterBackoff(
+            attempt: _consecutiveFailures,
+            baseSeconds: 5,
+            capSeconds: 900,
+          );
+          _retryAfterUntil = DateTime.now().add(backoff);
+        }
       }
 
       state = state.copyWith(
@@ -406,6 +521,13 @@ class SyncNotifier extends StateNotifier<SyncState> {
       return false;
     } catch (e) {
       _consecutiveFailures++;
+
+      // Mark current attempted batch records as failed
+      if (currentBatchIds.isNotEmpty) {
+        await db.markClientsFailed(currentBatchIds, errorCode: 'NETWORK_ERROR');
+        _ref.read(recordsRevisionProvider.notifier).increment();
+      }
+
       final backoff = calculateFullJitterBackoff(
         attempt: _consecutiveFailures,
         baseSeconds: 3,

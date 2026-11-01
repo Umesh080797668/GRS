@@ -943,10 +943,10 @@ export class SyncService {
               server_version: version,
             };
           } else {
-            // Missing from RETURNING means lost race against another collector
+            // Missing from RETURNING means lost race against another collector (transient race conflict)
             results[item.index] = {
               id: item.id,
-              status: 'forbidden',
+              status: 'stale',
               code: 'RACE_CONFLICT',
               message: 'Record updated by another user concurrently',
             };

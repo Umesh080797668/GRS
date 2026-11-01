@@ -14,10 +14,12 @@ class ConnectivityNotifier extends StateNotifier<bool> {
   final Connectivity _connectivity;
   StreamSubscription<List<ConnectivityResult>>? _subscription;
 
-  ConnectivityNotifier({Connectivity? connectivity})
+  ConnectivityNotifier({Connectivity? connectivity, bool autoInit = true})
     : _connectivity = connectivity ?? Connectivity(),
       super(true) {
-    _init();
+    if (autoInit) {
+      _init();
+    }
   }
 
   Future<void> _init() async {

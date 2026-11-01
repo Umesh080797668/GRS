@@ -154,7 +154,8 @@ describe('Real PostgreSQL Push Sync & Atomic Invariants (M3.1)', () => {
       if (teamB) await prisma.team.delete({ where: { id: teamB.id } });
     } catch (_) { }
     await prisma.$disconnect();
-  });
+    await appModule?.close();
+  }, 45000);
 
   it('REAL DB PUSH: Agent pushes client record; CTE writes client and dirties team stats atomically', async () => {
     const caller: ScopeContext = {
