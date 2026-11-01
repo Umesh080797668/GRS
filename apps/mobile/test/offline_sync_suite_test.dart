@@ -11,6 +11,7 @@ import 'package:mobile/providers/config_provider.dart';
 import 'package:mobile/providers/connectivity_provider.dart';
 import 'package:mobile/providers/database_provider.dart';
 import 'package:mobile/providers/sync_provider.dart';
+import 'package:mobile/services/sync_engine.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
@@ -644,18 +645,52 @@ void main() {
     );
 
     // ────────────────────────────────────────────────────────────────────────
-    // Scenario 14: Storm test — 5,000 simulated phones spread arrivals
+    // Scenario 14: Storm test — 5,000 phones spread arrivals (peak 10s <= 3x mean)
     // ────────────────────────────────────────────────────────────────────────
     test(
-      'Scenario 14: Storm test: 5,000 simulated phones spread arrivals (peak 10s <= 3x mean)',
+      'Scenario 14: Storm test: 5,000 phones measure real pacing engine arrivals (peak 10s <= 3x mean)',
       () {
-        final passed = simulateStormArrivals(
-          phoneCount: 5000,
-          jitterWindowSeconds: 120,
-          bucketWindowSeconds: 10,
-          random: Random(12345),
+        const phoneCount = 5000;
+        const jitterWindowSeconds = 120;
+        const bucketWindowSeconds = 10;
+        const bucketCount =
+            jitterWindowSeconds ~/ bucketWindowSeconds; // 12 buckets
+        final buckets = List<int>.filled(bucketCount, 0);
+        final rnd = Random(12345);
+
+        // 1. Measure 5,000 reconnecting phones dispatching via SyncEngine.calculatePacedDelay
+        for (var i = 0; i < phoneCount; i++) {
+          final delay = SyncEngine.calculatePacedDelay(
+            maxJitterSeconds: jitterWindowSeconds,
+            random: rnd,
+          );
+          final arrivalSecond = delay.inSeconds;
+          expect(arrivalSecond, greaterThanOrEqualTo(0));
+          expect(arrivalSecond, lessThanOrEqualTo(jitterWindowSeconds));
+
+          final bucketIndex = (arrivalSecond ~/ bucketWindowSeconds).clamp(
+            0,
+            bucketCount - 1,
+          );
+          buckets[bucketIndex]++;
+        }
+
+        final meanPerBucket = phoneCount / bucketCount;
+        final peakBucket = buckets.reduce(max);
+
+        // Invariant §8.5 & §12.4 #14: peak 10s window <= 3x the mean
+        expect(peakBucket, lessThanOrEqualTo(3.0 * meanPerBucket));
+
+        // 2. Verify pacing contract edge cases on the real engine:
+        // Manual "Sync now" bypasses jitter entirely (0 delay)
+        final manualDelay = SyncEngine.calculatePacedDelay(maxJitterSeconds: 0);
+        expect(manualDelay, equals(Duration.zero));
+
+        // Negative jitter window returns zero duration
+        final negativeDelay = SyncEngine.calculatePacedDelay(
+          maxJitterSeconds: -10,
         );
-        expect(passed, isTrue);
+        expect(negativeDelay, equals(Duration.zero));
       },
     );
 

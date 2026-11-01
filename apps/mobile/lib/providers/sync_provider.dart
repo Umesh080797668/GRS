@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grs_core/grs_core.dart';
@@ -8,8 +7,8 @@ import 'auth_provider.dart';
 import 'config_provider.dart';
 import 'connectivity_provider.dart';
 import 'database_provider.dart';
-import '../data/local/database.dart';
 import '../services/background_sync_service.dart';
+import '../services/sync_engine.dart';
 
 /// Calculates full jitter backoff duration per Build Plan §8.5 & AWS Architecture guidelines.
 /// sleep = random(0, min(cap, base * 2^attempt))
@@ -18,39 +17,12 @@ Duration calculateFullJitterBackoff({
   int baseSeconds = 5,
   int capSeconds = 900, // 15 minutes cap
   math.Random? random,
-}) {
-  final rnd = random ?? math.Random();
-  final exp = math.pow(2, attempt).clamp(1, 1000).toInt();
-  final temp = math.min(capSeconds, baseSeconds * exp);
-  final sleepSeconds = rnd.nextInt(temp + 1);
-  return Duration(seconds: math.max(1, sleepSeconds));
-}
-
-/// Storm test arrival simulator per Build Plan §8.5 & §12.4 #14.
-/// 5,000 phones regain connectivity at the same instant; arrivals spread over jitter window.
-/// Returns whether the peak 10s arrival window <= 3x the mean 10s window.
-bool simulateStormArrivals({
-  int phoneCount = 5000,
-  int jitterWindowSeconds = 120,
-  int bucketWindowSeconds = 10,
-  math.Random? random,
-}) {
-  final rnd = random ?? math.Random(42);
-  final bucketCount = (jitterWindowSeconds / bucketWindowSeconds).ceil();
-  final buckets = List<int>.filled(bucketCount, 0);
-
-  for (var i = 0; i < phoneCount; i++) {
-    final arrivalSecond = rnd.nextInt(jitterWindowSeconds);
-    final bucketIndex = arrivalSecond ~/ bucketWindowSeconds;
-    buckets[bucketIndex]++;
-  }
-
-  final meanPerBucket = phoneCount / bucketCount;
-  final peakBucket = buckets.reduce(math.max);
-
-  // Invariant §12.4 #14: peak 10s window <= 3x the mean
-  return peakBucket <= (3.0 * meanPerBucket);
-}
+}) => SyncEngine.calculateFullJitterBackoff(
+  attempt: attempt,
+  baseSeconds: baseSeconds,
+  capSeconds: capSeconds,
+  random: random,
+);
 
 /// Database mutation revision tracker.
 /// Whenever local records are added, edited, deleted, or synced,
@@ -177,13 +149,12 @@ class SyncNotifier extends StateNotifier<SyncState> {
 
     try {
       final config = await _ref.read(appConfigProvider.future);
-      final jitterMax = config.syncJitterMaxS;
-      if (jitterMax > 0) {
-        final rnd = random ?? math.Random();
-        final jitterSec = rnd.nextInt(jitterMax + 1);
-        if (jitterSec > 0) {
-          await Future.delayed(Duration(seconds: jitterSec));
-        }
+      final delay = SyncEngine.calculatePacedDelay(
+        maxJitterSeconds: config.syncJitterMaxS,
+        random: random,
+      );
+      if (delay > Duration.zero) {
+        await Future.delayed(delay);
       }
     } catch (_) {}
 
@@ -286,164 +257,28 @@ class SyncNotifier extends StateNotifier<SyncState> {
 
     state = state.copyWith(isSyncing: true, error: null);
 
-    final attemptedIds = <String>{};
-    List<String> currentBatchIds = [];
-
     try {
-      var totalSynced = 0;
-      var totalRejected = 0;
-      var totalFailed = 0;
+      final profile = _ref.read(authProvider).profile;
+      final deviceId = 'mobile-${profile?.id ?? "agent"}';
+      final apiClient = _ref.read(apiClientProvider);
 
-      // Loop processing batches of up to 50 pending records (§12.4 #12)
-      while (true) {
-        final allPendingRows = await db.getPendingClientsBatch(limit: 50);
-        final pendingRows = allPendingRows
-            .where((r) => !attemptedIds.contains(r['id'] as String))
-            .toList();
-
-        if (pendingRows.isEmpty) {
-          break;
-        }
-
-        final payloads = <SyncRecordPayload>[];
-        final localRevisions = <String, int>{};
-        currentBatchIds = [];
-
-        for (final row in pendingRows) {
-          final clientId = row['id'] as String;
-          attemptedIds.add(clientId);
-          currentBatchIds.add(clientId);
-          final revision = (row['local_revision'] as int?) ?? 1;
-          localRevisions[clientId] = revision;
-
-          final rawHopes = row['future_hopes'];
-          List<dynamic> parsedHopes = [];
-          if (rawHopes is String && rawHopes.isNotEmpty) {
-            try {
-              parsedHopes = jsonDecode(rawHopes) as List<dynamic>;
-            } catch (_) {}
-          } else if (rawHopes is List) {
-            parsedHopes = rawHopes;
-          }
-
-          payloads.add(
-            SyncRecordPayload(
-              id: clientId,
-              baseVersion: (row['base_version'] as int?) ?? 0,
-              clientUpdatedAt:
-                  DateTime.tryParse(
-                    row['client_updated_at'] as String? ?? '',
-                  ) ??
-                  DateTime.now(),
-              data: {
-                'household_id': row['household_id'],
-                'name': row['name'],
-                'age': row['age'],
-                'gender': row['gender'],
-                'address': row['address'],
-                'phone_raw': row['phone_raw'],
-                'phone_e164': row['phone_e164'],
-                'whatsapp_raw': row['whatsapp_raw'],
-                'whatsapp_e164': row['whatsapp_e164'],
-                'highest_education': row['highest_education'],
-                'highest_vocational': row['highest_vocational'],
-                'interested_vocational_stream':
-                    row['interested_vocational_stream'],
-                'interested_job': row['interested_job'],
-                'is_epf': (row['is_epf'] as int?) == 1,
-                'is_etf': (row['is_etf'] as int?) == 1,
-                'is_aswesuma': (row['is_aswesuma'] as int?) == 1,
-                'is_samurdhi': (row['is_samurdhi'] as int?) == 1,
-                'has_special_needs': (row['has_special_needs'] as int?) == 1,
-                'future_hopes': parsedHopes,
-                'info_provided_by': row['info_provided_by'],
-                'info_provided_by_other': row['info_provided_by_other'],
-                'consent_given': (row['consent_given'] as int?) == 1,
-                'consent_at': row['consent_at'],
-                'consent_version': row['consent_version'] ?? 'consent.v0',
-              },
-            ),
-          );
-        }
-
-        final profile = _ref.read(authProvider).profile;
-        final deviceId = 'mobile-${profile?.id ?? "agent"}';
-
-        final request = SyncPushRequest(
-          deviceId: deviceId,
-          appVersion: AppEnv.appVersion,
-          schemaVersion: AppDatabase.currentSchemaVersion,
-          records: payloads,
-        );
-
-        final apiClient = _ref.read(apiClientProvider);
-        final response = await apiClient.pushSync(request);
-
-        for (final result in response.results) {
-          final expectedRevision = localRevisions[result.id];
-
-          if (result.status == 'ok') {
-            // Revision Guard (§8.2 #2): update to synced ONLY if local revision is unchanged
-            final updated = await db.updateClientSyncStatus(
-              result.id,
-              status: SyncStatus.synced,
-              baseVersion: result.serverVersion,
-              expectedLocalRevision: expectedRevision,
-            );
-            if (updated) {
-              totalSynced++;
-            }
-          } else if (result.status == 'locked') {
-            // Server confirmed record already exists and is locked for Level 5 (Decision C2)
-            totalRejected++;
-            await db.updateClientSyncStatus(
-              result.id,
-              status: SyncStatus.rejected,
-              errorCode:
-                  result.code ??
-                  'RECORD_LOCKED: Confirmed record cannot be edited by field agents (Decision C2)',
-            );
-          } else if (result.status == 'rejected' ||
-              result.status == 'forbidden') {
-            totalRejected++;
-            await db.updateClientSyncStatus(
-              result.id,
-              status: SyncStatus.rejected,
-              errorCode: result.code ?? 'REJECTED_BY_SERVER',
-            );
-          } else if (result.status == 'stale') {
-            // Concurrency race or stale version: transient error, mark failed for retry
-            totalFailed++;
-            await db.updateClientSyncStatus(
-              result.id,
-              status: SyncStatus.failed,
-              errorCode: result.code ?? 'RACE_CONFLICT',
-            );
-          } else {
-            // Any unknown status: mark as failed with error code, DO NOT loop forever
-            totalFailed++;
-            await db.updateClientSyncStatus(
-              result.id,
-              status: SyncStatus.failed,
-              errorCode: result.code ?? 'UNKNOWN_STATUS_${result.status}',
-            );
-          }
-        }
-
-        // Increment revision so UI updates immediately
-        _ref.read(recordsRevisionProvider.notifier).increment();
-      }
+      final result = await SyncEngine.executePushLoop(
+        db: db,
+        apiClient: apiClient,
+        deviceId: deviceId,
+        onBatchComplete: (_) {
+          _ref.read(recordsRevisionProvider.notifier).increment();
+        },
+      );
 
       // Sync succeeded: reset backoff failure count
       _consecutiveFailures = 0;
       _retryAfterUntil = null;
 
-      final remaining = await db.getPendingClientsBatch(limit: 100);
-
       // Manage Workmanager background sync task (§8.5)
-      if (remaining.isNotEmpty) {
+      if (result.remainingPendingCount > 0) {
         await BackgroundSyncService.scheduleSyncIfPending(
-          pendingCount: remaining.length,
+          pendingCount: result.remainingPendingCount,
           jitterMaxSeconds: 120,
         );
       } else {
@@ -452,24 +287,19 @@ class SyncNotifier extends StateNotifier<SyncState> {
 
       state = state.copyWith(
         isSyncing: false,
-        pendingCount: remaining.length,
+        pendingCount: result.remainingPendingCount,
         lastSyncTime: DateTime.now(),
-        lastMessage: totalSynced > 0
-            ? 'Synced $totalSynced record${totalSynced > 1 ? 's' : ''}${totalRejected > 0 ? ' ($totalRejected rejected)' : ''}${totalFailed > 0 ? ' ($totalFailed failed)' : ''}.'
-            : (totalFailed > 0
-                  ? '$totalFailed record${totalFailed > 1 ? 's' : ''} failed. Will retry.'
+        lastMessage: result.totalSynced > 0
+            ? 'Synced ${result.totalSynced} record${result.totalSynced > 1 ? 's' : ''}${result.totalRejected > 0 ? ' (${result.totalRejected} rejected)' : ''}${result.totalFailed > 0 ? ' (${result.totalFailed} failed)' : ''}.'
+            : (result.totalFailed > 0
+                  ? '${result.totalFailed} record${result.totalFailed > 1 ? 's' : ''} failed. Will retry.'
                   : 'All records are up to date.'),
       );
 
       return true;
     } on GrsApiException catch (e) {
       _consecutiveFailures++;
-
-      // Mark current attempted batch records as failed (§8.2 #5)
-      if (currentBatchIds.isNotEmpty) {
-        await db.markClientsFailed(currentBatchIds, errorCode: e.code);
-        _ref.read(recordsRevisionProvider.notifier).increment();
-      }
+      _ref.read(recordsRevisionProvider.notifier).increment();
 
       // Invariant §8.2 #10: HTTP 426 Version Gate shows blocking update screen
       if (e.statusCode == 426 || e.isVersionGate) {
@@ -521,12 +351,7 @@ class SyncNotifier extends StateNotifier<SyncState> {
       return false;
     } catch (e) {
       _consecutiveFailures++;
-
-      // Mark current attempted batch records as failed
-      if (currentBatchIds.isNotEmpty) {
-        await db.markClientsFailed(currentBatchIds, errorCode: 'NETWORK_ERROR');
-        _ref.read(recordsRevisionProvider.notifier).increment();
-      }
+      _ref.read(recordsRevisionProvider.notifier).increment();
 
       final backoff = calculateFullJitterBackoff(
         attempt: _consecutiveFailures,
