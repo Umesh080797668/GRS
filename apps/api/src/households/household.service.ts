@@ -251,11 +251,34 @@ export class HouseholdService {
 
     if (query.search) {
       const search = query.search.trim();
-      whereCondition.OR = [
+      const searchConditions = [
         { houseNo: { contains: search, mode: 'insensitive' } },
         { houseLeaderName: { contains: search, mode: 'insensitive' } },
         { villageName: { contains: search, mode: 'insensitive' } },
       ];
+
+      if (whereCondition.OR) {
+        const scopeOr = whereCondition.OR;
+        delete whereCondition.OR;
+        whereCondition.AND = [
+          ...(Array.isArray(whereCondition.AND)
+            ? whereCondition.AND
+            : whereCondition.AND
+              ? [whereCondition.AND]
+              : []),
+          { OR: scopeOr },
+          { OR: searchConditions },
+        ];
+      } else if (whereCondition.AND) {
+        whereCondition.AND = [
+          ...(Array.isArray(whereCondition.AND)
+            ? whereCondition.AND
+            : [whereCondition.AND]),
+          { OR: searchConditions },
+        ];
+      } else {
+        whereCondition.OR = searchConditions;
+      }
     }
 
     const limit = query.limit ?? 50;
@@ -270,6 +293,12 @@ export class HouseholdService {
             select: { id: true, teamNo: true },
           },
         },
+        ...(query.cursor && query.cursor.trim().length > 0
+          ? {
+            cursor: { id: query.cursor.trim() },
+            skip: 1,
+          }
+          : {}),
       }),
       this.prisma.household.count({ where: whereCondition }),
     ]);

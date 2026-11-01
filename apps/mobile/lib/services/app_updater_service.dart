@@ -176,6 +176,13 @@ class AppUpdaterService {
     AppReleaseModel release, {
     DownloadProgressCallback? onProgress,
   }) async {
+    final expectedChecksum = release.checksum.trim().toLowerCase();
+    if (expectedChecksum.isEmpty) {
+      throw Exception(
+        'Update rejected: release checksum is required for mandatory security verification',
+      );
+    }
+
     // Resolve download URL (direct GitHub release asset or server endpoint)
     Uri downloadUri;
     if (release.apkUrl.startsWith('http://') ||
@@ -187,6 +194,22 @@ class AppUpdaterService {
           ? release.apkUrl
           : '/${release.apkUrl}';
       downloadUri = Uri.parse('$cleanBase$cleanPath');
+    }
+
+    // Host allowlist check: only official GitHub repository releases or the configured API host
+    final baseUri = Uri.parse(_apiClient.baseUrl);
+    final isAllowedGitHub =
+        (downloadUri.host == 'github.com' &&
+            downloadUri.path.startsWith(
+              '/Umesh080797668/GRS/releases/download/',
+            )) ||
+        (downloadUri.host == 'objects.githubusercontent.com');
+    final isAllowedApiHost = downloadUri.host == baseUri.host;
+
+    if (!isAllowedGitHub && !isAllowedApiHost) {
+      throw Exception(
+        'Untrusted download host: ${downloadUri.host}. Releases can only be downloaded from official repository or API host.',
+      );
     }
 
     final request = http.Request('GET', downloadUri);
@@ -231,17 +254,14 @@ class AppUpdaterService {
       await sink.close();
     }
 
-    // Verify SHA-256 if provided by release metadata
-    if (release.checksum.isNotEmpty) {
-      final digest = await sha256.bind(targetFile.openRead()).first;
-      final fileChecksum = digest.toString().toLowerCase();
-      final expectedChecksum = release.checksum.trim().toLowerCase();
-      if (fileChecksum != expectedChecksum) {
-        await targetFile.delete();
-        throw Exception(
-          'Update checksum verification failed. Expected $expectedChecksum, got $fileChecksum',
-        );
-      }
+    // Verify SHA-256 mandatory checksum
+    final digest = await sha256.bind(targetFile.openRead()).first;
+    final fileChecksum = digest.toString().toLowerCase();
+    if (fileChecksum != expectedChecksum) {
+      await targetFile.delete();
+      throw Exception(
+        'Update checksum verification failed. Expected $expectedChecksum, got $fileChecksum',
+      );
     }
 
     return targetFile;

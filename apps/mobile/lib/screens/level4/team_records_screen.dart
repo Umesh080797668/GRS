@@ -65,6 +65,28 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                 .whereType<Map<String, dynamic>>()
                 .toList();
 
+        final visitedCursors = <String>{};
+        String? cursor = response['nextCursor'] as String?;
+        while (cursor != null &&
+            cursor.isNotEmpty &&
+            !visitedCursors.contains(cursor)) {
+          visitedCursors.add(cursor);
+          final nextRes = await apiClient.getClients(
+            teamId: teamId,
+            search: _searchCtrl.text.trim().isNotEmpty
+                ? _searchCtrl.text.trim()
+                : null,
+            cursor: cursor,
+            limit: 100,
+          );
+          final nextList =
+              (nextRes['clients'] as List? ?? nextRes['data'] as List? ?? [])
+                  .whereType<Map<String, dynamic>>()
+                  .toList();
+          clientList.addAll(nextList);
+          cursor = nextRes['nextCursor'] as String?;
+        }
+
         if (mounted) {
           setState(() {
             _records = clientList;

@@ -70,8 +70,12 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
         rawList.cast<Map<String, dynamic>>(),
       );
 
+      final visitedCursors = <String>{};
       String? cursor = response['nextCursor'] as String?;
-      while (cursor != null && cursor.isNotEmpty) {
+      while (cursor != null &&
+          cursor.isNotEmpty &&
+          !visitedCursors.contains(cursor)) {
+        visitedCursors.add(cursor);
         final nextResponse = await apiClient.getHouseholds(
           gnId: gnId,
           cursor: cursor,

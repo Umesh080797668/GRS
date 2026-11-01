@@ -286,5 +286,58 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       expect(second.id).toBe(first.id);
       expect(mockClients.length).toBe(initialCount);
     });
+
+    it('getClients: preserves territorial scope when search is present (does not overwrite scope OR)', async () => {
+      const dcScope: ScopeContext = {
+        userId: 'dc-user',
+        role: UserRole.dc,
+        districtId: 'district-1',
+      };
+
+      const findManySpy = jest.spyOn(mockPrisma.client, 'findMany');
+
+      await service.getClients(dcScope, {
+        search: 'Kamal',
+        limit: 25,
+      });
+
+      expect(findManySpy).toHaveBeenCalled();
+      const lastCallArgs = findManySpy.mock.calls[findManySpy.mock.calls.length - 1][0] as any;
+      const where = lastCallArgs.where;
+
+      // Territorial scope OR must be preserved inside AND alongside search OR
+      expect(where.OR).toBeUndefined();
+      expect(where.AND).toBeDefined();
+      expect(Array.isArray(where.AND)).toBe(true);
+
+      const scopeOr = where.AND.find((item: any) =>
+        item.OR && item.OR.some((cond: any) => cond.districtId === 'district-1'),
+      );
+      expect(scopeOr).toBeDefined();
+
+      const searchOr = where.AND.find((item: any) =>
+        item.OR && item.OR.some((cond: any) => cond.name !== undefined),
+      );
+      expect(searchOr).toBeDefined();
+    });
+
+    it('getClients: uses cursor and skip: 1 for keyset pagination', async () => {
+      const superAdminScope: ScopeContext = {
+        userId: 'super-admin',
+        role: UserRole.super_admin,
+      };
+
+      const findManySpy = jest.spyOn(mockPrisma.client, 'findMany');
+
+      await service.getClients(superAdminScope, {
+        cursor: 'client-cursor-456',
+        limit: 50,
+      });
+
+      expect(findManySpy).toHaveBeenCalled();
+      const lastCallArgs = findManySpy.mock.calls[findManySpy.mock.calls.length - 1][0] as any;
+      expect(lastCallArgs.cursor).toEqual({ id: 'client-cursor-456' });
+      expect(lastCallArgs.skip).toBe(1);
+    });
   });
 });

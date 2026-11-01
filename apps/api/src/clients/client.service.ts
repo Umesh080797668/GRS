@@ -75,11 +75,34 @@ export class ClientService {
 
     if (query.search) {
       const s = query.search.trim();
-      whereCondition.OR = [
+      const searchConditions = [
         { name: { contains: s, mode: 'insensitive' } },
         { phoneRaw: { contains: s } },
         { phoneE164: { contains: s } },
       ];
+
+      if (whereCondition.OR) {
+        const scopeOr = whereCondition.OR;
+        delete whereCondition.OR;
+        whereCondition.AND = [
+          ...(Array.isArray(whereCondition.AND)
+            ? whereCondition.AND
+            : whereCondition.AND
+              ? [whereCondition.AND]
+              : []),
+          { OR: scopeOr },
+          { OR: searchConditions },
+        ];
+      } else if (whereCondition.AND) {
+        whereCondition.AND = [
+          ...(Array.isArray(whereCondition.AND)
+            ? whereCondition.AND
+            : [whereCondition.AND]),
+          { OR: searchConditions },
+        ];
+      } else {
+        whereCondition.OR = searchConditions;
+      }
     }
 
     const limit = query.limit ?? 50;
@@ -97,6 +120,12 @@ export class ClientService {
             select: { id: true, fullName: true, userCode: true },
           },
         },
+        ...(query.cursor && query.cursor.trim().length > 0
+          ? {
+            cursor: { id: query.cursor.trim() },
+            skip: 1,
+          }
+          : {}),
       }),
       this.prisma.client.count({ where: whereCondition }),
     ]);

@@ -178,6 +178,71 @@ void main() {
         );
       },
     );
+
+    test('downloadApk rejects release if checksum is missing', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response('OK', 200);
+      });
+      final apiClient = GrsApiClient(
+        baseUrl: 'https://api.test.gov.lk',
+        client: mockClient,
+      );
+      final updater = AppUpdaterService(
+        apiClient: apiClient,
+        httpClient: mockClient,
+        tempDirProvider: () async => tempDir,
+      );
+      const release = AppReleaseModel(
+        version: '1.0.1',
+        minSupportedVersion: '1.0.0',
+        apkUrl: '/v1/releases/download',
+        checksum: '',
+      );
+
+      expect(
+        () => updater.downloadApk(release),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'error',
+            contains('release checksum is required'),
+          ),
+        ),
+      );
+    });
+
+    test('downloadApk rejects download from untrusted host', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response('OK', 200);
+      });
+      final apiClient = GrsApiClient(
+        baseUrl: 'https://api.test.gov.lk',
+        client: mockClient,
+      );
+      final updater = AppUpdaterService(
+        apiClient: apiClient,
+        httpClient: mockClient,
+        tempDirProvider: () async => tempDir,
+      );
+      const release = AppReleaseModel(
+        version: '1.0.1',
+        minSupportedVersion: '1.0.0',
+        apkUrl: 'https://evil-untrusted-server.com/malicious.apk',
+        checksum:
+            '46e0e620269583782342988b3c22993420a17dd743820873e7be3432c3ae08ea',
+      );
+
+      expect(
+        () => updater.downloadApk(release),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'error',
+            contains('Untrusted download host'),
+          ),
+        ),
+      );
+    });
   });
 
   group('AppUpdaterService GitHub Releases Fallback Tests', () {

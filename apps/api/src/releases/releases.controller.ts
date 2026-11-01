@@ -8,7 +8,9 @@ import {
   Query,
   Headers,
   UnauthorizedException,
+  ForbiddenException,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { ReleasesService } from './releases.service';
@@ -19,9 +21,13 @@ import {
   IsOptional,
   IsNumber,
   IsBoolean,
+  Matches,
 } from 'class-validator';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
+import { JwtService } from '@nestjs/jwt';
+import { UserRole } from '../common/scope/scope.types';
 
 export class CreateReleaseDto {
   @IsString()
@@ -34,14 +40,27 @@ export class CreateReleaseDto {
 
   @IsString()
   @IsNotEmpty()
+  @Matches(
+    /^(https:\/\/github\.com\/Umesh080797668\/GRS\/releases\/download\/.*|\/v1\/releases\/download(\?.*)?)$/,
+    {
+      message:
+        'apkUrl must point to official repository releases (https://github.com/Umesh080797668/GRS/releases/download/...) or local download endpoint (/v1/releases/download)',
+    },
+  )
   apkUrl: string;
 
   @IsString()
   @IsOptional()
+  @Matches(/^[a-fA-F0-9]{64}$/, {
+    message: 'checksum must be a valid 64-character SHA-256 hexadecimal string',
+  })
   checksum?: string;
 
   @IsString()
   @IsOptional()
+  @Matches(/^[a-fA-F0-9]{64}$/, {
+    message: 'sha256 must be a valid 64-character SHA-256 hexadecimal string',
+  })
   sha256?: string;
 
   @IsString()
@@ -63,7 +82,74 @@ export class CreateReleaseDto {
 
 @Controller('v1/releases')
 export class ReleasesController {
-  constructor(private readonly releasesService: ReleasesService) { }
+  private readonly fallbackJwtService = new JwtService();
+
+  constructor(
+    private readonly releasesService: ReleasesService,
+    @Optional() private readonly jwtService?: JwtService,
+  ) { }
+
+  /**
+   * Validates that the request comes from an authorized publisher:
+   * 1. CI automation providing matching non-empty X-Release-Secret header, OR
+   * 2. Authenticated user with super_admin role via valid JWT Bearer token.
+   */
+  private verifyPublisher(req: Request): void {
+    const releaseSecret = process.env.RELEASE_SECRET;
+    const providedSecret = req.headers['x-release-secret'];
+
+    // 1. CI secret check: RELEASE_SECRET must be set, non-empty, and match constant-time
+    if (
+      releaseSecret &&
+      releaseSecret.trim().length > 0 &&
+      providedSecret &&
+      typeof providedSecret === 'string'
+    ) {
+      const sBuf = Buffer.from(releaseSecret);
+      const pBuf = Buffer.from(providedSecret);
+      if (sBuf.length === pBuf.length && crypto.timingSafeEqual(sBuf, pBuf)) {
+        return;
+      }
+    }
+
+    // 2. JWT authorization check
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Missing authorization or valid release secret',
+      });
+    }
+
+    const token = authHeader.substring(7).trim();
+    if (!token) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Missing bearer token',
+      });
+    }
+
+    let payload: any;
+    try {
+      const jwtSecret = process.env.JWT_ACCESS_SECRET;
+      const verifier = this.jwtService || this.fallbackJwtService;
+      payload = verifier.verify(token, { secret: jwtSecret });
+    } catch {
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Invalid or expired authorization token',
+      });
+    }
+
+    if (!payload || payload.role !== UserRole.super_admin) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_SCOPE',
+        message: 'Only super_admin can publish or sync app releases',
+      });
+    }
+
+    (req as any).user = payload;
+  }
 
   /**
    * GET /v1/releases/latest
@@ -107,31 +193,22 @@ export class ReleasesController {
   /**
    * POST /v1/releases/sync
    * Manually trigger GitHub releases sync.
+   * Can be invoked by Super Admin or CI via X-Release-Secret header.
    */
   @Post('sync')
   async syncReleases(
     @Req() req: Request,
   ): Promise<{ message: string; release: ReleaseManifest | null }> {
-    const releaseSecret = process.env.RELEASE_SECRET;
-    const providedSecret = req.headers['x-release-secret'];
-    const authHeader = req.headers.authorization;
+    this.verifyPublisher(req);
 
-    if ((releaseSecret && providedSecret === releaseSecret) || authHeader) {
-      const release = await this.releasesService.syncFromGitHub();
-      return {
-        message: release
-          ? `Synced latest release v${release.version}`
-          : 'No release found on GitHub or sync failed',
-        release,
-      };
-    }
-
-    throw new UnauthorizedException({
-      code: 'UNAUTHORIZED',
-      message: 'Missing authorization or release secret',
-    });
+    const release = await this.releasesService.syncFromGitHub();
+    return {
+      message: release
+        ? `Synced latest release v${release.version}`
+        : 'No release found on GitHub or sync failed',
+      release,
+    };
   }
-
 
   /**
    * GET /v1/releases/download
@@ -197,22 +274,7 @@ export class ReleasesController {
     @Body() dto: CreateReleaseDto,
     @Req() req: Request,
   ): Promise<ReleaseManifest> {
-    const releaseSecret = process.env.RELEASE_SECRET;
-    const providedSecret = req.headers['x-release-secret'];
-
-    if (releaseSecret && providedSecret === releaseSecret) {
-      // Authenticated via CI webhook secret
-      return this.releasesService.createRelease(dto);
-    }
-
-    // Otherwise enforce JWT Super Admin guard manually or via delegate
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      throw new UnauthorizedException({
-        code: 'UNAUTHORIZED',
-        message: 'Missing authorization or release secret',
-      });
-    }
+    this.verifyPublisher(req);
 
     return this.releasesService.createRelease(dto);
   }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReleaseManifest } from './release-manifest.interface';
 
@@ -312,7 +312,30 @@ export class ReleasesService {
     fileSize?: number;
     mandatory?: boolean;
   }): Promise<ReleaseManifest> {
-    const hash = (data.sha256 || data.checksum || '').trim();
+    const hash = (data.sha256 || data.checksum || '').trim().toLowerCase();
+    if (!hash || !/^[a-f0-9]{64}$/i.test(hash)) {
+      throw new BadRequestException({
+        code: 'INVALID_CHECKSUM',
+        message:
+          'A valid 64-character SHA-256 checksum is mandatory for release integrity.',
+      });
+    }
+
+    const isOfficialUrl =
+      data.apkUrl.startsWith(
+        'https://github.com/Umesh080797668/GRS/releases/download/',
+      ) ||
+      data.apkUrl === '/v1/releases/download' ||
+      data.apkUrl.startsWith('/v1/releases/download?');
+
+    if (!isOfficialUrl) {
+      throw new BadRequestException({
+        code: 'UNTRUSTED_APK_HOST',
+        message:
+          'apkUrl must point to official GitHub releases (https://github.com/Umesh080797668/GRS/releases/download/...) or local download endpoint (/v1/releases/download).',
+      });
+    }
+
     const created = await this.prisma.appRelease.create({
       data: {
         version: data.version,

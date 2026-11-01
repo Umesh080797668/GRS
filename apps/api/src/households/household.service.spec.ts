@@ -516,5 +516,53 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
         service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, largeList),
       ).rejects.toThrow();
     });
+
+    it('getHouseholds: preserves territorial scope when search is present (does not overwrite scope OR)', async () => {
+      const dcScope: ScopeContext = {
+        userId: 'dc-user',
+        role: UserRole.dc,
+        districtId: mockDistrictId,
+      };
+
+      const findManySpy = jest.spyOn(mockPrisma.household, 'findMany');
+
+      await service.getHouseholds(dcScope, {
+        search: 'Perera',
+        limit: 20,
+      });
+
+      expect(findManySpy).toHaveBeenCalled();
+      const lastCallArgs = findManySpy.mock.calls[findManySpy.mock.calls.length - 1][0] as any;
+      const where = lastCallArgs.where;
+
+      // Territorial scope OR must be preserved inside AND alongside search OR
+      expect(where.OR).toBeUndefined();
+      expect(where.AND).toBeDefined();
+      expect(Array.isArray(where.AND)).toBe(true);
+
+      const scopeOr = where.AND.find((item: any) =>
+        item.OR && item.OR.some((cond: any) => cond.districtId === mockDistrictId),
+      );
+      expect(scopeOr).toBeDefined();
+
+      const searchOr = where.AND.find((item: any) =>
+        item.OR && item.OR.some((cond: any) => cond.houseLeaderName !== undefined),
+      );
+      expect(searchOr).toBeDefined();
+    });
+
+    it('getHouseholds: uses cursor and skip: 1 for keyset pagination', async () => {
+      const findManySpy = jest.spyOn(mockPrisma.household, 'findMany');
+
+      await service.getHouseholds(superAdminScope, {
+        cursor: 'house-cursor-123',
+        limit: 50,
+      });
+
+      expect(findManySpy).toHaveBeenCalled();
+      const lastCallArgs = findManySpy.mock.calls[findManySpy.mock.calls.length - 1][0] as any;
+      expect(lastCallArgs.cursor).toEqual({ id: 'house-cursor-123' });
+      expect(lastCallArgs.skip).toBe(1);
+    });
   });
 });

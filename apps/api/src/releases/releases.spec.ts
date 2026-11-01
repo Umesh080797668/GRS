@@ -133,15 +133,19 @@ describe('Releases (Self-Hosted APK Update System)', () => {
   });
 
   describe('Step 5: Protect the update process', () => {
+    const validSha256 =
+      'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+    const validGithubApk =
+      'https://github.com/Umesh080797668/GRS/releases/download/v1.0.2/app-release.apk';
+
     it('POST /v1/releases accepts valid X-Release-Secret header from CI automation', async () => {
       process.env.RELEASE_SECRET = 'ci-super-secret-key-12345';
 
       const dto: CreateReleaseDto = {
         version: '1.0.2',
         minSupportedVersion: '1.0.0',
-        apkUrl:
-          'https://github.com/Umesh080797668/GRS/releases/download/v1.0.2/app-release.apk',
-        sha256: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+        apkUrl: validGithubApk,
+        sha256: validSha256,
         releaseNotes: 'Automated patch',
       };
 
@@ -172,12 +176,131 @@ describe('Releases (Self-Hosted APK Update System)', () => {
       const dto: CreateReleaseDto = {
         version: '1.0.3',
         minSupportedVersion: '1.0.0',
-        apkUrl: 'https://example.com/app.apk',
-        sha256: 'abc',
+        apkUrl: validGithubApk,
+        sha256: validSha256,
       };
 
       const mockReq = {
         headers: {},
+      } as unknown as Request;
+
+      await expect(controller.createRelease(dto, mockReq)).rejects.toThrow();
+    });
+
+    it('POST /v1/releases rejects arbitrary or invalid Authorization header without valid token', async () => {
+      delete process.env.RELEASE_SECRET;
+
+      const dto: CreateReleaseDto = {
+        version: '1.0.3',
+        minSupportedVersion: '1.0.0',
+        apkUrl: validGithubApk,
+        sha256: validSha256,
+      };
+
+      const mockReq = {
+        headers: {
+          authorization: 'Bearer arbitrary-unverified-junk-token',
+        },
+      } as unknown as Request;
+
+      await expect(controller.createRelease(dto, mockReq)).rejects.toThrow();
+    });
+
+    it('POST /v1/releases rejects non-super_admin roles (e.g. team_member) with ForbiddenException', async () => {
+      delete process.env.RELEASE_SECRET;
+      process.env.JWT_ACCESS_SECRET = 'test-jwt-secret-key-for-release-tests-1234';
+
+      const jwt = require('jsonwebtoken');
+      const teamMemberToken = jwt.sign(
+        { sub: 'member-1', role: 'team_member' },
+        process.env.JWT_ACCESS_SECRET,
+      );
+
+      const dto: CreateReleaseDto = {
+        version: '1.0.3',
+        minSupportedVersion: '1.0.0',
+        apkUrl: validGithubApk,
+        sha256: validSha256,
+      };
+
+      const mockReq = {
+        headers: {
+          authorization: `Bearer ${teamMemberToken}`,
+        },
+      } as unknown as Request;
+
+      await expect(controller.createRelease(dto, mockReq)).rejects.toThrow();
+    });
+
+    it('POST /v1/releases accepts valid super_admin JWT token', async () => {
+      delete process.env.RELEASE_SECRET;
+      process.env.JWT_ACCESS_SECRET = 'test-jwt-secret-key-for-release-tests-1234';
+
+      const jwt = require('jsonwebtoken');
+      const superAdminToken = jwt.sign(
+        { sub: 'admin-1', role: 'super_admin' },
+        process.env.JWT_ACCESS_SECRET,
+      );
+
+      const dto: CreateReleaseDto = {
+        version: '1.0.4',
+        minSupportedVersion: '1.0.0',
+        apkUrl: validGithubApk,
+        sha256: validSha256,
+      };
+
+      mockPrisma.appRelease.create.mockResolvedValue({
+        id: 'rel-4',
+        version: dto.version,
+        minSupportedVersion: dto.minSupportedVersion,
+        apkUrl: dto.apkUrl,
+        checksum: dto.sha256,
+        releasedAt: new Date(),
+      });
+
+      const mockReq = {
+        headers: {
+          authorization: `Bearer ${superAdminToken}`,
+        },
+      } as unknown as Request;
+
+      const res = await controller.createRelease(dto, mockReq);
+      expect(res.version).toBe('1.0.4');
+    });
+
+    it('POST /v1/releases rejects release if apkUrl is not in official host allowlist', async () => {
+      process.env.RELEASE_SECRET = 'ci-secret';
+
+      const dto: CreateReleaseDto = {
+        version: '1.0.5',
+        minSupportedVersion: '1.0.0',
+        apkUrl: 'https://evil-phishing-host.com/fake-release.apk',
+        sha256: validSha256,
+      };
+
+      const mockReq = {
+        headers: {
+          'x-release-secret': 'ci-secret',
+        },
+      } as unknown as Request;
+
+      await expect(controller.createRelease(dto, mockReq)).rejects.toThrow();
+    });
+
+    it('POST /v1/releases rejects release if checksum is missing or invalid format', async () => {
+      process.env.RELEASE_SECRET = 'ci-secret';
+
+      const dto: CreateReleaseDto = {
+        version: '1.0.6',
+        minSupportedVersion: '1.0.0',
+        apkUrl: validGithubApk,
+        sha256: 'not-a-64-character-sha256',
+      };
+
+      const mockReq = {
+        headers: {
+          'x-release-secret': 'ci-secret',
+        },
       } as unknown as Request;
 
       await expect(controller.createRelease(dto, mockReq)).rejects.toThrow();
