@@ -27,6 +27,7 @@ describe('Real PostgreSQL HouseholdService, Concurrency & Milestone 4 Invariants
   let cdcSecretaryScope: ScopeContext;
   let team1LeaderScope: ScopeContext;
   let team2LeaderScope: ScopeContext;
+  let superAdminScope: ScopeContext;
 
   beforeAll(async () => {
     appModule = await Test.createTestingModule({
@@ -160,6 +161,11 @@ describe('Real PostgreSQL HouseholdService, Concurrency & Milestone 4 Invariants
       dsId: testDsId,
       gnId: testGnId,
       teamId: team2.id,
+    };
+
+    superAdminScope = {
+      userId: cdcSecretaryId,
+      role: UserRole.super_admin,
     };
   });
 
@@ -472,9 +478,18 @@ describe('Real PostgreSQL HouseholdService, Concurrency & Milestone 4 Invariants
         },
       });
 
-      // 3. Reassign house to Team 2
+      // Verify Level 4 cannot reassign houses
+      await expect(
+        householdService.reassignHouseToTeam(
+          cdcSecretaryScope,
+          team2.id,
+          house.id,
+        ),
+      ).rejects.toThrow();
+
+      // 3. Reassign house to Team 2 using Level 00 (super_admin)
       const reassignRes = await householdService.reassignHouseToTeam(
-        cdcSecretaryScope,
+        superAdminScope,
         team2.id,
         house.id,
       );

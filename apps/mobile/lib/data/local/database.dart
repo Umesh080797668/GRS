@@ -554,7 +554,10 @@ class AppDatabase {
 
   /// Handles deleted households received from changes feed (M4.5 & Decision C6).
   /// A house deleted by Level 4 disappears on the next sync; its clients are kept and flagged.
-  Future<void> handleDeletedHouseholds(Set<String> deletedIds) async {
+  Future<void> handleDeletedHouseholds(
+    Set<String> deletedIds, {
+    String reason = 'HOUSE_DELETED',
+  }) async {
     if (deletedIds.isEmpty) return;
 
     final list = deletedIds.toList();
@@ -564,8 +567,8 @@ class AppDatabase {
 
       // 1. Keep clients and flag them (Decision C6 / M4.5)
       await _executor.runCustom(
-        "UPDATE clients SET last_error_code = 'HOUSE_DELETED' WHERE household_id IN ($placeholders);",
-        chunk,
+        "UPDATE clients SET last_error_code = ? WHERE household_id IN ($placeholders);",
+        [reason, ...chunk],
       );
 
       // 2. Remove the deleted households from local database
@@ -574,6 +577,14 @@ class AppDatabase {
         chunk,
       );
     }
+  }
+
+  /// Clears deletion/unassignment flags on clients when a household is re-claimed/upserted.
+  Future<void> clearHouseholdClientErrors(String householdId) async {
+    await _executor.runCustom(
+      "UPDATE clients SET last_error_code = NULL WHERE household_id = ? AND last_error_code IN ('HOUSE_DELETED', 'HOUSE_UNASSIGNED');",
+      [householdId],
+    );
   }
 
   Future<List<Map<String, dynamic>>> getHouseholds({
@@ -664,6 +675,8 @@ class AppDatabase {
         consent_at = excluded.consent_at,
         consent_version = excluded.consent_version,
         sync_status = excluded.sync_status,
+        base_version = excluded.base_version,
+        last_error_code = NULL,
         local_revision = clients.local_revision + 1,
         client_updated_at = excluded.client_updated_at
     ''',

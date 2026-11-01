@@ -164,8 +164,7 @@ export class AreaService {
   async getGnDivisionById(caller: ScopeContext, id: string) {
     if (
       caller.role === UserRole.cdc_secretary &&
-      caller.gnId &&
-      id !== caller.gnId
+      (!caller.gnId || id !== caller.gnId)
     ) {
       throw new ForbiddenException({
         code: 'OUT_OF_SCOPE_GN',
@@ -204,8 +203,7 @@ export class AreaService {
   async updateGnDivision(caller: ScopeContext, id: string, dto: UpdateGnDto) {
     if (
       caller.role === UserRole.cdc_secretary &&
-      caller.gnId &&
-      id !== caller.gnId
+      (!caller.gnId || id !== caller.gnId)
     ) {
       throw new ForbiddenException({
         code: 'OUT_OF_SCOPE_GN',

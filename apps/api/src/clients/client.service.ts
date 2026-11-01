@@ -13,7 +13,22 @@ import {
   UpdateClientDto,
   ListClientsDto,
 } from './dto/client.dto';
-import { randomUUID } from 'crypto';
+import { CANONICAL_LOOKUPS } from '../lookups/lookup.data';
+import { SyncService } from '../sync/sync.service';
+
+const VALID_EDUCATION_CODES = new Set(
+  CANONICAL_LOOKUPS.filter((l) => l.category === 'education').map((l) => l.code),
+);
+const VALID_VOCATIONAL_CODES = new Set(
+  CANONICAL_LOOKUPS.filter((l) => l.category === 'vocational_qualification').map((l) => l.code),
+);
+const VALID_STREAM_CODES = new Set(
+  CANONICAL_LOOKUPS.filter((l) => l.category === 'vocational_stream').map((l) => l.code),
+);
+const VALID_JOB_CODES = new Set(
+  CANONICAL_LOOKUPS.filter((l) => l.category === 'job').map((l) => l.code),
+);
+const VALID_INFO_PROVIDED_BY = new Set(['self', 'mother', 'father', 'sister', 'other']);
 
 @Injectable()
 export class ClientService {
@@ -159,6 +174,15 @@ export class ClientService {
       }
     }
 
+    // Consent validation (Blueprint §9 / Invariant B2)
+    if (dto.consentGiven !== true) {
+      throw new BadRequestException({
+        code: 'CONSENT_REQUIRED',
+        message: 'Informed consent is mandatory before recording data',
+      });
+    }
+
+    // Name validation
     const nameVal = GrsValidators.validateName(dto.name);
     if (!nameVal.isValid) {
       throw new BadRequestException({
@@ -167,6 +191,7 @@ export class ClientService {
       });
     }
 
+    // Age validation
     const ageVal = GrsValidators.validateAge(dto.age);
     if (!ageVal.isValid) {
       throw new BadRequestException({
@@ -175,7 +200,122 @@ export class ClientService {
       });
     }
 
+    // Gender validation
+    const genderVal = GrsValidators.validateGender(dto.gender);
+    if (!genderVal.isValid) {
+      throw new BadRequestException({
+        code: 'INVALID_GENDER',
+        message: `Invalid gender: ${genderVal.error}`,
+      });
+    }
+
+    // Phone normalization
+    let phoneE164: string | null = null;
+    const phoneInput = dto.phoneRaw || dto.phoneE164;
+    if (phoneInput && phoneInput.trim().length > 0) {
+      const pRes = GrsValidators.normalizePhone(phoneInput);
+      if (!pRes.isValid) {
+        throw new BadRequestException({
+          code: 'INVALID_PHONE',
+          message: `Phone validation failed: ${pRes.error}`,
+        });
+      }
+      phoneE164 = pRes.value!;
+    }
+
+    // WhatsApp normalization
+    let whatsappE164: string | null = null;
+    const whatsappInput = dto.whatsappRaw || dto.whatsappE164;
+    if (whatsappInput && whatsappInput.trim().length > 0) {
+      const wRes = GrsValidators.normalizeWhatsApp(whatsappInput);
+      if (!wRes.isValid) {
+        throw new BadRequestException({
+          code: 'INVALID_WHATSAPP',
+          message: `WhatsApp validation failed: ${wRes.error}`,
+        });
+      }
+      whatsappE164 = wRes.value!;
+    }
+
+    // Dropdown codes validation
+    if (dto.highestEducation && !VALID_EDUCATION_CODES.has(dto.highestEducation)) {
+      throw new BadRequestException({
+        code: 'INVALID_LOOKUP_CODE',
+        message: `Invalid highest education code: ${dto.highestEducation}`,
+      });
+    }
+    if (dto.highestVocational && !VALID_VOCATIONAL_CODES.has(dto.highestVocational)) {
+      throw new BadRequestException({
+        code: 'INVALID_LOOKUP_CODE',
+        message: `Invalid highest vocational qualification code: ${dto.highestVocational}`,
+      });
+    }
+    if (dto.interestedVocationalStream && !VALID_STREAM_CODES.has(dto.interestedVocationalStream)) {
+      throw new BadRequestException({
+        code: 'INVALID_LOOKUP_CODE',
+        message: `Invalid interested vocational stream code: ${dto.interestedVocationalStream}`,
+      });
+    }
+    if (dto.interestedJob && !VALID_JOB_CODES.has(dto.interestedJob)) {
+      throw new BadRequestException({
+        code: 'INVALID_LOOKUP_CODE',
+        message: `Invalid interested job code: ${dto.interestedJob}`,
+      });
+    }
+    if (dto.futureHopes && dto.futureHopes.length > 0) {
+      const hopesRes = GrsValidators.validateFutureHopes(dto.futureHopes);
+      if (!hopesRes.isValid) {
+        throw new BadRequestException({
+          code: 'INVALID_FUTURE_HOPES',
+          message: `Future hopes validation failed: ${hopesRes.error}`,
+        });
+      }
+    }
+    const rawInfoBy = String(dto.infoProvidedBy || 'self').toLowerCase();
+    if (!VALID_INFO_PROVIDED_BY.has(rawInfoBy)) {
+      throw new BadRequestException({
+        code: 'INVALID_INFO_PROVIDED_BY',
+        message: 'Information provided by must be one of: self, mother, father, sister, other',
+      });
+    }
+
     const nameNorm = dto.name.trim().toLowerCase().replace(/\s+/g, ' ');
+
+    // Deterministic contentHash aligned with /sync/push
+    const contentHash = SyncService.computeContentHash({
+      householdId: dto.householdId,
+      name: nameVal.value!,
+      age: ageVal.value!,
+      gender: genderVal.value!,
+      address: dto.address?.trim() || household.address,
+      phoneE164,
+      whatsappE164,
+      highestEducation: dto.highestEducation || null,
+      highestVocational: dto.highestVocational || null,
+      interestedVocationalStream: dto.interestedVocationalStream || null,
+      interestedJob: dto.interestedJob || null,
+      isEpf: dto.isEpf ?? false,
+      isEtf: dto.isEtf ?? false,
+      isAswesuma: dto.isAswesuma ?? false,
+      isSamurdhi: dto.isSamurdhi ?? false,
+      hasSpecialNeeds: dto.hasSpecialNeeds ?? false,
+      futureHopes: dto.futureHopes || [],
+      infoProvidedBy: rawInfoBy,
+      infoProvidedByOther: dto.infoProvidedByOther?.trim() || null,
+      consentGiven: true,
+    });
+
+    // Idempotent duplicate check: If exact same client survey exists, return it
+    const existing = await this.prisma.client.findFirst({
+      where: {
+        householdId: dto.householdId,
+        contentHash,
+        deletedAt: null,
+      },
+    });
+    if (existing) {
+      return existing;
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const client = await tx.client.create({
@@ -185,15 +325,15 @@ export class ClientService {
           dsId: household.dsId,
           gnId: household.gnId,
           teamId: household.teamId,
-          name: dto.name.trim(),
+          name: nameVal.value!,
           nameNorm,
           age: ageVal.value!,
-          gender: dto.gender,
+          gender: genderVal.value! as any,
           address: dto.address?.trim() || household.address,
           phoneRaw: dto.phoneRaw?.trim() || null,
-          phoneE164: dto.phoneE164?.trim() || null,
+          phoneE164,
           whatsappRaw: dto.whatsappRaw?.trim() || null,
-          whatsappE164: dto.whatsappE164?.trim() || null,
+          whatsappE164,
           highestEducation: dto.highestEducation || null,
           highestVocational: dto.highestVocational || null,
           interestedVocationalStream: dto.interestedVocationalStream || null,
@@ -202,17 +342,17 @@ export class ClientService {
           isEtf: dto.isEtf ?? false,
           isAswesuma: dto.isAswesuma ?? false,
           isSamurdhi: dto.isSamurdhi ?? false,
-          hasSpecialNeeds: dto.hasSpecialNeeds,
+          hasSpecialNeeds: dto.hasSpecialNeeds ?? false,
           futureHopes: dto.futureHopes || [],
-          infoProvidedBy: dto.infoProvidedBy,
+          infoProvidedBy: rawInfoBy as any,
           infoProvidedByOther: dto.infoProvidedByOther?.trim() || null,
-          consentGiven: dto.consentGiven,
+          consentGiven: true,
           consentAt: dto.consentAt ? new Date(dto.consentAt) : new Date(),
-          consentVersion: dto.consentVersion || '1.0',
+          consentVersion: dto.consentVersion || 'consent.v0',
           collectedBy: caller.userId,
           collectedAt: new Date(),
           clientUpdatedAt: new Date(),
-          contentHash: 'client-create-' + randomUUID().substring(0, 8),
+          contentHash,
           createdBy: caller.userId,
         },
       });
@@ -256,6 +396,7 @@ export class ClientService {
     }
 
     let nameNorm = client.nameNorm;
+    let validatedName = client.name;
     if (dto.name && dto.name !== client.name) {
       const nameVal = GrsValidators.validateName(dto.name);
       if (!nameVal.isValid) {
@@ -264,8 +405,197 @@ export class ClientService {
           message: `Invalid name: ${nameVal.error}`,
         });
       }
-      nameNorm = dto.name.trim().toLowerCase().replace(/\s+/g, ' ');
+      validatedName = nameVal.value!;
+      nameNorm = validatedName.trim().toLowerCase().replace(/\s+/g, ' ');
     }
+
+    // Age validation if provided
+    let validatedAge = client.age;
+    if (dto.age !== undefined) {
+      const ageVal = GrsValidators.validateAge(dto.age);
+      if (!ageVal.isValid) {
+        throw new BadRequestException({
+          code: 'INVALID_AGE',
+          message: `Invalid age: ${ageVal.error}`,
+        });
+      }
+      validatedAge = ageVal.value!;
+    }
+
+    // Gender validation if provided
+    let validatedGender = client.gender;
+    if (dto.gender !== undefined) {
+      const genderVal = GrsValidators.validateGender(dto.gender);
+      if (!genderVal.isValid) {
+        throw new BadRequestException({
+          code: 'INVALID_GENDER',
+          message: `Invalid gender: ${genderVal.error}`,
+        });
+      }
+      validatedGender = genderVal.value! as any;
+    }
+
+    // Phone validation / normalization
+    let resolvedPhoneE164: string | null = client.phoneE164;
+    let resolvedPhoneRaw: string | null = client.phoneRaw;
+    if (dto.phoneRaw !== undefined) {
+      resolvedPhoneRaw = dto.phoneRaw ? dto.phoneRaw.trim() : null;
+      if (resolvedPhoneRaw && resolvedPhoneRaw.length > 0) {
+        const pRes = GrsValidators.normalizePhone(resolvedPhoneRaw);
+        if (!pRes.isValid) {
+          throw new BadRequestException({
+            code: 'INVALID_PHONE',
+            message: `Phone validation failed: ${pRes.error}`,
+          });
+        }
+        resolvedPhoneE164 = pRes.value!;
+      } else {
+        resolvedPhoneE164 = null;
+      }
+    } else if (dto.phoneE164 !== undefined) {
+      if (dto.phoneE164 && dto.phoneE164.trim().length > 0) {
+        const pRes = GrsValidators.normalizePhone(dto.phoneE164);
+        if (!pRes.isValid) {
+          throw new BadRequestException({
+            code: 'INVALID_PHONE',
+            message: `Phone validation failed: ${pRes.error}`,
+          });
+        }
+        resolvedPhoneE164 = pRes.value!;
+      } else {
+        resolvedPhoneE164 = null;
+      }
+    }
+
+    // WhatsApp validation / normalization
+    let resolvedWhatsappE164: string | null = client.whatsappE164;
+    let resolvedWhatsappRaw: string | null = client.whatsappRaw;
+    if (dto.whatsappRaw !== undefined) {
+      resolvedWhatsappRaw = dto.whatsappRaw ? dto.whatsappRaw.trim() : null;
+      if (resolvedWhatsappRaw && resolvedWhatsappRaw.length > 0) {
+        const wRes = GrsValidators.normalizeWhatsApp(resolvedWhatsappRaw);
+        if (!wRes.isValid) {
+          throw new BadRequestException({
+            code: 'INVALID_WHATSAPP',
+            message: `WhatsApp validation failed: ${wRes.error}`,
+          });
+        }
+        resolvedWhatsappE164 = wRes.value!;
+      } else {
+        resolvedWhatsappE164 = null;
+      }
+    } else if (dto.whatsappE164 !== undefined) {
+      if (dto.whatsappE164 && dto.whatsappE164.trim().length > 0) {
+        const wRes = GrsValidators.normalizeWhatsApp(dto.whatsappE164);
+        if (!wRes.isValid) {
+          throw new BadRequestException({
+            code: 'INVALID_WHATSAPP',
+            message: `WhatsApp validation failed: ${wRes.error}`,
+          });
+        }
+        resolvedWhatsappE164 = wRes.value!;
+      } else {
+        resolvedWhatsappE164 = null;
+      }
+    }
+
+    // Dropdown codes validation
+    if (dto.highestEducation !== undefined && dto.highestEducation !== null && dto.highestEducation !== '') {
+      if (!VALID_EDUCATION_CODES.has(dto.highestEducation)) {
+        throw new BadRequestException({
+          code: 'INVALID_LOOKUP_CODE',
+          message: `Invalid highest education code: ${dto.highestEducation}`,
+        });
+      }
+    }
+    if (dto.highestVocational !== undefined && dto.highestVocational !== null && dto.highestVocational !== '') {
+      if (!VALID_VOCATIONAL_CODES.has(dto.highestVocational)) {
+        throw new BadRequestException({
+          code: 'INVALID_LOOKUP_CODE',
+          message: `Invalid highest vocational qualification code: ${dto.highestVocational}`,
+        });
+      }
+    }
+    if (dto.interestedVocationalStream !== undefined && dto.interestedVocationalStream !== null && dto.interestedVocationalStream !== '') {
+      if (!VALID_STREAM_CODES.has(dto.interestedVocationalStream)) {
+        throw new BadRequestException({
+          code: 'INVALID_LOOKUP_CODE',
+          message: `Invalid interested vocational stream code: ${dto.interestedVocationalStream}`,
+        });
+      }
+    }
+    if (dto.interestedJob !== undefined && dto.interestedJob !== null && dto.interestedJob !== '') {
+      if (!VALID_JOB_CODES.has(dto.interestedJob)) {
+        throw new BadRequestException({
+          code: 'INVALID_LOOKUP_CODE',
+          message: `Invalid interested job code: ${dto.interestedJob}`,
+        });
+      }
+    }
+    if (dto.futureHopes !== undefined && dto.futureHopes !== null && dto.futureHopes.length > 0) {
+      const hopesRes = GrsValidators.validateFutureHopes(dto.futureHopes);
+      if (!hopesRes.isValid) {
+        throw new BadRequestException({
+          code: 'INVALID_FUTURE_HOPES',
+          message: `Future hopes validation failed: ${hopesRes.error}`,
+        });
+      }
+    }
+    if (dto.infoProvidedBy !== undefined && dto.infoProvidedBy !== null) {
+      const rawInfoBy = String(dto.infoProvidedBy).toLowerCase();
+      if (!VALID_INFO_PROVIDED_BY.has(rawInfoBy)) {
+        throw new BadRequestException({
+          code: 'INVALID_INFO_PROVIDED_BY',
+          message: 'Information provided by must be one of: self, mother, father, sister, other',
+        });
+      }
+    }
+
+    // Recompute contentHash
+    const mergedHighestEducation =
+      dto.highestEducation !== undefined ? dto.highestEducation : client.highestEducation;
+    const mergedHighestVocational =
+      dto.highestVocational !== undefined ? dto.highestVocational : client.highestVocational;
+    const mergedInterestedVocationalStream =
+      dto.interestedVocationalStream !== undefined ? dto.interestedVocationalStream : client.interestedVocationalStream;
+    const mergedInterestedJob =
+      dto.interestedJob !== undefined ? dto.interestedJob : client.interestedJob;
+    const mergedIsEpf = dto.isEpf !== undefined ? dto.isEpf : client.isEpf;
+    const mergedIsEtf = dto.isEtf !== undefined ? dto.isEtf : client.isEtf;
+    const mergedIsAswesuma = dto.isAswesuma !== undefined ? dto.isAswesuma : client.isAswesuma;
+    const mergedIsSamurdhi = dto.isSamurdhi !== undefined ? dto.isSamurdhi : client.isSamurdhi;
+    const mergedHasSpecialNeeds =
+      dto.hasSpecialNeeds !== undefined ? dto.hasSpecialNeeds : client.hasSpecialNeeds;
+    const mergedFutureHopes = dto.futureHopes !== undefined ? dto.futureHopes : client.futureHopes;
+    const mergedInfoProvidedBy =
+      dto.infoProvidedBy !== undefined ? String(dto.infoProvidedBy) : client.infoProvidedBy;
+    const mergedInfoProvidedByOther =
+      dto.infoProvidedByOther !== undefined ? dto.infoProvidedByOther?.trim() || null : client.infoProvidedByOther;
+    const mergedAddress =
+      dto.address !== undefined ? dto.address?.trim() || null : client.address;
+
+    const newContentHash = SyncService.computeContentHash({
+      householdId: client.householdId,
+      name: validatedName,
+      age: validatedAge,
+      gender: validatedGender,
+      address: mergedAddress,
+      phoneE164: resolvedPhoneE164,
+      whatsappE164: resolvedWhatsappE164,
+      highestEducation: mergedHighestEducation,
+      highestVocational: mergedHighestVocational,
+      interestedVocationalStream: mergedInterestedVocationalStream,
+      interestedJob: mergedInterestedJob,
+      isEpf: mergedIsEpf,
+      isEtf: mergedIsEtf,
+      isAswesuma: mergedIsAswesuma,
+      isSamurdhi: mergedIsSamurdhi,
+      hasSpecialNeeds: mergedHasSpecialNeeds,
+      futureHopes: mergedFutureHopes,
+      infoProvidedBy: mergedInfoProvidedBy,
+      infoProvidedByOther: mergedInfoProvidedByOther,
+      consentGiven: client.consentGiven,
+    });
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Audit trail record in client_audit (M1.13, Decision C2)
@@ -283,28 +613,30 @@ export class ClientService {
       const updated = await tx.client.update({
         where: { id },
         data: {
-          name: dto.name ? dto.name.trim() : undefined,
+          name: dto.name ? validatedName : undefined,
           nameNorm,
-          age: dto.age,
-          gender: dto.gender,
-          address: dto.address !== undefined ? dto.address?.trim() || null : undefined,
-          phoneRaw: dto.phoneRaw !== undefined ? dto.phoneRaw?.trim() || null : undefined,
-          phoneE164: dto.phoneE164 !== undefined ? dto.phoneE164?.trim() || null : undefined,
-          whatsappRaw: dto.whatsappRaw !== undefined ? dto.whatsappRaw?.trim() || null : undefined,
-          whatsappE164: dto.whatsappE164 !== undefined ? dto.whatsappE164?.trim() || null : undefined,
-          highestEducation: dto.highestEducation,
-          highestVocational: dto.highestVocational,
-          interestedVocationalStream: dto.interestedVocationalStream,
-          interestedJob: dto.interestedJob,
+          age: dto.age !== undefined ? validatedAge : undefined,
+          gender: dto.gender !== undefined ? (validatedGender as any) : undefined,
+          address: dto.address !== undefined ? mergedAddress : undefined,
+          phoneRaw: dto.phoneRaw !== undefined ? resolvedPhoneRaw : undefined,
+          phoneE164: resolvedPhoneE164,
+          whatsappRaw: dto.whatsappRaw !== undefined ? resolvedWhatsappRaw : undefined,
+          whatsappE164: resolvedWhatsappE164,
+          highestEducation: mergedHighestEducation,
+          highestVocational: mergedHighestVocational,
+          interestedVocationalStream: mergedInterestedVocationalStream,
+          interestedJob: mergedInterestedJob,
           isEpf: dto.isEpf,
           isEtf: dto.isEtf,
           isAswesuma: dto.isAswesuma,
           isSamurdhi: dto.isSamurdhi,
           hasSpecialNeeds: dto.hasSpecialNeeds,
           futureHopes: dto.futureHopes,
-          infoProvidedBy: dto.infoProvidedBy,
-          infoProvidedByOther: dto.infoProvidedByOther !== undefined ? dto.infoProvidedByOther?.trim() || null : undefined,
+          infoProvidedBy: dto.infoProvidedBy as any,
+          infoProvidedByOther: mergedInfoProvidedByOther,
+          contentHash: newContentHash,
           serverVersion: { increment: 1 },
+          updatedAt: new Date(),
         },
       });
 

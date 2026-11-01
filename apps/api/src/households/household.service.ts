@@ -43,11 +43,11 @@ export class HouseholdService {
 
     // Role scope enforcement (M1.10 / M4.1)
     if (creator.role === UserRole.cdc_secretary) {
-      if (creator.gnId && targetGnId !== creator.gnId) {
+      if (!creator.gnId || targetGnId !== creator.gnId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_GN',
           message:
-            'CDC Secretary can only create households in their own GN division',
+            'CDC Secretary can only create households in their own assigned GN division',
         });
       }
     } else if (creator.role !== UserRole.super_admin) {
@@ -362,7 +362,6 @@ export class HouseholdService {
         langSinhala: dto.langSinhala,
         langTamil: dto.langTamil,
         langEnglish: dto.langEnglish,
-        teamId: dto.teamId !== undefined ? dto.teamId : undefined,
         version: { increment: 1 },
         updatedBy: caller.userId,
       },
@@ -431,7 +430,7 @@ export class HouseholdService {
 
     // Scope check: Level 4 can only assign to their own team
     if (caller.role === UserRole.cdc_secretary) {
-      if (caller.teamId && teamId !== caller.teamId) {
+      if (!caller.teamId || teamId !== caller.teamId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_TEAM',
           message: 'CDC Secretary can only assign houses to their own team',
@@ -454,6 +453,15 @@ export class HouseholdService {
         code: 'TEAM_NOT_FOUND',
         message: 'Team not found',
       });
+    }
+
+    if (caller.role === UserRole.cdc_secretary) {
+      if (!caller.gnId || team.gnId !== caller.gnId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_GN',
+          message: 'CDC Secretary can only assign houses in their own assigned GN division',
+        });
+      }
     }
 
     const teamGnId = team.gnId;
@@ -537,7 +545,7 @@ export class HouseholdService {
     houseId: string,
   ): Promise<{ success: boolean; unassignedHouseId: string }> {
     if (caller.role === UserRole.cdc_secretary) {
-      if (caller.teamId && teamId !== caller.teamId) {
+      if (!caller.teamId || teamId !== caller.teamId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_TEAM',
           message: 'CDC Secretary can only unassign houses from their own team',
@@ -559,6 +567,15 @@ export class HouseholdService {
         code: 'HOUSEHOLD_NOT_FOUND',
         message: 'Household not found',
       });
+    }
+
+    if (caller.role === UserRole.cdc_secretary) {
+      if (!caller.gnId || house.gnId !== caller.gnId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_GN',
+          message: 'CDC Secretary can only unassign houses in their own assigned GN division',
+        });
+      }
     }
 
     if (house.teamId !== teamId) {
@@ -661,22 +678,11 @@ export class HouseholdService {
       });
     }
 
-    // Scope check: Level 4 can only reassign within their GN division
-    if (caller.role === UserRole.cdc_secretary) {
-      if (caller.gnId && house.gnId !== caller.gnId) {
-        throw new ForbiddenException({
-          code: 'OUT_OF_SCOPE_GN',
-          message:
-            'CDC Secretary can only reassign houses within their assigned GN division',
-        });
-      }
-    } else if (
-      caller.role !== UserRole.super_admin &&
-      caller.role !== UserRole.admin
-    ) {
+    // Build Plan §8.4: Only Level 00 (Super Admin) is permitted to reassign houses
+    if (caller.role !== UserRole.super_admin) {
       throw new ForbiddenException({
         code: 'CANNOT_REASSIGN_HOUSE',
-        message: `Role ${caller.role} is not permitted to reassign houses`,
+        message: 'Only Level 00 (Super Admin) is permitted to reassign houses',
       });
     }
 

@@ -216,7 +216,9 @@ export class SyncService {
       ? { teamId: user.teamId, deletedAt: null }
       : { ...whereScope, deletedAt: null };
 
-    const [updatedHouseholds, deletedHouseholds, unassignedFromTeam] =
+    const clientFilter = this.scopeService.getClientScopeFilter(user);
+
+    const [updatedHouseholds, deletedHouseholds, unassignedFromTeam, updatedClients] =
       await Promise.all([
         this.prisma.household.findMany({
           where: {
@@ -249,7 +251,30 @@ export class SyncService {
             orderBy: { unassignedAt: 'asc' },
           })
           : Promise.resolve([]),
+        this.prisma.client.findMany({
+          where: {
+            ...clientFilter,
+            updatedAt: { gt: sinceDate },
+          },
+          orderBy: { updatedAt: 'asc' },
+        }),
       ]);
+
+    // Check which unassigned houses are currently assigned to the team (re-claimed)
+    const currentlyOnTeamIds = new Set<string>();
+    if (user.teamId && unassignedFromTeam.length > 0) {
+      const activeOnTeam = await this.prisma.household.findMany({
+        where: {
+          id: { in: unassignedFromTeam.map((u) => u.householdId) },
+          teamId: user.teamId,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+      for (const h of activeOnTeam) {
+        currentlyOnTeamIds.add(h.id);
+      }
+    }
 
     const deletedMap = new Map<
       string,
@@ -265,6 +290,10 @@ export class SyncService {
     }
 
     for (const u of unassignedFromTeam) {
+      // Drop unassignments for houses currently on the team
+      if (currentlyOnTeamIds.has(u.householdId)) {
+        continue;
+      }
       if (!deletedMap.has(u.householdId)) {
         deletedMap.set(u.householdId, {
           id: u.householdId,
@@ -272,6 +301,11 @@ export class SyncService {
           deletedReason: 'unassigned_from_team',
         });
       }
+    }
+
+    // Defensive check: A house in updatedHouseholds must never be in deletedHouseholds
+    for (const h of updatedHouseholds) {
+      deletedMap.delete(h.id);
     }
 
     return {
@@ -305,7 +339,37 @@ export class SyncService {
         updatedAt: h.updatedAt.toISOString(),
       })),
       deletedHouseholds: Array.from(deletedMap.values()),
-      clients: [],
+      clients: updatedClients.map((c) => ({
+        id: c.id,
+        householdId: c.householdId,
+        name: c.name,
+        nameNorm: c.nameNorm,
+        age: c.age,
+        gender: c.gender,
+        address: c.address,
+        phoneRaw: c.phoneRaw,
+        phoneE164: c.phoneE164,
+        whatsappRaw: c.whatsappRaw,
+        whatsappE164: c.whatsappE164,
+        highestEducation: c.highestEducation,
+        highestVocational: c.highestVocational,
+        interestedVocationalStream: c.interestedVocationalStream,
+        interestedJob: c.interestedJob,
+        isEpf: c.isEpf,
+        isEtf: c.isEtf,
+        isAswesuma: c.isAswesuma,
+        isSamurdhi: c.isSamurdhi,
+        hasSpecialNeeds: c.hasSpecialNeeds,
+        futureHopes: c.futureHopes,
+        infoProvidedBy: c.infoProvidedBy,
+        infoProvidedByOther: c.infoProvidedByOther,
+        consentGiven: c.consentGiven,
+        consentAt: c.consentAt?.toISOString(),
+        serverVersion: c.serverVersion,
+        contentHash: c.contentHash,
+        createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt.toISOString(),
+      })),
     };
   }
 

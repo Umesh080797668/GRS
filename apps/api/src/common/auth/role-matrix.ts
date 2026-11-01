@@ -544,7 +544,7 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     method: 'POST',
     path: '/teams/:id/houses/:houseId/reassign',
     category: 'houses',
-    allowedRoles: ['cdc_secretary', 'super_admin'],
+    allowedRoles: ['super_admin'],
     scopeEnforcement: 'team_only',
     description: 'Reassign house with clients to team (Build Plan §8.4)',
   },

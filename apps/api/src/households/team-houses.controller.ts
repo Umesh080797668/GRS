@@ -49,7 +49,7 @@ export class TeamHousesController {
   }
 
   @Post(':id/houses/:houseId/reassign')
-  @Roles(UserRole.cdc_secretary, UserRole.super_admin)
+  @Roles(UserRole.super_admin)
   async reassignHouseToTeam(
     @CurrentUser() user: ScopeContext,
     @Param('id') teamId: string,

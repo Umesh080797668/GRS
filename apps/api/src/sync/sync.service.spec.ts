@@ -550,4 +550,84 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     expect(changes.deletedHouseholds.length).toBe(1);
     expect(changes.deletedHouseholds[0].id).toBe('house-deleted-2');
   });
+
+  it('drops unassignments for houses currently on team (re-claimed houses) and returns clients', async () => {
+    const caller: ScopeContext = {
+      userId: '11111111-1111-1111-1111-111111111111',
+      role: UserRole.team_member,
+      teamId: '22222222-2222-2222-2222-222222222222',
+      gnId: '33333333-3333-3333-3333-333333333333',
+    };
+
+    const reClaimedHouseId = 'house-reclaimed-1';
+    mockPrisma.household.findMany
+      .mockResolvedValueOnce([
+        {
+          id: reClaimedHouseId,
+          districtId: 'dist-1',
+          dsId: 'ds-1',
+          gnId: caller.gnId,
+          teamId: caller.teamId,
+          serialNo: 1,
+          houseNo: '10',
+          houseNoNorm: '10',
+          houseLeaderName: 'Leader',
+          version: 2,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]) // updatedHouseholds
+      .mockResolvedValueOnce([]) // deletedHouseholds
+      .mockResolvedValueOnce([{ id: reClaimedHouseId }]); // activeOnTeam query for unassigned houses
+
+    mockPrisma.householdUnassignment.findMany.mockResolvedValueOnce([
+      {
+        householdId: reClaimedHouseId,
+        unassignedAt: new Date(),
+      },
+    ]);
+
+    mockPrisma.client.findMany.mockResolvedValueOnce([
+      {
+        id: 'client-corrected-1',
+        householdId: reClaimedHouseId,
+        name: 'Corrected Person',
+        nameNorm: 'corrected person',
+        age: 35,
+        gender: 'M',
+        phoneRaw: '0771234567',
+        phoneE164: '+94771234567',
+        whatsappRaw: null,
+        whatsappE164: null,
+        highestEducation: 'EDU_AL_PASSED',
+        highestVocational: null,
+        interestedVocationalStream: null,
+        interestedJob: null,
+        isEpf: false,
+        isEtf: false,
+        isAswesuma: false,
+        isSamurdhi: false,
+        hasSpecialNeeds: false,
+        futureHopes: [],
+        infoProvidedBy: 'self',
+        infoProvidedByOther: null,
+        consentGiven: true,
+        consentAt: new Date(),
+        serverVersion: 2,
+        contentHash: 'hash-corrected-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+
+    const changes = await service.getChanges(caller, '2026-10-30T00:00:00Z');
+    expect(changes.households.length).toBe(1);
+    expect(changes.households[0].id).toBe(reClaimedHouseId);
+    // Unassignment for reClaimedHouseId should be dropped!
+    expect(changes.deletedHouseholds.find((d) => d.id === reClaimedHouseId)).toBeUndefined();
+    // Corrected client should be returned!
+    expect(changes.clients.length).toBe(1);
+    expect(changes.clients[0].id).toBe('client-corrected-1');
+    expect(changes.clients[0].name).toBe('Corrected Person');
+  });
 });

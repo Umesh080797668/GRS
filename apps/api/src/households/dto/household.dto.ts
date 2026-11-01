@@ -182,10 +182,6 @@ export class UpdateHouseholdDto {
   @IsBoolean()
   @IsOptional()
   langEnglish?: boolean;
-
-  @IsUUID()
-  @IsOptional()
-  teamId?: string;
 }
 
 export class AssignHousesDto {

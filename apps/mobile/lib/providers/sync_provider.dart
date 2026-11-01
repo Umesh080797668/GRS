@@ -183,18 +183,54 @@ class SyncNotifier extends StateNotifier<SyncState> {
       final changes = await apiClient.getChanges(since: lastSyncTime);
       final rawHouseholds = changes['households'] as List<dynamic>? ?? [];
       final rawDeleted = changes['deletedHouseholds'] as List<dynamic>? ?? [];
+      final rawClients = changes['clients'] as List<dynamic>? ?? [];
 
+      final updatedHouseholdIds = <String>{};
       for (final h in rawHouseholds) {
         final household = Household.fromJson(h as Map<String, dynamic>);
+        updatedHouseholdIds.add(household.id);
         await db.upsertHousehold(household);
+        // Clear any previous HOUSE_DELETED / HOUSE_UNASSIGNED errors on clients for this household
+        await db.clearHouseholdClientErrors(household.id);
       }
 
       if (rawDeleted.isNotEmpty) {
-        final deletedIds = rawDeleted
-            .map((d) => (d as Map<String, dynamic>)['id'] as String)
-            .toSet();
-        // M4.5 & Decision C6: Remove deleted households while keeping and flagging clients
-        await db.handleDeletedHouseholds(deletedIds);
+        final deletedIds = <String>{};
+        final unassignedIds = <String>{};
+
+        for (final d in rawDeleted) {
+          final map = d as Map<String, dynamic>;
+          final id = map['id'] as String;
+          // Never delete a household that was actively updated / re-claimed
+          if (updatedHouseholdIds.contains(id)) continue;
+
+          final reason = map['deletedReason'] as String?;
+          if (reason == 'unassigned_from_team') {
+            unassignedIds.add(id);
+          } else {
+            deletedIds.add(id);
+          }
+        }
+
+        if (deletedIds.isNotEmpty) {
+          await db.handleDeletedHouseholds(deletedIds, reason: 'HOUSE_DELETED');
+        }
+        if (unassignedIds.isNotEmpty) {
+          await db.handleDeletedHouseholds(
+            unassignedIds,
+            reason: 'HOUSE_UNASSIGNED',
+          );
+        }
+      }
+
+      for (final c in rawClients) {
+        final clientMap = c as Map<String, dynamic>;
+        final client = Client.fromJson(clientMap);
+        await db.saveClient(
+          client: client,
+          status: SyncStatus.synced,
+          baseVersion: clientMap['serverVersion'] as int? ?? 1,
+        );
       }
 
       final serverTime =

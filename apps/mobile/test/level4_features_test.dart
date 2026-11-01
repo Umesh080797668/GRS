@@ -578,5 +578,125 @@ void main() {
         expect(clientAfter['last_error_code'], 'HOUSE_DELETED');
       },
     );
+
+    testWidgets(
+      'M4: Re-claimed house is not deleted and client error is cleared on upsert',
+      (tester) async {
+        final now = DateTime.now();
+
+        // 1. Initial house and client in DB with HOUSE_DELETED error code
+        await db.upsertHousehold(
+          Household(
+            id: 'h-reclaim',
+            districtId: 'dist-1',
+            dsId: 'ds-1',
+            gnId: 'gn-1',
+            teamId: 'team-1',
+            serialNo: 10,
+            houseNo: '45/B',
+            houseLeaderName: 'Leader Reclaim',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+        await db.saveClient(
+          client: Client(
+            id: 'c-reclaim-1',
+            householdId: 'h-reclaim',
+            name: 'Client In Reclaim House',
+            age: 40,
+            gender: 'Female',
+            infoProvidedBy: 'self',
+            consentGiven: true,
+            createdAt: now,
+            updatedAt: now,
+          ),
+          status: SyncStatus.synced,
+        );
+
+        // Simulate house was previously deleted/unassigned
+        await db.handleDeletedHouseholds({
+          'h-reclaim',
+        }, reason: 'HOUSE_DELETED');
+        expect(await db.getHouseholdById('h-reclaim'), isNull);
+        var clientBefore = await db.getClientById('c-reclaim-1');
+        expect(clientBefore!['last_error_code'], 'HOUSE_DELETED');
+
+        // Now simulate sync pull with re-claimed house:
+        // house is upserted again, and clearHouseholdClientErrors is called
+        await db.upsertHousehold(
+          Household(
+            id: 'h-reclaim',
+            districtId: 'dist-1',
+            dsId: 'ds-1',
+            gnId: 'gn-1',
+            teamId: 'team-1',
+            serialNo: 10,
+            houseNo: '45/B',
+            houseLeaderName: 'Leader Reclaim',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+        await db.clearHouseholdClientErrors('h-reclaim');
+
+        // Verify house exists and client error is cleared
+        expect(await db.getHouseholdById('h-reclaim'), isNotNull);
+        var clientAfter = await db.getClientById('c-reclaim-1');
+        expect(clientAfter!['last_error_code'], isNull);
+      },
+    );
+
+    testWidgets(
+      'M4: Client correction from changes feed updates local database and sync status',
+      (tester) async {
+        final now = DateTime.now();
+
+        // 1. Existing client in DB
+        await db.saveClient(
+          client: Client(
+            id: 'c-correct-1',
+            householdId: 'h-1',
+            name: 'Old Name',
+            age: 20,
+            gender: 'Male',
+            infoProvidedBy: 'self',
+            consentGiven: true,
+            createdAt: now,
+            updatedAt: now,
+          ),
+          status: SyncStatus.synced,
+          baseVersion: 1,
+        );
+
+        // 2. Incoming corrected client from server
+        final correctedClient = Client(
+          id: 'c-correct-1',
+          householdId: 'h-1',
+          name: 'Corrected Name By Supervisor',
+          age: 22,
+          gender: 'Male',
+          highestEducation: 'EDU_AL_PASSED',
+          infoProvidedBy: 'self',
+          consentGiven: true,
+          createdAt: now,
+          updatedAt: now,
+        );
+
+        await db.saveClient(
+          client: correctedClient,
+          status: SyncStatus.synced,
+          baseVersion: 2,
+        );
+
+        final clientInDb = await db.getClientById('c-correct-1');
+        expect(clientInDb, isNotNull);
+        expect(clientInDb!['name'], 'Corrected Name By Supervisor');
+        expect(clientInDb['age'], 22);
+        expect(clientInDb['highest_education'], 'EDU_AL_PASSED');
+        expect(clientInDb['base_version'], 2);
+        expect(clientInDb['sync_status'], 'synced');
+      },
+    );
   });
 }

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ClientService } from './client.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScopeService } from '../common/scope/scope.service';
@@ -63,6 +63,26 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
         };
         mockClients[index] = updated;
         return Promise.resolve(updated);
+      }),
+      findFirst: jest.fn().mockImplementation(({ where }) => {
+        const found = mockClients.find((c) => c.contentHash === where.contentHash);
+        return Promise.resolve(found || null);
+      }),
+      create: jest.fn().mockImplementation(({ data }) => {
+        const created = { id: 'created-' + Date.now(), ...data };
+        mockClients.push(created);
+        return Promise.resolve(created);
+      }),
+    },
+    household: {
+      findUnique: jest.fn().mockResolvedValue({
+        id: 'h-1',
+        teamId: mockTeamId,
+        gnId: 'gn-1',
+        dsId: 'ds-1',
+        districtId: 'dist-1',
+        address: '123 Test St',
+        deletedAt: null,
       }),
     },
     team: {
@@ -169,8 +189,47 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       // Verify client_audit entry
       expect(mockAuditLogs.length).toBe(1);
       expect(mockAuditLogs[0].clientId).toBe('client-1');
-      expect(mockAuditLogs[0].actorId).toBe(cdcSecretaryScope.userId);
+      expect(mockAuditLogs[0].changedBy).toBe(cdcSecretaryScope.userId);
       expect(mockAuditLogs[0].reason).toBe('Typo fixed per NIC presentation');
+      expect(updated.contentHash).toBeDefined();
+    });
+
+    it('validates age, phone, and dropdown codes, and recomputes contentHash on update', async () => {
+      mockClients.push({
+        id: 'client-val-1',
+        name: 'Beneficiary Name',
+        age: 25,
+        gender: 'F',
+        teamId: mockTeamId,
+        householdId: 'h-1',
+        collectedBy: 'user-member-1',
+        deletedAt: null,
+        serverVersion: 1,
+        contentHash: 'old-content-hash',
+      });
+
+      // Invalid age
+      await expect(
+        service.updateClient(cdcSecretaryScope, 'client-val-1', {
+          age: 150,
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      // Invalid lookup code
+      await expect(
+        service.updateClient(cdcSecretaryScope, 'client-val-1', {
+          highestEducation: 'INVALID_EDU_CODE',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      // Valid update updates contentHash
+      const updated = await service.updateClient(cdcSecretaryScope, 'client-val-1', {
+        age: 30,
+        highestEducation: 'EDU_AL_PASSED',
+      });
+      expect(updated.age).toBe(30);
+      expect(updated.highestEducation).toBe('EDU_AL_PASSED');
+      expect(updated.contentHash).not.toBe('old-content-hash');
     });
 
     it('Level 4 cannot correct records belonging to another team', async () => {
@@ -188,6 +247,44 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
           name: 'Attempted Change',
         }),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('createClient validation & idempotency', () => {
+    it('rejects createClient if consentGiven is false or missing', async () => {
+      await expect(
+        service.createClient(cdcSecretaryScope, {
+          householdId: 'h-1',
+          name: 'Person Without Consent',
+          age: 25,
+          gender: 'M',
+          consentGiven: false,
+          infoProvidedBy: 'self' as any,
+          hasSpecialNeeds: false,
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('creates client with deterministic contentHash and returns existing on retry (idempotent)', async () => {
+      const dto = {
+        householdId: 'h-1',
+        name: 'Jane Silva',
+        age: 28,
+        gender: 'F',
+        consentGiven: true,
+        infoProvidedBy: 'self' as any,
+        hasSpecialNeeds: false,
+      };
+
+      const first = await service.createClient(cdcSecretaryScope, dto as any);
+      expect(first.contentHash).toBeDefined();
+      expect(first.name).toBe('Jane Silva');
+      const initialCount = mockClients.length;
+
+      // Retry same payload
+      const second = await service.createClient(cdcSecretaryScope, dto as any);
+      expect(second.id).toBe(first.id);
+      expect(mockClients.length).toBe(initialCount);
     });
   });
 });
