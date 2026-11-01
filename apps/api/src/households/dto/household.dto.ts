@@ -11,7 +11,7 @@ import {
   Min,
   ArrayMinSize,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 export class CreateHouseholdDto {
   @IsUUID()
@@ -221,13 +221,13 @@ export class ListHouseholdsDto {
 
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(1000)
   @IsOptional()
   @Type(() => Number)
   limit?: number = 50;
 
   @IsBoolean()
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => value === 'true' || value === true || value === 1 || value === '1')
   unassignedOnly?: boolean;
 }

@@ -65,12 +65,27 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
       }
 
       final apiClient = ref.read(apiClientProvider);
-      final response = await apiClient.getHouseholds(gnId: gnId, limit: 200);
+      final response = await apiClient.getHouseholds(gnId: gnId, limit: 100);
       final rawList = response['households'] as List<dynamic>? ?? [];
+      final allHouses = List<Map<String, dynamic>>.from(
+        rawList.cast<Map<String, dynamic>>(),
+      );
+
+      String? cursor = response['nextCursor'] as String?;
+      while (cursor != null && cursor.isNotEmpty) {
+        final nextResponse = await apiClient.getHouseholds(
+          gnId: gnId,
+          cursor: cursor,
+          limit: 100,
+        );
+        final nextList = nextResponse['households'] as List<dynamic>? ?? [];
+        allHouses.addAll(nextList.cast<Map<String, dynamic>>());
+        cursor = nextResponse['nextCursor'] as String?;
+      }
 
       if (mounted) {
         setState(() {
-          _houses = rawList.cast<Map<String, dynamic>>();
+          _houses = allHouses;
           _isLoading = false;
         });
       }
