@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import express, { Express } from 'express';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 import * as Sentry from '@sentry/node';
@@ -27,14 +28,17 @@ export async function createNestServer(server: Express) {
     logger,
   });
 
+  // Apply Helmet security headers
+  app.use(helmet());
+
   // Secure CORS policy: Restrict to configured origins or localhost development
   const allowedOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
     : [
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'http://localhost:8080',
-      ];
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:8080',
+    ];
 
   app.enableCors({
     origin: (

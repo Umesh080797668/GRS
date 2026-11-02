@@ -881,5 +881,98 @@ describe('Security Vulnerability Fixes Verification', () => {
 
       expect(mockRateLimit.throwThrottled).toHaveBeenCalledWith(30);
     });
+
+    it('keys per-ID rate limits on ID plus device, preventing denial of service across devices', async () => {
+      const checkedKeys: string[] = [];
+      const mockRateLimit = {
+        checkRateLimit: jest.fn().mockImplementation((key) => {
+          checkedKeys.push(key);
+          return Promise.resolve({ allowed: true });
+        }),
+        throwThrottled: jest.fn(),
+      };
+
+      const { AuthService } = require('./auth.service');
+      const auth = new AuthService(
+        { profile: { findFirst: jest.fn().mockResolvedValue(null) } } as any,
+        { verifyPassword: jest.fn().mockResolvedValue(false) } as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        mockRateLimit as any,
+      );
+
+      try {
+        await auth.login(
+          {
+            identifier: 'GRS1000000001',
+            password: 'Password@1234',
+            deviceId: 'real-user-phone-1',
+          },
+          '192.168.1.50',
+        );
+      } catch (_) { }
+
+      // Key must include device ID to prevent an attacker from locking out real user
+      expect(checkedKeys).toContain('login:id:GRS1000000001:real-user-phone-1');
+      expect(checkedKeys).toContain('login:device:real-user-phone-1');
+    });
+  });
+
+  describe('9. Credential Endpoints Cache-Control Headers', () => {
+    it('sets Cache-Control: no-store on all initial/reset/reissue password endpoints', () => {
+      const { AccountController } = require('../accounts/account.controller');
+      const methods = [
+        'createAccount',
+        'createBulkAccounts',
+        'reissuePassword',
+        'resetPassword',
+        'reissueBatch',
+      ];
+
+      for (const method of methods) {
+        const headers = Reflect.getMetadata(
+          '__headers__',
+          AccountController.prototype[method],
+        );
+        expect(headers).toBeDefined();
+        const cacheControl = headers.find(
+          (h: any) => h.name === 'Cache-Control',
+        );
+        expect(cacheControl).toBeDefined();
+        expect(cacheControl.value).toBe('no-store');
+      }
+    });
+  });
+
+  describe('10. Helmet Security Headers', () => {
+    it('verifies helmet package is imported and configured in main.ts', () => {
+      const fs = require('fs');
+      const path = require('path');
+      const mainContent = fs.readFileSync(
+        path.join(__dirname, '../main.ts'),
+        'utf8',
+      );
+      expect(mainContent).toContain("import helmet from 'helmet'");
+      expect(mainContent).toContain('app.use(helmet())');
+    })
+
+    it('attaches standard security headers when helmet middleware executes', () => {
+      const helmet = require('helmet');
+      expect(typeof helmet).toBe('function');
+      const middleware = helmet();
+      expect(typeof middleware).toBe('function');
+      const req = {};
+      const headers: Record<string, string> = {};
+      const res = {
+        setHeader: (name: string, val: string) => {
+          headers[name.toLowerCase()] = val;
+        },
+        removeHeader: () => { },
+      };
+      middleware(req, res, () => { });
+      expect(headers['x-content-type-options']).toBe('nosniff');
+      expect(headers['x-frame-options']).toBe('SAMEORIGIN');
+    });
   });
 });

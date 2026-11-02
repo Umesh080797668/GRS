@@ -38,14 +38,13 @@ if [ -f "apps/mobile/android/app/src/main/AndroidManifest.xml" ]; then
   echo "Checking Android Manifest permissions (Invariant 7)..."
   DISALLOWED=$(grep "uses-permission" apps/mobile/android/app/src/main/AndroidManifest.xml | \
     grep -v "android.permission.INTERNET" | \
-    grep -v "android.permission.ACCESS_NETWORK_STATE" | \
-    grep -v "android.permission.RECEIVE_BOOT_COMPLETED" || true)
+    grep -v "android.permission.ACCESS_NETWORK_STATE" || true)
   if [ -n "$DISALLOWED" ]; then
     echo "ERROR: Disallowed Android permissions found:"
     echo "$DISALLOWED"
     exit 1
   fi
-  echo "Android permissions valid: Only INTERNET, ACCESS_NETWORK_STATE, RECEIVE_BOOT_COMPLETED."
+  echo "Android permissions valid: Only INTERNET and ACCESS_NETWORK_STATE."
 fi
 
 echo "Scanning client code for secret leaks (Invariant 5)..."

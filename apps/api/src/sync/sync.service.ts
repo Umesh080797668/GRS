@@ -227,68 +227,213 @@ export class SyncService {
 
     const clientFilter = this.scopeService.getClientScopeFilter(user);
 
+    let parsedCursor: {
+      isLegacy?: boolean;
+      h?: { t: string; id: string };
+      c?: { t: string; id: string };
+      d?: { t: string; id: string };
+      u?: { t: string; id: string };
+    } = {};
+
+    if (cursor) {
+      try {
+        let jsonStr = cursor;
+        if (!cursor.startsWith('{')) {
+          try {
+            jsonStr = Buffer.from(cursor, 'base64url').toString('utf8');
+          } catch (_) {
+            jsonStr = cursor;
+          }
+        }
+        if (jsonStr.startsWith('{')) {
+          parsedCursor = JSON.parse(jsonStr);
+        } else if (cursor.includes('_')) {
+          const [t, id] = cursor.split('_');
+          parsedCursor = { h: { t, id } };
+        } else {
+          parsedCursor = { isLegacy: true };
+        }
+      } catch (_) {
+        parsedCursor = { isLegacy: true };
+      }
+    }
+
     const take = limit && limit > 0 ? limit : 500;
+
+    // Helper for composite keyset (timestamp, id)
+    const buildKeysetFilter = (
+      baseWhere: any,
+      timestampField: string,
+      cursorObj?: { t: string; id: string },
+    ) => {
+      if (cursorObj?.t && cursorObj?.id) {
+        const cursorTime = new Date(cursorObj.t);
+        return {
+          AND: [
+            baseWhere,
+            {
+              OR: [
+                { [timestampField]: { gt: cursorTime } },
+                { [timestampField]: cursorTime, id: { gt: cursorObj.id } },
+              ],
+            },
+          ],
+        };
+      }
+      return {
+        ...baseWhere,
+        [timestampField]: { gt: sinceDate },
+      };
+    };
+
     const householdQueryArgs: any = {
-      where: {
-        ...householdFilter,
-        updatedAt: { gt: sinceDate },
-      },
+      where: parsedCursor.h
+        ? buildKeysetFilter(householdFilter, 'updatedAt', parsedCursor.h)
+        : {
+          ...householdFilter,
+          updatedAt: { gt: sinceDate },
+        },
       orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
       take: take + 1,
     };
-    if (cursor) {
+    if (parsedCursor.isLegacy && cursor) {
       householdQueryArgs.cursor = { id: cursor };
       householdQueryArgs.skip = 1;
     }
 
-    const [
-      rawUpdatedHouseholds,
-      deletedHouseholds,
-      unassignedFromTeam,
-      updatedClients,
-    ] = await Promise.all([
-      this.prisma.household.findMany(householdQueryArgs),
-      this.prisma.household.findMany({
-        where: {
-          ...whereScope,
-          deletedAt: { gt: sinceDate },
-        },
-        select: {
-          id: true,
-          deletedAt: true,
-          deletedReason: true,
-        },
-        orderBy: [{ deletedAt: 'asc' }, { id: 'asc' }],
-      }),
+    const deletedQueryArgs: any = {
+      where: buildKeysetFilter(whereScope, 'deletedAt', parsedCursor.d),
+      select: {
+        id: true,
+        deletedAt: true,
+        deletedReason: true,
+      },
+      orderBy: [{ deletedAt: 'asc' }, { id: 'asc' }],
+      take: take + 1,
+    };
+
+    const unassignedQueryArgs: any =
       user.teamId && this.prisma.householdUnassignment
-        ? this.prisma.householdUnassignment.findMany({
-          where: {
-            teamId: user.teamId,
-            unassignedAt: { gt: sinceDate },
-          },
+        ? {
+          where: buildKeysetFilter(
+            { teamId: user.teamId },
+            'unassignedAt',
+            parsedCursor.u,
+          ),
           select: {
+            id: true,
             householdId: true,
             unassignedAt: true,
           },
           orderBy: [{ unassignedAt: 'asc' }, { id: 'asc' }],
-        })
+          take: take + 1,
+        }
+        : null;
+
+    const clientQueryArgs: any = {
+      where: buildKeysetFilter(clientFilter, 'updatedAt', parsedCursor.c),
+      orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+      take: take + 1,
+    };
+
+    const [
+      rawUpdatedHouseholds,
+      rawDeletedHouseholds,
+      rawUnassignedFromTeam,
+      rawUpdatedClients,
+    ] = await Promise.all([
+      this.prisma.household.findMany(householdQueryArgs),
+      this.prisma.household.findMany(deletedQueryArgs),
+      unassignedQueryArgs
+        ? this.prisma.householdUnassignment.findMany(unassignedQueryArgs)
         : Promise.resolve([]),
-      this.prisma.client.findMany({
-        where: {
-          ...clientFilter,
-          updatedAt: { gt: sinceDate },
-        },
-        orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
-      }),
+      this.prisma.client.findMany(clientQueryArgs),
     ]);
 
-    const hasMore = rawUpdatedHouseholds.length > take;
-    const updatedHouseholds = hasMore
+    const hasMoreHouseholds = rawUpdatedHouseholds.length > take;
+    const updatedHouseholds = hasMoreHouseholds
       ? rawUpdatedHouseholds.slice(0, take)
       : rawUpdatedHouseholds;
-    const nextCursor = hasMore
-      ? updatedHouseholds[updatedHouseholds.length - 1].id
-      : null;
+
+    const hasMoreDeleted = rawDeletedHouseholds.length > take;
+    const deletedHouseholds = hasMoreDeleted
+      ? rawDeletedHouseholds.slice(0, take)
+      : rawDeletedHouseholds;
+
+    const hasMoreUnassigned = rawUnassignedFromTeam.length > take;
+    const unassignedFromTeam = hasMoreUnassigned
+      ? rawUnassignedFromTeam.slice(0, take)
+      : rawUnassignedFromTeam;
+
+    const hasMoreClients = rawUpdatedClients.length > take;
+    const updatedClients = hasMoreClients
+      ? rawUpdatedClients.slice(0, take)
+      : rawUpdatedClients;
+
+    const hasMore =
+      hasMoreHouseholds ||
+      hasMoreDeleted ||
+      hasMoreUnassigned ||
+      hasMoreClients;
+
+    let nextCursor: string | null = null;
+    if (hasMore) {
+      if (
+        parsedCursor.isLegacy &&
+        hasMoreHouseholds &&
+        !hasMoreDeleted &&
+        !hasMoreUnassigned &&
+        !hasMoreClients
+      ) {
+        nextCursor = updatedHouseholds[updatedHouseholds.length - 1].id;
+      } else {
+        const lastH = updatedHouseholds[updatedHouseholds.length - 1];
+        const lastD = deletedHouseholds[deletedHouseholds.length - 1];
+        const lastU = unassignedFromTeam[unassignedFromTeam.length - 1];
+        const lastC = updatedClients[updatedClients.length - 1];
+
+        const compositeObj: any = {};
+        if (lastH) {
+          compositeObj.h = {
+            t: lastH.updatedAt.toISOString(),
+            id: lastH.id,
+          };
+        } else if (parsedCursor.h) {
+          compositeObj.h = parsedCursor.h;
+        }
+
+        if (lastD) {
+          compositeObj.d = {
+            t: lastD.deletedAt!.toISOString(),
+            id: lastD.id,
+          };
+        } else if (parsedCursor.d) {
+          compositeObj.d = parsedCursor.d;
+        }
+
+        if (lastU) {
+          compositeObj.u = {
+            t: lastU.unassignedAt.toISOString(),
+            id: lastU.id,
+          };
+        } else if (parsedCursor.u) {
+          compositeObj.u = parsedCursor.u;
+        }
+
+        if (lastC) {
+          compositeObj.c = {
+            t: lastC.updatedAt.toISOString(),
+            id: lastC.id,
+          };
+        } else if (parsedCursor.c) {
+          compositeObj.c = parsedCursor.c;
+        }
+
+        nextCursor = Buffer.from(JSON.stringify(compositeObj)).toString(
+          'base64url',
+        );
+      }
+    }
 
     // Check which unassigned houses are currently assigned to the team (re-claimed)
     const currentlyOnTeamIds = new Set<string>();

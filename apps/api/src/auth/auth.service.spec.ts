@@ -39,9 +39,19 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
       profile: {
         findFirst: jest.fn(),
         findUnique: jest.fn(),
-        update: jest
-          .fn()
-          .mockImplementation(({ data }) => ({ ...mockProfile, ...data })),
+        update: jest.fn().mockImplementation(async ({ data }) => {
+          const resolvedFindFirst = await prisma.profile.findFirst.mock.results?.[0]?.value;
+          const baseCount =
+            resolvedFindFirst?.failedLoginCount ??
+            mockProfile.failedLoginCount;
+          let count = baseCount;
+          if (data.failedLoginCount?.increment) {
+            count = (baseCount || 0) + data.failedLoginCount.increment;
+          } else if (typeof data.failedLoginCount === 'number') {
+            count = data.failedLoginCount;
+          }
+          return { ...mockProfile, ...data, failedLoginCount: count };
+        }),
       },
       refreshToken: {
         create: jest.fn().mockResolvedValue({ id: 'rt-1' }),
@@ -151,10 +161,12 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
         }),
       ).rejects.toThrow(UnauthorizedException);
 
-      expect(prisma.profile.update).toHaveBeenCalledWith({
-        where: { id: mockProfile.id },
-        data: expect.objectContaining({ failedLoginCount: { increment: 1 } }),
-      });
+      expect(prisma.profile.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: mockProfile.id },
+          data: { failedLoginCount: { increment: 1 } },
+        }),
+      );
     });
 
     it('locks account for 15 minutes after 5 consecutive failed attempts', async () => {
@@ -171,13 +183,18 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
         }),
       ).rejects.toThrow(UnauthorizedException);
 
-      expect(prisma.profile.update).toHaveBeenCalledWith({
-        where: { id: mockProfile.id },
-        data: expect.objectContaining({
-          failedLoginCount: { increment: 1 },
-          lockedUntil: expect.any(Date),
+      expect(prisma.profile.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: mockProfile.id },
+          data: { failedLoginCount: { increment: 1 } },
         }),
-      });
+      );
+      expect(prisma.profile.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: mockProfile.id },
+          data: { lockedUntil: expect.any(Date) },
+        }),
+      );
     });
 
     it('rejects deactivated user with ACCOUNT_DEACTIVATED', async () => {
@@ -193,6 +210,27 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
           password: 'correctPassword',
         }),
       ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('runs dummy hash on locked account to prevent timing difference (Invariant 14)', async () => {
+      const lockedUntil = new Date(Date.now() + 10 * 60 * 1000);
+      prisma.profile.findFirst.mockResolvedValue({
+        ...mockProfile,
+        lockedUntil,
+      });
+      const dummyVerifySpy = jest.spyOn(credentialService, 'verifyPassword');
+
+      await expect(
+        service.login({
+          identifier: 'GRS1234567890',
+          password: 'somePassword',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(dummyVerifySpy).toHaveBeenCalledWith(
+        expect.stringContaining('$argon2id$'),
+        'somePassword',
+      );
     });
 
     it('forces password change and scope-limited token on first login', async () => {
@@ -257,6 +295,50 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
           newPassword: mockProfile.userCode,
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects new password equal to previous password', async () => {
+      prisma.profile.findUnique.mockResolvedValue(mockProfile);
+      jest.spyOn(credentialService, 'verifyPassword').mockResolvedValue(true);
+
+      await expect(
+        service.changePassword('user-uuid-1', {
+          currentPassword: 'InitialSecretPass123!',
+          newPassword: 'InitialSecretPass123!',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects new password that is in common passwords list (Appendix A)', async () => {
+      prisma.profile.findUnique.mockResolvedValue(mockProfile);
+      jest.spyOn(credentialService, 'verifyPassword').mockResolvedValue(true);
+
+      await expect(
+        service.changePassword('user-uuid-1', {
+          currentPassword: 'oldPassword123!',
+          newPassword: 'password123',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('trims currentPassword when verifying against stored hash', async () => {
+      prisma.profile.findUnique.mockResolvedValue(mockProfile);
+      const verifySpy = jest
+        .spyOn(credentialService, 'verifyPassword')
+        .mockResolvedValue(true);
+      jest
+        .spyOn(credentialService, 'hashUserPassword')
+        .mockResolvedValue('$argon2id$newHash');
+
+      await service.changePassword('user-uuid-1', {
+        currentPassword: '  oldPassword123!  ',
+        newPassword: 'BrandNewSecurePassword123!',
+      });
+
+      expect(verifySpy).toHaveBeenCalledWith(
+        mockProfile.passwordHash,
+        'oldPassword123!',
+      );
     });
 
     it('successfully changes password, bumps tokenVersion and revokes old refresh tokens', async () => {

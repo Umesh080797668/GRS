@@ -48,19 +48,25 @@ describe('Structured Logging & PII Scrubbing (M1.11)', () => {
         phoneE164: '+94771234567',
         whatsappRaw: '0771234567',
         whatsappE164: '+94771234567',
+        initialPassword: 'SecretInitial123!',
+        displayPassword: 'SecretDisplay123!',
+        fullName: 'Sunil Perera Full',
         age: 32,
       };
 
       const scrubbed = PiiScrubber.scrub(rawCitizen);
 
-      expect(scrubbed.name).toBe('Sunil Perera');
+      expect(scrubbed.name).toBe('[REDACTED]');
+      expect(scrubbed.fullName).toBe('[REDACTED]');
+      expect(scrubbed.initialPassword).toBe('[REDACTED]');
+      expect(scrubbed.displayPassword).toBe('[REDACTED]');
       expect(scrubbed.houseLeaderName).toBe('[REDACTED]');
       expect(scrubbed.address).toBe('[REDACTED]');
       expect(scrubbed.phoneRaw).toBe('[REDACTED]');
       expect(scrubbed.phoneE164).toBe('[REDACTED]');
       expect(scrubbed.whatsappRaw).toBe('[REDACTED]');
       expect(scrubbed.whatsappE164).toBe('[REDACTED]');
-      expect(scrubbed.age).toBe(32);
+      expect(scrubbed.age).toBe('[REDACTED]');
     });
 
     it('masks Bearer tokens and phone numbers in raw string logs', () => {

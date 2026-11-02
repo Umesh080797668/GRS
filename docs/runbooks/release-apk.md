@@ -26,7 +26,7 @@
    ```bash
    grep "uses-permission" apps/mobile/android/app/src/main/AndroidManifest.xml
    ```
-   *Only `INTERNET`, `ACCESS_NETWORK_STATE`, and `RECEIVE_BOOT_COMPLETED` are permitted.*
+   *Only `INTERNET` and `ACCESS_NETWORK_STATE` are permitted.*
 
 ### Step 2: Build Signed Release APK
 ```bash

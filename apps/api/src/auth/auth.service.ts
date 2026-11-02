@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CredentialService } from './credential.service';
 import { EmailService } from '../email/email.service';
 import { RateLimitService } from '../config/rate-limit.service';
+import { GrsValidators } from '../common/validators/grs-validators';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -24,11 +25,11 @@ export type AuthSession = {
 
 export type LoginResult =
   | {
-      mustChangePassword: true;
-      accessToken: string;
-      user: Record<string, any>;
-      profile?: Record<string, any>;
-    }
+    mustChangePassword: true;
+    accessToken: string;
+    user: Record<string, any>;
+    profile?: Record<string, any>;
+  }
   | AuthSession;
 
 @Injectable()
@@ -48,7 +49,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly rateLimitService: RateLimitService,
-  ) {}
+  ) { }
 
   /**
    * Normalizes login identifier (GRS ID -> uppercase, Email -> lowercase).
@@ -73,6 +74,8 @@ export class AuthService {
    */
   async login(dto: LoginDto, ip: string = '127.0.0.1'): Promise<LoginResult> {
     const cleanIp = (ip || '127.0.0.1').trim();
+    const cleanDeviceId = dto.deviceId?.trim();
+    const deviceSuffix = cleanDeviceId ? `:${cleanDeviceId}` : `:${cleanIp}`;
     const { type, value } = this.normalizeIdentifier(dto.identifier);
 
     if (this.rateLimitService?.checkRateLimit) {
@@ -86,10 +89,10 @@ export class AuthService {
         this.rateLimitService.throwThrottled(rlIp.retryAfter || 60);
       }
 
-      // 2. Identifier-level rate limit per Blueprint §3.1 (per ID and email)
+      // 2. Identifier-level rate limit keyed on ID and email plus device/IP per Blueprint §3.1
       if (type === 'email') {
         const rlEmail = await this.rateLimitService.checkRateLimit(
-          `login:email:${value}`,
+          `login:email:${value}${deviceSuffix}`,
           5,
           60,
         );
@@ -98,7 +101,7 @@ export class AuthService {
         }
       }
       const rlId = await this.rateLimitService.checkRateLimit(
-        `login:id:${value}`,
+        `login:id:${value}${deviceSuffix}`,
         5,
         60,
       );
@@ -107,7 +110,6 @@ export class AuthService {
       }
 
       // 3. Device-level rate limit per Blueprint §3.1 (max 10 attempts per minute per device)
-      const cleanDeviceId = dto.deviceId?.trim();
       if (cleanDeviceId) {
         const rlDevice = await this.rateLimitService.checkRateLimit(
           `login:device:${cleanDeviceId}`,
@@ -127,7 +129,7 @@ export class AuthService {
     if (profile && this.rateLimitService?.checkRateLimit) {
       if (type === 'email' && profile.userCode) {
         const rlCode = await this.rateLimitService.checkRateLimit(
-          `login:id:${profile.userCode}`,
+          `login:id:${profile.userCode}${deviceSuffix}`,
           5,
           60,
         );
@@ -136,7 +138,7 @@ export class AuthService {
         }
       } else if (type === 'code' && profile.email) {
         const rlEmail = await this.rateLimitService.checkRateLimit(
-          `login:email:${profile.email.toLowerCase()}`,
+          `login:email:${profile.email.toLowerCase()}${deviceSuffix}`,
           5,
           60,
         );
@@ -159,8 +161,12 @@ export class AuthService {
     }
 
     const now = new Date();
-    // Check account lockout
+    // Check account lockout - run dummy hash to eliminate timing difference (Invariant 14)
     if (profile.lockedUntil && profile.lockedUntil > now) {
+      await this.credentialService.verifyPassword(
+        AuthService.DUMMY_HASH,
+        dto.password,
+      );
       throw new UnauthorizedException({
         code: 'AUTH_INVALID',
         message_key: 'errors.auth.invalid_credentials',
@@ -189,20 +195,23 @@ export class AuthService {
           },
         });
       } else {
-        // Atomic increment of failed attempts in DB
-        const nextFailCount = profile.failedLoginCount + 1;
-        const lockedUntil =
-          nextFailCount >= 5
-            ? new Date(Date.now() + 15 * 60 * 1000) // 15-minute temporary lockout
-            : null;
-
-        await this.prisma.profile.update({
+        // Atomic increment of failed attempts with RETURNING, then decide the lock
+        const updated = await this.prisma.profile.update({
           where: { id: profile.id },
           data: {
             failedLoginCount: { increment: 1 },
-            lockedUntil,
           },
+          select: { failedLoginCount: true },
         });
+
+        if (updated.failedLoginCount >= 5) {
+          await this.prisma.profile.update({
+            where: { id: profile.id },
+            data: {
+              lockedUntil: new Date(Date.now() + 15 * 60 * 1000), // 15-minute temporary lockout
+            },
+          });
+        }
       }
 
       throw new UnauthorizedException({
@@ -284,9 +293,10 @@ export class AuthService {
       });
     }
 
+    const cleanCurrent = (dto.currentPassword || '').trim();
     const currentValid = await this.credentialService.verifyPassword(
       profile.passwordHash,
-      dto.currentPassword,
+      cleanCurrent,
     );
 
     if (!currentValid) {
@@ -297,16 +307,36 @@ export class AuthService {
     }
 
     // Validate new password rules (Appendix A)
-    const cleanNew = dto.newPassword.trim();
-    if (cleanNew.length < 8) {
+    const cleanNew = (dto.newPassword || '').trim();
+
+    // Reject previous password
+    if (cleanNew === cleanCurrent) {
       throw new BadRequestException({
         code: 'VALIDATION_FAILED',
-        message_key: 'errors.auth.password_too_short',
+        message_key: 'errors.auth.password_same_as_previous',
+        message: 'New password cannot be the same as previous password',
       });
     }
+
+    // Reject common passwords and enforce length (Appendix A)
+    const passwordValidation = GrsValidators.validatePassword(cleanNew);
+    if (!passwordValidation.isValid) {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message_key:
+          passwordValidation.error === 'common_password'
+            ? 'errors.auth.password_common'
+            : 'errors.auth.password_too_short',
+        message:
+          passwordValidation.error === 'common_password'
+            ? 'Password is too common and easily guessed'
+            : 'Password must be at least 8 characters long',
+      });
+    }
+
     if (
       cleanNew === profile.userCode ||
-      (profile.email && cleanNew === profile.email)
+      (profile.email && cleanNew.toLowerCase() === profile.email.toLowerCase())
     ) {
       throw new BadRequestException({
         code: 'VALIDATION_FAILED',
@@ -686,10 +716,18 @@ export class AuthService {
 
     // Validate new password rules (Appendix A)
     const cleanNew = newPassword.trim();
-    if (cleanNew.length < 8) {
+    const passwordValidation = GrsValidators.validatePassword(cleanNew);
+    if (!passwordValidation.isValid) {
       throw new BadRequestException({
         code: 'VALIDATION_FAILED',
-        message_key: 'errors.auth.password_too_short',
+        message_key:
+          passwordValidation.error === 'common_password'
+            ? 'errors.auth.password_common'
+            : 'errors.auth.password_too_short',
+        message:
+          passwordValidation.error === 'common_password'
+            ? 'Password is too common and easily guessed'
+            : 'Password must be at least 8 characters long',
       });
     }
     if (

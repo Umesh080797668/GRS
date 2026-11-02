@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Header,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -28,6 +29,7 @@ export class AccountController {
   constructor(private readonly accountService: AccountService) { }
 
   @Post()
+  @Header('Cache-Control', 'no-store')
   @Roles(
     UserRole.super_admin,
     UserRole.cg,
@@ -43,6 +45,7 @@ export class AccountController {
   }
 
   @Post('bulk')
+  @Header('Cache-Control', 'no-store')
   @Roles(
     UserRole.super_admin,
     UserRole.cg,
@@ -124,6 +127,7 @@ export class AccountController {
   }
 
   @Post(':id/reissue-password')
+  @Header('Cache-Control', 'no-store')
   @Roles(
     UserRole.super_admin,
     UserRole.admin,
@@ -140,6 +144,7 @@ export class AccountController {
   }
 
   @Post(':id/reset-password')
+  @Header('Cache-Control', 'no-store')
   @Roles(
     UserRole.super_admin,
     UserRole.admin,
@@ -156,6 +161,7 @@ export class AccountController {
   }
 
   @Post('batches/:id/reissue')
+  @Header('Cache-Control', 'no-store')
   @Roles(
     UserRole.super_admin,
     UserRole.admin,

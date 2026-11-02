@@ -689,10 +689,14 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     // Verify pagination metadata
     expect(page1.households.length).toBe(2);
     expect(page1.hasMore).toBe(true);
-    expect(page1.nextCursor).toBe('house-page-2');
+    expect(page1.nextCursor).toBeDefined();
+    const decodedCursor1 = JSON.parse(
+      Buffer.from(page1.nextCursor!, 'base64url').toString('utf8'),
+    );
+    expect(decodedCursor1.h.id).toBe('house-page-2');
   });
 
-  it('pages correctly across >500 houses sharing identical timestamp using id tiebreaker', async () => {
+  it('pages correctly across >500 houses sharing identical timestamp using composite (updatedAt, id) cursor', async () => {
     const caller: ScopeContext = {
       userId: 'agent-1',
       role: UserRole.team_member,
@@ -723,7 +727,6 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
       (args) => {
         expect(args.orderBy).toEqual([{ updatedAt: 'asc' }, { id: 'asc' }]);
         expect(args.take).toBe(501);
-        expect(args.cursor).toBeUndefined();
         return Promise.resolve(all600Households.slice(0, 501));
       },
     );
@@ -739,15 +742,17 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
 
     expect(page1.households.length).toBe(500);
     expect(page1.hasMore).toBe(true);
-    expect(page1.nextCursor).toBe('house-bulk-500');
+    const decodedCursor = JSON.parse(
+      Buffer.from(page1.nextCursor!, 'base64url').toString('utf8'),
+    );
+    expect(decodedCursor.h.id).toBe('house-bulk-500');
 
-    // Page 2: fetch remaining using nextCursor 'house-bulk-500'
+    // Page 2: fetch remaining using composite nextCursor
     (mockPrisma.household.findMany as jest.Mock).mockImplementationOnce(
       (args) => {
         expect(args.orderBy).toEqual([{ updatedAt: 'asc' }, { id: 'asc' }]);
         expect(args.take).toBe(501);
-        expect(args.cursor).toEqual({ id: 'house-bulk-500' });
-        expect(args.skip).toBe(1);
+        expect(args.where.AND).toBeDefined();
         return Promise.resolve(all600Households.slice(500));
       },
     );
