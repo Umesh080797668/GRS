@@ -18,11 +18,13 @@ When creating a new Cloudflare Pages project linked to your Git repository:
 | **Root directory** | `apps/dashboard` |
 | **Build command** | `pnpm build` |
 | **Build output directory** | `out` |
+| **Deploy command (if asked)** | Leave **blank** or `npx wrangler deploy` |
 
-> [!NOTE]
-> If building from the repository root rather than setting root directory to `apps/dashboard`:
-> - **Build command**: `pnpm --filter dashboard build`
-> - **Build output directory**: `apps/dashboard/out`
+> [!TIP]
+> **Fast Deployment:**
+> - If deploying via **Cloudflare Pages**: Leave the "Deploy command" **empty/blank**. Cloudflare Pages automatically deploys the `out` directory in seconds without running Wrangler.
+> - If deploying via **Cloudflare Workers / Wrangler CLI**: The project includes [`wrangler.jsonc`](./wrangler.jsonc) with `"assets": { "directory": "./out", "not_found_handling": "single-page-application" }`. This bypasses `@opennextjs/cloudflare` migration entirely and directly uploads the pre-built static export in **under 3 seconds**!
+
 
 ### 2. Environment Variables
 Configure the following in the Cloudflare Pages **Settings → Environment variables**:
