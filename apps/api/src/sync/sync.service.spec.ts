@@ -41,6 +41,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
           },
         ]),
         count: jest.fn().mockResolvedValue(1),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       householdUnassignment: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -780,5 +781,78 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     expect(collectedIds.has('house-bulk-500')).toBe(true);
     expect(collectedIds.has('house-bulk-501')).toBe(true);
     expect(collectedIds.has('house-bulk-600')).toBe(true);
+  });
+
+  describe('Finished Household Sync: Idempotency & Per-ID Results', () => {
+    it('returns per-id results and avoids re-stamping completed houses', async () => {
+      const houseInScope = 'h-in-scope';
+      const houseAlreadyDone = 'h-already-done';
+      const houseOutOfScope = 'h-out-of-scope';
+
+      (mockPrisma.household.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: houseInScope,
+          teamId: caller.teamId,
+          visitStatus: 'in_progress',
+        },
+        {
+          id: houseAlreadyDone,
+          teamId: caller.teamId,
+          visitStatus: 'completed',
+        },
+        {
+          id: houseOutOfScope,
+          teamId: 'different-team',
+          visitStatus: 'in_progress',
+        },
+      ]);
+
+      const res = await service.pushRecords(caller, {
+        device_id: 'dev-1',
+        app_version: '1.0.0',
+        records: [],
+        finishedHouseholdIds: [
+          houseInScope,
+          houseAlreadyDone,
+          houseOutOfScope,
+          'non-existent-house',
+        ],
+      });
+
+      expect(res.results).toEqual([]);
+      expect(res.finishedHouseholds).toBeDefined();
+      expect(res.finishedHouseholds).toHaveLength(4);
+
+      const inScopeRes = res.finishedHouseholds?.find(
+        (f) => f.id === houseInScope,
+      );
+      expect(inScopeRes?.status).toBe('ok');
+
+      const alreadyDoneRes = res.finishedHouseholds?.find(
+        (f) => f.id === houseAlreadyDone,
+      );
+      expect(alreadyDoneRes?.status).toBe('already_finished');
+
+      const outOfScopeRes = res.finishedHouseholds?.find(
+        (f) => f.id === houseOutOfScope,
+      );
+      expect(outOfScopeRes?.status).toBe('forbidden');
+
+      const notFoundRes = res.finishedHouseholds?.find(
+        (f) => f.id === 'non-existent-house',
+      );
+      expect(notFoundRes?.status).toBe('not_found');
+
+      // Verify updateMany was called only for houseInScope
+      expect(mockPrisma.household.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: [houseInScope] },
+          visitStatus: { not: 'completed' },
+        },
+        data: expect.objectContaining({
+          visitStatus: 'completed',
+        }),
+      });
+    });
   });
 });

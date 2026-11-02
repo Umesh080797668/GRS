@@ -207,7 +207,7 @@ describe('Real PostgreSQL HouseholdService, Concurrency & Milestone 4 Invariants
           where: { id: testDistrictId },
         });
       }
-    } catch (_) { }
+    } catch (_) {}
     if (prisma) {
       await prisma.$disconnect();
     }

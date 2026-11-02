@@ -11,4 +11,4 @@ import { ScopeModule } from '../common/scope/scope.module';
   providers: [HouseholdService],
   exports: [HouseholdService],
 })
-export class HouseholdModule { }
+export class HouseholdModule {}

@@ -528,5 +528,100 @@ void main() {
         expect(check!['sync_status'], 'failed');
       },
     );
+
+    test(
+      'Finished house sync arrives even when pendingRows is empty, and clears pending list on ok',
+      () async {
+        const houseId = 'house-finish-empty-clients';
+        await db.upsertHousehold(
+          Household(
+            id: houseId,
+            districtId: 'd-1',
+            dsId: 'ds-1',
+            gnId: 'gn-1',
+            serialNo: 801,
+            houseNo: 'H-801',
+            houseLeaderName: 'Leader 801',
+            visitStatus: 'in_progress',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+
+        // Finish house locally without any pending client records
+        await db.markHouseholdCompletedLocally(houseId);
+        expect(await db.getPendingFinishedHouseholdIds(), contains(houseId));
+
+        fakeApi.pushCount = 0;
+        fakeApi.pushedRequests.clear();
+        fakeApi.onPushSync = (req) async {
+          expect(req.records, isEmpty);
+          expect(req.finishedHouseholdIds, contains(houseId));
+          return SyncPushResponse(
+            results: const [],
+            finishedHouseholds: [
+              SyncHouseholdResult(id: houseId, status: 'ok'),
+            ],
+          );
+        };
+
+        final syncNotifier = container.read(syncProvider.notifier);
+        final success = await syncNotifier.sync();
+
+        expect(success, isTrue);
+        expect(fakeApi.pushCount, 1);
+        expect(await db.getPendingFinishedHouseholdIds(), isEmpty);
+
+        final house = await db.getHouseholdById(houseId);
+        expect(house!['status'], 'completed');
+      },
+    );
+
+    test(
+      'Finished house rejected or forbidden by server reverts local status to in_progress',
+      () async {
+        const houseId = 'house-finish-forbidden';
+        await db.upsertHousehold(
+          Household(
+            id: houseId,
+            districtId: 'd-1',
+            dsId: 'ds-1',
+            gnId: 'gn-1',
+            serialNo: 802,
+            houseNo: 'H-802',
+            houseLeaderName: 'Leader 802',
+            visitStatus: 'in_progress',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+
+        await db.markHouseholdCompletedLocally(houseId);
+        expect(await db.getPendingFinishedHouseholdIds(), contains(houseId));
+
+        fakeApi.pushCount = 0;
+        fakeApi.pushedRequests.clear();
+        fakeApi.onPushSync = (req) async {
+          return SyncPushResponse(
+            results: const [],
+            finishedHouseholds: [
+              SyncHouseholdResult(
+                id: houseId,
+                status: 'forbidden',
+                code: 'OUT_OF_SCOPE_TEAM',
+              ),
+            ],
+          );
+        };
+
+        final syncNotifier = container.read(syncProvider.notifier);
+        await syncNotifier.sync();
+
+        // Local status should be reverted back to in_progress
+        final house = await db.getHouseholdById(houseId);
+        expect(house!['status'], 'in_progress');
+        expect(await db.getPendingFinishedHouseholdIds(), isEmpty);
+      },
+    );
   });
 }

@@ -953,26 +953,39 @@ export class HouseholdService {
       });
     }
 
-    if (caller.role === UserRole.team_member) {
+    if (
+      caller.role === UserRole.team_member ||
+      caller.role === UserRole.cdc_secretary
+    ) {
       if (
-        household.teamId !== caller.teamId &&
-        household.createdBy !== caller.userId
+        !caller.teamId ||
+        !household.teamId ||
+        household.teamId !== caller.teamId
       ) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_TEAM',
           message: 'Household is not assigned to your team',
         });
       }
-    } else if (caller.role === UserRole.cdc_secretary) {
-      if (
-        household.gnId !== caller.gnId &&
-        household.teamId !== caller.teamId
-      ) {
+    } else if (caller.role === UserRole.sda) {
+      if (caller.dsId && household.dsId !== caller.dsId) {
         throw new ForbiddenException({
-          code: 'OUT_OF_SCOPE_GN',
-          message: 'Household is outside your GN division',
+          code: 'OUT_OF_SCOPE_DS',
+          message: 'Household is outside your division',
         });
       }
+    } else if (caller.role === UserRole.dc) {
+      if (caller.districtId && household.districtId !== caller.districtId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DISTRICT',
+          message: 'Household is outside your district',
+        });
+      }
+    }
+
+    // Idempotency: if already marked completed, return existing household without re-dirtying stats or bumping version
+    if (household.visitStatus === 'completed') {
+      return household;
     }
 
     const now = new Date();

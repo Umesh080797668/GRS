@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  IsBoolean,
   Max,
   MaxLength,
   Min,
@@ -115,4 +116,8 @@ export class ImportPilotAreaCsvDto {
   @IsString()
   @IsNotEmpty()
   csvContent: string;
+
+  @IsBoolean()
+  @IsOptional()
+  dryRun?: boolean;
 }

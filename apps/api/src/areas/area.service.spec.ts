@@ -119,6 +119,11 @@ describe('AreaService (M1.7)', () => {
         return Promise.resolve(null);
       }),
     },
+    $transaction: jest
+      .fn()
+      .mockImplementation((cb) =>
+        typeof cb === 'function' ? cb(mockPrisma) : Promise.all(cb),
+      ),
   };
 
   beforeEach(async () => {
@@ -229,6 +234,76 @@ Kalutara,Panadura,675,Wekada,Kamal Fernando,+94773456789,kamal@example.com,Sarat
       expect(inMemoryTeams.length).toBe(6);
       const teamWith15 = inMemoryTeams.find((t) => t.maxMembers === 15);
       expect(teamWith15).toBeDefined();
+    });
+
+    it('dry run validates rows without modifying database', async () => {
+      const sampleCsv = `
+district,ds_division,gn_number,gn_name
+Colombo,Thimbirigasyaya,514A,Kirulapone
+      `.trim();
+
+      const result = await service.importPilotAreaFromCsv(sampleCsv, true);
+      expect(result.dryRun).toBe(true);
+      expect(result.rowCount).toBe(1);
+      expect(result.errors).toHaveLength(0);
+      expect(inMemoryDistricts).toHaveLength(0);
+      expect(inMemoryGn).toHaveLength(0);
+    });
+
+    it('collects errors for rows with fewer than 4 columns and missing values', async () => {
+      const badCsv = `
+district,ds_division,gn_number,gn_name
+Colombo,Thimbirigasyaya
+Colombo,Thimbirigasyaya,514A,Kirulapone
+      `.trim();
+
+      const result = await service.importPilotAreaFromCsv(badCsv);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0].row).toBe(2);
+      expect(result.errors[0].error).toContain('fewer than');
+      // Entire import was halted due to error
+      expect(inMemoryGn).toHaveLength(0);
+    });
+
+    it('rejects typo in district name and does not create an invalid district', async () => {
+      const typoCsv = `
+district,ds_division,gn_number,gn_name
+Columbo,Thimbirigasyaya,514A,Kirulapone
+      `.trim();
+
+      const result = await service.importPilotAreaFromCsv(typoCsv);
+      expect(result.errors.length).toBe(1);
+      expect(result.errors[0].error).toContain(
+        'Invalid district name "Columbo"',
+      );
+      expect(inMemoryDistricts).toHaveLength(0);
+    });
+
+    it('rejects initial_teams exceeding upper bound of 50', async () => {
+      const excessiveTeamsCsv = `
+district,ds_division,gn_number,gn_name,secretary_name,secretary_contact,secretary_email,sdo_name,initial_teams
+Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.com,Sunil Jayakody,99
+      `.trim();
+
+      const result = await service.importPilotAreaFromCsv(excessiveTeamsCsv);
+      expect(result.errors.length).toBe(1);
+      expect(result.errors[0].error).toContain(
+        'initial_teams must be between 1 and 50',
+      );
+      expect(inMemoryTeams).toHaveLength(0);
+    });
+
+    it('handles quoted fields in headers and rows correctly', async () => {
+      const quotedCsv = `
+"district","ds_division","gn_number","gn_name","initial_teams"
+"Colombo","Thimbirigasyaya","514A","Kirulapone, West","2"
+      `.trim();
+
+      const result = await service.importPilotAreaFromCsv(quotedCsv);
+      expect(result.errors).toHaveLength(0);
+      expect(result.rowCount).toBe(1);
+      expect(inMemoryGn[0].gnName).toBe('Kirulapone, West');
+      expect(inMemoryTeams).toHaveLength(2);
     });
   });
 });

@@ -24,7 +24,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 @Controller('v1/clients')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ClientController {
-  constructor(private readonly clientService: ClientService) { }
+  constructor(private readonly clientService: ClientService) {}
 
   @Get()
   @Roles(

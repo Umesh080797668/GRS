@@ -22,11 +22,13 @@ export interface PilotAreaImportResult {
   importedDs: number;
   importedGn: number;
   importedTeams: number;
+  errors: Array<{ row: number; error: string }>;
+  dryRun?: boolean;
 }
 
 @Injectable()
 export class AreaService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Seeds the 25 official Sri Lankan districts with trilingual names.
@@ -311,6 +313,7 @@ export class AreaService {
    */
   async importPilotAreaFromCsv(
     csvContent: string,
+    dryRun: boolean = false,
   ): Promise<PilotAreaImportResult> {
     const lines = csvContent
       .split(/\r?\n/)
@@ -324,7 +327,7 @@ export class AreaService {
       });
     }
 
-    const header = lines[0].split(',').map((h) =>
+    const header = this.parseCsvLine(lines[0]).map((h) =>
       h
         .trim()
         .toLowerCase()
@@ -357,136 +360,247 @@ export class AreaService {
       });
     }
 
-    let importedDistricts = 0;
-    let importedDs = 0;
-    let importedGn = 0;
-    let importedTeams = 0;
-    let rowCount = 0;
+    const errors: Array<{ row: number; error: string }> = [];
+    const validRows: Array<{
+      rowNumber: number;
+      districtName: string;
+      officialDistrict: (typeof SRI_LANKA_25_DISTRICTS)[0];
+      dsName: string;
+      gnNumber: string;
+      gnName: string;
+      secName?: string;
+      secContact?: string;
+      secEmail?: string;
+      sdoName?: string;
+      initialTeams: number;
+      maxMembers: number;
+    }> = [];
 
     for (let i = 1; i < lines.length; i++) {
+      const rowNumber = i + 1;
       const row = this.parseCsvLine(lines[i]);
-      if (row.length < 4) continue;
+      if (row.length < 4) {
+        errors.push({
+          row: rowNumber,
+          error: `Row has ${row.length} columns (fewer than required 4 columns)`,
+        });
+        continue;
+      }
 
       const districtName = row[colIndex.district]?.trim();
       const dsName = row[colIndex.dsDivision]?.trim();
       const gnNumber = row[colIndex.gnNumber]?.trim();
       const gnName = row[colIndex.gnName]?.trim();
+
+      if (!districtName || !dsName || !gnNumber || !gnName) {
+        errors.push({
+          row: rowNumber,
+          error:
+            'Missing required values (district, ds_division, gn_number, or gn_name)',
+        });
+        continue;
+      }
+
+      // Validate district name against official 25 districts (no arbitrary creation on typo!)
+      const officialDistrict = SRI_LANKA_25_DISTRICTS.find(
+        (d) => d.nameEn.toLowerCase() === districtName.toLowerCase(),
+      );
+      if (!officialDistrict) {
+        errors.push({
+          row: rowNumber,
+          error: `Invalid district name "${districtName}". Must match one of 25 official Sri Lankan districts.`,
+        });
+        continue;
+      }
+
+      // Validate initial_teams: upper bound is 50
+      let initialTeams = 1;
+      if (colIndex.initialTeams !== -1 && row[colIndex.initialTeams]?.trim()) {
+        const rawTeams = row[colIndex.initialTeams].trim();
+        const parsed = parseInt(rawTeams, 10);
+        if (isNaN(parsed) || parsed < 1 || parsed > 50) {
+          errors.push({
+            row: rowNumber,
+            error: `initial_teams must be between 1 and 50 (got "${rawTeams}")`,
+          });
+          continue;
+        }
+        initialTeams = parsed;
+      }
+
+      // Validate max_members_per_team: between 1 and 100
+      let maxMembers = 10;
+      if (
+        colIndex.maxMembersPerTeam !== -1 &&
+        row[colIndex.maxMembersPerTeam]?.trim()
+      ) {
+        const rawMax = row[colIndex.maxMembersPerTeam].trim();
+        const parsed = parseInt(rawMax, 10);
+        if (isNaN(parsed) || parsed < 1 || parsed > 100) {
+          errors.push({
+            row: rowNumber,
+            error: `max_members_per_team must be between 1 and 100 (got "${rawMax}")`,
+          });
+          continue;
+        }
+        maxMembers = parsed;
+      }
+
       const secName =
         colIndex.secretaryName !== -1
-          ? row[colIndex.secretaryName]?.trim()
+          ? row[colIndex.secretaryName]?.trim() || undefined
           : undefined;
       const secContact =
         colIndex.secretaryContact !== -1
-          ? row[colIndex.secretaryContact]?.trim()
+          ? row[colIndex.secretaryContact]?.trim() || undefined
           : undefined;
       const secEmail =
         colIndex.secretaryEmail !== -1
-          ? row[colIndex.secretaryEmail]?.trim()
+          ? row[colIndex.secretaryEmail]?.trim() || undefined
           : undefined;
       const sdoName =
-        colIndex.sdoName !== -1 ? row[colIndex.sdoName]?.trim() : undefined;
-      const initialTeams =
-        colIndex.initialTeams !== -1
-          ? parseInt(row[colIndex.initialTeams]?.trim() || '0', 10)
-          : 1;
-      const maxMembers =
-        colIndex.maxMembersPerTeam !== -1
-          ? parseInt(row[colIndex.maxMembersPerTeam]?.trim() || '10', 10)
-          : 10;
+        colIndex.sdoName !== -1
+          ? row[colIndex.sdoName]?.trim() || undefined
+          : undefined;
 
-      if (!districtName || !dsName || !gnNumber || !gnName) continue;
-      rowCount++;
-
-      // 1. Resolve or create District
-      let district = await this.prisma.district.findFirst({
-        where: { nameEn: { equals: districtName, mode: 'insensitive' } },
+      validRows.push({
+        rowNumber,
+        districtName,
+        officialDistrict,
+        dsName,
+        gnNumber,
+        gnName,
+        secName,
+        secContact,
+        secEmail,
+        sdoName,
+        initialTeams,
+        maxMembers,
       });
-      if (!district) {
-        district = await this.prisma.district.create({
-          data: {
-            nameEn: districtName,
-            nameSi: districtName,
-            nameTa: districtName,
-          },
-        });
-        importedDistricts++;
-      }
-
-      // 2. Resolve or create DS division
-      let ds = await this.prisma.divisionalSecretariat.findFirst({
-        where: {
-          districtId: district.id,
-          nameEn: { equals: dsName, mode: 'insensitive' },
-        },
-      });
-      if (!ds) {
-        ds = await this.prisma.divisionalSecretariat.create({
-          data: {
-            districtId: district.id,
-            nameEn: dsName,
-            nameSi: dsName,
-            nameTa: dsName,
-            sdoName: sdoName || null,
-          },
-        });
-        importedDs++;
-      }
-
-      // 3. Resolve or create GN division
-      let gn = await this.prisma.gnDivision.findUnique({
-        where: {
-          dsId_gnNumber: {
-            dsId: ds.id,
-            gnNumber,
-          },
-        },
-      });
-      if (!gn) {
-        gn = await this.prisma.gnDivision.create({
-          data: {
-            dsId: ds.id,
-            gnNumber,
-            gnName,
-            secretaryName: secName || null,
-            secretaryContact: secContact || null,
-            secretaryEmail: secEmail || null,
-          },
-        });
-        importedGn++;
-      }
-
-      // 4. Provision initial teams
-      const teamCount =
-        isNaN(initialTeams) || initialTeams < 1 ? 1 : initialTeams;
-      for (let t = 1; t <= teamCount; t++) {
-        const teamExists = await this.prisma.team.findUnique({
-          where: {
-            gnId_teamNo: {
-              gnId: gn.id,
-              teamNo: t,
-            },
-          },
-        });
-        if (!teamExists) {
-          await this.prisma.team.create({
-            data: {
-              gnId: gn.id,
-              teamNo: t,
-              maxMembers: isNaN(maxMembers) || maxMembers < 1 ? 10 : maxMembers,
-            },
-          });
-          importedTeams++;
-        }
-      }
     }
 
-    return {
-      rowCount,
-      importedDistricts,
-      importedDs,
-      importedGn,
-      importedTeams,
+    // If dry run or errors exist, do NOT write to database
+    if (dryRun || errors.length > 0) {
+      return {
+        rowCount: validRows.length,
+        importedDistricts: 0,
+        importedDs: 0,
+        importedGn: 0,
+        importedTeams: 0,
+        errors,
+        dryRun,
+      };
+    }
+
+    // Execute import in an atomic transaction to prevent partial import on timeout or error
+    const runInTransaction = async (tx: any) => {
+      let importedDistricts = 0;
+      let importedDs = 0;
+      let importedGn = 0;
+      let importedTeams = 0;
+
+      for (const row of validRows) {
+        // 1. Resolve or create District with official trilingual names
+        let district = await tx.district.findFirst({
+          where: {
+            nameEn: {
+              equals: row.officialDistrict.nameEn,
+              mode: 'insensitive',
+            },
+          },
+        });
+        if (!district) {
+          district = await tx.district.create({
+            data: {
+              nameEn: row.officialDistrict.nameEn,
+              nameSi: row.officialDistrict.nameSi,
+              nameTa: row.officialDistrict.nameTa,
+            },
+          });
+          importedDistricts++;
+        }
+
+        // 2. Resolve or create DS division
+        let ds = await tx.divisionalSecretariat.findFirst({
+          where: {
+            districtId: district.id,
+            nameEn: { equals: row.dsName, mode: 'insensitive' },
+          },
+        });
+        if (!ds) {
+          ds = await tx.divisionalSecretariat.create({
+            data: {
+              districtId: district.id,
+              nameEn: row.dsName,
+              nameSi: row.dsName,
+              nameTa: row.dsName,
+              sdoName: row.sdoName || null,
+            },
+          });
+          importedDs++;
+        }
+
+        // 3. Resolve or create GN division
+        let gn = await tx.gnDivision.findUnique({
+          where: {
+            dsId_gnNumber: {
+              dsId: ds.id,
+              gnNumber: row.gnNumber,
+            },
+          },
+        });
+        if (!gn) {
+          gn = await tx.gnDivision.create({
+            data: {
+              dsId: ds.id,
+              gnNumber: row.gnNumber,
+              gnName: row.gnName,
+              secretaryName: row.secName || null,
+              secretaryContact: row.secContact || null,
+              secretaryEmail: row.secEmail || null,
+            },
+          });
+          importedGn++;
+        }
+
+        // 4. Provision initial teams
+        for (let t = 1; t <= row.initialTeams; t++) {
+          const teamExists = await tx.team.findUnique({
+            where: {
+              gnId_teamNo: {
+                gnId: gn.id,
+                teamNo: t,
+              },
+            },
+          });
+          if (!teamExists) {
+            await tx.team.create({
+              data: {
+                gnId: gn.id,
+                teamNo: t,
+                maxMembers: row.maxMembers,
+              },
+            });
+            importedTeams++;
+          }
+        }
+      }
+
+      return {
+        rowCount: validRows.length,
+        importedDistricts,
+        importedDs,
+        importedGn,
+        importedTeams,
+        errors,
+        dryRun: false,
+      };
     };
+
+    if (typeof this.prisma.$transaction === 'function') {
+      return this.prisma.$transaction(runInTransaction, { timeout: 30000 });
+    }
+    return runInTransaction(this.prisma);
   }
 
   private parseCsvLine(line: string): string[] {
@@ -497,7 +611,12 @@ export class AreaService {
     for (let i = 0; i < line.length; i++) {
       const char = line[i];
       if (char === '"') {
-        insideQuotes = !insideQuotes;
+        if (insideQuotes && i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++; // skip escaped quote
+        } else {
+          insideQuotes = !insideQuotes;
+        }
       } else if (char === ',' && !insideQuotes) {
         result.push(current.trim());
         current = '';

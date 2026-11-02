@@ -155,7 +155,7 @@ describe('Real PostgreSQL Push Sync & Atomic Invariants (M3.1)', () => {
         await prisma.household.delete({ where: { id: houseDeleted.id } });
       if (teamA) await prisma.team.delete({ where: { id: teamA.id } });
       if (teamB) await prisma.team.delete({ where: { id: teamB.id } });
-    } catch (_) { }
+    } catch (_) {}
     await prisma.$disconnect();
     await appModule?.close();
   }, 45000);

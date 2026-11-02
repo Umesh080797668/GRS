@@ -16,7 +16,7 @@ export interface DriftReport {
 export class StatsRefreshService {
   private readonly logger = new Logger(StatsRefreshService.name);
 
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Refreshes team_stats for all dirty teams (or all teams if forceAll),
@@ -39,8 +39,8 @@ export class StatsRefreshService {
     >(`SELECT public.refresh_dirty_team_stats();`);
     const refreshedTeams = Number(
       (rows[0] as any)?.refresh_dirty_team_stats ??
-      (rows[0] as any)?.count ??
-      0,
+        (rows[0] as any)?.count ??
+        0,
     );
 
     // Clean up team_stats for deleted teams

@@ -86,7 +86,7 @@ describe('M2.5 & M2.6 Real API and Staging Database Verification', () => {
         where: { OR: [{ actorId: testUserId }, { targetId: testUserId }] },
       });
       await prisma.profile.deleteMany({ where: { id: testUserId } });
-    } catch (_) { }
+    } catch (_) {}
   }
 
   it('Step 1: First Sign-In — Login with mustChangePassword: true returns restricted token', async () => {

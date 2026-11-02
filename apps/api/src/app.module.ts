@@ -47,4 +47,4 @@ import { ClientModule } from './clients/client.module';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

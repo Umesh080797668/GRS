@@ -40,10 +40,10 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
         findFirst: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn().mockImplementation(async ({ data }) => {
-          const resolvedFindFirst = await prisma.profile.findFirst.mock.results?.[0]?.value;
+          const resolvedFindFirst =
+            await prisma.profile.findFirst.mock.results?.[0]?.value;
           const baseCount =
-            resolvedFindFirst?.failedLoginCount ??
-            mockProfile.failedLoginCount;
+            resolvedFindFirst?.failedLoginCount ?? mockProfile.failedLoginCount;
           let count = baseCount;
           if (data.failedLoginCount?.increment) {
             count = (baseCount || 0) + data.failedLoginCount.increment;

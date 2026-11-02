@@ -10,6 +10,7 @@ import {
   SyncPushResponse,
   SyncRecordPayloadDto,
   SyncRecordResultItem,
+  SyncHouseholdResultItem,
 } from './dto/sync-push.dto';
 import { SyncChangesResponse } from './dto/sync-changes.dto';
 
@@ -573,39 +574,130 @@ export class SyncService {
       });
     }
 
-    if (dto.finishedHouseholdIds && dto.finishedHouseholdIds.length > 0) {
-      const now = new Date();
-      const whereCondition: any = {
-        id: { in: dto.finishedHouseholdIds },
-        deletedAt: null,
-      };
-      if (user.role === UserRole.team_member) {
-        whereCondition.teamId = user.teamId;
-      } else if (user.role === UserRole.cdc_secretary) {
-        whereCondition.OR = [{ gnId: user.gnId }, { teamId: user.teamId }];
-      }
+    const finishedHouseholdsResults: SyncHouseholdResultItem[] = [];
 
-      await this.prisma.household.updateMany({
-        where: whereCondition,
-        data: {
-          visitStatus: 'completed',
-          finishedAt: now,
-          finishedBy: user.userId,
-          version: { increment: 1 },
-          updatedAt: now,
+    if (dto.finishedHouseholdIds && dto.finishedHouseholdIds.length > 0) {
+      const households = await this.prisma.household.findMany({
+        where: {
+          id: { in: dto.finishedHouseholdIds },
+          deletedAt: null,
         },
       });
 
-      if (user.teamId) {
-        await this.prisma.$executeRawUnsafe(
-          `UPDATE teams SET stats_dirty_at = now() WHERE id = $1::uuid`,
-          user.teamId,
-        );
+      const householdMap = new Map(households.map((h) => [h.id, h]));
+      const toUpdateIds: string[] = [];
+
+      for (const hid of dto.finishedHouseholdIds) {
+        const household = householdMap.get(hid);
+        if (!household) {
+          finishedHouseholdsResults.push({
+            id: hid,
+            status: 'not_found',
+            code: 'HOUSEHOLD_NOT_FOUND',
+            message: 'Household not found or deleted',
+          });
+          continue;
+        }
+
+        // Scope check:
+        // For Level 4 (cdc_secretary) and Level 5 (team_member), strictly own-team only!
+        if (
+          user.role === UserRole.team_member ||
+          user.role === UserRole.cdc_secretary
+        ) {
+          if (
+            !user.teamId ||
+            !household.teamId ||
+            household.teamId !== user.teamId
+          ) {
+            finishedHouseholdsResults.push({
+              id: hid,
+              status: 'forbidden',
+              code: 'OUT_OF_SCOPE_TEAM',
+              message: 'Household is not assigned to your team',
+            });
+            continue;
+          }
+        } else if (user.role === UserRole.sda) {
+          if (user.dsId && household.dsId !== user.dsId) {
+            finishedHouseholdsResults.push({
+              id: hid,
+              status: 'forbidden',
+              code: 'OUT_OF_SCOPE_DS',
+              message: 'Household is outside your division',
+            });
+            continue;
+          }
+        } else if (user.role === UserRole.dc) {
+          if (user.districtId && household.districtId !== user.districtId) {
+            finishedHouseholdsResults.push({
+              id: hid,
+              status: 'forbidden',
+              code: 'OUT_OF_SCOPE_DISTRICT',
+              message: 'Household is outside your district',
+            });
+            continue;
+          }
+        }
+
+        // Idempotency safeguard: if already completed, don't re-dirty version, finishedAt, or stats!
+        if (household.visitStatus === 'completed') {
+          finishedHouseholdsResults.push({
+            id: hid,
+            status: 'already_finished',
+          });
+          continue;
+        }
+
+        toUpdateIds.push(hid);
+      }
+
+      if (toUpdateIds.length > 0) {
+        const now = new Date();
+        await this.prisma.household.updateMany({
+          where: {
+            id: { in: toUpdateIds },
+            visitStatus: { not: 'completed' },
+          },
+          data: {
+            visitStatus: 'completed',
+            finishedAt: now,
+            finishedBy: user.userId,
+            version: { increment: 1 },
+            updatedAt: now,
+          },
+        });
+
+        if (user.teamId) {
+          if (typeof (this.prisma as any).$executeRawUnsafe === 'function') {
+            await (this.prisma as any).$executeRawUnsafe(
+              `UPDATE teams SET stats_dirty_at = now() WHERE id = $1::uuid`,
+              user.teamId,
+            );
+          } else if (
+            typeof (this.prisma as any).$queryRawUnsafe === 'function'
+          ) {
+            await (this.prisma as any).$queryRawUnsafe(
+              `UPDATE teams SET stats_dirty_at = now() WHERE id = $1::uuid`,
+              user.teamId,
+            );
+          }
+        }
+
+        for (const hid of toUpdateIds) {
+          finishedHouseholdsResults.push({
+            id: hid,
+            status: 'ok',
+          });
+        }
       }
     }
 
     if (!dto.records || dto.records.length === 0) {
-      return { results: [] };
+      return {
+        results: [],
+        finishedHouseholds: finishedHouseholdsResults,
+      };
     }
 
     const results: SyncRecordResultItem[] = new Array(dto.records.length);
@@ -889,7 +981,10 @@ export class SyncService {
     }
 
     if (validRecords.length === 0) {
-      return { results };
+      return {
+        results,
+        finishedHouseholds: finishedHouseholdsResults,
+      };
     }
 
     // --- STEP 2: Database checks in 2 parallel or batched queries ---
@@ -1286,6 +1381,9 @@ export class SyncService {
       }
     }
 
-    return { results };
+    return {
+      results,
+      finishedHouseholds: finishedHouseholdsResults,
+    };
   }
 }

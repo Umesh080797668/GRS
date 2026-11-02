@@ -213,8 +213,8 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       };
       const p = run();
       lockQueue = p.then(
-        () => { },
-        () => { },
+        () => {},
+        () => {},
       );
       return p;
     }),
@@ -755,6 +755,70 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
 
       await expect(
         service.finishHousehold(otherTeamScope, house.id),
+      ).rejects.toThrow();
+    });
+
+    it('finishHousehold: is idempotent and does not re-stamp completed houses', async () => {
+      const house = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: '503',
+        houseLeaderName: 'Leader 503',
+      });
+      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [
+        house.id,
+      ]);
+
+      const teamMemberScope: ScopeContext = {
+        userId: 'team-member-1',
+        role: UserRole.team_member,
+        teamId: mockTeamId,
+      };
+
+      const first = await service.finishHousehold(teamMemberScope, house.id);
+      expect(first.visitStatus).toBe('completed');
+      const firstFinishedAt = first.finishedAt;
+
+      const second = await service.finishHousehold(teamMemberScope, house.id);
+      expect(second.finishedAt).toEqual(firstFinishedAt);
+      expect(second.version).toBe(first.version);
+    });
+
+    it('finishHousehold: rejects secretary with no team or finishing another team house', async () => {
+      const house = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: '504',
+        houseLeaderName: 'Leader 504',
+      });
+      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [
+        house.id,
+      ]);
+
+      const secretaryNoTeam: ScopeContext = {
+        userId: 'sec-no-team',
+        role: UserRole.cdc_secretary,
+        gnId: mockGnId,
+      };
+
+      await expect(
+        service.finishHousehold(secretaryNoTeam, house.id),
+      ).rejects.toThrow();
+    });
+
+    it('finishHousehold: rejects team member with null teamId trying to finish unassigned house', async () => {
+      const unassignedHouse = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: '505',
+        houseLeaderName: 'Leader 505',
+      });
+
+      const teamMemberNoTeam: ScopeContext = {
+        userId: 'member-no-team',
+        role: UserRole.team_member,
+        teamId: undefined,
+      };
+
+      await expect(
+        service.finishHousehold(teamMemberNoTeam, unassignedHouse.id),
       ).rejects.toThrow();
     });
   });

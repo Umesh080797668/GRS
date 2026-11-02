@@ -16,7 +16,7 @@ export class ReleasesService {
   private cacheExpiry: number = 0;
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
 
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Compares two semantic version strings (e.g. "1.1.0" vs "1.0.0").
@@ -128,7 +128,7 @@ export class ReleasesService {
               const match = text.match(/[a-f0-9]{64}/i);
               if (match) checksum = match[0];
             }
-          } catch (_) { }
+          } catch (_) {}
         }
       }
 

@@ -133,7 +133,34 @@ class SyncEngine {
           .where((r) => !attemptedIds.contains(r['id'] as String))
           .toList();
 
+      final pendingFinishedIds = await db.getPendingFinishedHouseholdIds();
+
+      if (pendingRows.isEmpty && pendingFinishedIds.isEmpty) {
+        break;
+      }
+
       if (pendingRows.isEmpty) {
+        // Only finished households pending push
+        final finishedList = pendingFinishedIds.toList();
+        final request = SyncPushRequest(
+          deviceId: deviceId,
+          appVersion: AppEnv.appVersion,
+          schemaVersion: AppDatabase.currentSchemaVersion,
+          records: const [],
+          finishedHouseholdIds: finishedList,
+        );
+        final response = await apiClient.pushSync(request);
+        if (response.finishedHouseholds != null) {
+          for (final f in response.finishedHouseholds!) {
+            if (f.isOk) {
+              await db.removePendingFinishedHouseholdIds([f.id]);
+            } else if (f.isForbidden || f.isNotFound) {
+              await db.revertHouseholdFinish(f.id);
+            }
+          }
+        } else {
+          await db.removePendingFinishedHouseholdIds(finishedList);
+        }
         break;
       }
 
@@ -146,16 +173,10 @@ class SyncEngine {
       }
 
       Future<SyncPushResponse> sendPush(
-        List<Map<String, dynamic>> batch,
-      ) async {
+        List<Map<String, dynamic>> batch, {
+        List<String>? finishedHouseholdIds,
+      }) async {
         final payloads = _buildPayloads(batch);
-        final completedHouses = await db.getHouseholds(
-          statusFilter: 'completed',
-        );
-        final finishedHouseholdIds = completedHouses
-            .map((h) => h['id'] as String)
-            .toList();
-
         final request = SyncPushRequest(
           deviceId: deviceId,
           appVersion: AppEnv.appVersion,
@@ -221,6 +242,18 @@ class SyncEngine {
           }
         }
 
+        if (response.finishedHouseholds != null) {
+          for (final f in response.finishedHouseholds!) {
+            if (f.isOk) {
+              await db.removePendingFinishedHouseholdIds([f.id]);
+            } else if (f.isForbidden || f.isNotFound) {
+              await db.revertHouseholdFinish(f.id);
+            }
+          }
+        } else if (pendingFinishedIds.isNotEmpty) {
+          await db.removePendingFinishedHouseholdIds(pendingFinishedIds);
+        }
+
         totalSynced += batchSynced;
         totalRejected += batchRejected;
         totalFailed += batchFailed;
@@ -242,9 +275,15 @@ class SyncEngine {
         if (subBatch.isEmpty) return;
 
         final subBatchIds = subBatch.map((r) => r['id'] as String).toList();
+        final finishedToSend = depth == 0 && pendingFinishedIds.isNotEmpty
+            ? pendingFinishedIds.toList()
+            : null;
 
         try {
-          final response = await sendPush(subBatch);
+          final response = await sendPush(
+            subBatch,
+            finishedHouseholdIds: finishedToSend,
+          );
           await processResponse(response, subBatchIds);
           return;
         } on GrsApiException catch (e) {

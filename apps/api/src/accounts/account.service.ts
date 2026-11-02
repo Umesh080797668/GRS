@@ -39,7 +39,7 @@ export class AccountService {
     private readonly prisma: PrismaService,
     private readonly credentialService: CredentialService,
     private readonly scopeService: ScopeService,
-  ) { }
+  ) {}
 
   /**
    * Creates a single account with generated credentials.

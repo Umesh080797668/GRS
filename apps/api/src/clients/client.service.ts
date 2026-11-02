@@ -47,7 +47,7 @@ export class ClientService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: ScopeService,
-  ) { }
+  ) {}
 
   /**
    * Keyset-paged clients within caller scope (Blueprint §5.5, §10.2).
@@ -134,9 +134,9 @@ export class ClientService {
         },
         ...(query.cursor && query.cursor.trim().length > 0
           ? {
-            cursor: { id: query.cursor.trim() },
-            skip: 1,
-          }
+              cursor: { id: query.cursor.trim() },
+              skip: 1,
+            }
           : {}),
       }),
       this.prisma.client.count({ where: whereCondition }),

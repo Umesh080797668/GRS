@@ -27,7 +27,7 @@ import type { ScopeContext } from '../common/scope/scope.types';
 @Controller('v1/areas')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AreaController {
-  constructor(private readonly areaService: AreaService) { }
+  constructor(private readonly areaService: AreaService) {}
 
   @Get('districts')
   async getDistricts() {
@@ -112,6 +112,6 @@ export class AreaController {
   @Post('import-csv')
   @Roles(UserRole.super_admin)
   async importPilotArea(@Body() dto: ImportPilotAreaCsvDto) {
-    return this.areaService.importPilotAreaFromCsv(dto.csvContent);
+    return this.areaService.importPilotAreaFromCsv(dto.csvContent, dto.dryRun);
   }
 }

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppConfigService } from './app-config.service';
+import { AppConfigController } from './app-config.controller';
 import { VersionGateGuard } from './version-gate.guard';
 import { RateLimitService } from './rate-limit.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -199,6 +200,58 @@ describe('AppConfigService & VersionGateGuard & RateLimiter (M1.8)', () => {
         expect(err.getResponse().error).toBe('TOO_MANY_REQUESTS');
         expect(err.getResponse().retryAfter).toBe(throttled.retryAfter);
       }
+    });
+  });
+
+  describe('PATCH /v1/config Whitelist & Validation', () => {
+    let controller: AppConfigController;
+
+    beforeEach(() => {
+      controller = new AppConfigController(configService);
+    });
+
+    it('updates whitelisted config values successfully', async () => {
+      const updated = await controller.updateConfig({
+        min_supported_version: '1.1.0',
+        sync_jitter_max_s: 30,
+        sync_batch_max: 100,
+      });
+
+      expect(updated.minSupportedVersion).toBe('1.1.0');
+      expect(updated.syncJitterMaxS).toBe(30);
+      expect(updated.syncBatchMax).toBe(100);
+    });
+
+    it('rejects unknown/non-whitelisted config keys', async () => {
+      await expect(
+        controller.updateConfig({
+          unknown_key: 'malicious',
+        } as any),
+      ).rejects.toThrow();
+    });
+
+    it('rejects negative sync jitter', async () => {
+      await expect(
+        controller.updateConfig({
+          sync_jitter_max_s: -5,
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('rejects malformed min_supported_version', async () => {
+      await expect(
+        controller.updateConfig({
+          min_supported_version: 'not-a-semver',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('rejects invalid apk_download_url', async () => {
+      await expect(
+        controller.updateConfig({
+          apk_download_url: 'javascript:alert(1)',
+        }),
+      ).rejects.toThrow();
     });
   });
 });

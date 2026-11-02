@@ -6,21 +6,21 @@ export interface EndpointPolicy {
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   path: string;
   category:
-  | 'auth'
-  | 'accounts'
-  | 'config'
-  | 'lookups'
-  | 'areas'
-  | 'houses'
-  | 'clients'
-  | 'sync'
-  | 'duplicates'
-  | 'stats'
-  | 'exports'
-  | 'releases';
+    | 'auth'
+    | 'accounts'
+    | 'config'
+    | 'lookups'
+    | 'areas'
+    | 'houses'
+    | 'clients'
+    | 'sync'
+    | 'duplicates'
+    | 'stats'
+    | 'exports'
+    | 'releases';
   allowedRoles: ExtendedRole[];
   scopeEnforcement:
-  'none' | 'own_only' | 'team_only' | 'gn_only' | 'hierarchical' | 'national';
+    'none' | 'own_only' | 'team_only' | 'gn_only' | 'hierarchical' | 'national';
   description: string;
 }
 

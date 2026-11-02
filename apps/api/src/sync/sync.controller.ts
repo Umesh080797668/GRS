@@ -30,7 +30,7 @@ import { SyncChangesDto } from './dto/sync-changes.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class SyncController {
-  constructor(private readonly syncService: SyncService) { }
+  constructor(private readonly syncService: SyncService) {}
 
   @Get('area')
   @Roles(

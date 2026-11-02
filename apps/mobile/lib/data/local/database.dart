@@ -645,6 +645,53 @@ class AppDatabase {
     );
   }
 
+  static const String pendingFinishedHouseholdsMetaKey =
+      'pending_finished_household_ids';
+
+  /// Retrieves the set of household IDs marked completed locally that are pending server push.
+  Future<Set<String>> getPendingFinishedHouseholdIds() async {
+    final raw = await getMeta(pendingFinishedHouseholdsMetaKey);
+    if (raw == null || raw.trim().isEmpty) return <String>{};
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      return list.map((e) => e.toString()).toSet();
+    } catch (_) {
+      return <String>{};
+    }
+  }
+
+  /// Adds a household ID to the pending finished set.
+  Future<void> addPendingFinishedHouseholdId(String householdId) async {
+    final current = await getPendingFinishedHouseholdIds();
+    current.add(householdId);
+    await setMeta(
+      pendingFinishedHouseholdsMetaKey,
+      jsonEncode(current.toList()),
+    );
+  }
+
+  /// Removes household IDs from the pending finished set (e.g. after acknowledged by server).
+  Future<void> removePendingFinishedHouseholdIds(Iterable<String> ids) async {
+    final current = await getPendingFinishedHouseholdIds();
+    current.removeAll(ids);
+    await setMeta(
+      pendingFinishedHouseholdsMetaKey,
+      jsonEncode(current.toList()),
+    );
+  }
+
+  /// Marks a household completed locally and queues it for sync push.
+  Future<void> markHouseholdCompletedLocally(String householdId) async {
+    await updateHouseholdStatus(householdId, 'completed');
+    await addPendingFinishedHouseholdId(householdId);
+  }
+
+  /// Reverts a locally completed household back to in_progress if server rejects/forbids it.
+  Future<void> revertHouseholdFinish(String householdId) async {
+    await updateHouseholdStatus(householdId, 'in_progress');
+    await removePendingFinishedHouseholdIds([householdId]);
+  }
+
   // --- CLIENTS (SURVEYS) CRUD ---
 
   /// Atomically saves a client survey (Invariant 1).

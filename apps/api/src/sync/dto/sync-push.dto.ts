@@ -84,6 +84,14 @@ export interface SyncRecordResultItem {
   message?: string;
 }
 
+export interface SyncHouseholdResultItem {
+  id: string;
+  status: 'ok' | 'already_finished' | 'forbidden' | 'not_found';
+  code?: string;
+  message?: string;
+}
+
 export interface SyncPushResponse {
   results: SyncRecordResultItem[];
+  finishedHouseholds?: SyncHouseholdResultItem[];
 }

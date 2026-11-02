@@ -314,16 +314,16 @@ class HouseDetailScreen extends ConsumerWidget {
                                 if (confirmed != true) return;
                               }
 
-                              await db.updateHouseholdStatus(
-                                houseId,
-                                'completed',
-                              );
+                              await db.markHouseholdCompletedLocally(houseId);
 
                               try {
                                 final api = ref.read(apiClientProvider);
                                 await api.finishHousehold(houseId);
+                                await db.removePendingFinishedHouseholdIds([
+                                  houseId,
+                                ]);
                               } catch (_) {
-                                // Handled offline or synced on next cycle
+                                // Handled offline or synced on next push batch
                               }
 
                               if (context.mounted) context.pop();

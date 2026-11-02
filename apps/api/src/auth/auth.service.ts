@@ -25,11 +25,11 @@ export type AuthSession = {
 
 export type LoginResult =
   | {
-    mustChangePassword: true;
-    accessToken: string;
-    user: Record<string, any>;
-    profile?: Record<string, any>;
-  }
+      mustChangePassword: true;
+      accessToken: string;
+      user: Record<string, any>;
+      profile?: Record<string, any>;
+    }
   | AuthSession;
 
 @Injectable()
@@ -49,7 +49,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly rateLimitService: RateLimitService,
-  ) { }
+  ) {}
 
   /**
    * Normalizes login identifier (GRS ID -> uppercase, Email -> lowercase).

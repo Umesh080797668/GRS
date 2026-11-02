@@ -911,7 +911,7 @@ describe('Security Vulnerability Fixes Verification', () => {
           },
           '192.168.1.50',
         );
-      } catch (_) { }
+      } catch (_) {}
 
       // Key must include device ID to prevent an attacker from locking out real user
       expect(checkedKeys).toContain('login:id:GRS1000000001:real-user-phone-1');
@@ -955,7 +955,7 @@ describe('Security Vulnerability Fixes Verification', () => {
       );
       expect(mainContent).toContain("import helmet from 'helmet'");
       expect(mainContent).toContain('app.use(helmet())');
-    })
+    });
 
     it('attaches standard security headers when helmet middleware executes', () => {
       const helmet = require('helmet');
@@ -968,9 +968,9 @@ describe('Security Vulnerability Fixes Verification', () => {
         setHeader: (name: string, val: string) => {
           headers[name.toLowerCase()] = val;
         },
-        removeHeader: () => { },
+        removeHeader: () => {},
       };
-      middleware(req, res, () => { });
+      middleware(req, res, () => {});
       expect(headers['x-content-type-options']).toBe('nosniff');
       expect(headers['x-frame-options']).toBe('SAMEORIGIN');
     });

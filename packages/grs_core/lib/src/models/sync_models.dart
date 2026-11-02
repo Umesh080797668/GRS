@@ -139,22 +139,62 @@ class SyncRecordResult {
   };
 }
 
+class SyncHouseholdResult {
+  final String id;
+  final String status; // 'ok' | 'already_finished' | 'forbidden' | 'not_found'
+  final String? code;
+  final String? message;
+
+  const SyncHouseholdResult({
+    required this.id,
+    required this.status,
+    this.code,
+    this.message,
+  });
+
+  bool get isOk => status == 'ok' || status == 'already_finished';
+  bool get isForbidden => status == 'forbidden';
+  bool get isNotFound => status == 'not_found';
+
+  factory SyncHouseholdResult.fromJson(Map<String, dynamic> json) =>
+      SyncHouseholdResult(
+        id: json['id'] as String,
+        status: json['status'] as String,
+        code: json['code'] as String?,
+        message: json['message'] as String?,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'status': status,
+    if (code != null) 'code': code,
+    if (message != null) 'message': message,
+  };
+}
+
 class SyncPushResponse {
   final List<SyncRecordResult> results;
+  final List<SyncHouseholdResult>? finishedHouseholds;
 
-  const SyncPushResponse({required this.results});
+  const SyncPushResponse({required this.results, this.finishedHouseholds});
 
   factory SyncPushResponse.fromJson(Map<String, dynamic> json) {
     final list = json['results'] as List<dynamic>? ?? [];
+    final finishedList = json['finishedHouseholds'] as List<dynamic>?;
     return SyncPushResponse(
       results: list
           .map((r) => SyncRecordResult.fromJson(r as Map<String, dynamic>))
+          .toList(),
+      finishedHouseholds: finishedList
+          ?.map((f) => SyncHouseholdResult.fromJson(f as Map<String, dynamic>))
           .toList(),
     );
   }
 
   Map<String, dynamic> toJson() => {
     'results': results.map((r) => r.toJson()).toList(),
+    if (finishedHouseholds != null)
+      'finishedHouseholds': finishedHouseholds!.map((f) => f.toJson()).toList(),
   };
 }
 
