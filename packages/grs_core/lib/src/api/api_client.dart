@@ -698,7 +698,7 @@ class GrsApiClient {
     _handleError(response);
   }
 
-  /// POST /v1/accounts/bulk - Create bulk team members (M4.3)
+  /// POST /v1/accounts/bulk - Create bulk team members (M4.3 / M5.2)
   Future<Map<String, dynamic>> createBulkAccounts(
     Map<String, dynamic> data,
   ) async {
@@ -717,14 +717,20 @@ class GrsApiClient {
     _handleError(response);
   }
 
-  /// GET /v1/accounts - List team members
+  /// GET /v1/accounts - List team members (M5.2 / M5.5 keyset paged)
   Future<Map<String, dynamic>> getAccounts({
     String? teamId,
     String? role,
+    String? search,
+    int? limit,
+    String? cursor,
   }) async {
     final params = <String, String>{};
     if (teamId != null) params['teamId'] = teamId;
     if (role != null) params['role'] = role;
+    if (search != null) params['search'] = search;
+    if (limit != null) params['limit'] = limit.toString();
+    if (cursor != null) params['cursor'] = cursor;
     final query = Uri(queryParameters: params).query;
     final uri = Uri.parse(
       '$baseUrl/v1/accounts${query.isNotEmpty ? '?$query' : ''}',
@@ -793,6 +799,209 @@ class GrsApiClient {
         headers: _headers(authenticated: true),
         body: jsonEncode(data),
       ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// POST /v1/clients - Direct data entry online (M5.8)
+  Future<Map<String, dynamic>> createClient(Map<String, dynamic> data) async {
+    final uri = Uri.parse('$baseUrl/v1/clients');
+    final response = await _sendWithAuthRetry(
+      () => _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode(data),
+      ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// PATCH /v1/accounts/:id/reactivate - Reactivate an account (M5.2)
+  Future<void> reactivateAccount(String targetId) async {
+    final uri = Uri.parse('$baseUrl/v1/accounts/$targetId/reactivate');
+    final response = await _sendWithAuthRetry(
+      () => _client.patch(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+    _handleError(response);
+  }
+
+  /// POST /v1/accounts/:id/reset-password - Reset password (M5.2)
+  Future<Map<String, dynamic>> resetAccountPassword(String targetId) async {
+    final uri = Uri.parse('$baseUrl/v1/accounts/$targetId/reset-password');
+    final response = await _sendWithAuthRetry(
+      () => _client.post(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// POST /v1/accounts/:id/reissue-password - Reissue password (M5.2)
+  Future<Map<String, dynamic>> reissueAccountPassword(String targetId) async {
+    final uri = Uri.parse('$baseUrl/v1/accounts/$targetId/reissue-password');
+    final response = await _sendWithAuthRetry(
+      () => _client.post(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// POST /v1/accounts/batches/:id/reissue - Reissue whole batch (M5.2)
+  Future<Map<String, dynamic>> reissueBatch(String batchId) async {
+    final uri = Uri.parse('$baseUrl/v1/accounts/batches/$batchId/reissue');
+    final response = await _sendWithAuthRetry(
+      () => _client.post(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// GET /v1/areas/districts - List all 25 districts (M5.3)
+  Future<List<dynamic>> getDistricts() async {
+    final uri = Uri.parse('$baseUrl/v1/areas/districts');
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as List<dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// GET /v1/areas/ds - List DS divisions (M5.3)
+  Future<List<dynamic>> getDsDivisions({String? districtId}) async {
+    final params = <String, String>{};
+    if (districtId != null) params['districtId'] = districtId;
+    final query = Uri(queryParameters: params).query;
+    final uri = Uri.parse(
+      '$baseUrl/v1/areas/ds${query.isNotEmpty ? '?$query' : ''}',
+    );
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as List<dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// GET /v1/areas/gn - List GN divisions (M5.3)
+  Future<List<dynamic>> getGnDivisions({String? dsId}) async {
+    final params = <String, String>{};
+    if (dsId != null) params['dsId'] = dsId;
+    final query = Uri(queryParameters: params).query;
+    final uri = Uri.parse(
+      '$baseUrl/v1/areas/gn${query.isNotEmpty ? '?$query' : ''}',
+    );
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as List<dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// GET /v1/areas/teams - List teams (M5.3)
+  Future<List<dynamic>> getTeams({String? gnId}) async {
+    final params = <String, String>{};
+    if (gnId != null) params['gnId'] = gnId;
+    final query = Uri(queryParameters: params).query;
+    final uri = Uri.parse(
+      '$baseUrl/v1/areas/teams${query.isNotEmpty ? '?$query' : ''}',
+    );
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as List<dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// PATCH /v1/areas/teams/:id - Update team member limit or leader (M5.3)
+  Future<Map<String, dynamic>> updateTeam(
+    String teamId, {
+    int? maxMembers,
+    String? leaderId,
+  }) async {
+    final uri = Uri.parse('$baseUrl/v1/areas/teams/$teamId');
+    final payload = <String, dynamic>{};
+    if (maxMembers != null) payload['maxMembers'] = maxMembers;
+    if (leaderId != null) payload['leaderId'] = leaderId;
+
+    final response = await _sendWithAuthRetry(
+      () => _client.patch(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode(payload),
+      ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// POST /v1/areas/import-csv - Import pilot area CSV (M5.3)
+  Future<Map<String, dynamic>> importPilotAreaCsv(
+    String csvContent, {
+    bool dryRun = false,
+  }) async {
+    final uri = Uri.parse('$baseUrl/v1/areas/import-csv');
+    final response = await _sendWithAuthRetry(
+      () => _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode({'csvContent': csvContent, 'dryRun': dryRun}),
+      ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// GET /v1/stats/progress - Get progress summary & area breakdown (M5.6 & M5.7)
+  Future<Map<String, dynamic>> getProgressStats({
+    String? areaType,
+    String? areaId,
+  }) async {
+    final params = <String, String>{};
+    if (areaType != null) params['areaType'] = areaType;
+    if (areaId != null) params['areaId'] = areaId;
+    final query = Uri(queryParameters: params).query;
+    final uri = Uri.parse(
+      '$baseUrl/v1/stats/progress${query.isNotEmpty ? '?$query' : ''}',
+    );
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {

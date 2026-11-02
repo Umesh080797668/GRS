@@ -15,13 +15,19 @@ echo "Running NestJS Unit Tests..."
 npm test
 cd ../..
 
-# 2. Dart & Flutter Checks
+# 2. Next.js Web Dashboard Checks
 echo ""
-echo "--- [2/3] Running Dart & Flutter Quality Gates ---"
-echo "Checking Dart formatting..."
-dart format --output=none --set-exit-if-changed packages/grs_core packages/grs_ui apps/mobile apps/dashboard
+echo "--- [2/4] Running Next.js Web Dashboard Quality Gates ---"
+echo "Building and validating Next.js Web Dashboard (apps/dashboard)..."
+(cd apps/dashboard && pnpm build)
 
-for pkg in packages/grs_core packages/grs_ui apps/mobile apps/dashboard; do
+# 3. Dart & Flutter Checks (Mobile & Packages)
+echo ""
+echo "--- [3/4] Running Dart & Flutter Quality Gates (Mobile & Shared Packages) ---"
+echo "Checking Dart formatting..."
+dart format --output=none --set-exit-if-changed packages/grs_core packages/grs_ui apps/mobile
+
+for pkg in packages/grs_core packages/grs_ui apps/mobile; do
   echo "Analyzing $pkg..."
   (cd "$pkg" && flutter analyze)
   echo "Testing $pkg..."
@@ -31,9 +37,10 @@ done
 echo "Verifying trilingual l10n parity (M2.3 CI Check: every string has all 3 keys)..."
 (cd apps/mobile && flutter test test/l10n_test.dart)
 
-# 3. Security Invariant Checks
+# 4. Security Invariant Checks
 echo ""
-echo "--- [3/3] Running Security Invariant Checks ---"
+echo "--- [4/5] Running Security Invariant Checks ---"
+
 if [ -f "apps/mobile/android/app/src/main/AndroidManifest.xml" ]; then
   echo "Checking Android Manifest permissions (Invariant 7)..."
   DISALLOWED=$(grep "uses-permission" apps/mobile/android/app/src/main/AndroidManifest.xml | \
@@ -56,10 +63,11 @@ if [ -n "$LEAKS" ]; then
 fi
 echo "Secret scan passed: No service-role key in client codebase."
 
-# 4. Traceability Coverage Check (M1.9)
+# 5. Traceability Coverage Check (M1.9)
 echo ""
-echo "--- [4/4] Running Traceability 5-Layer Coverage Check ---"
+echo "--- [5/5] Running Traceability 5-Layer Coverage Check ---"
 node scripts/check_traceability.cjs
+
 
 echo ""
 echo "===================================================="

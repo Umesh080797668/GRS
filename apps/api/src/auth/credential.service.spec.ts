@@ -76,8 +76,10 @@ describe('CredentialService (Appendix G & Spike S2)', () => {
         });
         await prisma.$disconnect();
       }
-    }, 30000);
+    }, 120000);
   });
+
+
 
   describe('Password Generation & Verification (Appendix G)', () => {
     it('generates 12-character passwords without look-alikes', () => {

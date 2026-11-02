@@ -35,10 +35,10 @@ export async function createNestServer(server: Express) {
   const allowedOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
     : [
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'http://localhost:8080',
-      ];
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:8080',
+    ];
 
   app.enableCors({
     origin: (
@@ -48,11 +48,13 @@ export async function createNestServer(server: Express) {
       if (
         !origin ||
         allowedOrigins.includes(origin) ||
+        origin.endsWith('.pages.dev') ||
+        origin.endsWith('.vercel.app') ||
         process.env.NODE_ENV !== 'production'
       ) {
         callback(null, true);
       } else {
-        callback(new Error('Blocked by CORS policy'));
+        callback(null, false);
       }
     },
     credentials: true,

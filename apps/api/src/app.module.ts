@@ -17,6 +17,7 @@ import { JobsModule } from './jobs/jobs.module';
 import { SyncModule } from './sync/sync.module';
 import { HouseholdModule } from './households/household.module';
 import { ClientModule } from './clients/client.module';
+import { StatsModule } from './stats/stats.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { ClientModule } from './clients/client.module';
     SyncModule,
     HouseholdModule,
     ClientModule,
+    StatsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -47,4 +49,4 @@ import { ClientModule } from './clients/client.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

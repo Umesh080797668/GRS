@@ -6,6 +6,7 @@ class AppConfigModel {
   final String lookupVersion;
   final int syncJitterMaxS;
   final int syncBatchMax;
+  final List<String> webEntryRoles;
 
   const AppConfigModel({
     required this.minSupportedVersion,
@@ -14,32 +15,58 @@ class AppConfigModel {
     required this.lookupVersion,
     required this.syncJitterMaxS,
     required this.syncBatchMax,
+    this.webEntryRoles = const ['admin', 'cg', 'dc', 'sda', 'cdc_secretary'],
   });
 
-  factory AppConfigModel.fromJson(Map<String, dynamic> json) => AppConfigModel(
-    minSupportedVersion:
-        json['min_supported_version'] as String? ??
-        json['minSupportedVersion'] as String? ??
-        '1.0.0',
-    agentCanEditSynced:
-        json['agent_can_edit_synced'] as bool? ??
-        json['agentCanEditSynced'] as bool? ??
-        false,
-    consentVersion:
-        json['consent_version'] as String? ??
-        json['consentVersion'] as String? ??
-        'consent.v0',
-    lookupVersion:
-        json['lookup_version'] as String? ??
-        json['lookupVersion'] as String? ??
-        'v1',
-    syncJitterMaxS:
-        json['sync_jitter_max_s'] as int? ??
-        json['syncJitterMaxS'] as int? ??
-        30,
-    syncBatchMax:
-        json['sync_batch_max'] as int? ?? json['syncBatchMax'] as int? ?? 50,
-  );
+  factory AppConfigModel.fromJson(Map<String, dynamic> json) {
+    List<String> parseRoles() {
+      if (json['web_entry_roles'] is List) {
+        return (json['web_entry_roles'] as List)
+            .map((e) => e.toString())
+            .toList();
+      }
+      if (json['webEntryRoles'] is List) {
+        return (json['webEntryRoles'] as List)
+            .map((e) => e.toString())
+            .toList();
+      }
+      final features = json['features'];
+      if (features is Map<String, dynamic> &&
+          features['web_entry_roles'] is List) {
+        return (features['web_entry_roles'] as List)
+            .map((e) => e.toString())
+            .toList();
+      }
+      // Decision C19: Level 00 (super_admin) is off by default
+      return const ['admin', 'cg', 'dc', 'sda', 'cdc_secretary'];
+    }
+
+    return AppConfigModel(
+      minSupportedVersion:
+          json['min_supported_version'] as String? ??
+          json['minSupportedVersion'] as String? ??
+          '1.0.0',
+      agentCanEditSynced:
+          json['agent_can_edit_synced'] as bool? ??
+          json['agentCanEditSynced'] as bool? ??
+          false,
+      consentVersion:
+          json['consent_version'] as String? ??
+          json['consentVersion'] as String? ??
+          'consent.v0',
+      lookupVersion:
+          json['lookup_version'] as String? ??
+          json['lookupVersion'] as String? ??
+          'v1',
+      syncJitterMaxS:
+          json['sync_jitter_max_s'] as int? ??
+          json['syncJitterMaxS'] as int? ??
+          30,
+      syncBatchMax:
+          json['sync_batch_max'] as int? ?? json['syncBatchMax'] as int? ?? 50,
+      webEntryRoles: parseRoles(),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     'min_supported_version': minSupportedVersion,
@@ -48,6 +75,7 @@ class AppConfigModel {
     'lookup_version': lookupVersion,
     'sync_jitter_max_s': syncJitterMaxS,
     'sync_batch_max': syncBatchMax,
+    'web_entry_roles': webEntryRoles,
   };
 }
 

@@ -194,8 +194,9 @@ export class HouseholdService {
 
           return household;
         },
-        { maxWait: 10000, timeout: 30000 },
+        { maxWait: 20000, timeout: 60000 },
       );
+
     } catch (err: any) {
       if (err instanceof ConflictException) throw err;
       if (

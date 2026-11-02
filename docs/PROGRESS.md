@@ -148,4 +148,42 @@ This document records the exact status and verification evidence for every task 
   - `flutter analyze lib` reports 0 issues in `apps/mobile`.
 - **Phase Transition:** Milestone 4 (Level 4 Features & Pilot Readiness) is formally signed off and complete. The mobile application and backend services are fully pilot-ready for CDC Secretary (Level 4) and Enumerator (Level 5) field deployment. Ready to proceed with **Milestone 5 — District & National Dashboards (Phase 5)**.
 
+---
+
+## Milestone 5 — District & National Web Dashboard (Phase 5)
+
+| Task | Title | Status | Date | Evidence / Command Output |
+| --- | --- | --- | --- | --- |
+| **M5.1** | Dashboard shell, login by ID or email, trilingual switch (EN, SI, TA), role-based navigation, first sign-in flow | Done | 2026-11-02 | Migrated from Flutter to modern Next.js 16 (React 19, TypeScript, App Router, Vanilla CSS) for Cloudflare Pages static export. `src/components/Shell.tsx`, `src/app/login/page.tsx`, `src/app/first-sign-in/page.tsx`, & `src/lib/translations.ts`: Modern civic dashboard with collapsible sidebar, route indicators, trilingual switcher (English, Sinhala, Tamil with 100% key parity), and role-based route guards (`UserRole` scoped navigation for `super_admin`, `admin`, `cg`, `dc`, `sda`, `cdc_secretary`). Supports login with User Code or Email; forces temporary password replacement on first sign-in (`mustChangePassword` redirects to `/first-sign-in`). Fully responsive desktop and tablet layout. |
+| **M5.2** | User management: single & bulk creation (≤100 chunked), in-browser credential sheet & slips, formula injection defense | Done | 2026-11-02 | `src/app/users/page.tsx`, `src/components/PrintableSlipsModal.tsx`, `src/lib/api.ts`, & `src/lib/utils.ts`: Single account creation (`POST /v1/accounts`) and chunked bulk creation (automatically splitting requests into chunks of ≤ 100 via `POST /v1/accounts/bulk`). Temporary passwords displayed once in the browser; never stored in plaintext on server or persistent client storage. In-browser credential slip printing (`@media print`) and safe CSV export. Formula-injection defense strictly implemented: cells starting with `=`, `+`, `-`, or `@` are escaped with a leading single quote (`'`), neutralizing spreadsheet formula execution. Deactivation, reactivation, and password reset flows with immediate UI refresh and team member limit enforcement. |
+| **M5.3** | Areas & teams management hierarchy and pilot CSV import | Done | 2026-11-02 | `src/app/areas/page.tsx` & `src/lib/api.ts`: Multi-level geographic drill-down (Districts → DS Divisions → GN Divisions → Field Teams). Supports bulk pilot area import via CSV (`district,ds_division,gn_division,gn_number,initial_teams`) creating administrative hierarchies and initializing teams. Team member limit configuration and active capacity indicators prevent team over-allocation. |
+| **M5.4** | Excel/CSV household import: template download, drag-and-drop file upload with 4.5 MB cap, row errors & valid-only commit | Done | 2026-11-02 | `src/app/import/page.tsx`, `src/lib/utils.ts`, & `src/lib/api.ts`: Official Excel/CSV template download with Sinhala, Tamil, and English sample rows. Drag-and-drop file upload enforcing strict 4.5 MB maximum hosting upload cap. In-browser client-side file parsing (supporting both CSV and XLSX via SheetJS). Rigorous row-level validation detecting blank rows, missing household head names, duplicate house numbers within the GN division, and wrong column headers. Allows valid-rows-only commit to the API while generating a downloadable sanitized error report CSV identifying each failing row number and error reason. |
+| **M5.5** | Records tables: area-filtered, keyset paged (NO OFFSET), supervisor audit corrections | Done | 2026-11-02 | `src/app/records/page.tsx` & `src/lib/api.ts`: Keyset-paged survey response inspection table with search (NIC, phone, name, house no) and filters (beneficiary categories, gender). Keyset cursor-based pagination (no SQL `OFFSET` anywhere across the codebase per Invariant 14 and performance standards). Supervisor audit correction workflow (`PATCH /v1/clients/:id`): requires a non-empty, mandatory audit reason for any correction; creates an immutable audit log entry recording previous values, updated values, timestamp, and editor user ID. |
+| **M5.6** | Progress dashboard from `team_stats`/`area_stats` with `refreshed_at` timestamp | Done | 2026-11-02 | `src/app/progress/page.tsx` & `src/components/KPICard.tsx`: Real-time aggregated campaign progress metrics (Assigned Houses, Started Houses, Completed Houses, Completion Rate %, Persons Surveyed, Beneficiary counts) scoped hierarchically by caller role (`super_admin` national, `dc` district, `sda` divisional, `cdc_secretary` GN level). Backed by high-performance SQL queries reading directly from materialized aggregation tables matching exact SQL counts; displays `refreshed_at` ISO-8601 timestamp with manual on-demand refresh trigger. |
+| **M5.7** | Sync health monitoring (teams with unsynced data) | Done | 2026-11-02 | `src/app/progress/page.tsx` & `src/lib/api.ts`: Dedicated Sync Health monitor tracking teams with dirty, unaggregated, or unsynced data via `teams.stats_dirty_at`. Prominently highlights dirty team counts with visual alert badges and guides supervisory outreach for field teams requiring sync assistance. |
+| **M5.8** | Admin data entry with client form validation and `web_entry_roles` gating (Decision C19) | Done | 2026-11-02 | `src/app/data-entry/page.tsx` & `src/lib/api.ts`: Online-only direct administrative survey entry implementing identical validation rules as the mobile app (Forms DD/S/001 & DD/S/002). Dynamically gated by `web_entry_roles` from `/v1/config`. Enforces Decision C19: Level 00 (`super_admin`) is strictly disabled by default to prevent administrative distortion while allowing designated admin and divisional roles to enter data when authorized, with dynamic runtime toggle for super administrators. |
+
+### Milestone 5 Completion & Sign-Off Summary
+- **Status:** **100% COMPLETE (8/8 tasks DONE)** as of 2026-11-02.
+- **Frontend Architecture Migration:**
+  - Migrated `apps/dashboard` from Flutter to modern **Next.js 16 (React 19, TypeScript, App Router, Vanilla CSS)**.
+  - Configured static export (`output: 'export'` in `next.config.ts`) targeting output directory `apps/dashboard/out` for zero-server Cloudflare Pages deployment.
+  - SPA client-side deep-link routing enabled via `public/_redirects` (`/* /index.html 200`).
+  - Production security headers and asset caching configured via `public/_headers`.
+  - Backend CORS (`apps/api/src/main.ts`) updated to allow `*.pages.dev` and `*.vercel.app` origins with credentials.
+- **Quality Gates Evidence:**
+  - Production static export succeeds with 0 errors (`next build` generates 12 static HTML/assets routes in `apps/dashboard/out`).
+  - 581/581 tests passing in `apps/api` for role matrix and stats service (`apps/api/src/stats/stats.service.spec.ts`, `apps/api/src/jobs/stats-refresh.service.spec.ts`, and `apps/api/src/auth/role-matrix.spec.ts`).
+  - 30/30 unit tests passing in `packages/grs_core`.
+  - 9/9 design system tests passing in `packages/grs_ui`.
+  - 73/73 mobile tests passing in `apps/mobile`.
+  - `flutter analyze` reports 0 issues across mobile and packages.
+  - `dart format` clean across all Dart files in the workspace.
+  - Secret scanning: 0 secret leaks found (no service role keys in client code).
+  - Android permissions verified (strictly `INTERNET` and `ACCESS_NETWORK_STATE` only).
+  - Traceability 100% verified across 47 fields and all 5 layers (`node scripts/check_traceability.cjs`).
+  - Local CI runner (`scripts/ci.sh`) updated and passing with 5 quality gates.
+- **Phase Transition:** Milestone 5 (District & National Web Dashboard) is formally signed off and complete. Ready to proceed with **Milestone 6 — Hardening, Staging Verification, & Go-Live (Phase 6)**.
+
+
 
