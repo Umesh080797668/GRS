@@ -8,7 +8,7 @@ import { api } from '../../lib/api';
 import { KeyRound, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function FirstSignInPage() {
-  const [oldPassword, setOldPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +19,7 @@ export default function FirstSignInPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!oldPassword || !newPassword || !confirmPassword) {
+    if (!currentPassword || !newPassword || !confirmPassword) {
       setError('All fields are required.');
       return;
     }
@@ -34,7 +34,7 @@ export default function FirstSignInPage() {
       return;
     }
 
-    if (newPassword === oldPassword) {
+    if (newPassword === currentPassword) {
       setError('New password must differ from your current temporary password.');
       return;
     }
@@ -42,7 +42,7 @@ export default function FirstSignInPage() {
     setError(null);
     setLoading(true);
     try {
-      await api.changePassword(oldPassword, newPassword);
+      await api.changePassword(currentPassword, newPassword);
       refreshUser();
       router.replace('/progress');
     } catch (err: any) {
@@ -125,8 +125,8 @@ export default function FirstSignInPage() {
             <input
               type="password"
               className="input-field"
-              value={oldPassword}
-              onChange={(e) => setOldPassword(e.target.value)}
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
               placeholder="••••••••"
               required
             />

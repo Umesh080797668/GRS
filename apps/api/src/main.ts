@@ -64,6 +64,7 @@ export async function createNestServer(server: Express) {
       'Authorization',
       'X-App-Version',
       'X-Device-ID',
+      'X-Client-Type',
     ],
   });
 

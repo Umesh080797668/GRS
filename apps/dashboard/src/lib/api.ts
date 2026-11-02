@@ -74,6 +74,7 @@ export class ApiClient {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
+      'X-Client-Type': 'web',
       ...((options.headers as Record<string, string>) || {}),
     };
 
@@ -124,17 +125,13 @@ export class ApiClient {
     return data;
   }
 
-  async changePassword(oldPassword: string, newPassword: string): Promise<void> {
-    await this.request('/v1/auth/change-password', {
+  async changePassword(currentPassword: string, newPassword: string): Promise<SessionTokens> {
+    const data = await this.request<SessionTokens>('/v1/auth/change-password', {
       method: 'POST',
-      body: JSON.stringify({ oldPassword, newPassword }),
+      body: JSON.stringify({ currentPassword, newPassword }),
     });
-    // Mark mustChangePassword as false
-    const u = this.getStoredUser();
-    if (u) {
-      u.mustChangePassword = false;
-      localStorage.setItem('grs_user', JSON.stringify(u));
-    }
+    this.saveSession(data);
+    return data;
   }
 
   async refreshSession(): Promise<boolean> {
@@ -143,7 +140,10 @@ export class ApiClient {
     try {
       const res = await fetch(`${this.baseUrl}/v1/auth/refresh`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Client-Type': 'web',
+        },
         body: JSON.stringify({ refreshToken: rt }),
       });
       if (res.ok) {
@@ -228,13 +228,13 @@ export class ApiClient {
 
   async getDsDivisions(districtId?: string): Promise<any[]> {
     const p = districtId ? `?districtId=${districtId}` : '';
-    const res = await this.request(`/v1/areas/ds-divisions${p}`);
+    const res = await this.request(`/v1/areas/ds${p}`);
     return Array.isArray(res) ? res : res.items || [];
   }
 
   async getGnDivisions(dsId?: string): Promise<any[]> {
     const p = dsId ? `?dsId=${dsId}` : '';
-    const res = await this.request(`/v1/areas/gn-divisions${p}`);
+    const res = await this.request(`/v1/areas/gn${p}`);
     return Array.isArray(res) ? res : res.items || [];
   }
 
@@ -244,17 +244,26 @@ export class ApiClient {
     return Array.isArray(res) ? res : res.items || [];
   }
 
-  async updateTeam(id: string, data: { name?: string; memberLimit?: number }): Promise<any> {
-    return this.request(`/v1/teams/${id}`, {
+  async updateTeam(id: string, data: { maxMembers?: number; memberLimit?: number; leaderId?: string }): Promise<any> {
+    const payload: { maxMembers?: number; leaderId?: string } = {};
+    if (data.maxMembers !== undefined) {
+      payload.maxMembers = data.maxMembers;
+    } else if (data.memberLimit !== undefined) {
+      payload.maxMembers = data.memberLimit;
+    }
+    if (data.leaderId !== undefined) {
+      payload.leaderId = data.leaderId;
+    }
+    return this.request(`/v1/areas/teams/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
   }
 
-  async importPilotAreaCsv(csvContent: string): Promise<any> {
-    return this.request('/v1/areas/pilot/import', {
+  async importPilotAreaCsv(csvContent: string, dryRun: boolean = false): Promise<any> {
+    return this.request('/v1/areas/import-csv', {
       method: 'POST',
-      body: JSON.stringify({ csvContent }),
+      body: JSON.stringify({ csvContent, dryRun }),
     });
   }
 
@@ -303,9 +312,10 @@ export class ApiClient {
   }
 
   async updateClient(id: string, data: any, reason: string): Promise<any> {
+    const { auditReason: _omit, ...rest } = data;
     return this.request(`/v1/clients/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ ...data, correctionReason: reason, auditReason: reason }),
+      body: JSON.stringify({ ...rest, correctionReason: reason }),
     });
   }
 }

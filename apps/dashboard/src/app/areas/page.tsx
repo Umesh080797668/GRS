@@ -115,7 +115,7 @@ export default function AreasPage() {
   const handleSaveTeamLimit = async () => {
     if (!editingTeam) return;
     try {
-      await api.updateTeam(editingTeam.id, { memberLimit: Number(newTeamLimit) });
+      await api.updateTeam(editingTeam.id, { maxMembers: Number(newTeamLimit) });
       setEditingTeam(null);
       loadTeams(selectedGnId);
     } catch (err: any) {
