@@ -589,6 +589,66 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       expect(lastCallArgs.skip).toBe(1);
     });
 
+    it('getHouseholds: pages correctly across 250 houses with limit 100, preserving rows at positions 101 and 201', async () => {
+      const all250Houses = Array.from({ length: 250 }, (_, i) => {
+        const pad = String(i + 1).padStart(3, '0');
+        return {
+          id: `house-${pad}`,
+          serialNo: i + 1,
+          houseNo: `H-${pad}`,
+          houseLeaderName: `Leader ${pad}`,
+          villageName: `Village ${pad}`,
+          teamId: null,
+          gnId: mockGnId,
+          version: 1,
+          updatedAt: new Date(),
+        };
+      });
+
+      mockPrisma.household.findMany.mockImplementation((args: any) => {
+        let startIndex = 0;
+        if (args.cursor) {
+          const cursorIndex = all250Houses.findIndex(
+            (h) => h.id === args.cursor.id,
+          );
+          expect(cursorIndex).toBeGreaterThanOrEqual(0);
+          startIndex = cursorIndex + (args.skip ?? 0);
+        }
+        return Promise.resolve(
+          all250Houses.slice(startIndex, startIndex + args.take),
+        );
+      });
+      mockPrisma.household.count.mockResolvedValue(250);
+
+      const collectedIds: string[] = [];
+      let currentCursor: string | undefined = undefined;
+      let pages = 0;
+
+      do {
+        pages++;
+        const res = await service.getHouseholds(superAdminScope, {
+          limit: 100,
+          cursor: currentCursor,
+        });
+
+        for (const h of res.households) {
+          collectedIds.push(h.id);
+        }
+
+        currentCursor = res.nextCursor;
+      } while (currentCursor);
+
+      expect(pages).toBe(3);
+      expect(collectedIds.length).toBe(250);
+      expect(new Set(collectedIds).size).toBe(250);
+
+      // Verify that positions 101 and 201 are quietly NOT lost!
+      expect(collectedIds[99]).toBe('house-100');
+      expect(collectedIds[100]).toBe('house-101');
+      expect(collectedIds[199]).toBe('house-200');
+      expect(collectedIds[200]).toBe('house-201');
+    });
+
     it('getHouseholds: prevents search probing of masked house leaders by CDC Secretary', async () => {
       const findManySpy = jest.spyOn(mockPrisma.household, 'findMany');
 
@@ -620,8 +680,41 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       expect(scopeFilter.OR).toEqual([
         { teamId: mockTeamId },
         { teamId: null },
-        { createdBy: 'user-cdc-sec' },
       ]);
+    });
+
+    it('getHouseholds: CDC Secretary without teamId can only match leader name on unassigned houses', async () => {
+      const findManySpy = jest.spyOn(mockPrisma.household, 'findMany');
+      const secNoTeamScope: ScopeContext = {
+        userId: 'sec-no-team-1',
+        role: UserRole.cdc_secretary,
+        gnId: mockGnId,
+        teamId: null,
+      };
+
+      await service.getHouseholds(secNoTeamScope, {
+        search: 'Silva',
+        limit: 20,
+      });
+
+      expect(findManySpy).toHaveBeenCalled();
+      const lastCallArgs = findManySpy.mock.calls[
+        findManySpy.mock.calls.length - 1
+      ][0] as any;
+      const where = lastCallArgs.where;
+
+      const leaderCondition = where.OR.find(
+        (cond: any) =>
+          cond.AND &&
+          cond.AND.some((c: any) => c.houseLeaderName !== undefined),
+      );
+      expect(leaderCondition).toBeDefined();
+      expect(leaderCondition.AND[0].houseLeaderName).toEqual({
+        contains: 'Silva',
+        mode: 'insensitive',
+      });
+      const scopeFilter = leaderCondition.AND[1];
+      expect(scopeFilter.OR).toEqual([{ teamId: null }]);
     });
   });
 });

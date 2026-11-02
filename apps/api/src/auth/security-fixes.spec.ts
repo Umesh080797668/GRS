@@ -606,6 +606,131 @@ describe('Security Vulnerability Fixes Verification', () => {
       const result = await guard.canActivate(mockContext);
       expect(result).toBe(true);
     });
+
+    it('rejects outdated X-App-Version even if X-Client-Type: web header is sent', async () => {
+      const mockConfigService = {
+        getConfig: jest.fn().mockResolvedValue({
+          minSupportedVersion: '1.0.0',
+        }),
+        compareSemver: jest.fn().mockReturnValue(-1),
+      };
+      const { VersionGateGuard } = require('../config/version-gate.guard');
+      const guard = new VersionGateGuard(mockConfigService);
+
+      const mockContext = {
+        switchToHttp: () => ({
+          getRequest: () => ({
+            url: '/v1/households',
+            path: '/v1/households',
+            headers: {
+              'x-client-type': 'web',
+              'x-app-version': '0.9.0',
+            },
+          }),
+        }),
+      };
+
+      await expect(guard.canActivate(mockContext)).rejects.toMatchObject({
+        status: 426,
+      });
+    });
+
+    it('rejects missing X-App-Version on mobile sync endpoint even if X-Client-Type: web is sent', async () => {
+      const mockConfigService = {
+        getConfig: jest.fn().mockResolvedValue({
+          minSupportedVersion: '1.0.0',
+        }),
+        compareSemver: jest.fn(),
+      };
+      const { VersionGateGuard } = require('../config/version-gate.guard');
+      const guard = new VersionGateGuard(mockConfigService);
+
+      const mockContext = {
+        switchToHttp: () => ({
+          getRequest: () => ({
+            url: '/v1/sync/changes',
+            path: '/v1/sync/changes',
+            headers: { 'x-client-type': 'web' },
+          }),
+        }),
+      };
+
+      await expect(guard.canActivate(mockContext)).rejects.toMatchObject({
+        status: 426,
+      });
+    });
+
+    it('rejects missing X-App-Version when caller is a mobile role (team_member or cdc_secretary) even if X-Client-Type: web is sent', async () => {
+      const mockConfigService = {
+        getConfig: jest.fn().mockResolvedValue({
+          minSupportedVersion: '1.0.0',
+        }),
+        compareSemver: jest.fn(),
+      };
+      const { VersionGateGuard } = require('../config/version-gate.guard');
+      const guard = new VersionGateGuard(mockConfigService);
+
+      // Create a mobile role JWT payload
+      const payloadBase64 = Buffer.from(
+        JSON.stringify({ sub: 'user-1', role: 'team_member' }),
+      ).toString('base64');
+      const mockToken = `header.${payloadBase64}.signature`;
+
+      const mockContext = {
+        switchToHttp: () => ({
+          getRequest: () => ({
+            url: '/v1/households',
+            path: '/v1/households',
+            headers: {
+              'x-client-type': 'web',
+              authorization: `Bearer ${mockToken}`,
+            },
+          }),
+        }),
+      };
+
+      await expect(guard.canActivate(mockContext)).rejects.toMatchObject({
+        status: 426,
+      });
+    });
+
+    it('rejects requests relying on removed spoofable headers (x-client-channel: web, sec-fetch-dest: document)', async () => {
+      const mockConfigService = {
+        getConfig: jest.fn().mockResolvedValue({
+          minSupportedVersion: '1.0.0',
+        }),
+        compareSemver: jest.fn(),
+      };
+      const { VersionGateGuard } = require('../config/version-gate.guard');
+      const guard = new VersionGateGuard(mockConfigService);
+
+      const mockContext1 = {
+        switchToHttp: () => ({
+          getRequest: () => ({
+            url: '/v1/households',
+            path: '/v1/households',
+            headers: { 'x-client-channel': 'web' },
+          }),
+        }),
+      };
+
+      const mockContext2 = {
+        switchToHttp: () => ({
+          getRequest: () => ({
+            url: '/v1/households',
+            path: '/v1/households',
+            headers: { 'sec-fetch-dest': 'document' },
+          }),
+        }),
+      };
+
+      await expect(guard.canActivate(mockContext1)).rejects.toMatchObject({
+        status: 426,
+      });
+      await expect(guard.canActivate(mockContext2)).rejects.toMatchObject({
+        status: 426,
+      });
+    });
   });
 
   describe('8. Login Rate Limiting (auth.service.ts)', () => {

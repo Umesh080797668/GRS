@@ -13,7 +13,7 @@ export interface CategorizedLookups {
 export class LookupService implements OnModuleInit {
   private cachedVersion: string = '';
 
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
     this.cachedVersion = this.computeStaticVersion(CANONICAL_LOOKUPS);

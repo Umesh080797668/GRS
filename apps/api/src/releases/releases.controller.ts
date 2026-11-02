@@ -15,6 +15,7 @@ import {
 import type { Response, Request } from 'express';
 import { ReleasesService } from './releases.service';
 import { ReleaseManifest } from './release-manifest.interface';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   IsNotEmpty,
   IsString,
@@ -86,6 +87,7 @@ export class ReleasesController {
 
   constructor(
     private readonly releasesService: ReleasesService,
+    private readonly prisma: PrismaService,
     @Optional() private readonly jwtService?: JwtService,
   ) { }
 
@@ -94,7 +96,7 @@ export class ReleasesController {
    * 1. CI automation providing matching non-empty X-Release-Secret header, OR
    * 2. Authenticated user with super_admin role via valid JWT Bearer token.
    */
-  private verifyPublisher(req: Request): void {
+  private async verifyPublisher(req: Request): Promise<void> {
     const releaseSecret = process.env.RELEASE_SECRET;
     const providedSecret = req.headers['x-release-secret'];
 
@@ -148,6 +150,41 @@ export class ReleasesController {
       });
     }
 
+    if (this.prisma && this.prisma.profile) {
+      const profile = await this.prisma.profile.findUnique({
+        where: { id: payload.sub },
+        select: {
+          id: true,
+          role: true,
+          isActive: true,
+          tokenVersion: true,
+        },
+      });
+
+      if (!profile || !profile.isActive) {
+        throw new UnauthorizedException({
+          code: 'ACCOUNT_DEACTIVATED',
+          message_key: 'errors.auth.deactivated',
+          message: 'Account is deactivated',
+        });
+      }
+
+      if (profile.tokenVersion !== payload.tokenVersion) {
+        throw new UnauthorizedException({
+          code: 'AUTH_INVALID',
+          message_key: 'errors.auth.session_revoked',
+          message: 'Session has been revoked',
+        });
+      }
+
+      if (profile.role !== UserRole.super_admin) {
+        throw new ForbiddenException({
+          code: 'FORBIDDEN_SCOPE',
+          message: 'Only super_admin can publish or sync app releases',
+        });
+      }
+    }
+
     (req as any).user = payload;
   }
 
@@ -199,7 +236,7 @@ export class ReleasesController {
   async syncReleases(
     @Req() req: Request,
   ): Promise<{ message: string; release: ReleaseManifest | null }> {
-    this.verifyPublisher(req);
+    await this.verifyPublisher(req);
 
     const release = await this.releasesService.syncFromGitHub();
     return {
@@ -274,7 +311,7 @@ export class ReleasesController {
     @Body() dto: CreateReleaseDto,
     @Req() req: Request,
   ): Promise<ReleaseManifest> {
-    this.verifyPublisher(req);
+    await this.verifyPublisher(req);
 
     return this.releasesService.createRelease(dto);
   }

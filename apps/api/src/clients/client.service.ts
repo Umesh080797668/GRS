@@ -144,8 +144,8 @@ export class ClientService {
 
     let nextCursor: string | undefined;
     if (clients.length > limit) {
-      const nextItem = clients.pop();
-      nextCursor = nextItem?.id;
+      clients.pop();
+      nextCursor = clients[clients.length - 1]?.id;
     }
 
     return {

@@ -257,20 +257,14 @@ export class HouseholdService {
 
     if (query.search) {
       const search = query.search.trim();
-      const callerTeamFilter = caller.teamId
-        ? [{ teamId: caller.teamId }]
-        : [];
+      const callerTeamFilter = caller.teamId ? [{ teamId: caller.teamId }] : [];
       const leaderNameCondition =
         caller.role === UserRole.cdc_secretary
           ? {
             AND: [
               { houseLeaderName: { contains: search, mode: 'insensitive' } },
               {
-                OR: [
-                  ...callerTeamFilter,
-                  { teamId: null },
-                  { createdBy: caller.userId },
-                ],
+                OR: [...callerTeamFilter, { teamId: null }],
               },
             ],
           }
@@ -330,8 +324,8 @@ export class HouseholdService {
 
     let nextCursor: string | undefined;
     if (households.length > limit) {
-      const nextItem = households.pop();
-      nextCursor = nextItem?.id;
+      households.pop();
+      nextCursor = households[households.length - 1]?.id;
     }
 
     // Mask PII for houses assigned to other teams if caller is Level 4 (Decision C4)

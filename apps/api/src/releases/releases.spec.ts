@@ -15,6 +15,9 @@ describe('Releases (Self-Hosted APK Update System)', () => {
         findFirst: jest.fn(),
         create: jest.fn(),
       },
+      profile: {
+        findUnique: jest.fn(),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -242,7 +245,7 @@ describe('Releases (Self-Hosted APK Update System)', () => {
 
       const jwt = require('jsonwebtoken');
       const superAdminToken = jwt.sign(
-        { sub: 'admin-1', role: 'super_admin' },
+        { sub: 'admin-1', role: 'super_admin', tokenVersion: 1 },
         process.env.JWT_ACCESS_SECRET,
       );
 
@@ -268,8 +271,95 @@ describe('Releases (Self-Hosted APK Update System)', () => {
         },
       } as unknown as Request;
 
+      mockPrisma.profile.findUnique.mockResolvedValue({
+        id: 'admin-1',
+        role: 'super_admin',
+        isActive: true,
+        tokenVersion: 1,
+      });
+
       const res = await controller.createRelease(dto, mockReq);
       expect(res.version).toBe('1.0.4');
+    });
+
+    it('POST /v1/releases rejects super_admin JWT if account is deactivated in database', async () => {
+      delete process.env.RELEASE_SECRET;
+      process.env.JWT_ACCESS_SECRET =
+        'test-jwt-secret-key-for-release-tests-1234';
+
+      const jwt = require('jsonwebtoken');
+      const superAdminToken = jwt.sign(
+        { sub: 'admin-1', role: 'super_admin', tokenVersion: 1 },
+        process.env.JWT_ACCESS_SECRET,
+      );
+
+      const dto: CreateReleaseDto = {
+        version: '1.0.4',
+        minSupportedVersion: '1.0.0',
+        apkUrl: validGithubApk,
+        sha256: validSha256,
+      };
+
+      mockPrisma.profile.findUnique.mockResolvedValue({
+        id: 'admin-1',
+        role: 'super_admin',
+        isActive: false, // Deactivated!
+        tokenVersion: 1,
+      });
+
+      const mockReq = {
+        headers: {
+          authorization: `Bearer ${superAdminToken}`,
+        },
+      } as unknown as Request;
+
+      await expect(
+        controller.createRelease(dto, mockReq),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'ACCOUNT_DEACTIVATED',
+        },
+      });
+    });
+
+    it('POST /v1/releases rejects super_admin JWT if tokenVersion has been incremented (session revoked)', async () => {
+      delete process.env.RELEASE_SECRET;
+      process.env.JWT_ACCESS_SECRET =
+        'test-jwt-secret-key-for-release-tests-1234';
+
+      const jwt = require('jsonwebtoken');
+      const superAdminToken = jwt.sign(
+        { sub: 'admin-1', role: 'super_admin', tokenVersion: 1 },
+        process.env.JWT_ACCESS_SECRET,
+      );
+
+      const dto: CreateReleaseDto = {
+        version: '1.0.4',
+        minSupportedVersion: '1.0.0',
+        apkUrl: validGithubApk,
+        sha256: validSha256,
+      };
+
+      mockPrisma.profile.findUnique.mockResolvedValue({
+        id: 'admin-1',
+        role: 'super_admin',
+        isActive: true,
+        tokenVersion: 2, // Incremented!
+      });
+
+      const mockReq = {
+        headers: {
+          authorization: `Bearer ${superAdminToken}`,
+        },
+      } as unknown as Request;
+
+      await expect(
+        controller.createRelease(dto, mockReq),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'AUTH_INVALID',
+        },
+      });
     });
 
     it('POST /v1/releases rejects release if apkUrl is not in official host allowlist', async () => {

@@ -358,5 +358,69 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       expect(lastCallArgs.cursor).toEqual({ id: 'client-cursor-456' });
       expect(lastCallArgs.skip).toBe(1);
     });
+
+    it('getClients: pages correctly across 250 clients with limit 100, preserving rows at positions 101 and 201', async () => {
+      const superAdminScope: ScopeContext = {
+        userId: 'super-admin',
+        role: UserRole.super_admin,
+      };
+
+      const all250Clients = Array.from({ length: 250 }, (_, i) => {
+        const pad = String(i + 1).padStart(3, '0');
+        return {
+          id: `client-${pad}`,
+          name: `Client ${pad}`,
+          teamId: mockTeamId,
+          householdId: 'h-1',
+          collectedBy: 'user-member-1',
+          deletedAt: null,
+          serverVersion: 1,
+          createdAt: new Date('2026-11-01T10:00:00.000Z'),
+        };
+      });
+
+      mockPrisma.client.findMany.mockImplementation((args: any) => {
+        let startIndex = 0;
+        if (args.cursor) {
+          const cursorIndex = all250Clients.findIndex(
+            (c) => c.id === args.cursor.id,
+          );
+          expect(cursorIndex).toBeGreaterThanOrEqual(0);
+          startIndex = cursorIndex + (args.skip ?? 0);
+        }
+        return Promise.resolve(
+          all250Clients.slice(startIndex, startIndex + args.take),
+        );
+      });
+      mockPrisma.client.count.mockResolvedValue(250);
+
+      const collectedIds: string[] = [];
+      let currentCursor: string | undefined = undefined;
+      let pages = 0;
+
+      do {
+        pages++;
+        const res = await service.getClients(superAdminScope, {
+          limit: 100,
+          cursor: currentCursor,
+        });
+
+        for (const c of res.clients) {
+          collectedIds.push(c.id);
+        }
+
+        currentCursor = res.nextCursor;
+      } while (currentCursor);
+
+      expect(pages).toBe(3);
+      expect(collectedIds.length).toBe(250);
+      expect(new Set(collectedIds).size).toBe(250);
+
+      // Verify that positions 101 and 201 are quietly NOT lost!
+      expect(collectedIds[99]).toBe('client-100');
+      expect(collectedIds[100]).toBe('client-101');
+      expect(collectedIds[199]).toBe('client-200');
+      expect(collectedIds[200]).toBe('client-201');
+    });
   });
 });

@@ -902,7 +902,7 @@ export class AccountService {
       take: take + 1,
       cursor: query.cursor ? { id: query.cursor } : undefined,
       skip: query.cursor ? 1 : 0,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       select: {
         id: true,
         userCode: true,
@@ -919,8 +919,8 @@ export class AccountService {
 
     let nextCursor: string | undefined;
     if (items.length > take) {
-      const nextItem = items.pop();
-      nextCursor = nextItem?.id;
+      items.pop();
+      nextCursor = items[items.length - 1]?.id;
     }
 
     return { items, nextCursor };

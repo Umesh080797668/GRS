@@ -20,7 +20,7 @@ export class ScopedRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: ScopeService,
-  ) {}
+  ) { }
 
   /**
    * Finds households strictly within the caller's territory (Invariant 4).
@@ -55,8 +55,8 @@ export class ScopedRepository {
 
     let nextCursor: string | undefined;
     if (items.length > take) {
-      const nextItem = items.pop();
-      nextCursor = nextItem?.id;
+      items.pop();
+      nextCursor = items[items.length - 1]?.id;
     }
 
     return { items, nextCursor };
@@ -116,8 +116,8 @@ export class ScopedRepository {
 
     let nextCursor: string | undefined;
     if (items.length > take) {
-      const nextItem = items.pop();
-      nextCursor = nextItem?.id;
+      items.pop();
+      nextCursor = items[items.length - 1]?.id;
     }
 
     return { items, nextCursor };
