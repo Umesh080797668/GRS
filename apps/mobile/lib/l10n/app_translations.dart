@@ -126,6 +126,8 @@ class AppTranslations {
     "householdLanguages": "Languages Spoken",
     "addBeneficiaryButton": "Add Beneficiary",
     "finishHouseButton": "Finish House",
+    "finishHouseNoClientsConfirm":
+        "No persons were recorded for this household. Confirm finishing this house?",
     "clientFormTitle": "Beneficiary Details (DD/S/001)",
     "personalInfo": "Personal Information",
     "nameLabel": "Full Name",
@@ -467,6 +469,8 @@ class AppTranslations {
     "householdLanguages": "භාවිතා කරන භාෂා",
     "addBeneficiaryButton": "ප්‍රතිලාභියෙකු එක් කරන්න",
     "finishHouseButton": "නිවස අවසන් කරන්න",
+    "finishHouseNoClientsConfirm":
+        "මෙම නිවස සඳහා කිසිදු පුද්ගලයෙකු ලියාපදිංචි කර නොමැත. මෙම නිවස අවසන් කිරීම තහවුරු කරනවාද?",
     "clientFormTitle": "ප්‍රතිලාභී තොරතුරු (DD/S/001)",
     "personalInfo": "පුද්ගලික තොරතුරු",
     "nameLabel": "සම්පූර්ණ නම",
@@ -819,6 +823,8 @@ class AppTranslations {
     "householdLanguages": "பேசப்படும் மொழிகள்",
     "addBeneficiaryButton": "பயனாளியைச் சேர்க்கவும்",
     "finishHouseButton": "வீட்டை முடிக்கவும்",
+    "finishHouseNoClientsConfirm":
+        "இந்த வீட்டிற்கு எவரும் பதிவு செய்யப்படவில்லை. இந்த வீட்டை முடிப்பதை உறுதிப்படுத்துகிறீர்களா?",
     "clientFormTitle": "பயனாளி விவரங்கள் (DD/S/001)",
     "personalInfo": "தனிநபர் தகவல்",
     "nameLabel": "முழுப் பெயர்",

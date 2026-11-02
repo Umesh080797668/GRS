@@ -77,6 +77,41 @@ class SyncEngine {
     return Duration(seconds: jitterSec);
   }
 
+  /// Maximum bisection depth to avoid request explosion during outages
+  static const int maxBisectionDepth = 3;
+
+  /// Determines if a 4xx error is systemic (e.g. forbidNonWhitelisted, 404, 413, or non-record code)
+  static bool _isSystemic4xx(GrsApiException e) {
+    if (e.statusCode == 404 || e.statusCode == 413 || e.statusCode == 415) {
+      return true;
+    }
+    if (e.statusCode >= 400 && e.statusCode < 500) {
+      final code = e.code.toUpperCase();
+      final msg = e.messageKey.toLowerCase();
+      if (code.contains('FORBID') ||
+          code.contains('WHITELIST') ||
+          msg.contains('forbidnonwhitelisted') ||
+          msg.contains('whitelist') ||
+          code == 'BAD_REQUEST') {
+        return true;
+      }
+      if (!_isPerRecordValidationCode(e.code)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Checks if an error code represents an isolated per-record validation failure
+  static bool _isPerRecordValidationCode(String code) {
+    final upper = code.toUpperCase();
+    return upper.startsWith('INVALID_') ||
+        upper.startsWith('VALIDATION_') ||
+        upper.contains('RECORD') ||
+        upper == 'DUPLICATE_CLIENT' ||
+        upper == 'FIELD_VALIDATION_FAILED';
+  }
+
   /// Executes the core sync push loop across all pending records in batches of up to [batchSize].
   ///
   /// Used identically by foreground [SyncNotifier] and background [BackgroundSyncService].
@@ -110,79 +145,31 @@ class SyncEngine {
         localRevisions[clientId] = revision;
       }
 
-      Future<void> pushSubBatch(List<Map<String, dynamic>> subBatch) async {
-        if (subBatch.isEmpty) return;
+      Future<SyncPushResponse> sendPush(
+        List<Map<String, dynamic>> batch,
+      ) async {
+        final payloads = _buildPayloads(batch);
+        final completedHouses = await db.getHouseholds(
+          statusFilter: 'completed',
+        );
+        final finishedHouseholdIds = completedHouses
+            .map((h) => h['id'] as String)
+            .toList();
 
-        final subBatchIds = subBatch.map((r) => r['id'] as String).toList();
-        final payloads = _buildPayloads(subBatch);
         final request = SyncPushRequest(
           deviceId: deviceId,
           appVersion: AppEnv.appVersion,
           schemaVersion: AppDatabase.currentSchemaVersion,
           records: payloads,
+          finishedHouseholdIds: finishedHouseholdIds,
         );
+        return await apiClient.pushSync(request);
+      }
 
-        SyncPushResponse response;
-        try {
-          response = await apiClient.pushSync(request);
-        } on GrsApiException catch (e) {
-          // System-level responses: 426 (Version Gate), 401 (Auth/Deactivated), 429/503 (Pacing).
-          // Do NOT bisect on these. They must rethrow so SyncNotifier / Auth can handle them.
-          if (e.statusCode == 426 ||
-              e.isVersionGate ||
-              e.statusCode == 401 ||
-              e.isAccountDeactivated ||
-              e.statusCode == 429 ||
-              e.statusCode == 503) {
-            await db.markClientsFailed(subBatchIds, errorCode: e.code);
-            rethrow;
-          }
-
-          // Non-429 server error (e.g. 400 validation error, 500 server crash):
-          // Bisect (split in half) to isolate the bad record per Build Plan §12.4 #6!
-          if (subBatch.length > 1) {
-            final mid = subBatch.length ~/ 2;
-            final left = subBatch.sublist(0, mid);
-            final right = subBatch.sublist(mid);
-            await pushSubBatch(left);
-            await pushSubBatch(right);
-            return;
-          } else {
-            // Isolated down to a single bad record!
-            final single = subBatch.first;
-            final singleId = single['id'] as String;
-            final retryCount = (single['retry_count'] as int?) ?? 0;
-
-            // 4xx client validation error: mark rejected immediately so user can fix
-            if (e.statusCode >= 400 && e.statusCode < 500) {
-              totalRejected++;
-              await db.updateClientSyncStatus(
-                singleId,
-                status: SyncStatus.rejected,
-                errorCode: '${e.code}: ${e.messageKey}',
-              );
-            } else {
-              // 5xx server error: if retryCount + 1 >= 3, mark rejected; otherwise mark failed
-              if (retryCount + 1 >= 3) {
-                totalRejected++;
-                await db.updateClientSyncStatus(
-                  singleId,
-                  status: SyncStatus.rejected,
-                  errorCode: 'SERVER_ERROR_RETRIES_EXCEEDED: ${e.code}',
-                );
-              } else {
-                totalFailed++;
-                await db.markClientsFailed([singleId], errorCode: e.code);
-              }
-            }
-            return;
-          }
-        } catch (e) {
-          // Network errors (SocketException, timeout, offline): mark failed and rethrow
-          await db.markClientsFailed(subBatchIds, errorCode: 'NETWORK_ERROR');
-          rethrow;
-        }
-
+      Future<void> processResponse(
+        SyncPushResponse response,
+        List<String> subBatchIds,
+      ) async {
         var batchSynced = 0;
         var batchRejected = 0;
         var batchFailed = 0;
@@ -191,7 +178,6 @@ class SyncEngine {
           final expectedRevision = localRevisions[result.id];
 
           if (result.status == 'ok') {
-            // Revision Guard (§8.2 #2): update to synced ONLY if local revision is unchanged
             final updated = await db.updateClientSyncStatus(
               result.id,
               status: SyncStatus.synced,
@@ -202,7 +188,6 @@ class SyncEngine {
               batchSynced++;
             }
           } else if (result.status == 'locked') {
-            // Server confirmed record already exists and is locked for Level 5 (Decision C2)
             batchRejected++;
             await db.updateClientSyncStatus(
               result.id,
@@ -220,7 +205,6 @@ class SyncEngine {
               errorCode: result.code ?? 'REJECTED_BY_SERVER',
             );
           } else if (result.status == 'stale') {
-            // Concurrency race or stale version: transient error, mark failed for retry
             batchFailed++;
             await db.updateClientSyncStatus(
               result.id,
@@ -228,7 +212,6 @@ class SyncEngine {
               errorCode: result.code ?? 'RACE_CONFLICT',
             );
           } else {
-            // Any unknown status: mark as failed with error code, DO NOT loop forever
             batchFailed++;
             await db.updateClientSyncStatus(
               result.id,
@@ -250,6 +233,164 @@ class SyncEngine {
             batchIds: subBatchIds,
           ),
         );
+      }
+
+      Future<void> pushSubBatch(
+        List<Map<String, dynamic>> subBatch, {
+        int depth = 0,
+      }) async {
+        if (subBatch.isEmpty) return;
+
+        final subBatchIds = subBatch.map((r) => r['id'] as String).toList();
+
+        try {
+          final response = await sendPush(subBatch);
+          await processResponse(response, subBatchIds);
+          return;
+        } on GrsApiException catch (e) {
+          // System-level responses: 426 (Version Gate), 401 (Auth/Deactivated), 429/503 (Pacing).
+          // Do NOT bisect on these. They must rethrow so SyncNotifier / Auth can handle them.
+          if (e.statusCode == 426 ||
+              e.isVersionGate ||
+              e.statusCode == 401 ||
+              e.isAccountDeactivated ||
+              e.statusCode == 429 ||
+              e.statusCode == 503) {
+            await db.markClientsFailed(subBatchIds, errorCode: e.code);
+            rethrow;
+          }
+
+          // Systemic 4xx error (e.g. forbidNonWhitelisted, 404, 413, or non-record validation error):
+          // Stop bisection and keep all records pending with a "Please update the app" message.
+          if (_isSystemic4xx(e)) {
+            await db.keepClientsPending(
+              subBatchIds,
+              message: 'Please update the app.',
+            );
+            rethrow;
+          }
+
+          // If single record or maximum bisection depth reached:
+          if (subBatch.length <= 1 || depth >= maxBisectionDepth) {
+            for (final record in subBatch) {
+              final recordId = record['id'] as String;
+              final retryCount = (record['retry_count'] as int?) ?? 0;
+
+              if (e.statusCode >= 400 && e.statusCode < 500) {
+                if (_isPerRecordValidationCode(e.code)) {
+                  totalRejected++;
+                  await db.updateClientSyncStatus(
+                    recordId,
+                    status: SyncStatus.rejected,
+                    errorCode: '${e.code}: ${e.messageKey}',
+                  );
+                } else {
+                  await db.keepClientsPending([
+                    recordId,
+                  ], message: 'Please update the app.');
+                }
+              } else {
+                // 5xx server error
+                if (retryCount + 1 >= 3) {
+                  totalRejected++;
+                  await db.updateClientSyncStatus(
+                    recordId,
+                    status: SyncStatus.rejected,
+                    errorCode: 'SERVER_ERROR_RETRIES_EXCEEDED: ${e.code}',
+                  );
+                } else {
+                  totalFailed++;
+                  await db.markClientsFailed([recordId], errorCode: e.code);
+                }
+              }
+            }
+            return;
+          }
+
+          // Bisect (split in half) to isolate bad record
+          final mid = subBatch.length ~/ 2;
+          final left = subBatch.sublist(0, mid);
+          final right = subBatch.sublist(mid);
+
+          if (e.statusCode >= 500) {
+            // Outage amplification guard:
+            // Check if both sibling halves fail with 5xx. If so, abort immediately!
+            GrsApiException? left5xx;
+            SyncPushResponse? leftResp;
+            try {
+              leftResp = await sendPush(left);
+            } on GrsApiException catch (leftErr) {
+              if (leftErr.statusCode >= 500) {
+                left5xx = leftErr;
+              } else if (_isSystemic4xx(leftErr)) {
+                await db.keepClientsPending(
+                  left.map((r) => r['id'] as String).toList(),
+                  message: 'Please update the app.',
+                );
+                rethrow;
+              } else {
+                await pushSubBatch(left, depth: depth + 1);
+              }
+            }
+
+            if (leftResp != null) {
+              await processResponse(
+                leftResp,
+                left.map((r) => r['id'] as String).toList(),
+              );
+              await pushSubBatch(right, depth: depth + 1);
+              return;
+            }
+
+            if (left5xx != null) {
+              // Left half failed with 5xx. Test the sibling right half!
+              GrsApiException? right5xx;
+              SyncPushResponse? rightResp;
+              try {
+                rightResp = await sendPush(right);
+              } on GrsApiException catch (rightErr) {
+                if (rightErr.statusCode >= 500) {
+                  right5xx = rightErr;
+                } else if (_isSystemic4xx(rightErr)) {
+                  await db.keepClientsPending(
+                    right.map((r) => r['id'] as String).toList(),
+                    message: 'Please update the app.',
+                  );
+                  rethrow;
+                } else {
+                  await pushSubBatch(right, depth: depth + 1);
+                }
+              }
+
+              if (right5xx != null) {
+                // Sibling half ALSO failed with 5xx!
+                // Abort immediately to prevent outage amplification.
+                await db.markClientsFailed(subBatchIds, errorCode: e.code);
+                rethrow;
+              }
+
+              if (rightResp != null) {
+                await processResponse(
+                  rightResp,
+                  right.map((r) => r['id'] as String).toList(),
+                );
+              }
+
+              // Sibling did not fail with 5xx. Isolate poison pill in left half.
+              await pushSubBatch(left, depth: depth + 1);
+              return;
+            }
+          } else {
+            // 4xx validation error: bisect left then right
+            await pushSubBatch(left, depth: depth + 1);
+            await pushSubBatch(right, depth: depth + 1);
+            return;
+          }
+        } catch (e) {
+          // Network errors (SocketException, timeout, offline): mark failed and rethrow
+          await db.markClientsFailed(subBatchIds, errorCode: 'NETWORK_ERROR');
+          rethrow;
+        }
       }
 
       await pushSubBatch(pendingRows);

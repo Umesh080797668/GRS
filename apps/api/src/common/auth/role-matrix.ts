@@ -526,6 +526,14 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
   },
   {
     method: 'POST',
+    path: '/houses/:id/finish',
+    category: 'houses',
+    allowedRoles: ['team_member', 'cdc_secretary', 'super_admin'],
+    scopeEnforcement: 'team_only',
+    description: 'Mark household visit status as finished/completed',
+  },
+  {
+    method: 'POST',
     path: '/teams/:id/houses',
     category: 'houses',
     allowedRoles: ['cdc_secretary', 'super_admin'],

@@ -65,6 +65,15 @@ export class SyncPushDto {
   @ValidateNested({ each: true })
   @Type(() => SyncRecordPayloadDto)
   records!: SyncRecordPayloadDto[];
+
+  @ApiPropertyOptional({
+    description: 'Array of household IDs marked finished on device',
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  finishedHouseholdIds?: string[];
 }
 
 export interface SyncRecordResultItem {

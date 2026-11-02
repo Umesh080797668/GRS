@@ -427,5 +427,106 @@ void main() {
         expect(savedSyncTime, '2026-11-01T12:00:05Z');
       },
     );
+
+    test(
+      'Systemic 400 (forbidNonWhitelisted) stops bisection and keeps records pending with update app message',
+      () async {
+        final id1 = 'c0000000-0000-0000-0000-000000000011';
+        final id2 = 'c0000000-0000-0000-0000-000000000012';
+
+        for (final id in [id1, id2]) {
+          await db.saveClient(
+            client: Client(
+              id: id,
+              householdId: houseId,
+              name: 'Client $id',
+              age: 28,
+              gender: 'M',
+              infoProvidedBy: 'self',
+              consentGiven: true,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
+            status: SyncStatus.pending,
+          );
+        }
+
+        // Mock API: server throws systemic 400 (schema mismatch / unknown field)
+        fakeApi.onPushSync = (req) async {
+          throw const GrsApiException(
+            statusCode: 400,
+            code: 'BAD_REQUEST',
+            messageKey: 'forbidNonWhitelisted: unexpected field in payload',
+          );
+        };
+
+        final syncNotifier = container.read(syncProvider.notifier);
+        final success = await syncNotifier.sync();
+
+        expect(success, isFalse);
+        // Only 1 request made - must NOT bisect down to single records
+        expect(fakeApi.pushCount, 1);
+
+        // Neither record should be rejected! Both must remain pending with update app message
+        final rec1 = await db.getClientById(id1);
+        final rec2 = await db.getClientById(id2);
+
+        expect(rec1!['sync_status'], 'pending');
+        expect(rec1['last_error_code'], contains('Please update the app'));
+
+        expect(rec2!['sync_status'], 'pending');
+        expect(rec2['last_error_code'], contains('Please update the app'));
+      },
+    );
+
+    test(
+      'Server 5xx outage aborts when sibling half also fails, avoiding request amplification',
+      () async {
+        // Create 8 records
+        final ids = List.generate(
+          8,
+          (i) => 'c0000000-0000-0000-0000-00000000002$i',
+        );
+
+        for (final id in ids) {
+          await db.saveClient(
+            client: Client(
+              id: id,
+              householdId: houseId,
+              name: 'Outage Client $id',
+              age: 32,
+              gender: 'F',
+              infoProvidedBy: 'self',
+              consentGiven: true,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
+            status: SyncStatus.pending,
+          );
+        }
+
+        // Mock API: server is down (500 on all calls)
+        fakeApi.pushCount = 0;
+        fakeApi.onPushSync = (req) async {
+          throw const GrsApiException(
+            statusCode: 500,
+            code: 'INTERNAL_SERVER_ERROR',
+            messageKey: 'Server unavailable',
+          );
+        };
+
+        final syncNotifier = container.read(syncProvider.notifier);
+        final success = await syncNotifier.sync();
+
+        expect(success, isFalse);
+        // Initial batch (1) + left sibling (1) + right sibling (1) = exactly 3 requests!
+        // Does NOT explode into 15+ requests.
+        expect(fakeApi.pushCount, 3);
+
+        // Records should not be permanently rejected on initial outage
+        final check = await db.getClientById(ids[0]);
+        expect(check!['sync_status'], 'failed');
+      },
+    );
   });
 }

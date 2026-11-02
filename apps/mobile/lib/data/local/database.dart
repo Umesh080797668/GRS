@@ -388,11 +388,12 @@ class AppDatabase {
 
   Future<void> upsertHousehold(
     Household h, {
-    String status = 'not_started',
+    String? status,
     String? notes,
   }) async {
     final version = await getSchemaVersion();
     final hasNotes = version >= 2;
+    final effectiveStatus = status ?? h.visitStatus ?? 'not_started';
 
     if (hasNotes) {
       await _executor.runInsert(
@@ -421,6 +422,12 @@ class AppDatabase {
           lang_sinhala = excluded.lang_sinhala,
           lang_tamil = excluded.lang_tamil,
           lang_english = excluded.lang_english,
+          status = CASE
+            WHEN excluded.status = 'completed' THEN 'completed'
+            WHEN households.status = 'completed' THEN 'completed'
+            WHEN excluded.status != 'not_started' THEN excluded.status
+            ELSE households.status
+          END,
           notes = excluded.notes,
           updated_at = excluded.updated_at
       ''',
@@ -447,7 +454,7 @@ class AppDatabase {
           h.langSinhala ? 1 : 0,
           h.langTamil ? 1 : 0,
           h.langEnglish ? 1 : 0,
-          status,
+          effectiveStatus,
           h.updatedAt.toIso8601String(),
           notes,
         ],
@@ -479,6 +486,12 @@ class AppDatabase {
           lang_sinhala = excluded.lang_sinhala,
           lang_tamil = excluded.lang_tamil,
           lang_english = excluded.lang_english,
+          status = CASE
+            WHEN excluded.status = 'completed' THEN 'completed'
+            WHEN households.status = 'completed' THEN 'completed'
+            WHEN excluded.status != 'not_started' THEN excluded.status
+            ELSE households.status
+          END,
           updated_at = excluded.updated_at
       ''',
         [
@@ -504,7 +517,7 @@ class AppDatabase {
           h.langSinhala ? 1 : 0,
           h.langTamil ? 1 : 0,
           h.langEnglish ? 1 : 0,
-          status,
+          effectiveStatus,
           h.updatedAt.toIso8601String(),
         ],
       );
@@ -590,6 +603,7 @@ class AppDatabase {
   Future<List<Map<String, dynamic>>> getHouseholds({
     String? search,
     String? statusFilter,
+    String? status,
   }) async {
     var query = 'SELECT * FROM households';
     final conditions = <String>[];
@@ -601,9 +615,10 @@ class AppDatabase {
       args.addAll([term, term]);
     }
 
-    if (statusFilter != null && statusFilter != 'all') {
+    final effectiveFilter = statusFilter ?? status;
+    if (effectiveFilter != null && effectiveFilter != 'all') {
       conditions.add('status = ?');
-      args.add(statusFilter);
+      args.add(effectiveFilter);
     }
 
     if (conditions.isNotEmpty) {
@@ -904,6 +919,21 @@ class AppDatabase {
           errorCode ?? 'NETWORK_ERROR',
           id,
         ],
+      );
+    }
+  }
+
+  /// Keeps clients in pending status with an app update warning (for systemic 4xx errors).
+  /// Does not increment retry_count to prevent false rejection.
+  Future<void> keepClientsPending(
+    List<String> ids, {
+    String message = 'Please update the app.',
+  }) async {
+    if (ids.isEmpty) return;
+    for (final id in ids) {
+      await _executor.runUpdate(
+        'UPDATE clients SET sync_status = ?, last_error_code = ? WHERE id = ?',
+        [SyncStatus.pending.name, message, id],
       );
     }
   }

@@ -94,7 +94,7 @@ export class EmailService {
       const remainingSeconds = Math.ceil(
         (EmailService.COOLDOWN_SECONDS * 1000 -
           (now.getTime() - recentCode.createdAt.getTime())) /
-          1000,
+        1000,
       );
       throw new BadRequestException({
         code: 'EMAIL_COOLDOWN',
@@ -121,12 +121,34 @@ export class EmailService {
       },
     });
 
-    // Dispatch email via nodemailer in background (fire-and-forget) so SMTP latency is not awaited
-    this.dispatchEmail(cleanEmail, rawCode, purpose).catch((err) => {
+    // Dispatch email via nodemailer, awaiting with a timeout to prevent serverless function freeze (e.g. on Vercel)
+    const emailPromise = this.dispatchEmail(cleanEmail, rawCode, purpose).catch((err) => {
       this.logger.warn(
         `Failed to dispatch email to profile ${profileId}: ${err.message}`,
       );
     });
+
+    if (typeof (globalThis as any).waitUntil === 'function') {
+      (globalThis as any).waitUntil(emailPromise);
+    }
+
+    try {
+      const timeoutMs = 8000;
+      let timer: NodeJS.Timeout | undefined;
+      const timeoutPromise = new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Email dispatch timed out after ${timeoutMs}ms`)),
+          timeoutMs,
+        );
+      });
+      await Promise.race([emailPromise, timeoutPromise]).finally(() => {
+        if (timer) clearTimeout(timer);
+      });
+    } catch (err: any) {
+      this.logger.warn(
+        `Email dispatch timed out or failed for profile ${profileId}: ${err.message}`,
+      );
+    }
 
     return {
       message: 'Verification code sent',

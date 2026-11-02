@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LookupService } from '../lookups/lookup.service';
 import { ScopeService } from '../common/scope/scope.service';
 import { GrsValidators } from '../common/validators/grs-validators';
-import type { ScopeContext } from '../common/scope/scope.types';
+import { UserRole, type ScopeContext } from '../common/scope/scope.types';
 import {
   SyncPushDto,
   SyncPushResponse,
@@ -177,6 +177,9 @@ export class SyncService {
         langSinhala: h.langSinhala,
         langTamil: h.langTamil,
         langEnglish: h.langEnglish,
+        visitStatus: h.visitStatus ?? 'not_started',
+        finishedAt: h.finishedAt ? h.finishedAt.toISOString() : null,
+        finishedBy: h.finishedBy ?? null,
         version: h.version,
         createdAt: h.createdAt.toISOString(),
         updatedAt: h.updatedAt.toISOString(),
@@ -361,6 +364,9 @@ export class SyncService {
         langSinhala: h.langSinhala,
         langTamil: h.langTamil,
         langEnglish: h.langEnglish,
+        visitStatus: h.visitStatus ?? 'not_started',
+        finishedAt: h.finishedAt ? h.finishedAt.toISOString() : null,
+        finishedBy: h.finishedBy ?? null,
         version: h.version,
         createdAt: h.createdAt.toISOString(),
         updatedAt: h.updatedAt.toISOString(),
@@ -420,6 +426,37 @@ export class SyncService {
         code: 'FORBIDDEN_SCOPE',
         message_key: 'errors.scope.missing_role',
       });
+    }
+
+    if (dto.finishedHouseholdIds && dto.finishedHouseholdIds.length > 0) {
+      const now = new Date();
+      const whereCondition: any = {
+        id: { in: dto.finishedHouseholdIds },
+        deletedAt: null,
+      };
+      if (user.role === UserRole.team_member) {
+        whereCondition.teamId = user.teamId;
+      } else if (user.role === UserRole.cdc_secretary) {
+        whereCondition.OR = [{ gnId: user.gnId }, { teamId: user.teamId }];
+      }
+
+      await this.prisma.household.updateMany({
+        where: whereCondition,
+        data: {
+          visitStatus: 'completed',
+          finishedAt: now,
+          finishedBy: user.userId,
+          version: { increment: 1 },
+          updatedAt: now,
+        },
+      });
+
+      if (user.teamId) {
+        await this.prisma.$executeRawUnsafe(
+          `UPDATE teams SET stats_dirty_at = now() WHERE id = $1::uuid`,
+          user.teamId,
+        );
+      }
     }
 
     if (!dto.records || dto.records.length === 0) {
@@ -1059,7 +1096,7 @@ export class SyncService {
       ),
       updated_teams AS (
         UPDATE teams
-        SET stats_dirty_at = $${pIdx++}::timestamptz
+        SET stats_dirty_at = NOW()
         WHERE id IN (
           SELECT DISTINCT team_id FROM upserted WHERE team_id IS NOT NULL
         )
@@ -1067,8 +1104,6 @@ export class SyncService {
       )
       SELECT id, server_version FROM upserted;
       `;
-
-      queryParams.push(now.toISOString());
 
       try {
         const returnedRows = await this.prisma.$queryRawUnsafe<

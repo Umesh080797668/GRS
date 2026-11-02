@@ -716,5 +716,46 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       const scopeFilter = leaderCondition.AND[1];
       expect(scopeFilter.OR).toEqual([{ teamId: null }]);
     });
+
+    it('finishHousehold: marks household as completed and dirties team stats', async () => {
+      const house = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: '501',
+        houseLeaderName: 'Leader 501',
+      });
+
+      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [
+        house.id,
+      ]);
+
+      const teamMemberScope: ScopeContext = {
+        userId: 'team-member-1',
+        role: UserRole.team_member,
+        teamId: mockTeamId,
+      };
+
+      const finished = await service.finishHousehold(teamMemberScope, house.id);
+      expect(finished.visitStatus).toBe('completed');
+      expect(finished.finishedAt).toBeInstanceOf(Date);
+      expect(finished.finishedBy).toBe(teamMemberScope.userId);
+    });
+
+    it('finishHousehold: rejects when out of scope for team member', async () => {
+      const house = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: '502',
+        houseLeaderName: 'Leader 502',
+      });
+
+      const otherTeamScope: ScopeContext = {
+        userId: 'other-user',
+        role: UserRole.team_member,
+        teamId: 'other-team-id',
+      };
+
+      await expect(
+        service.finishHousehold(otherTeamScope, house.id),
+      ).rejects.toThrow();
+    });
   });
 });

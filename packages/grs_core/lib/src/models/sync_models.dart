@@ -66,12 +66,14 @@ class SyncPushRequest {
   final String appVersion;
   final int schemaVersion;
   final List<SyncRecordPayload> records;
+  final List<String>? finishedHouseholdIds;
 
   const SyncPushRequest({
     required this.deviceId,
     required this.appVersion,
     this.schemaVersion = 1,
     required this.records,
+    this.finishedHouseholdIds,
   });
 
   Map<String, dynamic> toJson() => {
@@ -79,6 +81,8 @@ class SyncPushRequest {
     'app_version': appVersion,
     'schema_version': schemaVersion,
     'records': records.map((r) => r.toJson()).toList(),
+    if (finishedHouseholdIds != null && finishedHouseholdIds!.isNotEmpty)
+      'finishedHouseholdIds': finishedHouseholdIds,
   };
 
   factory SyncPushRequest.fromJson(
@@ -93,6 +97,9 @@ class SyncPushRequest {
         json['schema_version'] as int? ?? json['schemaVersion'] as int? ?? 1,
     records: (json['records'] as List<dynamic>)
         .map((r) => SyncRecordPayload.fromJson(r as Map<String, dynamic>))
+        .toList(),
+    finishedHouseholdIds: (json['finishedHouseholdIds'] as List<dynamic>?)
+        ?.map((e) => e as String)
         .toList(),
   );
 }

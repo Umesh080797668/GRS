@@ -207,6 +207,9 @@ CREATE TABLE "households" (
     "import_batch_id" UUID,
     "created_by" UUID NOT NULL,
     "updated_by" UUID,
+    "visit_status" VARCHAR(50) DEFAULT 'not_started',
+    "finished_at" TIMESTAMPTZ(6),
+    "finished_by" UUID,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -591,6 +594,9 @@ ALTER TABLE "households" ADD CONSTRAINT "households_team_id_fkey" FOREIGN KEY ("
 
 -- AddForeignKey
 ALTER TABLE "households" ADD CONSTRAINT "households_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "profiles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "households" ADD CONSTRAINT "households_finished_by_fkey" FOREIGN KEY ("finished_by") REFERENCES "profiles"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "clients" ADD CONSTRAINT "clients_household_id_fkey" FOREIGN KEY ("household_id") REFERENCES "households"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

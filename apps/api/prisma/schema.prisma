@@ -94,14 +94,15 @@ model Profile {
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  refreshTokens     RefreshToken[]
-  emailCodes        EmailCode[]
-  createdBatches    AccountBatch[] @relation("BatchCreator")
-  actionsPerformed  AccountAudit[] @relation("Actor")
-  actionsReceived   AccountAudit[] @relation("Target")
-  createdHouseholds Household[]    @relation("HouseholdCreator")
-  collectedClients  Client[]       @relation("ClientCollector")
-  exportJobs        ExportJob[]
+  refreshTokens      RefreshToken[]
+  emailCodes         EmailCode[]
+  createdBatches     AccountBatch[] @relation("BatchCreator")
+  actionsPerformed   AccountAudit[] @relation("Actor")
+  actionsReceived    AccountAudit[] @relation("Target")
+  createdHouseholds  Household[]    @relation("HouseholdCreator")
+  finishedHouseholds Household[]    @relation("HouseholdFinisher")
+  collectedClients   Client[]       @relation("ClientCollector")
+  exportJobs         ExportJob[]
 
   @@index([createdBy])
   @@index([teamId])
@@ -293,13 +294,17 @@ model Household {
   importBatchId   String?   @map("import_batch_id") @db.Uuid
   createdBy       String    @map("created_by") @db.Uuid
   updatedBy       String?   @map("updated_by") @db.Uuid
+  visitStatus     String?   @default("not_started") @map("visit_status") @db.VarChar(50)
+  finishedAt      DateTime? @map("finished_at") @db.Timestamptz(6)
+  finishedBy      String?   @map("finished_by") @db.Uuid
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  gn      GnDivision @relation(fields: [gnId], references: [id], onDelete: Restrict)
-  team    Team?      @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  creator Profile    @relation("HouseholdCreator", fields: [createdBy], references: [id])
-  clients Client[]
+  gn       GnDivision @relation(fields: [gnId], references: [id], onDelete: Restrict)
+  team     Team?      @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  creator  Profile    @relation("HouseholdCreator", fields: [createdBy], references: [id])
+  finisher Profile?   @relation("HouseholdFinisher", fields: [finishedBy], references: [id])
+  clients  Client[]
 
   @@unique([gnId, serialNo])
   @@index([gnId, houseNoNorm])

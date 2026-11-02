@@ -935,4 +935,77 @@ export class HouseholdService {
       { maxWait: 30000, timeout: 30000 },
     );
   }
+
+  /**
+   * Marks a household visit as completed (M4 / Finish house).
+   * Updates visit_status, finished_at, finished_by, increments version, and marks team dirty for stats refresh.
+   */
+  async finishHousehold(caller: ScopeContext, id: string): Promise<any> {
+    const household = await this.prisma.household.findUnique({
+      where: { id },
+      include: { team: true },
+    });
+
+    if (!household || household.deletedAt) {
+      throw new NotFoundException({
+        code: 'HOUSEHOLD_NOT_FOUND',
+        message: 'Household not found',
+      });
+    }
+
+    if (caller.role === UserRole.team_member) {
+      if (
+        household.teamId !== caller.teamId &&
+        household.createdBy !== caller.userId
+      ) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_TEAM',
+          message: 'Household is not assigned to your team',
+        });
+      }
+    } else if (caller.role === UserRole.cdc_secretary) {
+      if (
+        household.gnId !== caller.gnId &&
+        household.teamId !== caller.teamId
+      ) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_GN',
+          message: 'Household is outside your GN division',
+        });
+      }
+    }
+
+    const now = new Date();
+    const updated = await this.prisma.household.update({
+      where: { id },
+      data: {
+        visitStatus: 'completed',
+        finishedAt: now,
+        finishedBy: caller.userId,
+        version: { increment: 1 },
+        updatedAt: now,
+      },
+    });
+
+    if (household.teamId) {
+      if (typeof (this.prisma as any).$executeRawUnsafe === 'function') {
+        await (this.prisma as any).$executeRawUnsafe(
+          `UPDATE teams SET stats_dirty_at = now() WHERE id = $1::uuid`,
+          household.teamId,
+        );
+      } else if (typeof (this.prisma as any).$queryRawUnsafe === 'function') {
+        await (this.prisma as any).$queryRawUnsafe(
+          `UPDATE teams SET stats_dirty_at = now() WHERE id = $1::uuid`,
+          household.teamId,
+        );
+      } else if (this.prisma.team?.update) {
+        await this.prisma.team.update({
+          where: { id: household.teamId },
+          data: { statsDirtyAt: now },
+        });
+      }
+    }
+
+    return updated;
+  }
 }

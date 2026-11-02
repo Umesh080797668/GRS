@@ -34,8 +34,13 @@ export class StatsRefreshService {
     }
 
     // Call stored procedure to refresh dirty teams into team_stats
-    await this.prisma.$executeRawUnsafe(
-      `SELECT public.refresh_dirty_team_stats();`,
+    const rows = await this.prisma.$queryRawUnsafe<
+      Array<{ refresh_dirty_team_stats: number } | { count: number }>
+    >(`SELECT public.refresh_dirty_team_stats();`);
+    const refreshedTeams = Number(
+      (rows[0] as any)?.refresh_dirty_team_stats ??
+      (rows[0] as any)?.count ??
+      0,
     );
 
     // Clean up team_stats for deleted teams
@@ -47,9 +52,9 @@ export class StatsRefreshService {
     await this.rollupAreaStats(refreshedAt);
 
     this.logger.log(
-      `Refreshed team and area stats at ${refreshedAt.toISOString()}`,
+      `Refreshed ${refreshedTeams} team(s) and area stats at ${refreshedAt.toISOString()}`,
     );
-    return { refreshedTeams: 1, refreshedAt };
+    return { refreshedTeams, refreshedAt };
   }
 
   /**

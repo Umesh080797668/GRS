@@ -5,6 +5,7 @@ import 'package:grs_ui/grs_ui.dart';
 import '../../l10n/l10n.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/sync_provider.dart';
+import '../../providers/api_client_provider.dart';
 
 class HouseDetailScreen extends ConsumerWidget {
   final String houseId;
@@ -288,10 +289,43 @@ class HouseDetailScreen extends ConsumerWidget {
                             variant: GrsButtonVariant.outline,
                             isFullWidth: true,
                             onPressed: () async {
+                              if (clients.isEmpty) {
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: Text(l10n.get('finishHouseButton')),
+                                    content: Text(
+                                      l10n.get('finishHouseNoClientsConfirm'),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(ctx).pop(false),
+                                        child: Text(l10n.get('cancel')),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.of(ctx).pop(true),
+                                        child: Text(l10n.get('confirm')),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirmed != true) return;
+                              }
+
                               await db.updateHouseholdStatus(
                                 houseId,
                                 'completed',
                               );
+
+                              try {
+                                final api = ref.read(apiClientProvider);
+                                await api.finishHousehold(houseId);
+                              } catch (_) {
+                                // Handled offline or synced on next cycle
+                              }
+
                               if (context.mounted) context.pop();
                             },
                           ),

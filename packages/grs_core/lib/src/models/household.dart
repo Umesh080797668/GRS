@@ -23,6 +23,9 @@ class Household {
   final bool langSinhala;
   final bool langTamil;
   final bool langEnglish;
+  final String? visitStatus;
+  final DateTime? finishedAt;
+  final String? finishedBy;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -49,6 +52,9 @@ class Household {
     this.langSinhala = false,
     this.langTamil = false,
     this.langEnglish = false,
+    this.visitStatus = 'not_started',
+    this.finishedAt,
+    this.finishedBy,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -77,6 +83,9 @@ class Household {
       'langSinhala': langSinhala,
       'langTamil': langTamil,
       'langEnglish': langEnglish,
+      'visitStatus': visitStatus,
+      'finishedAt': finishedAt?.toIso8601String(),
+      'finishedBy': finishedBy,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -106,6 +115,11 @@ class Household {
       langSinhala: json['langSinhala'] as bool? ?? false,
       langTamil: json['langTamil'] as bool? ?? false,
       langEnglish: json['langEnglish'] as bool? ?? false,
+      visitStatus: json['visitStatus'] as String? ?? 'not_started',
+      finishedAt: json['finishedAt'] != null
+          ? DateTime.tryParse(json['finishedAt'] as String)
+          : null,
+      finishedBy: json['finishedBy'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );

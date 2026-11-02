@@ -90,4 +90,13 @@ export class HouseholdController {
   ) {
     return this.householdService.deleteHousehold(user, id, dto);
   }
+
+  @Post(':id/finish')
+  @Roles(UserRole.team_member, UserRole.cdc_secretary, UserRole.super_admin)
+  async finishHousehold(
+    @CurrentUser() user: ScopeContext,
+    @Param('id') id: string,
+  ) {
+    return this.householdService.finishHousehold(user, id);
+  }
 }
