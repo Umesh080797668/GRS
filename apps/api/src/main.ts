@@ -48,7 +48,7 @@ export async function createNestServer(server: Express) {
       if (
         !origin ||
         allowedOrigins.includes(origin) ||
-        origin.endsWith('.pages.dev') ||
+        origin.endsWith('.workers.dev') ||
         origin.endsWith('.vercel.app') ||
         process.env.NODE_ENV !== 'production'
       ) {
