@@ -24,7 +24,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 @Controller('v1/clients')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ClientController {
-  constructor(private readonly clientService: ClientService) {}
+  constructor(private readonly clientService: ClientService) { }
 
   @Get()
   @Roles(
@@ -44,7 +44,15 @@ export class ClientController {
   }
 
   @Post()
-  @Roles(UserRole.team_member, UserRole.cdc_secretary, UserRole.super_admin)
+  @Roles(
+    UserRole.team_member,
+    UserRole.cdc_secretary,
+    UserRole.sda,
+    UserRole.dc,
+    UserRole.cg,
+    UserRole.admin,
+    UserRole.super_admin,
+  )
   async createClient(
     @CurrentUser() user: ScopeContext,
     @Body() dto: CreateClientDto,

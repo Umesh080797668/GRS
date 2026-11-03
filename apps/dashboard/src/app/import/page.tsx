@@ -135,8 +135,8 @@ export default function ImportPage() {
       return;
     }
 
-    // Check 4.5 MB cap
-    const MAX_SIZE_BYTES = 4.5 * 1024 * 1024;
+    // Check 4.5 MB cap (decimal 4,500,000 bytes so app reject precedes proxy upload errors)
+    const MAX_SIZE_BYTES = 4.5 * 1000 * 1000;
     if (selectedFile.size > MAX_SIZE_BYTES) {
       setFileError(
         `File size ${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB exceeds the maximum 4.5 MB upload threshold.`
@@ -178,7 +178,7 @@ export default function ImportPage() {
       const csv = await api.downloadImportErrors(currentBatchId);
       downloadFile(csv, `household_import_errors_${currentBatchId}.csv`);
     } catch (err: any) {
-      alert(`Failed to download error report: ${err.message}`);
+      setFileError(`Failed to download error report: ${err.message}`);
     }
   }
 

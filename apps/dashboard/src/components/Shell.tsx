@@ -13,7 +13,8 @@ import {
   Sparkles,
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Home,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -41,17 +42,82 @@ export function Shell({ children, activePath }: ShellProps) {
   const { t } = useLanguage();
 
   const navItems: NavItem[] = [
-    { key: 'nav.progress', href: '/progress', icon: <BarChart3 size={18} /> },
-    { key: 'nav.users', href: '/users', icon: <Users size={18} /> },
-    { key: 'nav.areas', href: '/areas', icon: <MapPin size={18} /> },
-    { key: 'nav.import', href: '/import', icon: <FileSpreadsheet size={18} /> },
-    { key: 'nav.records', href: '/records', icon: <ClipboardCheck size={18} /> },
-    { key: 'nav.data_entry', href: '/data-entry', icon: <FileText size={18} /> },
-    { key: 'nav.sync_health', href: '/progress#sync-health', icon: <Activity size={18} /> },
+    {
+      key: 'nav.progress',
+      href: '/progress',
+      icon: <BarChart3 size={18} />,
+      roles: ['super_admin', 'admin', 'cg', 'dc', 'sda', 'cdc_secretary'],
+    },
+    {
+      key: 'nav.users',
+      href: '/users',
+      icon: <Users size={18} />,
+      roles: ['super_admin', 'admin', 'cg', 'dc', 'sda', 'cdc_secretary'],
+    },
+    {
+      key: 'nav.areas',
+      href: '/areas',
+      icon: <MapPin size={18} />,
+      roles: ['super_admin', 'admin'], // Level 00 only (district, team and CSV mutations)
+    },
+    {
+      key: 'nav.houses',
+      href: '/houses',
+      icon: <Home size={18} />,
+      roles: ['super_admin', 'admin', 'cdc_secretary'], // Level 4 & Level 00
+    },
+    {
+      key: 'nav.import',
+      href: '/import',
+      icon: <FileSpreadsheet size={18} />,
+      roles: ['super_admin', 'admin', 'cdc_secretary'],
+    },
+    {
+      key: 'nav.records',
+      href: '/records',
+      icon: <ClipboardCheck size={18} />,
+      roles: ['super_admin', 'admin', 'cg', 'dc', 'sda', 'cdc_secretary'],
+    },
+    {
+      key: 'nav.data_entry',
+      href: '/data-entry',
+      icon: <FileText size={18} />,
+      // Decision C19: Super admin disabled by default, available to Level 4/3/2/Admin
+      roles: ['admin', 'dc', 'sda', 'cdc_secretary'],
+    },
+    {
+      key: 'nav.sync_health',
+      href: '/progress#sync-health',
+      icon: <Activity size={18} />,
+      roles: ['super_admin', 'admin', 'cg', 'dc', 'sda', 'cdc_secretary'],
+    },
     ...(process.env.NODE_ENV !== 'production'
       ? [{ key: 'nav.showcase', href: '/showcase', icon: <Sparkles size={18} /> }]
       : []),
   ];
+
+  // Role guard: redirect if navigating to a restricted page
+  React.useEffect(() => {
+    if (!user?.role) return;
+    const currentItem = navItems.find((item) => pathname === item.href);
+    if (currentItem && currentItem.roles && !currentItem.roles.includes(user.role)) {
+      // Super admin can access data-entry for C19 override
+      if (user.role === 'super_admin' && pathname === '/data-entry') {
+        return;
+      }
+      router.replace('/progress');
+    }
+  }, [pathname, user?.role, router]);
+
+  const allowedNavItems = navItems.filter((item) => {
+    if (!item.roles) return true;
+    if (!user?.role) return false;
+    // Allow super admin to see data entry if on that page or for C19 configuration
+    if (user.role === 'super_admin' && item.href === '/data-entry') {
+      return true;
+    }
+    return item.roles.includes(user.role);
+  });
 
   const getRoleBadgeColor = (role?: string) => {
     switch (role) {
@@ -135,7 +201,7 @@ export function Shell({ children, activePath }: ShellProps) {
 
         {/* Navigation Items */}
         <nav style={{ flex: 1, padding: '1rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto' }}>
-          {navItems.map((item) => {
+          {allowedNavItems.map((item) => {
             const isActive = pathname === item.href || (item.href.includes('#') && pathname === '/progress');
             return (
               <button

@@ -79,10 +79,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
-    api.clearSession();
-    setUser(null);
-    router.replace('/login');
+  const logout = async () => {
+    try {
+      await api.logout();
+    } catch {
+      // Invariant: Silently handle network errors
+    } finally {
+      api.clearSession();
+      setUser(null);
+      router.replace('/login');
+    }
   };
 
   const refreshUser = () => {

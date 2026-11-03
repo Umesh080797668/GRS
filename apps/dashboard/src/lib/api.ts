@@ -288,6 +288,18 @@ export class ApiClient {
     return data;
   }
 
+  async logout(): Promise<void> {
+    try {
+      await this.request('/v1/auth/logout', {
+        method: 'POST',
+      }, false);
+    } catch {
+      // Invariant: Silently handle network errors during sign-out
+    } finally {
+      this.clearSession();
+    }
+  }
+
   async changePassword(currentPassword: string, newPassword: string): Promise<SessionTokens> {
     const data = await this.request<SessionTokens>('/v1/auth/change-password', {
       method: 'POST',
@@ -295,6 +307,34 @@ export class ApiClient {
     });
     this.saveSession(data);
     return data;
+  }
+
+  async requestPasswordReset(email: string): Promise<{ success: boolean; message: string }> {
+    return this.request('/v1/auth/forgot', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }, false);
+  }
+
+  async confirmPasswordReset(email: string, code: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    return this.request('/v1/auth/reset', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, newPassword }),
+    }, false);
+  }
+
+  async addPendingEmail(email: string): Promise<{ success: boolean; message: string }> {
+    return this.request('/v1/auth/email/add', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async verifyEmail(code: string): Promise<{ success: boolean; email: string }> {
+    return this.request('/v1/auth/email/verify', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
   }
 
   async refreshSession(): Promise<boolean> {
@@ -424,16 +464,65 @@ export class ApiClient {
     return Array.isArray(res) ? res : res.items || [];
   }
 
+  async createDsDivision(data: {
+    districtId: string;
+    nameEn: string;
+    nameSi: string;
+    nameTa: string;
+    sdoName?: string;
+  }): Promise<any> {
+    return this.request('/v1/areas/ds', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async getDsDivisions(districtId?: string): Promise<any[]> {
     const p = districtId ? `?districtId=${districtId}` : '';
     const res = await this.request(`/v1/areas/ds${p}`);
     return Array.isArray(res) ? res : res.items || [];
   }
 
+  async createGnDivision(data: {
+    dsId: string;
+    gnNumber: string;
+    gnName: string;
+    secretaryName?: string;
+    secretaryContact?: string;
+    secretaryEmail?: string;
+  }): Promise<any> {
+    return this.request('/v1/areas/gn', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateGnDivision(id: string, data: {
+    secretaryName?: string;
+    secretaryContact?: string;
+    secretaryEmail?: string;
+  }): Promise<any> {
+    return this.request(`/v1/areas/gn/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
   async getGnDivisions(dsId?: string): Promise<any[]> {
     const p = dsId ? `?dsId=${dsId}` : '';
     const res = await this.request(`/v1/areas/gn${p}`);
     return Array.isArray(res) ? res : res.items || [];
+  }
+
+  async createTeam(data: {
+    gnId: string;
+    teamNo: number;
+    maxMembers?: number;
+  }): Promise<any> {
+    return this.request('/v1/areas/teams', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   async getTeams(gnId?: string): Promise<any[]> {
@@ -474,11 +563,12 @@ export class ApiClient {
 
   // --- HOUSEHOLDS & IMPORT (M5.4) ---
 
-  async getHouseholds(params: { gnId?: string; search?: string; limit?: number } = {}): Promise<any> {
+  async getHouseholds(params: { gnId?: string; search?: string; limit?: number; cursor?: string } = {}): Promise<any> {
     const p = new URLSearchParams();
     if (params.gnId) p.append('gnId', params.gnId);
     if (params.search) p.append('search', params.search);
     if (params.limit) p.append('limit', params.limit.toString());
+    if (params.cursor) p.append('cursor', params.cursor);
     const q = p.toString() ? `?${p.toString()}` : '';
     return this.request(`/v1/houses${q}`);
   }
@@ -487,6 +577,25 @@ export class ApiClient {
     return this.request('/v1/houses', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  async assignHousesToTeam(teamId: string, houseIds: string[]): Promise<any> {
+    return this.request(`/v1/teams/${teamId}/houses`, {
+      method: 'POST',
+      body: JSON.stringify({ houseIds }),
+    });
+  }
+
+  async unassignHouseFromTeam(teamId: string, houseId: string): Promise<any> {
+    return this.request(`/v1/teams/${teamId}/houses/${houseId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async finishHousehold(houseId: string): Promise<any> {
+    return this.request(`/v1/houses/${houseId}/finish`, {
+      method: 'POST',
     });
   }
 
@@ -524,6 +633,12 @@ export class ApiClient {
 
   async getClients(params: {
     teamId?: string;
+    districtId?: string;
+    dsId?: string;
+    gnId?: string;
+    gender?: string;
+    beneficiary?: string;
+    language?: string;
     search?: string;
     limit?: number;
     cursor?: string;
@@ -531,6 +646,12 @@ export class ApiClient {
   } = {}): Promise<any> {
     const p = new URLSearchParams();
     if (params.teamId) p.append('teamId', params.teamId);
+    if (params.districtId) p.append('districtId', params.districtId);
+    if (params.dsId) p.append('dsId', params.dsId);
+    if (params.gnId) p.append('gnId', params.gnId);
+    if (params.gender && params.gender !== 'all') p.append('gender', params.gender);
+    if (params.beneficiary && params.beneficiary !== 'all') p.append('beneficiary', params.beneficiary);
+    if (params.language && params.language !== 'all') p.append('language', params.language);
     if (params.search) p.append('search', params.search);
     if (params.limit) p.append('limit', params.limit.toString());
     if (params.cursor) p.append('cursor', params.cursor);

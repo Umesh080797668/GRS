@@ -98,6 +98,9 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
         return Promise.resolve(data);
       }),
     },
+    appSetting: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
     $transaction: jest.fn().mockImplementation(async (cb) => {
       return cb(mockPrisma);
     }),

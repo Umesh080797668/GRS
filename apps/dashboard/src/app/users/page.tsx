@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Shell from '../../components/Shell';
 import PrintableSlipsModal, { CredentialSlipItem } from '../../components/PrintableSlipsModal';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { formatDate } from '../../lib/utils';
 import {
@@ -15,11 +16,13 @@ import {
   UserX,
   UserCheck,
   AlertCircle,
+  CheckCircle,
   Loader2,
 } from 'lucide-react';
 
 export default function UsersPage() {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [accounts, setAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -27,6 +30,7 @@ export default function UsersPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Modals
   const [showSingleModal, setShowSingleModal] = useState(false);
@@ -87,6 +91,8 @@ export default function UsersPage() {
   const handleCreateSingle = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
+    setError(null);
+    setSuccessMessage(null);
     try {
       const res = await api.createAccount(formData);
       setShowSingleModal(false);
@@ -100,8 +106,9 @@ export default function UsersPage() {
       ]);
       setFormData({ userCode: '', fullName: '', role: 'team_member', email: '', phone: '', teamId: '' });
       fetchAccounts(undefined, true);
+      setSuccessMessage(`Account ${res.userCode || res.user_code} created successfully.`);
     } catch (err: any) {
-      alert(`Error creating account: ${err.message}`);
+      setError(`Error creating account: ${err.message}`);
     } finally {
       setActionLoading(false);
     }
@@ -110,17 +117,17 @@ export default function UsersPage() {
   const handleCreateBulk = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
+    setError(null);
+    setSuccessMessage(null);
 
     // Atomicity check across > 100: Enforce team member limit upfront before chunking
     if (bulkData.role === 'team_member' && bulkData.teamId) {
       const targetTeam = teams.find((t) => t.id === bulkData.teamId);
       if (targetTeam) {
-        const activeInTeam = accounts.filter(
-          (a) => a.teamId === bulkData.teamId && a.isActive
-        ).length;
+        const activeInTeam = targetTeam.activeMembers ?? targetTeam.memberLimit ?? 0;
         const availableSlots = Math.max(0, targetTeam.maxMembers - activeInTeam);
         if (Number(bulkData.count) > availableSlots) {
-          alert(
+          setError(
             `Team member limit exceeded. Team ${targetTeam.teamNo} allows a maximum of ${targetTeam.maxMembers} members (${activeInTeam} currently active). Only ${availableSlots} slot(s) remain, but ${bulkData.count} were requested.`
           );
           setActionLoading(false);
@@ -161,17 +168,18 @@ export default function UsersPage() {
       setShowBulkModal(false);
       setLatestCredentials(allCreds);
       fetchAccounts(undefined, true);
+      setSuccessMessage(`Successfully generated ${allCreds.length} accounts in batch ${createdBatchIds.join(', ')}.`);
     } catch (err: any) {
       // Invariant: Keep and show partial credentials even on partial chunk failure
       if (allCreds.length > 0) {
         setShowBulkModal(false);
         setLatestCredentials(allCreds);
         fetchAccounts(undefined, true);
-        alert(
-          `Bulk creation partially completed: ${allCreds.length} accounts were successfully generated across batch(es): ${createdBatchIds.join(', ')}.\n\nSubsequent chunk failed: ${err.message}.\n\nYour created credentials are shown below. You can also reissue credentials using the batch ID if needed.`
+        setError(
+          `Bulk creation partially completed: ${allCreds.length} accounts were generated. Subsequent chunk failed: ${err.message}.`
         );
       } else {
-        alert(`Error in bulk creation: ${err.message}`);
+        setError(`Error in bulk creation: ${err.message}`);
       }
     } finally {
       setActionLoading(false);
@@ -182,21 +190,23 @@ export default function UsersPage() {
     e.preventDefault();
     if (!reissueBatchId.trim()) return;
     setActionLoading(true);
+    setError(null);
+    setSuccessMessage(null);
     try {
       const res = await api.reissueBatch(reissueBatchId.trim());
       setShowReissueModal(false);
       const slips: CredentialSlipItem[] = (res.credentials || []).map((c: any) => ({
         userCode: c.userCode,
         fullName: c.fullName,
-        role: 'team_member',
+        role: c.role || (res as any).role || 'team_member',
         initialPassword: c.initialPassword,
       }));
       setLatestCredentials(slips);
-      alert(
+      setSuccessMessage(
         `Successfully reissued credentials for ${res.totalReissued} accounts in batch ${res.batchId}.`
       );
     } catch (err: any) {
-      alert(`Failed to reissue batch credentials: ${err.message}`);
+      setError(`Failed to reissue batch credentials: ${err.message}`);
     } finally {
       setActionLoading(false);
     }
@@ -204,25 +214,33 @@ export default function UsersPage() {
 
   const handleDeactivate = async (id: string) => {
     if (!confirm('Are you sure you want to deactivate this account?')) return;
+    setError(null);
+    setSuccessMessage(null);
     try {
       await api.deactivateAccount(id);
       fetchAccounts(undefined, true);
+      setSuccessMessage('Account deactivated successfully.');
     } catch (err: any) {
-      alert(`Failed to deactivate: ${err.message}`);
+      setError(`Failed to deactivate: ${err.message}`);
     }
   };
 
   const handleReactivate = async (id: string) => {
+    setError(null);
+    setSuccessMessage(null);
     try {
       await api.reactivateAccount(id);
       fetchAccounts(undefined, true);
+      setSuccessMessage('Account reactivated successfully.');
     } catch (err: any) {
-      alert(`Failed to reactivate: ${err.message}`);
+      setError(`Failed to reactivate: ${err.message}`);
     }
   };
 
   const handleResetPassword = async (id: string) => {
     if (!confirm('Reset password for this user? A temporary password will be generated.')) return;
+    setError(null);
+    setSuccessMessage(null);
     try {
       const res = await api.resetAccountPassword(id);
       setLatestCredentials([
@@ -232,8 +250,9 @@ export default function UsersPage() {
           initialPassword: res.initialPassword || res.initial_password,
         },
       ]);
+      setSuccessMessage(`Temporary password generated for ${res.userCode || res.user_code}.`);
     } catch (err: any) {
-      alert(`Failed to reset password: ${err.message}`);
+      setError(`Failed to reset password: ${err.message}`);
     }
   };
 
@@ -275,6 +294,13 @@ export default function UsersPage() {
         </div>
       )}
 
+      {successMessage && (
+        <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px', padding: '12px 16px', color: '#059669', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <CheckCircle size={18} />
+          <span>{successMessage}</span>
+        </div>
+      )}
+
       {/* Filters & Search */}
       <div className="glass-panel" style={{ padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
@@ -300,6 +326,7 @@ export default function UsersPage() {
           <option value="cdc_secretary">CDC Secretary</option>
           <option value="sda">SDA (Divisional)</option>
           <option value="dc">DC (District)</option>
+          <option value="cg">CG (Central)</option>
           <option value="admin">Administrator</option>
         </select>
 
@@ -452,10 +479,15 @@ export default function UsersPage() {
                   className="input-field"
                 >
                   <option value="team_member">Team Member (Enumerator)</option>
-                  <option value="cdc_secretary">CDC Secretary (Level 4)</option>
-                  <option value="sda">SDA (Level 3 Divisional)</option>
-                  <option value="dc">DC (Level 2 District)</option>
-                  <option value="admin">Administrator</option>
+                  {user?.role !== 'cdc_secretary' && (
+                    <>
+                      <option value="cdc_secretary">CDC Secretary (Level 4)</option>
+                      <option value="sda">SDA (Level 3 Divisional)</option>
+                      <option value="dc">DC (Level 2 District)</option>
+                      <option value="cg">CG (Level 1 Central)</option>
+                      <option value="admin">Administrator</option>
+                    </>
+                  )}
                 </select>
               </div>
 
@@ -506,7 +538,9 @@ export default function UsersPage() {
                   className="input-field"
                 >
                   <option value="team_member">Team Member</option>
-                  <option value="cdc_secretary">CDC Secretary</option>
+                  {user?.role !== 'cdc_secretary' && (
+                    <option value="cdc_secretary">CDC Secretary</option>
+                  )}
                 </select>
               </div>
 
@@ -532,15 +566,15 @@ export default function UsersPage() {
 
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                  Total Number of Accounts to Generate
+                  Total Number of Accounts to Generate (Max 100 per request)
                 </label>
                 <input
                   type="number"
                   min="1"
-                  max="500"
+                  max="100"
                   className="input-field"
                   value={bulkData.count}
-                  onChange={(e) => setBulkData({ ...bulkData, count: parseInt(e.target.value) || 1 })}
+                  onChange={(e) => setBulkData({ ...bulkData, count: Math.min(100, Math.max(1, parseInt(e.target.value) || 1)) })}
                   required
                 />
               </div>

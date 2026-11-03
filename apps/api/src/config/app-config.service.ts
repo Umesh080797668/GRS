@@ -9,6 +9,7 @@ export interface AppConfig {
   syncBatchMax: number;
   apkDownloadUrl: string;
   initialPasswordTtlDays: number;
+  webEntryRoles: string[];
   features: {
     webDataEntry: boolean;
   };
@@ -45,6 +46,13 @@ export class AppConfigService {
       'web_data_entry_enabled',
       false,
     );
+    const webRolesSetting = await this.getSetting(
+      'web_entry_roles',
+      ['cdc_secretary', 'sda', 'dc', 'admin'],
+    );
+    const webEntryRoles = Array.isArray(webRolesSetting)
+      ? webRolesSetting
+      : ['cdc_secretary', 'sda', 'dc', 'admin'];
 
     return {
       minSupportedVersion: String(minVerSetting),
@@ -54,8 +62,9 @@ export class AppConfigService {
       syncBatchMax: Number(syncBatchSetting),
       apkDownloadUrl: String(apkUrlSetting),
       initialPasswordTtlDays: Number(ttlDaysSetting),
+      webEntryRoles,
       features: {
-        webDataEntry: Boolean(webEntrySetting),
+        webDataEntry: Boolean(webEntrySetting) || webEntryRoles.includes('super_admin'),
       },
     };
   }

@@ -69,6 +69,29 @@ export class StatsRefreshService {
    */
   private async rollupAreaStats(refreshedAt: Date): Promise<void> {
     await this.prisma.$executeRawUnsafe(`
+      WITH unassigned_gn AS (
+        SELECT "gn_id", COUNT(*)::int AS cnt
+        FROM "households"
+        WHERE "deleted_at" IS NULL AND "team_id" IS NULL
+        GROUP BY "gn_id"
+      ),
+      unassigned_ds AS (
+        SELECT "ds_id", COUNT(*)::int AS cnt
+        FROM "households"
+        WHERE "deleted_at" IS NULL AND "team_id" IS NULL
+        GROUP BY "ds_id"
+      ),
+      unassigned_district AS (
+        SELECT "district_id", COUNT(*)::int AS cnt
+        FROM "households"
+        WHERE "deleted_at" IS NULL AND "team_id" IS NULL
+        GROUP BY "district_id"
+      ),
+      unassigned_national AS (
+        SELECT COUNT(*)::int AS cnt
+        FROM "households"
+        WHERE "deleted_at" IS NULL AND "team_id" IS NULL
+      )
       INSERT INTO "area_stats" (
         "id",
         "area_type",
@@ -87,69 +110,72 @@ export class StatsRefreshService {
       SELECT
         gen_random_uuid(),
         'gn' AS "area_type",
-        "gn_id"::text AS "area_id",
-        COALESCE(SUM("houses_assigned"), 0)::int,
-        COALESCE(SUM("houses_started"), 0)::int,
-        COALESCE(SUM("houses_done"), 0)::int,
-        COALESCE(SUM("clients_count"), 0)::int,
-        COALESCE(SUM("epf_count"), 0)::int,
-        COALESCE(SUM("etf_count"), 0)::int,
-        COALESCE(SUM("aswesuma_count"), 0)::int,
-        COALESCE(SUM("samurdhi_count"), 0)::int,
-        COALESCE(SUM("special_needs_count"), 0)::int,
+        ts."gn_id"::text AS "area_id",
+        (COALESCE(SUM(ts."houses_assigned"), 0) + COALESCE(MAX(u.cnt), 0))::int,
+        COALESCE(SUM(ts."houses_started"), 0)::int,
+        COALESCE(SUM(ts."houses_done"), 0)::int,
+        COALESCE(SUM(ts."clients_count"), 0)::int,
+        COALESCE(SUM(ts."epf_count"), 0)::int,
+        COALESCE(SUM(ts."etf_count"), 0)::int,
+        COALESCE(SUM(ts."aswesuma_count"), 0)::int,
+        COALESCE(SUM(ts."samurdhi_count"), 0)::int,
+        COALESCE(SUM(ts."special_needs_count"), 0)::int,
         CURRENT_TIMESTAMP
-      FROM "team_stats"
-      GROUP BY "gn_id"
+      FROM "team_stats" ts
+      LEFT JOIN unassigned_gn u ON u."gn_id" = ts."gn_id"
+      GROUP BY ts."gn_id"
       UNION ALL
       SELECT
         gen_random_uuid(),
         'ds' AS "area_type",
-        "ds_id"::text AS "area_id",
-        COALESCE(SUM("houses_assigned"), 0)::int,
-        COALESCE(SUM("houses_started"), 0)::int,
-        COALESCE(SUM("houses_done"), 0)::int,
-        COALESCE(SUM("clients_count"), 0)::int,
-        COALESCE(SUM("epf_count"), 0)::int,
-        COALESCE(SUM("etf_count"), 0)::int,
-        COALESCE(SUM("aswesuma_count"), 0)::int,
-        COALESCE(SUM("samurdhi_count"), 0)::int,
-        COALESCE(SUM("special_needs_count"), 0)::int,
+        ts."ds_id"::text AS "area_id",
+        (COALESCE(SUM(ts."houses_assigned"), 0) + COALESCE(MAX(u.cnt), 0))::int,
+        COALESCE(SUM(ts."houses_started"), 0)::int,
+        COALESCE(SUM(ts."houses_done"), 0)::int,
+        COALESCE(SUM(ts."clients_count"), 0)::int,
+        COALESCE(SUM(ts."epf_count"), 0)::int,
+        COALESCE(SUM(ts."etf_count"), 0)::int,
+        COALESCE(SUM(ts."aswesuma_count"), 0)::int,
+        COALESCE(SUM(ts."samurdhi_count"), 0)::int,
+        COALESCE(SUM(ts."special_needs_count"), 0)::int,
         CURRENT_TIMESTAMP
-      FROM "team_stats"
-      GROUP BY "ds_id"
+      FROM "team_stats" ts
+      LEFT JOIN unassigned_ds u ON u."ds_id" = ts."ds_id"
+      GROUP BY ts."ds_id"
       UNION ALL
       SELECT
         gen_random_uuid(),
         'district' AS "area_type",
-        "district_id"::text AS "area_id",
-        COALESCE(SUM("houses_assigned"), 0)::int,
-        COALESCE(SUM("houses_started"), 0)::int,
-        COALESCE(SUM("houses_done"), 0)::int,
-        COALESCE(SUM("clients_count"), 0)::int,
-        COALESCE(SUM("epf_count"), 0)::int,
-        COALESCE(SUM("etf_count"), 0)::int,
-        COALESCE(SUM("aswesuma_count"), 0)::int,
-        COALESCE(SUM("samurdhi_count"), 0)::int,
-        COALESCE(SUM("special_needs_count"), 0)::int,
+        ts."district_id"::text AS "area_id",
+        (COALESCE(SUM(ts."houses_assigned"), 0) + COALESCE(MAX(u.cnt), 0))::int,
+        COALESCE(SUM(ts."houses_started"), 0)::int,
+        COALESCE(SUM(ts."houses_done"), 0)::int,
+        COALESCE(SUM(ts."clients_count"), 0)::int,
+        COALESCE(SUM(ts."epf_count"), 0)::int,
+        COALESCE(SUM(ts."etf_count"), 0)::int,
+        COALESCE(SUM(ts."aswesuma_count"), 0)::int,
+        COALESCE(SUM(ts."samurdhi_count"), 0)::int,
+        COALESCE(SUM(ts."special_needs_count"), 0)::int,
         CURRENT_TIMESTAMP
-      FROM "team_stats"
-      GROUP BY "district_id"
+      FROM "team_stats" ts
+      LEFT JOIN unassigned_district u ON u."district_id" = ts."district_id"
+      GROUP BY ts."district_id"
       UNION ALL
       SELECT
         gen_random_uuid(),
         'national' AS "area_type",
         'national' AS "area_id",
-        COALESCE(SUM("houses_assigned"), 0)::int,
-        COALESCE(SUM("houses_started"), 0)::int,
-        COALESCE(SUM("houses_done"), 0)::int,
-        COALESCE(SUM("clients_count"), 0)::int,
-        COALESCE(SUM("epf_count"), 0)::int,
-        COALESCE(SUM("etf_count"), 0)::int,
-        COALESCE(SUM("aswesuma_count"), 0)::int,
-        COALESCE(SUM("samurdhi_count"), 0)::int,
-        COALESCE(SUM("special_needs_count"), 0)::int,
+        (COALESCE(SUM(ts."houses_assigned"), 0) + COALESCE((SELECT cnt FROM unassigned_national), 0))::int,
+        COALESCE(SUM(ts."houses_started"), 0)::int,
+        COALESCE(SUM(ts."houses_done"), 0)::int,
+        COALESCE(SUM(ts."clients_count"), 0)::int,
+        COALESCE(SUM(ts."epf_count"), 0)::int,
+        COALESCE(SUM(ts."etf_count"), 0)::int,
+        COALESCE(SUM(ts."aswesuma_count"), 0)::int,
+        COALESCE(SUM(ts."samurdhi_count"), 0)::int,
+        COALESCE(SUM(ts."special_needs_count"), 0)::int,
         CURRENT_TIMESTAMP
-      FROM "team_stats"
+      FROM "team_stats" ts
       HAVING COUNT(*) > 0
       ON CONFLICT ("area_type", "area_id") DO UPDATE SET
         "houses_assigned" = EXCLUDED."houses_assigned",
@@ -175,15 +201,24 @@ export class StatsRefreshService {
       where: { deletedAt: null, teamId: { not: null } },
     });
     const freshHouseholds = await this.prisma.household.count({
-      where: { deletedAt: null, teamId: { not: null } },
+      where: { deletedAt: null },
     });
 
     const summaryClientAgg = await this.prisma.teamStat.aggregate({
       _sum: { clientsCount: true, housesAssigned: true },
     });
 
+    const nationalStat = await this.prisma.areaStat.findUnique({
+      where: {
+        areaType_areaId: {
+          areaType: 'national',
+          areaId: 'national',
+        },
+      },
+    });
+
     const totalSummaryClients = summaryClientAgg._sum.clientsCount || 0;
-    const totalSummaryHouseholds = summaryClientAgg._sum.housesAssigned || 0;
+    const totalSummaryHouseholds = nationalStat?.housesAssigned ?? (summaryClientAgg._sum.housesAssigned || 0);
 
     const clientDrift = Math.abs(freshClients - totalSummaryClients);
     const householdDrift = Math.abs(freshHouseholds - totalSummaryHouseholds);

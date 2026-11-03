@@ -19,12 +19,26 @@ import {
 } from 'lucide-react';
 
 export default function DataEntryPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user } = useAuth();
 
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [webEntryEnabled, setWebEntryEnabled] = useState(false);
   const [togglingConfig, setTogglingConfig] = useState(false);
+  const [appConfig, setAppConfig] = useState<any>(null);
+
+  // Lookups state from /v1/lookups
+  const [lookups, setLookups] = useState<{
+    education: any[];
+    vocational_qualification: any[];
+    vocational_stream: any[];
+    job: any[];
+  }>({
+    education: [],
+    vocational_qualification: [],
+    vocational_stream: [],
+    job: [],
+  });
 
   // Geographic dropdowns
   const [districts, setDistricts] = useState<any[]>([]);
@@ -38,6 +52,11 @@ export default function DataEntryPage() {
   const [householdMode, setHouseholdMode] = useState<'new' | 'existing'>('new');
   const [existingHouseholds, setExistingHouseholds] = useState<any[]>([]);
   const [selectedHouseholdId, setSelectedHouseholdId] = useState<string>('');
+  const [houseSearch, setHouseSearch] = useState<string>('');
+  const [houseCursor, setHouseCursor] = useState<string | null>(null);
+  const [loadingHouses, setLoadingHouses] = useState(false);
+  const [hasMoreHouses, setHasMoreHouses] = useState(false);
+
   const [houseNo, setHouseNo] = useState('');
   const [headName, setHeadName] = useState('');
   const [address, setAddress] = useState('');
@@ -54,10 +73,10 @@ export default function DataEntryPage() {
   const [clientGender, setClientGender] = useState<'male' | 'female' | 'other'>('male');
   const [clientPhone, setClientPhone] = useState('');
   const [clientWhatsapp, setClientWhatsapp] = useState('');
-  const [highestEducation, setHighestEducation] = useState('GCE_AL');
-  const [highestVocational, setHighestVocational] = useState('NVQ3');
-  const [interestedStream, setInterestedStream] = useState('ICT');
-  const [interestedJob, setInterestedJob] = useState('SOFTWARE_DEV');
+  const [highestEducation, setHighestEducation] = useState('EDU_OL_PASSED');
+  const [highestVocational, setHighestVocational] = useState('VOC_NONE');
+  const [interestedStream, setInterestedStream] = useState('STREAM_IT_COMPUTING');
+  const [interestedJob, setInterestedJob] = useState('JOB_SOFTWARE_DEV');
   const [futureHopes, setFutureHopes] = useState<string[]>([]);
   const [infoProvidedBy, setInfoProvidedBy] = useState<'self' | 'mother' | 'father' | 'sister' | 'other'>('self');
   const [infoProvidedByOther, setInfoProvidedByOther] = useState('');
@@ -71,14 +90,56 @@ export default function DataEntryPage() {
 
   useEffect(() => {
     checkConfig();
+    loadLookups();
     loadDistricts();
   }, []);
+
+  const getLookupLabel = (item: any) => {
+    if (!item) return '';
+    if (language === 'si') return item.labelSi || item.labelEn;
+    if (language === 'ta') return item.labelTa || item.labelEn;
+    return item.labelEn;
+  };
+
+  async function loadLookups() {
+    try {
+      const res = await api.getLookups();
+      if (res?.categories) {
+        setLookups({
+          education: res.categories.education || [],
+          vocational_qualification: res.categories.vocational_qualification || [],
+          vocational_stream: res.categories.vocational_stream || [],
+          job: res.categories.job || [],
+        });
+        if (res.categories.education?.length) {
+          const defaultEdu = res.categories.education.find((e: any) => e.code === 'EDU_OL_PASSED') || res.categories.education[0];
+          setHighestEducation(defaultEdu.code);
+        }
+        if (res.categories.vocational_qualification?.length) {
+          const defaultVoc = res.categories.vocational_qualification.find((v: any) => v.code === 'VOC_NONE') || res.categories.vocational_qualification[0];
+          setHighestVocational(defaultVoc.code);
+        }
+        if (res.categories.vocational_stream?.length) {
+          const defaultStream = res.categories.vocational_stream.find((s: any) => s.code === 'STREAM_IT_COMPUTING') || res.categories.vocational_stream[0];
+          setInterestedStream(defaultStream.code);
+        }
+        if (res.categories.job?.length) {
+          setInterestedJob(res.categories.job[0].code);
+        }
+      }
+    } catch (err: any) {
+      console.error('Failed to load lookups:', err);
+    }
+  }
 
   async function checkConfig() {
     setLoadingConfig(true);
     try {
       const cfg = await api.getConfig();
-      setWebEntryEnabled(Boolean(cfg?.features?.webDataEntry));
+      setAppConfig(cfg);
+      const allowedRoles: string[] = cfg?.webEntryRoles || cfg?.web_entry_roles || ['cdc_secretary', 'sda', 'dc', 'admin'];
+      const userAllowed = user?.role ? allowedRoles.includes(user.role) : false;
+      setWebEntryEnabled(userAllowed);
       if (cfg?.consentVersion || cfg?.consent_version) {
         setConsentVersion(cfg.consentVersion || cfg.consent_version);
       }
@@ -89,17 +150,27 @@ export default function DataEntryPage() {
     }
   }
 
-  async function loadHouseholdsForGn(gnId: string) {
+  async function loadHouseholdsForGn(gnId: string, reset = true, search = houseSearch) {
     if (!gnId) {
       setExistingHouseholds([]);
       return;
     }
+    setLoadingHouses(true);
     try {
-      const res = await api.getHouseholds({ gnId, limit: 1000 });
-      const list = Array.isArray(res) ? res : res?.households || [];
-      setExistingHouseholds(list);
+      const res = await api.getHouseholds({
+        gnId,
+        search: search.trim() || undefined,
+        limit: 30,
+        cursor: reset ? undefined : (houseCursor || undefined),
+      });
+      const list = Array.isArray(res) ? res : res?.households || res?.items || [];
+      setExistingHouseholds((prev) => reset ? list : [...prev, ...list]);
+      setHouseCursor(res?.nextCursor || null);
+      setHasMoreHouses(Boolean(res?.nextCursor));
     } catch (err) {
       console.error('Failed to load households for GN:', err);
+    } finally {
+      setLoadingHouses(false);
     }
   }
 
@@ -199,10 +270,23 @@ export default function DataEntryPage() {
     setTogglingConfig(true);
     try {
       const newStatus = !webEntryEnabled;
-      await api.updateConfig({ web_data_entry_enabled: newStatus });
+      const currentRoles: string[] = appConfig?.webEntryRoles || appConfig?.web_entry_roles || ['cdc_secretary', 'sda', 'dc', 'admin'];
+      const updatedRoles = newStatus
+        ? Array.from(new Set([...currentRoles, 'super_admin']))
+        : currentRoles.filter((r) => r !== 'super_admin');
+
+      await api.updateConfig({
+        web_data_entry_enabled: newStatus,
+        web_entry_roles: updatedRoles,
+      });
       setWebEntryEnabled(newStatus);
+      setAppConfig((prev: any) => ({
+        ...prev,
+        web_data_entry_enabled: newStatus,
+        web_entry_roles: updatedRoles,
+      }));
     } catch (err: any) {
-      alert(`Failed to update config: ${err.message}`);
+      setSubmitError(`Failed to update config: ${err.message}`);
     } finally {
       setTogglingConfig(false);
     }
@@ -472,28 +556,56 @@ export default function DataEntryPage() {
               </div>
 
               {householdMode === 'existing' && (
-                <div className="bg-slate-900/60 p-4 rounded-lg border border-slate-800 space-y-2">
-                  <label className="text-xs text-slate-300 block font-semibold">
-                    Select Existing Household to Attach Survey Entry *
-                  </label>
+                <div className="bg-slate-900/60 p-4 rounded-lg border border-slate-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label className="text-xs text-slate-300 block font-semibold">
+                      Select Existing Household to Attach Survey Entry *
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Filter house # or name..."
+                        value={houseSearch}
+                        onChange={(e) => {
+                          setHouseSearch(e.target.value);
+                          if (selectedGn) loadHouseholdsForGn(selectedGn, true, e.target.value);
+                        }}
+                        className="input text-xs py-1 px-2.5 max-w-xs"
+                      />
+                    </div>
+                  </div>
                   {existingHouseholds.length === 0 ? (
                     <p className="text-xs text-amber-400">
-                      No registered households found in this GN division. Please register a new household first.
+                      {loadingHouses ? 'Searching households...' : 'No registered households found. You can register a new household or adjust the search filter.'}
                     </p>
                   ) : (
-                    <select
-                      className="input text-sm"
-                      value={selectedHouseholdId}
-                      onChange={(e) => handleSelectExistingHousehold(e.target.value)}
-                      required
-                    >
-                      <option value="">-- Choose Household in {gnDivisions.find((g) => g.id === selectedGn)?.nameEn || 'GN'} --</option>
-                      {existingHouseholds.map((h) => (
-                        <option key={h.id} value={h.id}>
-                          House #{h.houseNo} — {h.houseLeaderName} {h.villageName ? `(${h.villageName})` : ''}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="space-y-2">
+                      <select
+                        className="input text-sm"
+                        value={selectedHouseholdId}
+                        onChange={(e) => handleSelectExistingHousehold(e.target.value)}
+                        required
+                      >
+                        <option value="">-- Choose Household in {gnDivisions.find((g) => g.id === selectedGn)?.nameEn || 'GN'} --</option>
+                        {existingHouseholds.map((h) => (
+                          <option key={h.id} value={h.id}>
+                            House #{h.houseNo} — {h.houseLeaderName} {h.villageName ? `(${h.villageName})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {hasMoreHouses && (
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => loadHouseholdsForGn(selectedGn, false, houseSearch)}
+                            disabled={loadingHouses}
+                            className="btn btn-secondary text-xs py-1 px-3"
+                          >
+                            {loadingHouses ? 'Loading...' : 'Load More Households'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -718,19 +830,21 @@ export default function DataEntryPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Highest Education Level</label>
+                  <label className="text-xs text-slate-400 block mb-1">Highest Education Level *</label>
                   <select
                     className="input text-sm"
                     value={highestEducation}
                     onChange={(e) => setHighestEducation(e.target.value)}
                   >
-                    <option value="NO_FORMAL">No Formal Schooling</option>
-                    <option value="PRIMARY">Primary School (Grades 1-5)</option>
-                    <option value="SECONDARY">Junior Secondary (Grades 6-9)</option>
-                    <option value="GCE_OL">G.C.E. O/L</option>
-                    <option value="GCE_AL">G.C.E. A/L</option>
-                    <option value="DEGREE">Bachelor's Degree</option>
-                    <option value="POSTGRAD">Postgraduate Degree</option>
+                    {lookups.education.length > 0 ? (
+                      lookups.education.map((item) => (
+                        <option key={item.code} value={item.code}>
+                          {getLookupLabel(item)}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="EDU_OL_PASSED">G.C.E. O/L passed</option>
+                    )}
                   </select>
                 </div>
 
@@ -741,14 +855,15 @@ export default function DataEntryPage() {
                     value={highestVocational}
                     onChange={(e) => setHighestVocational(e.target.value)}
                   >
-                    <option value="NONE">None</option>
-                    <option value="NVQ1">NVQ Level 1</option>
-                    <option value="NVQ2">NVQ Level 2</option>
-                    <option value="NVQ3">NVQ Level 3</option>
-                    <option value="NVQ4">NVQ Level 4 (National Certificate)</option>
-                    <option value="NVQ5">NVQ Level 5 (National Diploma)</option>
-                    <option value="NVQ6">NVQ Level 6 (Higher Diploma)</option>
-                    <option value="NVQ7">NVQ Level 7 (Degree equivalent)</option>
+                    {lookups.vocational_qualification.length > 0 ? (
+                      lookups.vocational_qualification.map((item) => (
+                        <option key={item.code} value={item.code}>
+                          {getLookupLabel(item)}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="VOC_NONE">None</option>
+                    )}
                   </select>
                 </div>
 
@@ -759,12 +874,15 @@ export default function DataEntryPage() {
                     value={interestedStream}
                     onChange={(e) => setInterestedStream(e.target.value)}
                   >
-                    <option value="ICT">Information & Comm. Technology</option>
-                    <option value="CONSTRUCTION">Construction & Engineering</option>
-                    <option value="TOURISM">Hospitality & Tourism</option>
-                    <option value="AUTOMOTIVE">Automobile & Mechanics</option>
-                    <option value="BEAUTY">Cosmetology & Hair</option>
-                    <option value="AGRICULTURE">Agri-Business & Farming</option>
+                    {lookups.vocational_stream.length > 0 ? (
+                      lookups.vocational_stream.map((item) => (
+                        <option key={item.code} value={item.code}>
+                          {getLookupLabel(item)}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="STREAM_IT_COMPUTING">IT & Computing</option>
+                    )}
                   </select>
                 </div>
 

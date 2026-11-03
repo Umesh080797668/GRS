@@ -72,6 +72,13 @@ export class UpdateConfigDto {
   @IsBoolean()
   web_data_entry_enabled?: boolean;
 
+  @ApiPropertyOptional({
+    example: ['cdc_secretary', 'sda', 'dc', 'admin'],
+    description: 'Roles permitted to perform direct web data entry (Decision C19)',
+  })
+  @IsOptional()
+  web_entry_roles?: string[];
+
   // CamelCase equivalents for convenience
   @IsOptional()
   @IsString()
@@ -113,4 +120,7 @@ export class UpdateConfigDto {
   @IsOptional()
   @IsBoolean()
   webDataEntryEnabled?: boolean;
+
+  @IsOptional()
+  webEntryRoles?: string[];
 }

@@ -244,8 +244,8 @@ export class ImportService {
       });
     }
 
-    // 4.5 MB cap check
-    const MAX_SIZE_BYTES = 4.5 * 1024 * 1024;
+    // 4.5 MB cap check (enforce decimal 4,500,000 bytes so app reject precedes proxy upload errors)
+    const MAX_SIZE_BYTES = 4.5 * 1000 * 1000;
     if (file.size > MAX_SIZE_BYTES) {
       throw new PayloadTooLargeException({
         code: 'IMPORT_TOO_LARGE',
@@ -323,96 +323,203 @@ export class ImportService {
       });
     }
 
-    const headers = (rawRows[0] || []).map((h: any) =>
-      String(h || '').trim().toLowerCase(),
-    );
+    const normalizeHeader = (raw: any): string =>
+      String(raw || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[\s\-_]+/g, '_');
 
-    const houseNoIdx = headers.findIndex(
-      (h: string) =>
-        h === 'house_no' ||
-        h === 'houseno' ||
-        h === 'house_number' ||
-        h.includes('house') ||
-        h.includes('ගෘහ අංක') ||
-        h.includes('வீட்டு எண்'),
-    );
+    const normHeaders = (rawRows[0] || []).map(normalizeHeader);
 
-    const headIdx = headers.findIndex(
-      (h: string) =>
-        h === 'house_leader_name' ||
-        h === 'household_head' ||
-        h === 'head_name' ||
-        h.includes('head') ||
-        h.includes('leader') ||
-        h.includes('ගෘහ මූලික') ||
-        h.includes('குடும்பத் தலைவர்'),
-    );
+    const matchHeader = (aliases: string[]): number => {
+      const aliasSet = new Set(aliases.map(normalizeHeader));
+      return normHeaders.findIndex((h: string) => aliasSet.has(h));
+    };
 
-    const addrIdx = headers.findIndex(
-      (h: string) => h.includes('addr') || h.includes('ලිපින') || h.includes('முகவரி'),
-    );
+    const houseNoIdx = matchHeader([
+      'house_no',
+      'houseno',
+      'house_number',
+      'house_num',
+      'house',
+      'ගෘහ_අංකය',
+      'ගෘහ අංකය',
+      'ගෘහ අංක',
+      'வீட்டு எண்',
+      'வீட்டு_எண்',
+    ]);
 
-    const villageIdx = headers.findIndex(
-      (h: string) => h.includes('village') || h.includes('street') || h.includes('ගම') || h.includes('கிராமம்'),
-    );
+    const headIdx = matchHeader([
+      'house_leader_name',
+      'household_head',
+      'head_name',
+      'house_head',
+      'leader_name',
+      'head',
+      'leader',
+      'ගෘහ_මූලික',
+      'ගෘහ මූලිකයාගේ නම',
+      'ගෘහ මූලික',
+      'குடும்பத் தலைவர்',
+      'குடும்பத்_தலைவர்',
+    ]);
 
-    const aswesumaIdx = headers.findIndex(
-      (h: string) => h.includes('aswesuma') || h.includes('අස්වැසුම') || h.includes('அஸ்வெசும'),
-    );
+    const addrIdx = matchHeader([
+      'address',
+      'addr',
+      'ලිපිනය',
+      'ලිපින',
+      'முகவரி',
+    ]);
 
-    const etfIdx = headers.findIndex(
-      (h: string) => h === 'etf' || h.includes('සේ.භා.අ') || h.includes('ஈ.டி.எப்'),
-    );
+    const villageIdx = matchHeader([
+      'village_name',
+      'village',
+      'street',
+      'street_name',
+      'ගම / වීදිය',
+      'ගම',
+      'ගම_වීදිය',
+      'கிராமம் / வீதி',
+      'கிராமம்',
+      'கிராமம்_வீதி',
+    ]);
 
-    const epfIdx = headers.findIndex(
-      (h: string) => h === 'epf' || h.includes('සේ.අ.අ') || h.includes('ஈ.பி.எப்'),
-    );
+    const aswesumaIdx = matchHeader([
+      'aswesuma',
+      'is_aswesuma',
+      'අස්වැසුම',
+      'அஸ்வெசும',
+    ]);
 
-    const samurdhiIdx = headers.findIndex(
-      (h: string) => h.includes('samurdhi') || h.includes('සමෘද්ධි') || h.includes('சமுர்த்தி'),
-    );
+    const etfIdx = matchHeader([
+      'etf',
+      'is_etf',
+      'සේ.භා.අ',
+      'සේභාඅ',
+      'ஈ.டி.எப்',
+      'ஈடிஎப்',
+    ]);
 
-    const specialIdx = headers.findIndex(
-      (h: string) => h.includes('special') || h.includes('විශේෂ') || h.includes('விசேட'),
-    );
+    const epfIdx = matchHeader([
+      'epf',
+      'is_epf',
+      'සේ.අ.අ',
+      'සේඅඅ',
+      'ஈ.பி.எப்',
+      'ஈபிஎப்',
+    ]);
 
-    const targetFemaleIdx = headers.findIndex(
-      (h: string) =>
-        h.includes('target_female') ||
-        h.includes('female_target') ||
-        h.includes('female') ||
-        h.includes('කාන්තා') ||
-        h.includes('பெண்'),
-    );
+    const samurdhiIdx = matchHeader([
+      'samurdhi',
+      'is_samurdhi',
+      'සමෘද්ධි',
+      'සමෘද්ධිය',
+      'සමෘද්ධි_ලාභී',
+      'சமுர்த்தி',
+    ]);
 
-    const targetMaleIdx = headers.findIndex(
-      (h: string) =>
-        h.includes('target_male') ||
-        h.includes('male_target') ||
-        (h.includes('male') && !h.includes('female')) ||
-        h.includes('පිරිමි') ||
-        h.includes('ஆண்'),
-    );
+    const specialIdx = matchHeader([
+      'special_needs',
+      'has_special_needs',
+      'special',
+      'special_need',
+      'විශේෂ අවශ්‍යතා',
+      'විශේෂ_අවශ්‍යතා',
+      'විශේෂ',
+      'விசேட தேவை',
+      'விசேட_தேவை',
+      'விசேட',
+    ]);
 
-    const ageGroupIdx = headers.findIndex(
-      (h: string) => h.includes('age') || h.includes('වයස්') || h.includes('வயது'),
-    );
+    const targetFemaleIdx = matchHeader([
+      'target_female',
+      'female_target',
+      'target_females',
+      'female',
+      'females',
+      'කාන්තා ඉලක්කය',
+      'කාන්තා_ඉලක්කය',
+      'කාන්තා',
+      'பெண் இலக்கு',
+      'பெண்_இலக்கு',
+      'பெண்',
+    ]);
 
-    const langSinhalaIdx = headers.findIndex(
-      (h: string) => h.includes('sinhala') || h.includes('සිංහල') || h.includes('சிங்கள'),
-    );
+    const targetMaleIdx = matchHeader([
+      'target_male',
+      'male_target',
+      'target_males',
+      'male',
+      'males',
+      'පිරිමි ඉලක්කය',
+      'පිරිමි_ඉලක්කය',
+      'පිරිමි',
+      'ஆண் இலக்கு',
+      'ஆண்_இலக்கு',
+      'ஆண்',
+    ]);
 
-    const langTamilIdx = headers.findIndex(
-      (h: string) => h.includes('tamil') || h.includes('දෙමළ') || h.includes('தமிழ்'),
-    );
+    const ageGroupIdx = matchHeader([
+      'age_group',
+      'agegroup',
+      'age_range',
+      'age',
+      'age_bracket',
+      'වයස් කාණ්ඩය',
+      'වයස්_කාණ්ඩය',
+      'වයස් කාණ්ඩ',
+      'වයස',
+      'வயதுக் குழு',
+      'வயது_குழு',
+      'வயது குழு',
+      'வயது',
+    ]);
 
-    const langEnglishIdx = headers.findIndex(
-      (h: string) => h.includes('english') || h.includes('ඉංග්‍රීසි') || h.includes('ஆங்கில'),
-    );
+    const langSinhalaIdx = matchHeader([
+      'lang_sinhala',
+      'sinhala',
+      'language_sinhala',
+      'සිංහල',
+      'සිංහල_භාෂාව',
+      'சிங்களம்',
+      'சிங்கள',
+    ]);
 
-    const numMembersIdx = headers.findIndex(
-      (h: string) => h.includes('member') || h.includes('සාමාජික') || h.includes('உறுப்பினர்'),
-    );
+    const langTamilIdx = matchHeader([
+      'lang_tamil',
+      'tamil',
+      'language_tamil',
+      'දෙමළ',
+      'දෙමළ_භාෂාව',
+      'தமிழ்',
+      'தமிழ்_மொழி',
+    ]);
+
+    const langEnglishIdx = matchHeader([
+      'lang_english',
+      'english',
+      'language_english',
+      'ඉංග්‍රීසි',
+      'ඉංග්‍රීසි_භාෂාව',
+      'ஆங்கிலம்',
+      'ஆங்கில',
+    ]);
+
+    const numMembersIdx = matchHeader([
+      'num_members',
+      'member_count',
+      'members',
+      'num_of_members',
+      'number_of_members',
+      'total_members',
+      'සාමාජිකයින් සංඛ්‍යාව',
+      'සාමාජික_ගණන',
+      'සාමාජිකයින්',
+      'සාමාජික',
+      'உறுப்பினர்கள் எண்ணிக்கை',
+      'உறுப்பினர்',
+    ]);
 
     if (houseNoIdx === -1 || headIdx === -1) {
       throw new BadRequestException({

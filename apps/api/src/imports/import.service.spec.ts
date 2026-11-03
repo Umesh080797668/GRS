@@ -146,6 +146,51 @@ describe('ImportService', () => {
       expect(r3.data.langTamil).toBe(true);
     });
 
+    it('correctly matches official template with village_name column without misidentifying it as age_group', async () => {
+      const templateHeaders = [
+        'house_no',
+        'house_leader_name',
+        'address',
+        'village_name',
+        'aswesuma',
+        'etf',
+        'epf',
+        'samurdhi',
+        'special_needs',
+        'target_female',
+        'target_male',
+        'age_group',
+        'lang_sinhala',
+        'lang_tamil',
+        'lang_english',
+        'num_members',
+      ];
+      const rows = [
+        templateHeaders,
+        ['10/A', 'Perera Silva', 'Main St', 'Pallekele', 'yes', 'no', 'yes', 'no', 'no', '1', '1', '18-35', 'yes', 'no', 'no', '3'],
+      ];
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, 'TemplateTest');
+      const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+      const file = {
+        originalname: 'official_template.xlsx',
+        buffer: buf,
+        size: buf.length,
+        mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      };
+
+      const result = await service.previewImport(mockCdcCaller as any, 'gn-uuid-1', file);
+      expect(result.rowsTotal).toBe(1);
+      expect(result.rowsOk).toBe(1);
+      expect(result.rowsFailed).toBe(0);
+      expect(result.rows[0].isValid).toBe(true);
+      expect(result.rows[0].data.villageName).toBe('Pallekele');
+      expect(result.rows[0].data.ageGroupMin).toBe(18);
+      expect(result.rows[0].data.ageGroupMax).toBe(35);
+    });
+
     it('rejects invalid boolean values with row errors instead of silently treating as false', async () => {
       const wb = XLSX.utils.book_new();
       const rows = [

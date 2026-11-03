@@ -30,11 +30,13 @@ const KEY_MAPPINGS: Record<string, string> = {
   initialPasswordTtlDays: 'initial_password_ttl_days',
   web_data_entry_enabled: 'web_data_entry_enabled',
   webDataEntryEnabled: 'web_data_entry_enabled',
+  web_entry_roles: 'web_entry_roles',
+  webEntryRoles: 'web_entry_roles',
 };
 
 @Controller('v1/config')
 export class AppConfigController {
-  constructor(private readonly configService: AppConfigService) {}
+  constructor(private readonly configService: AppConfigService) { }
 
   @Get()
   async getConfig() {
@@ -117,9 +119,38 @@ export class AppConfigController {
             message: `${key} must be a boolean`,
           });
         }
+      } else if (canonicalKey === 'web_entry_roles') {
+        if (!Array.isArray(rawValue) || !rawValue.every((r) => typeof r === 'string')) {
+          throw new BadRequestException({
+            code: 'INVALID_CONFIG_VALUE',
+            message: 'web_entry_roles must be an array of role strings',
+          });
+        }
       }
 
       await this.configService.updateSetting(canonicalKey, rawValue);
+
+      // When web_data_entry_enabled is toggled for super_admin (Decision C19), sync web_entry_roles
+      if (canonicalKey === 'web_data_entry_enabled') {
+        const currentRolesSetting = await this.configService.getSetting(
+          'web_entry_roles',
+          ['cdc_secretary', 'sda', 'dc', 'admin'],
+        );
+        let roles: string[] = Array.isArray(currentRolesSetting)
+          ? [...currentRolesSetting]
+          : ['cdc_secretary', 'sda', 'dc', 'admin'];
+        if (rawValue === true) {
+          if (!roles.includes('super_admin')) roles.push('super_admin');
+        } else {
+          roles = roles.filter((r) => r !== 'super_admin');
+        }
+        await this.configService.updateSetting('web_entry_roles', roles);
+      } else if (canonicalKey === 'web_entry_roles' && Array.isArray(rawValue)) {
+        await this.configService.updateSetting(
+          'web_data_entry_enabled',
+          rawValue.includes('super_admin'),
+        );
+      }
     }
     return this.configService.getConfig();
   }

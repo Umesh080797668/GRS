@@ -47,7 +47,7 @@ export class ClientService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: ScopeService,
-  ) {}
+  ) { }
 
   /**
    * Keyset-paged clients within caller scope (Blueprint §5.5, §10.2).
@@ -79,6 +79,52 @@ export class ClientService {
       Object.assign(whereCondition, scopeFilter);
       if (query.teamId) whereCondition.teamId = query.teamId;
       if (query.gnId) whereCondition.gnId = query.gnId;
+    }
+
+    if (query.districtId && !whereCondition.districtId) {
+      whereCondition.districtId = query.districtId;
+    }
+    if (query.dsId && !whereCondition.dsId) {
+      whereCondition.dsId = query.dsId;
+    }
+    if (query.gnId && !whereCondition.gnId) {
+      whereCondition.gnId = query.gnId;
+    }
+
+    if (query.gender && query.gender !== 'all') {
+      const g = query.gender.toUpperCase();
+      if (g === 'M' || g === 'MALE') {
+        whereCondition.gender = 'M';
+      } else if (g === 'F' || g === 'FEMALE') {
+        whereCondition.gender = 'F';
+      }
+    }
+
+    if (query.beneficiary && query.beneficiary !== 'all') {
+      switch (query.beneficiary) {
+        case 'aswesuma':
+          whereCondition.isAswesuma = true;
+          break;
+        case 'samurdhi':
+          whereCondition.isSamurdhi = true;
+          break;
+        case 'epf':
+          whereCondition.OR = [{ isEpf: true }, { isEtf: true }];
+          break;
+        case 'special_needs':
+          whereCondition.hasSpecialNeeds = true;
+          break;
+      }
+    }
+
+    if (query.language && query.language !== 'all') {
+      if (query.language === 'si') {
+        whereCondition.household = { ...whereCondition.household, langSinhala: true };
+      } else if (query.language === 'ta') {
+        whereCondition.household = { ...whereCondition.household, langTamil: true };
+      } else if (query.language === 'en') {
+        whereCondition.household = { ...whereCondition.household, langEnglish: true };
+      }
     }
 
     if (query.householdId) {
@@ -133,9 +179,9 @@ export class ClientService {
       },
       ...(query.cursor && query.cursor.trim().length > 0
         ? {
-            cursor: { id: query.cursor.trim() },
-            skip: 1,
-          }
+          cursor: { id: query.cursor.trim() },
+          skip: 1,
+        }
         : {}),
     });
 
@@ -217,6 +263,26 @@ export class ClientService {
    * Direct client data entry online (M5.8 / M4.4).
    */
   async createClient(caller: ScopeContext, dto: CreateClientDto): Promise<any> {
+    // Enforce Decision C19: Web data entry is gated by web_entry_roles config (disabled for Level 00 super_admin by default)
+    if (caller.role !== UserRole.team_member) {
+      const webRolesSetting = this.prisma?.appSetting?.findUnique
+        ? await this.prisma.appSetting.findUnique({
+            where: { key: 'web_entry_roles' },
+          })
+        : null;
+      const allowedRoles: string[] = Array.isArray(webRolesSetting?.value)
+        ? (webRolesSetting!.value as string[])
+        : ['cdc_secretary', 'sda', 'dc', 'admin'];
+
+      if (!allowedRoles.includes(caller.role)) {
+        throw new ForbiddenException({
+          code: 'WEB_ENTRY_RESTRICTED',
+          message:
+            'Direct web data entry is disabled for your role by default (Decision C19).',
+        });
+      }
+    }
+
     const household = await this.prisma.household.findUnique({
       where: { id: dto.householdId },
     });

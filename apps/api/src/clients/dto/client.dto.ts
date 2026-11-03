@@ -218,15 +218,35 @@ export class UpdateClientDto {
 export class ListClientsDto {
   @IsUUID()
   @IsOptional()
+  districtId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  dsId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  gnId?: string;
+
+  @IsUUID()
+  @IsOptional()
   teamId?: string;
 
   @IsUUID()
   @IsOptional()
   householdId?: string;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
-  gnId?: string;
+  gender?: string;
+
+  @IsString()
+  @IsOptional()
+  beneficiary?: string;
+
+  @IsString()
+  @IsOptional()
+  language?: string;
 
   @IsString()
   @IsOptional()

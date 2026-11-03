@@ -16,6 +16,11 @@ export class GrsValidators {
     'admin123',
     '12345678',
     'qwerty123',
+    '123456789',
+    'welcome123',
+    'changeme',
+    'iloveyou',
+    'secret123',
   ]);
 
   /**

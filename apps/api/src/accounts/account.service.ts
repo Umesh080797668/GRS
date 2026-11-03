@@ -39,7 +39,7 @@ export class AccountService {
     private readonly prisma: PrismaService,
     private readonly credentialService: CredentialService,
     private readonly scopeService: ScopeService,
-  ) {}
+  ) { }
 
   /**
    * Creates a single account with generated credentials.
@@ -793,6 +793,7 @@ export class AccountService {
       id: string;
       userCode: string;
       fullName: string;
+      role: UserRole;
       initialPassword: string;
       passwordExpiresAt: Date;
     }> = [];
@@ -835,6 +836,7 @@ export class AccountService {
         id: profile.id,
         userCode: profile.userCode,
         fullName: profile.fullName,
+        role: profile.role,
         initialPassword: display,
         passwordExpiresAt: expiresAt,
       });
@@ -842,6 +844,7 @@ export class AccountService {
 
     return {
       batchId,
+      role: batch.role,
       totalReissued: reissuedList.length,
       credentials: reissuedList,
     };

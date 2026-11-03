@@ -24,9 +24,74 @@ export default function ProgressPage() {
   const [stats, setStats] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Area filtering
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [dsDivisions, setDsDivisions] = useState<any[]>([]);
+  const [gnDivisions, setGnDivisions] = useState<any[]>([]);
+  const [selectedDistrict, setSelectedDistrict] = useState<string>('');
+  const [selectedDs, setSelectedDs] = useState<string>('');
+  const [selectedGn, setSelectedGn] = useState<string>('');
+
+  useEffect(() => {
+    loadDistricts();
+  }, []);
+
+  async function loadDistricts() {
+    try {
+      const data = await api.getDistricts();
+      setDistricts(data);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function handleDistrictChange(distId: string) {
+    setSelectedDistrict(distId);
+    setSelectedDs('');
+    setSelectedGn('');
+    setDsDivisions([]);
+    setGnDivisions([]);
+    if (distId) {
+      try {
+        const dsList = await api.getDsDivisions(distId);
+        setDsDivisions(dsList);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  }
+
+  async function handleDsChange(dsId: string) {
+    setSelectedDs(dsId);
+    setSelectedGn('');
+    setGnDivisions([]);
+    if (dsId) {
+      try {
+        const gnList = await api.getGnDivisions(dsId);
+        setGnDivisions(gnList);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  }
+
   const fetchStats = async () => {
     try {
-      const res = await api.getProgressStats();
+      let areaType: string | undefined;
+      let areaId: string | undefined;
+
+      if (selectedGn) {
+        areaType = 'gn';
+        areaId = selectedGn;
+      } else if (selectedDs) {
+        areaType = 'ds';
+        areaId = selectedDs;
+      } else if (selectedDistrict) {
+        areaType = 'district';
+        areaId = selectedDistrict;
+      }
+
+      const res = await api.getProgressStats(areaType, areaId);
       setStats(res);
       setError(null);
     } catch (err: any) {
@@ -39,7 +104,7 @@ export default function ProgressPage() {
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [selectedDistrict, selectedDs, selectedGn]);
 
   const handleManualRefresh = () => {
     setRefreshing(true);
@@ -93,6 +158,56 @@ export default function ProgressPage() {
         </div>
       )}
 
+      {/* Area Scope Selector */}
+      <div className="glass-panel" style={{ padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
+          Select Scope:
+        </div>
+        <select
+          className="input-field"
+          style={{ width: '180px' }}
+          value={selectedDistrict}
+          onChange={(e) => handleDistrictChange(e.target.value)}
+        >
+          <option value="">National / All Districts</option>
+          {districts.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.nameEn || d.name}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="input-field"
+          style={{ width: '180px' }}
+          value={selectedDs}
+          onChange={(e) => handleDsChange(e.target.value)}
+          disabled={!selectedDistrict || dsDivisions.length === 0}
+        >
+          <option value="">All DS Divisions</option>
+          {dsDivisions.map((ds) => (
+            <option key={ds.id} value={ds.id}>
+              {ds.nameEn || ds.name}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="input-field"
+          style={{ width: '180px' }}
+          value={selectedGn}
+          onChange={(e) => setSelectedGn(e.target.value)}
+          disabled={!selectedDs || gnDivisions.length === 0}
+        >
+          <option value="">All GN Divisions</option>
+          {gnDivisions.map((gn) => (
+            <option key={gn.id} value={gn.id}>
+              {gn.nameEn || gn.name} ({gn.gnCode || gn.gnNumber})
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Sync Health Alert Banner (M5.7) */}
       <div id="sync-health" style={{ marginBottom: '1.75rem' }}>
         {dirtyTeamsCount > 0 ? (
@@ -117,12 +232,12 @@ export default function ProgressPage() {
                   {t('sync_health.dirty_teams')}: <span style={{ color: '#b45309' }}>{dirtyTeamsCount} Teams</span>
                 </h4>
                 <p style={{ fontSize: '12px', color: '#a16207', margin: '4px 0 0 0' }}>
-                  Field agents have unsynced survey submissions queued offline. Ensure teams reconnect before final aggregation.
+                  Team progress statistics are pending recomputation in the current background cycle (stats_dirty_at). Rolled-up metrics will update automatically within 5 minutes.
                 </p>
               </div>
             </div>
             <span className="badge badge-warning" style={{ fontSize: '12px', padding: '6px 12px' }}>
-              Attention Needed
+              Stats Recalculating
             </span>
           </div>
         ) : (

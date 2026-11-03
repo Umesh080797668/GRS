@@ -36,6 +36,15 @@ export default function RecordsPage() {
   const [search, setSearch] = useState<string>('');
   const [filterBeneficiary, setFilterBeneficiary] = useState<string>('all');
   const [filterGender, setFilterGender] = useState<string>('all');
+  const [filterLanguage, setFilterLanguage] = useState<string>('all');
+
+  // Geographic filters
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [dsDivisions, setDsDivisions] = useState<any[]>([]);
+  const [gnDivisions, setGnDivisions] = useState<any[]>([]);
+  const [selectedDistrict, setSelectedDistrict] = useState<string>('');
+  const [selectedDs, setSelectedDs] = useState<string>('');
+  const [selectedGn, setSelectedGn] = useState<string>('');
 
   // Modal states
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
@@ -57,8 +66,52 @@ export default function RecordsPage() {
   const [editHasSpecialNeeds, setEditHasSpecialNeeds] = useState<boolean>(false);
 
   useEffect(() => {
+    loadDistricts();
+  }, []);
+
+  async function loadDistricts() {
+    try {
+      const data = await api.getDistricts();
+      setDistricts(data);
+    } catch (err) {
+      console.error('Failed to load districts:', err);
+    }
+  }
+
+  async function handleDistrictChange(distId: string) {
+    setSelectedDistrict(distId);
+    setSelectedDs('');
+    setSelectedGn('');
+    setDsDivisions([]);
+    setGnDivisions([]);
+    if (distId) {
+      try {
+        const dsList = await api.getDsDivisions(distId);
+        setDsDivisions(dsList);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  }
+
+  async function handleDsChange(dsId: string) {
+    setSelectedDs(dsId);
+    setSelectedGn('');
+    setGnDivisions([]);
+    if (dsId) {
+      try {
+        const gnList = await api.getGnDivisions(dsId);
+        setGnDivisions(gnList);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  }
+
+  useEffect(() => {
+    setCursorHistory([]);
     loadRecords();
-  }, [search]);
+  }, [search, filterBeneficiary, filterGender, filterLanguage, selectedDistrict, selectedDs, selectedGn]);
 
   async function loadRecords(cursor?: string) {
     setLoading(true);
@@ -66,6 +119,12 @@ export default function RecordsPage() {
     try {
       const res = await api.getClients({
         search: search.trim() || undefined,
+        districtId: selectedDistrict || undefined,
+        dsId: selectedDs || undefined,
+        gnId: selectedGn || undefined,
+        gender: filterGender !== 'all' ? filterGender : undefined,
+        beneficiary: filterBeneficiary !== 'all' ? filterBeneficiary : undefined,
+        language: filterLanguage !== 'all' ? filterLanguage : undefined,
         limit: 20,
         cursor: cursor || undefined,
         includeCount: !cursor,
@@ -153,15 +212,7 @@ export default function RecordsPage() {
     }
   }
 
-  // Filter records in memory for quick filters
-  const displayedRecords = records.filter((r) => {
-    if (filterGender !== 'all' && r.gender !== filterGender) return false;
-    if (filterBeneficiary === 'aswesuma' && !r.isAswesuma) return false;
-    if (filterBeneficiary === 'samurdhi' && !r.isSamurdhi) return false;
-    if (filterBeneficiary === 'epf' && !r.isEpf) return false;
-    if (filterBeneficiary === 'special_needs' && !r.hasSpecialNeeds) return false;
-    return true;
-  });
+  const canEditRecords = ['super_admin', 'admin', 'cdc_secretary'].includes(user?.role || '');
 
   return (
     <Shell activePath="/records">
@@ -196,7 +247,7 @@ export default function RecordsPage() {
         )}
 
         {/* Search & Filter Toolbar */}
-        <div className="card p-4 space-y-4">
+        <div className="card p-4 space-y-3">
           <div className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
@@ -208,30 +259,84 @@ export default function RecordsPage() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <select
-                className="input w-auto text-sm"
+                className="input w-auto text-xs py-1.5 px-3"
                 value={filterBeneficiary}
                 onChange={(e) => setFilterBeneficiary(e.target.value)}
               >
-                <option value="all">All Beneficiary Types</option>
-                <option value="aswesuma">Aswesuma Beneficiaries</option>
-                <option value="samurdhi">Samurdhi Beneficiaries</option>
-                <option value="epf">EPF/ETF Contributors</option>
+                <option value="all">All Beneficiaries</option>
+                <option value="aswesuma">Aswesuma</option>
+                <option value="samurdhi">Samurdhi</option>
+                <option value="epf">EPF/ETF</option>
                 <option value="special_needs">Special Needs</option>
               </select>
 
               <select
-                className="input w-auto text-sm"
+                className="input w-auto text-xs py-1.5 px-3"
                 value={filterGender}
                 onChange={(e) => setFilterGender(e.target.value)}
               >
                 <option value="all">All Genders</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
+                <option value="M">Male</option>
+                <option value="F">Female</option>
+              </select>
+
+              <select
+                className="input w-auto text-xs py-1.5 px-3"
+                value={filterLanguage}
+                onChange={(e) => setFilterLanguage(e.target.value)}
+              >
+                <option value="all">All Languages</option>
+                <option value="si">Sinhala</option>
+                <option value="ta">Tamil</option>
+                <option value="en">English</option>
               </select>
             </div>
+          </div>
+
+          {/* Area Filters */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-800">
+            <select
+              className="input text-xs py-1.5 px-3"
+              value={selectedDistrict}
+              onChange={(e) => handleDistrictChange(e.target.value)}
+            >
+              <option value="">All Districts</option>
+              {districts.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.nameEn || d.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="input text-xs py-1.5 px-3"
+              value={selectedDs}
+              onChange={(e) => handleDsChange(e.target.value)}
+              disabled={!selectedDistrict || dsDivisions.length === 0}
+            >
+              <option value="">All DS Divisions</option>
+              {dsDivisions.map((ds) => (
+                <option key={ds.id} value={ds.id}>
+                  {ds.nameEn || ds.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="input text-xs py-1.5 px-3"
+              value={selectedGn}
+              onChange={(e) => setSelectedGn(e.target.value)}
+              disabled={!selectedDs || gnDivisions.length === 0}
+            >
+              <option value="">All GN Divisions</option>
+              {gnDivisions.map((gn) => (
+                <option key={gn.id} value={gn.id}>
+                  {gn.nameEn || gn.name} ({gn.gnCode || gn.gnNumber})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -247,52 +352,52 @@ export default function RecordsPage() {
               <AlertCircle className="w-6 h-6 mx-auto mb-2" />
               <p>{error}</p>
             </div>
-          ) : displayedRecords.length === 0 ? (
+          ) : records.length === 0 ? (
             <div className="p-12 text-center text-slate-400">
               <p>No survey records found matching your filters.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="table w-full text-left">
-                <thead>
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-900/80 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-800">
                   <tr>
-                    <th>House / Serial</th>
-                    <th>Surveyed Individual</th>
-                    <th>Demographics</th>
-                    <th>Contact</th>
-                    <th>Welfare Status</th>
-                    <th>Collector</th>
-                    <th className="text-right">Actions</th>
+                    <th className="p-3">House / Serial</th>
+                    <th className="p-3">Surveyed Individual</th>
+                    <th className="p-3">Demographics</th>
+                    <th className="p-3">Contact</th>
+                    <th className="p-3">Welfare Status</th>
+                    <th className="p-3">Collector</th>
+                    <th className="p-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {displayedRecords.map((r) => (
-                    <tr key={r.id}>
-                      <td>
-                        <div className="font-semibold text-white">
+                <tbody className="divide-y divide-slate-800">
+                  {records.map((r) => (
+                    <tr key={r.id} className="hover:bg-slate-800/40 transition">
+                      <td className="p-3">
+                        <div className="font-semibold text-white font-mono">
                           #{r.household?.houseNo || 'N/A'}
                         </div>
                         <div className="text-xs text-slate-400">
                           Serial: {r.household?.serialNo || '-'}
                         </div>
                       </td>
-                      <td>
+                      <td className="p-3">
                         <div className="font-medium text-slate-100">{r.name}</div>
                         <div className="text-xs text-slate-400 truncate max-w-xs">
                           {r.address || r.household?.address || 'No address registered'}
                         </div>
                       </td>
-                      <td>
+                      <td className="p-3">
                         <span className="text-xs font-mono text-slate-300">
                           {r.age} yrs • {r.gender}
                         </span>
                       </td>
-                      <td>
+                      <td className="p-3">
                         <div className="text-xs text-slate-300 font-mono">
                           {r.phoneE164 || r.phoneRaw || '-'}
                         </div>
                       </td>
-                      <td>
+                      <td className="p-3">
                         <div className="flex flex-wrap gap-1">
                           {r.isAswesuma && <span className="badge badge-info text-[10px]">Aswesuma</span>}
                           {r.isSamurdhi && <span className="badge badge-info text-[10px]">Samurdhi</span>}
@@ -305,12 +410,12 @@ export default function RecordsPage() {
                           )}
                         </div>
                       </td>
-                      <td>
+                      <td className="p-3">
                         <div className="text-xs text-slate-300">
                           {r.collector?.fullName || r.collector?.userCode || 'System'}
                         </div>
                       </td>
-                      <td className="text-right">
+                      <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => setSelectedRecord(r)}
@@ -319,13 +424,15 @@ export default function RecordsPage() {
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            onClick={() => openEditModal(r)}
-                            className="btn btn-secondary p-1.5 text-xs text-amber-400 hover:text-amber-300"
-                            title={t('records.edit_record')}
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
+                          {canEditRecords && (
+                            <button
+                              onClick={() => openEditModal(r)}
+                              className="btn btn-secondary p-1.5 text-xs text-amber-400 hover:text-amber-300"
+                              title={t('records.edit_record')}
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -338,7 +445,7 @@ export default function RecordsPage() {
           {/* Keyset Pagination Controls */}
           <div className="flex items-center justify-between p-4 border-t border-slate-800 bg-slate-900/50">
             <span className="text-xs text-slate-400">
-              Showing {displayedRecords.length} records
+              Showing {records.length} records
             </span>
             <div className="flex items-center gap-2">
               <button

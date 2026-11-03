@@ -379,61 +379,51 @@ export class SyncService {
 
     let nextCursor: string | null = null;
     if (hasMore) {
-      if (
-        parsedCursor.isLegacy &&
-        hasMoreHouseholds &&
-        !hasMoreDeleted &&
-        !hasMoreUnassigned &&
-        !hasMoreClients
-      ) {
-        nextCursor = updatedHouseholds[updatedHouseholds.length - 1].id;
-      } else {
-        const lastH = updatedHouseholds[updatedHouseholds.length - 1];
-        const lastD = deletedHouseholds[deletedHouseholds.length - 1];
-        const lastU = unassignedFromTeam[unassignedFromTeam.length - 1];
-        const lastC = updatedClients[updatedClients.length - 1];
+      const lastH = updatedHouseholds[updatedHouseholds.length - 1];
+      const lastD = deletedHouseholds[deletedHouseholds.length - 1];
+      const lastU = unassignedFromTeam[unassignedFromTeam.length - 1];
+      const lastC = updatedClients[updatedClients.length - 1];
 
-        const compositeObj: any = {};
-        if (lastH) {
-          compositeObj.h = {
-            t: lastH.updatedAt.toISOString(),
-            id: lastH.id,
-          };
-        } else if (parsedCursor.h) {
-          compositeObj.h = parsedCursor.h;
-        }
-
-        if (lastD) {
-          compositeObj.d = {
-            t: lastD.deletedAt!.toISOString(),
-            id: lastD.id,
-          };
-        } else if (parsedCursor.d) {
-          compositeObj.d = parsedCursor.d;
-        }
-
-        if (lastU) {
-          compositeObj.u = {
-            t: lastU.unassignedAt.toISOString(),
-            id: lastU.id,
-          };
-        } else if (parsedCursor.u) {
-          compositeObj.u = parsedCursor.u;
-        }
-
-        if (lastC) {
-          compositeObj.c = {
-            t: lastC.updatedAt.toISOString(),
-            id: lastC.id,
-          };
-        } else if (parsedCursor.c) {
-          compositeObj.c = parsedCursor.c;
-        }
-
-        nextCursor = Buffer.from(JSON.stringify(compositeObj)).toString(
-          'base64url',
-        );
+      const compositeObj: any = {};
+      if (lastH) {
+        compositeObj.h = {
+          t: lastH.updatedAt.toISOString(),
+          id: lastH.id,
+        };
+      } else if (parsedCursor.h) {
+        compositeObj.h = parsedCursor.h;
       }
+
+      if (lastD) {
+        compositeObj.d = {
+          t: lastD.deletedAt!.toISOString(),
+          id: lastD.id,
+        };
+      } else if (parsedCursor.d) {
+        compositeObj.d = parsedCursor.d;
+      }
+
+      if (lastU) {
+        compositeObj.u = {
+          t: lastU.unassignedAt.toISOString(),
+          id: lastU.id,
+        };
+      } else if (parsedCursor.u) {
+        compositeObj.u = parsedCursor.u;
+      }
+
+      if (lastC) {
+        compositeObj.c = {
+          t: lastC.updatedAt.toISOString(),
+          id: lastC.id,
+        };
+      } else if (parsedCursor.c) {
+        compositeObj.c = parsedCursor.c;
+      }
+
+      nextCursor = Buffer.from(JSON.stringify(compositeObj)).toString(
+        'base64url',
+      );
     }
 
     // Check which unassigned houses are currently assigned to the team (re-claimed)
