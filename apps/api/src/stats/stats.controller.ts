@@ -6,6 +6,7 @@ import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../common/scope/scope.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { ScopeContext } from '../common/scope/scope.types';
+import { GetProgressDto } from './dto/get-progress.dto';
 
 @Controller('v1/stats')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -24,9 +25,8 @@ export class StatsController {
   )
   async getProgress(
     @CurrentUser() user: ScopeContext,
-    @Query('areaType') areaType?: string,
-    @Query('areaId') areaId?: string,
+    @Query() query: GetProgressDto,
   ) {
-    return this.statsService.getProgress(user, { areaType, areaId });
+    return this.statsService.getProgress(user, query);
   }
 }

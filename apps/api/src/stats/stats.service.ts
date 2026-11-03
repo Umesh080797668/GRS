@@ -1,7 +1,9 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScopeService } from '../common/scope/scope.service';
 import { ScopeContext, UserRole } from '../common/scope/scope.types';
+
+const VALID_AREA_TYPES = ['national', 'district', 'ds', 'gn', 'team'] as const;
 
 @Injectable()
 export class StatsService {
@@ -14,6 +16,13 @@ export class StatsService {
     caller: ScopeContext,
     query?: { areaType?: string; areaId?: string },
   ) {
+    if (query?.areaType && !VALID_AREA_TYPES.includes(query.areaType as any)) {
+      throw new BadRequestException({
+        code: 'INVALID_AREA_TYPE',
+        message: 'areaType must be one of: national, district, ds, gn, team',
+      });
+    }
+
     let targetAreaType = query?.areaType;
     let targetAreaId = query?.areaId;
 

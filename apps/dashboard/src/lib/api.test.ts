@@ -257,4 +257,49 @@ describe('ApiClient - Single-flight refresh (Bug 4)', () => {
     assert.strictEqual(capturedHeaders['X-Client-Type'], 'web');
     assert.strictEqual(capturedHeaders['X-App-Version'], '1.0.0');
   });
+
+  it('downloadImportErrors uses request flow with auth retry and returns CSV text', async () => {
+    let callCount = 0;
+    let authHeaderSent = '';
+    (globalThis as any).fetch = async (url: string, options: any = {}) => {
+      if (url.includes('/v1/auth/refresh')) {
+        return {
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          json: async () => ({
+            accessToken: 'refreshed-token-999',
+            refreshToken: 'refreshed-refresh-token-999',
+          }),
+        };
+      }
+
+      callCount++;
+      authHeaderSent = options.headers?.Authorization;
+      if (callCount === 1) {
+        return {
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          json: async () => ({ code: 'UNAUTHORIZED', message: 'Token expired' }),
+          headers: { get: () => null },
+        };
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: async () => 'house_no,errors\n101,Duplicate house\n',
+      };
+    };
+
+    client.setAccessToken('old-token');
+    localStorageMock['grs_refresh_token'] = 'valid-refresh-token';
+
+    const csv = await client.downloadImportErrors('batch-123');
+    assert.strictEqual(csv, 'house_no,errors\n101,Duplicate house\n');
+    assert.strictEqual(authHeaderSent, 'Bearer refreshed-token-999');
+    assert.strictEqual(callCount, 2);
+  });
 });

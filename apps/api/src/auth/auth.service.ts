@@ -233,7 +233,11 @@ export class AuthService {
       });
     }
 
-    // Restrict Level 5 team members from accessing the web dashboard
+    // UX Barrier: Restrict Level 5 team members from logging into the web dashboard.
+    // Note: This client-sent header check is a UX convenience rule (directing enumerators to
+    // the mobile app), NOT a security boundary. Authoritative access control is strictly enforced
+    // per endpoint via `@Roles(...)` decorators, `RolesGuard`, and `ScopeService` row-level scoping.
+    // Web administrative endpoints (accounts, imports, config, areas) forbid `team_member`.
     if (
       (clientType === 'web' || (dto as any).clientType === 'web') &&
       profile.role === 'team_member'

@@ -37,6 +37,19 @@ export async function createNestServer(server: Express) {
       'http://localhost:8080',
     ];
 
+  const isOriginAllowed = (origin: string): boolean => {
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      return true;
+    }
+    for (const pattern of allowedOrigins) {
+      if (pattern.startsWith('*.') || pattern.includes('*')) {
+        const regex = new RegExp('^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$');
+        if (regex.test(origin)) return true;
+      }
+    }
+    return false;
+  };
+
   // Apply Helmet with standard headers and Content Security Policy (CSP)
   app.use(helmet());
   app.use(
@@ -44,10 +57,11 @@ export async function createNestServer(server: Express) {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        styleSrcElem: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         imgSrc: ["'self'", 'data:', 'blob:'],
         connectSrc: ["'self'", ...allowedOrigins],
-        fontSrc: ["'self'"],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
       },
@@ -59,14 +73,15 @@ export async function createNestServer(server: Express) {
       origin: string | undefined,
       callback: (err: Error | null, allow?: boolean) => void,
     ) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || isOriginAllowed(origin)) {
         callback(null, true);
       } else {
-        callback(new Error(`Origin ${origin} not allowed by CORS`));
+        // Disallow origin gracefully without throwing 500 unhandled errors on preflight
+        callback(null, false);
       }
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS', 'PUT'],
     allowedHeaders: [
       'Content-Type',
       'Authorization',

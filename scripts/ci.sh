@@ -8,12 +8,10 @@ echo "===================================================="
 # 1. API Checks
 echo ""
 echo "--- [1/3] Running NestJS API Quality Gates ---"
-cd apps/api
 echo "Building NestJS API..."
-npm run build
+pnpm --filter api run build
 echo "Running NestJS Unit Tests..."
-npm test
-cd ../..
+pnpm --filter api test
 
 # 2. Next.js Web Dashboard Checks
 echo ""

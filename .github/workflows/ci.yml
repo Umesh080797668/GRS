@@ -8,7 +8,7 @@ jobs:
   api-checks:
     name: API (NestJS + Prisma)
     runs-on: ubuntu-latest
-    if: false # Restricted: Hosted runner disabled. Run locally via `npm run ci:local` or `bash scripts/ci.sh`.
+    if: false # Restricted: Hosted runner disabled. Run locally via `pnpm run ci:local` or `bash scripts/ci.sh`.
     steps:
       - uses: actions/checkout@v4
 
@@ -16,16 +16,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
 
-      - name: Install Root Dependencies
-        run: npm ci || npm install
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.9
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Lint API
-        run: npm --prefix apps/api run lint --if-present
+        run: pnpm --filter api run lint --if-present
 
       - name: Run API Unit Tests
-        run: npm --prefix apps/api test --if-present
+        run: pnpm --filter api test --if-present
 
   flutter-checks:
     name: Flutter & Dart Packages

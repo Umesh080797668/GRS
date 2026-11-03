@@ -513,16 +513,11 @@ export class ApiClient {
   }
 
   async downloadImportErrors(batchId: string): Promise<string> {
-    const token = this.getToken();
-    const res = await fetch(`${this.baseUrl}/v1/imports/${batchId}/errors`, {
+    return this.request<string>(`/v1/imports/${batchId}/errors`, {
       headers: {
-        'X-Client-Type': 'web',
-        'X-App-Version': APP_VERSION,
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        Accept: 'text/csv, */*',
       },
     });
-    if (!res.ok) throw new Error('Failed to download error report');
-    return res.text();
   }
 
   // --- RECORDS & SUPERVISOR AUDIT (M5.5) & ONLINE ENTRY (M5.8) ---

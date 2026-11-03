@@ -20,7 +20,7 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.png" />
         <meta
           httpEquiv="Content-Security-Policy"
-          content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://localhost:* https:; font-src 'self'; object-src 'none';"
+          content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; connect-src 'self' http://localhost:* https:; font-src 'self' https://fonts.gstatic.com data:; object-src 'none';"
         />
       </head>
       <body>

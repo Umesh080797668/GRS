@@ -3,14 +3,12 @@
   "version": "2.0.0",
   "private": true,
   "description": "Global Research & Survey App (GRS) Monorepo",
-  "workspaces": [
-    "apps/*"
-  ],
+  "packageManager": "pnpm@9.15.9",
   "scripts": {
-    "lint": "npm --prefix apps/api run lint --if-present",
-    "test": "npm --prefix apps/api test --if-present",
-    "test:e2e": "npm --prefix apps/api run test:e2e --if-present",
-    "build": "npm --prefix apps/api run build --if-present",
+    "lint": "pnpm --filter api run lint --if-present",
+    "test": "pnpm --filter api test --if-present",
+    "test:e2e": "pnpm --filter api run test:e2e --if-present",
+    "build": "pnpm --filter api run build --if-present",
     "ci:local": "bash scripts/ci.sh",
     "release": "bash scripts/release.sh",
     "mobile:build": "cd apps/mobile && flutter build apk --release --dart-define-from-file=.env"

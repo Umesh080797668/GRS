@@ -19,6 +19,101 @@ export interface StagingRowPayload {
   isValid: boolean;
 }
 
+/**
+ * Scans a ZIP / XLSX buffer to ensure total uncompressed size does not exceed maxBytes (zip bomb protection).
+ */
+export function checkZipDecompressedSize(
+  buffer: Buffer,
+  maxBytes: number = 50 * 1024 * 1024, // 50 MB
+): void {
+  if (
+    !buffer ||
+    buffer.length < 4 ||
+    buffer[0] !== 0x50 ||
+    buffer[1] !== 0x4b ||
+    buffer[2] !== 0x03 ||
+    buffer[3] !== 0x04
+  ) {
+    return;
+  }
+
+  let eocdOffset = -1;
+  const minEocdSize = 22;
+  const maxSearch = Math.min(buffer.length, 65536 + minEocdSize);
+  for (let i = buffer.length - minEocdSize; i >= buffer.length - maxSearch; i--) {
+    if (
+      buffer[i] === 0x50 &&
+      buffer[i + 1] === 0x4b &&
+      buffer[i + 2] === 0x05 &&
+      buffer[i + 3] === 0x06
+    ) {
+      eocdOffset = i;
+      break;
+    }
+  }
+
+  let totalUncompressedSize = 0;
+
+  if (eocdOffset !== -1) {
+    const cdOffset = buffer.readUInt32LE(eocdOffset + 16);
+    const cdEntries = buffer.readUInt16LE(eocdOffset + 10);
+    let offset = cdOffset;
+
+    for (let i = 0; i < cdEntries && offset + 46 <= buffer.length; i++) {
+      if (
+        buffer[offset] !== 0x50 ||
+        buffer[offset + 1] !== 0x4b ||
+        buffer[offset + 2] !== 0x01 ||
+        buffer[offset + 3] !== 0x02
+      ) {
+        break;
+      }
+      const uncompressedSize = buffer.readUInt32LE(offset + 24);
+      totalUncompressedSize += uncompressedSize;
+      if (totalUncompressedSize > maxBytes) {
+        throw new PayloadTooLargeException({
+          code: 'UNZIP_SIZE_EXCEEDED',
+          message: `Uncompressed spreadsheet size exceeds safe threshold of ${(maxBytes / (1024 * 1024)).toFixed(0)} MB.`,
+        });
+      }
+      const fileNameLen = buffer.readUInt16LE(offset + 28);
+      const extraLen = buffer.readUInt16LE(offset + 30);
+      const commentLen = buffer.readUInt16LE(offset + 32);
+      offset += 46 + fileNameLen + extraLen + commentLen;
+    }
+  } else {
+    let offset = 0;
+    while (offset + 30 <= buffer.length) {
+      if (
+        buffer[offset] === 0x50 &&
+        buffer[offset + 1] === 0x4b &&
+        buffer[offset + 2] === 0x03 &&
+        buffer[offset + 3] === 0x04
+      ) {
+        const uncompressedSize = buffer.readUInt32LE(offset + 22);
+        totalUncompressedSize += uncompressedSize;
+        if (totalUncompressedSize > maxBytes) {
+          throw new PayloadTooLargeException({
+            code: 'UNZIP_SIZE_EXCEEDED',
+            message: `Uncompressed spreadsheet size exceeds safe threshold of ${(maxBytes / (1024 * 1024)).toFixed(0)} MB.`,
+          });
+        }
+        const fileNameLen = buffer.readUInt16LE(offset + 26);
+        const extraLen = buffer.readUInt16LE(offset + 28);
+        const compressedSize = buffer.readUInt32LE(offset + 18);
+        offset += 30 + fileNameLen + extraLen;
+        if (compressedSize > 0 && offset + compressedSize <= buffer.length) {
+          offset += compressedSize;
+        } else {
+          offset += 1;
+        }
+      } else {
+        offset += 1;
+      }
+    }
+  }
+}
+
 @Injectable()
 export class ImportService {
   constructor(private readonly prisma: PrismaService) { }
@@ -177,6 +272,9 @@ export class ImportService {
       });
     }
 
+    // Prevent zip bomb decompression attacks by verifying uncompressed size
+    checkZipDecompressedSize(file.buffer);
+
     // Parse with patched @e965/xlsx with UTF-8 codepage 65001 for non-BOM CSV and Sinhala/Tamil support
     let workbook: XLSX.WorkBook;
     try {
@@ -212,6 +310,16 @@ export class ImportService {
       throw new BadRequestException({
         code: 'INVALID_ROW_COUNT',
         message: 'File must contain at least a header row and one data row',
+      });
+    }
+
+    // Maximum row cap to prevent memory exhaustion and serverless timeout
+    const MAX_IMPORT_ROWS = 10000;
+    const dataRowsCount = rawRows.length - 1;
+    if (dataRowsCount > MAX_IMPORT_ROWS) {
+      throw new BadRequestException({
+        code: 'ROW_LIMIT_EXCEEDED',
+        message: `File contains ${dataRowsCount} data rows, exceeding maximum limit of ${MAX_IMPORT_ROWS} rows per import batch.`,
       });
     }
 
@@ -690,6 +798,7 @@ export class ImportService {
         let committedCount = 0;
         let skippedConflictCount = 0;
 
+        const householdsToCreate: any[] = [];
         for (const row of validRows) {
           const d = row.data as any;
           if (conflictNormSet.has(d.houseNoNorm)) {
@@ -697,36 +806,40 @@ export class ImportService {
             continue;
           }
 
-          await tx.household.create({
-            data: {
-              gnId: batch.gnId,
-              districtId: gn.ds.districtId,
-              dsId: gn.dsId,
-              serialNo: allocatedSerial++,
-              houseNo: d.houseNo,
-              houseNoNorm: d.houseNoNorm,
-              houseLeaderName: d.headName,
-              address: d.address || null,
-              villageName: d.villageName || null,
-              isEpf: Boolean(d.isEpf),
-              isEtf: Boolean(d.isEtf),
-              isAswesuma: Boolean(d.isAswesuma),
-              isSamurdhi: Boolean(d.isSamurdhi),
-              hasSpecialNeeds: Boolean(d.hasSpecialNeeds),
-              targetFemale: Number(d.targetFemale) || 0,
-              targetMale: Number(d.targetMale) || 0,
-              ageGroupMin: d.ageGroupMin ?? null,
-              ageGroupMax: d.ageGroupMax ?? null,
-              langSinhala: Boolean(d.langSinhala),
-              langTamil: Boolean(d.langTamil),
-              langEnglish: Boolean(d.langEnglish),
-              importBatchId: batch.id,
-              createdBy: caller.userId,
-              visitStatus: 'not_started',
-            },
+          householdsToCreate.push({
+            gnId: batch.gnId,
+            districtId: gn.ds.districtId,
+            dsId: gn.dsId,
+            serialNo: allocatedSerial++,
+            houseNo: d.houseNo,
+            houseNoNorm: d.houseNoNorm,
+            houseLeaderName: d.headName,
+            address: d.address || null,
+            villageName: d.villageName || null,
+            isEpf: Boolean(d.isEpf),
+            isEtf: Boolean(d.isEtf),
+            isAswesuma: Boolean(d.isAswesuma),
+            isSamurdhi: Boolean(d.isSamurdhi),
+            hasSpecialNeeds: Boolean(d.hasSpecialNeeds),
+            targetFemale: Number(d.targetFemale) || 0,
+            targetMale: Number(d.targetMale) || 0,
+            ageGroupMin: d.ageGroupMin ?? null,
+            ageGroupMax: d.ageGroupMax ?? null,
+            langSinhala: Boolean(d.langSinhala),
+            langTamil: Boolean(d.langTamil),
+            langEnglish: Boolean(d.langEnglish),
+            importBatchId: batch.id,
+            createdBy: caller.userId,
+            visitStatus: 'not_started',
           });
-          committedCount++;
         }
+
+        if (householdsToCreate.length > 0) {
+          await tx.household.createMany({
+            data: householdsToCreate,
+          });
+        }
+        committedCount = householdsToCreate.length;
 
         // Update gn next_serial
         await tx.gnDivision.update({

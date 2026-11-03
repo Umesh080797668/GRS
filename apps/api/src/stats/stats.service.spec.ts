@@ -78,6 +78,21 @@ describe('StatsService (M5.6 & M5.7)', () => {
     expect(result.dirtyTeamsCount).toBe(0);
   });
 
+  it('rejects unknown areaType with BadRequestException instead of returning zeros', async () => {
+    const caller: ScopeContext = {
+      userId: 'admin-uuid',
+      role: UserRole.super_admin,
+    };
+
+    await expect(
+      service.getProgress(caller, { areaType: 'unknown_type', areaId: 'foo' }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'INVALID_AREA_TYPE',
+      },
+    });
+  });
+
   it('rejects cross-GN progress query for cdc_secretary', async () => {
     const caller: ScopeContext = {
       userId: 'sec-uuid',

@@ -39,6 +39,7 @@ describe('ImportService', () => {
       household: {
         findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: 'h-1', ...data })),
+        createMany: jest.fn().mockImplementation(({ data }) => Promise.resolve({ count: data.length })),
       },
       importBatch: {
         create: jest.fn().mockImplementation(({ data }) =>
@@ -244,9 +245,9 @@ describe('ImportService', () => {
 
       expect(confirmResult.status).toBe('committed');
       expect(confirmResult.committedCount).toBe(1);
-      expect(prisma.household.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
+      expect(prisma.household.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
             houseNo: '102/B',
             houseNoNorm: '102/B',
             houseLeaderName: 'Sunil Perera',
@@ -255,8 +256,8 @@ describe('ImportService', () => {
             isEtf: true,
             importBatchId: 'batch-uuid-1',
           }),
-        }),
-      );
+        ],
+      });
       expect(prisma.gnDivision.update).toHaveBeenCalledWith({
         where: { id: 'gn-uuid-1' },
         data: { nextSerial: 11 },
@@ -381,6 +382,52 @@ describe('ImportService', () => {
       expect(csv).toContain('"\'\t=calc"');
       expect(csv).toContain('"\'\r+cmd"');
       expect(csv).toContain('"\'@SUM(A1)"');
+    });
+
+    it('rejects file exceeding MAX_IMPORT_ROWS (10,000 rows) with ROW_LIMIT_EXCEEDED', async () => {
+      const rows = ['house_no,head_name'];
+      for (let i = 1; i <= 10001; i++) {
+        rows.push(`${i},Head ${i}`);
+      }
+      const csvContent = rows.join('\n');
+      const file = {
+        buffer: Buffer.from(csvContent, 'utf-8'),
+        size: csvContent.length,
+        mimetype: 'text/csv',
+      };
+
+      await expect(
+        service.previewImport(mockAdminCaller as any, 'gn-uuid-1', file),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'ROW_LIMIT_EXCEEDED',
+        },
+      });
+    });
+
+    it('rejects zip bomb / excessive uncompressed size with UNZIP_SIZE_EXCEEDED', async () => {
+      // Craft a mock zip buffer with a local file header indicating > 50 MB uncompressed size
+      const zipBuf = Buffer.alloc(100);
+      zipBuf.writeUInt32LE(0x04034b50, 0); // PK\x03\x04
+      zipBuf.writeUInt32LE(100, 18); // compressedSize
+      zipBuf.writeUInt32LE(60 * 1024 * 1024, 22); // uncompressedSize: 60 MB
+      zipBuf.writeUInt16LE(4, 26); // fileNameLen
+      zipBuf.writeUInt16LE(0, 28); // extraFieldLen
+      zipBuf.write('test', 30);
+
+      const file = {
+        buffer: zipBuf,
+        size: zipBuf.length,
+        mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      };
+
+      await expect(
+        service.previewImport(mockAdminCaller as any, 'gn-uuid-1', file),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'UNZIP_SIZE_EXCEEDED',
+        },
+      });
     });
   });
 });

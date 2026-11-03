@@ -10,9 +10,11 @@ import {
   UploadedFile,
   Header,
   Res,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
+import * as path from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -22,6 +24,53 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { ImportService } from './import.service';
 import { PreviewImportDto, ImportTemplateQueryDto } from './dto/import.dto';
 
+const ALLOWED_EXTENSIONS = ['.csv', '.xlsx', '.xls'];
+const ALLOWED_MIME_TYPES = [
+  'text/csv',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'application/octet-stream',
+  'text/plain',
+];
+
+export const importMulterOptions = {
+  limits: {
+    fileSize: 4.5 * 1024 * 1024, // 4.5 MB upfront limit
+    files: 1,
+  },
+  fileFilter: (_req: any, file: any, callback: any) => {
+    if (!file) {
+      return callback(
+        new BadRequestException({
+          code: 'FILE_REQUIRED',
+          message: 'Spreadsheet or CSV file is required',
+        }),
+        false,
+      );
+    }
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return callback(
+        new BadRequestException({
+          code: 'INVALID_FILE_TYPE',
+          message: `Only CSV and Excel spreadsheets (.csv, .xlsx, .xls) are permitted. Received: ${ext || 'none'}`,
+        }),
+        false,
+      );
+    }
+    if (file.mimetype && !ALLOWED_MIME_TYPES.includes(file.mimetype.toLowerCase())) {
+      return callback(
+        new BadRequestException({
+          code: 'INVALID_FILE_MIME_TYPE',
+          message: `MIME type '${file.mimetype}' is not permitted for household imports.`,
+        }),
+        false,
+      );
+    }
+    callback(null, true);
+  },
+};
+
 @Controller('v1/imports')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ImportController {
@@ -29,7 +78,7 @@ export class ImportController {
 
   @Post('preview')
   @Roles(UserRole.cdc_secretary, UserRole.admin, UserRole.super_admin)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', importMulterOptions))
   async previewImport(
     @CurrentUser() user: ScopeContext,
     @Body() dto: PreviewImportDto,

@@ -16,7 +16,7 @@ export interface AppConfig {
 
 @Injectable()
 export class AppConfigService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Returns current application configuration including sync pacing and version gates.
@@ -35,7 +35,7 @@ export class AppConfigService {
     const syncBatchSetting = await this.getSetting('sync_batch_max', 50);
     const apkUrlSetting = await this.getSetting(
       'apk_download_url',
-      'https://github.com/Umesh080797668/GRS/releases/latest/download/app-release.apk',
+      process.env.APK_DOWNLOAD_URL || '/v1/releases/download',
     );
     const ttlDaysSetting = await this.getSetting(
       'initial_password_ttl_days',
