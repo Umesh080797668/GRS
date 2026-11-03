@@ -422,5 +422,37 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       expect(collectedIds[199]).toBe('client-200');
       expect(collectedIds[200]).toBe('client-201');
     });
+
+    it('getClients: does not execute count() by default and omits totalCount', async () => {
+      const superAdminScope: ScopeContext = {
+        userId: 'super-admin',
+        role: UserRole.super_admin,
+      };
+
+      const countSpy = jest.spyOn(mockPrisma.client, 'count');
+      countSpy.mockClear();
+
+      const res = await service.getClients(superAdminScope, { limit: 10 });
+      expect(countSpy).not.toHaveBeenCalled();
+      expect(res.totalCount).toBeUndefined();
+    });
+
+    it('getClients: executes count() only when includeCount is true', async () => {
+      const superAdminScope: ScopeContext = {
+        userId: 'super-admin',
+        role: UserRole.super_admin,
+      };
+
+      const countSpy = jest.spyOn(mockPrisma.client, 'count');
+      countSpy.mockClear();
+      mockPrisma.client.count.mockResolvedValueOnce(42);
+
+      const res = await service.getClients(superAdminScope, {
+        limit: 10,
+        includeCount: true,
+      });
+      expect(countSpy).toHaveBeenCalledTimes(1);
+      expect(res.totalCount).toBe(42);
+    });
   });
 });

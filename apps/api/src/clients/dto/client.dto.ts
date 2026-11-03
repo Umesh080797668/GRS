@@ -13,6 +13,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { Gender, InfoProvidedBy } from '@prisma/client';
 
 export class CreateClientDto {
@@ -240,4 +241,9 @@ export class ListClientsDto {
   @IsString()
   @IsOptional()
   search?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  includeCount?: boolean;
 }

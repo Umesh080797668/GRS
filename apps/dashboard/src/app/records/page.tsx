@@ -68,11 +68,16 @@ export default function RecordsPage() {
         search: search.trim() || undefined,
         limit: 20,
         cursor: cursor || undefined,
+        includeCount: !cursor,
       });
 
       const items = res.clients || (Array.isArray(res) ? res : []);
       setRecords(items);
-      setTotalCount(res.totalCount || items.length);
+      if (res.totalCount !== undefined) {
+        setTotalCount(res.totalCount);
+      } else if (!cursor) {
+        setTotalCount(items.length);
+      }
       setNextCursor(res.nextCursor || null);
     } catch (err: any) {
       setError(err.message || 'Failed to load records.');

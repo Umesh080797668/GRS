@@ -37,7 +37,14 @@ export class StatsService {
     }
 
     // Role scope verification
-    if (caller.role === UserRole.cdc_secretary) {
+    if (caller.role === UserRole.team_member) {
+      if (targetAreaType !== 'team' || targetAreaId !== caller.teamId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE',
+          message: 'Team member can only view statistics for their assigned team',
+        });
+      }
+    } else if (caller.role === UserRole.cdc_secretary) {
       if (targetAreaType !== 'gn' && targetAreaType !== 'team') {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE',
@@ -50,6 +57,18 @@ export class StatsService {
           code: 'OUT_OF_SCOPE',
           message: 'Cannot view statistics for another GN division',
         });
+      }
+      if (targetAreaType === 'team') {
+        const team = await this.prisma.team.findUnique({
+          where: { id: targetAreaId },
+          select: { gnId: true },
+        });
+        if (!team || team.gnId !== caller.gnId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE',
+            message: 'Cannot view statistics for a team outside your GN division',
+          });
+        }
       }
     } else if (caller.role === UserRole.sda) {
       if (targetAreaType === 'national' || targetAreaType === 'district') {
@@ -64,6 +83,30 @@ export class StatsService {
           message: 'Cannot view statistics for another DS division',
         });
       }
+      if (targetAreaType === 'gn') {
+        const gn = await this.prisma.gnDivision.findUnique({
+          where: { id: targetAreaId },
+          select: { dsId: true },
+        });
+        if (!gn || gn.dsId !== caller.dsId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE',
+            message: 'Cannot view statistics for a GN division outside your DS division',
+          });
+        }
+      }
+      if (targetAreaType === 'team') {
+        const team = await this.prisma.team.findUnique({
+          where: { id: targetAreaId },
+          select: { gn: { select: { dsId: true } } },
+        });
+        if (!team || team.gn?.dsId !== caller.dsId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE',
+            message: 'Cannot view statistics for a team outside your DS division',
+          });
+        }
+      }
     } else if (caller.role === UserRole.dc) {
       if (targetAreaType === 'national') {
         throw new ForbiddenException({
@@ -77,10 +120,46 @@ export class StatsService {
           message: 'Cannot view statistics for another District',
         });
       }
+      if (targetAreaType === 'ds') {
+        const ds = await this.prisma.divisionalSecretariat.findUnique({
+          where: { id: targetAreaId },
+          select: { districtId: true },
+        });
+        if (!ds || ds.districtId !== caller.districtId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE',
+            message: 'Cannot view statistics for a DS division outside your District',
+          });
+        }
+      }
+      if (targetAreaType === 'gn') {
+        const gn = await this.prisma.gnDivision.findUnique({
+          where: { id: targetAreaId },
+          select: { ds: { select: { districtId: true } } },
+        });
+        if (!gn || gn.ds?.districtId !== caller.districtId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE',
+            message: 'Cannot view statistics for a GN division outside your District',
+          });
+        }
+      }
+      if (targetAreaType === 'team') {
+        const team = await this.prisma.team.findUnique({
+          where: { id: targetAreaId },
+          select: { gn: { select: { ds: { select: { districtId: true } } } } },
+        });
+        if (!team || team.gn?.ds?.districtId !== caller.districtId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE',
+            message: 'Cannot view statistics for a team outside your District',
+          });
+        }
+      }
     }
 
     let summary: any = null;
-    let refreshedAt = new Date();
+    let refreshedAt: Date | null = null;
 
     if (targetAreaType === 'team') {
       const teamStat = await this.prisma.teamStat.findUnique({
@@ -265,7 +344,7 @@ export class StatsService {
       summary,
       breakdown,
       dirtyTeamsCount,
-      refreshedAt: refreshedAt.toISOString(),
+      refreshedAt: refreshedAt ? refreshedAt.toISOString() : null,
     };
   }
 }

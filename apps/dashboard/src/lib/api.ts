@@ -20,6 +20,7 @@ const DEFAULT_API_URL = '';
 export class ApiClient {
   private baseUrl: string;
   private refreshPromise: Promise<boolean> | null = null;
+  private inMemoryAccessToken: string | null = null;
 
   constructor() {
     this.baseUrl =
@@ -29,9 +30,26 @@ export class ApiClient {
         : DEFAULT_API_URL);
   }
 
-  private getToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('grs_access_token');
+  public getToken(): string | null {
+    if (this.inMemoryAccessToken) return this.inMemoryAccessToken;
+    // Security migration: migrate existing token from storage to memory, then remove from storage
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('grs_access_token');
+      if (stored) {
+        this.inMemoryAccessToken = stored;
+        localStorage.removeItem('grs_access_token');
+        return this.inMemoryAccessToken;
+      }
+    }
+    return null;
+  }
+
+  public setAccessToken(token: string | null) {
+    this.inMemoryAccessToken = token;
+  }
+
+  public getAccessToken(): string | null {
+    return this.getToken();
   }
 
   private getRefreshToken(): string | null {
@@ -40,13 +58,15 @@ export class ApiClient {
   }
 
   public saveSession(tokens: SessionTokens) {
+    this.inMemoryAccessToken = tokens.accessToken;
     if (typeof window === 'undefined') return;
-    localStorage.setItem('grs_access_token', tokens.accessToken);
+    localStorage.removeItem('grs_access_token');
     localStorage.setItem('grs_refresh_token', tokens.refreshToken);
     localStorage.setItem('grs_user', JSON.stringify(tokens.user));
   }
 
   public clearSession() {
+    this.inMemoryAccessToken = null;
     if (typeof window === 'undefined') return;
     localStorage.removeItem('grs_access_token');
     localStorage.removeItem('grs_refresh_token');
@@ -70,7 +90,21 @@ export class ApiClient {
     retryAuth = true
   ): Promise<T> {
     const url = `${this.baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-    const token = this.getToken();
+    let token = this.getToken();
+
+    // If access token is not yet in memory but we have a valid refresh token session, refresh silently first
+    if (
+      !token &&
+      retryAuth &&
+      this.getRefreshToken() &&
+      !path.includes('/v1/auth/login') &&
+      !path.includes('/v1/auth/refresh')
+    ) {
+      const refreshed = await this.refreshSession();
+      if (refreshed) {
+        token = this.getToken();
+      }
+    }
 
     const headers: Record<string, string> = {
       Accept: 'application/json',
@@ -166,8 +200,15 @@ export class ApiClient {
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.accessToken) localStorage.setItem('grs_access_token', data.accessToken);
-          if (data.refreshToken) localStorage.setItem('grs_refresh_token', data.refreshToken);
+          if (data.accessToken) {
+            this.inMemoryAccessToken = data.accessToken;
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('grs_access_token');
+            }
+          }
+          if (data.refreshToken && typeof window !== 'undefined') {
+            localStorage.setItem('grs_refresh_token', data.refreshToken);
+          }
           return true;
         }
         return false;
@@ -227,6 +268,22 @@ export class ApiClient {
     return this.request('/v1/accounts/bulk', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  async reissueBatch(batchId: string): Promise<{
+    batchId: string;
+    totalReissued: number;
+    credentials: Array<{
+      id: string;
+      userCode: string;
+      fullName: string;
+      initialPassword: string;
+      passwordExpiresAt: string;
+    }>;
+  }> {
+    return this.request(`/v1/accounts/batches/${batchId}/reissue`, {
+      method: 'POST',
     });
   }
 
@@ -351,12 +408,19 @@ export class ApiClient {
 
   // --- RECORDS & SUPERVISOR AUDIT (M5.5) & ONLINE ENTRY (M5.8) ---
 
-  async getClients(params: { teamId?: string; search?: string; limit?: number; cursor?: string } = {}): Promise<any> {
+  async getClients(params: {
+    teamId?: string;
+    search?: string;
+    limit?: number;
+    cursor?: string;
+    includeCount?: boolean;
+  } = {}): Promise<any> {
     const p = new URLSearchParams();
     if (params.teamId) p.append('teamId', params.teamId);
     if (params.search) p.append('search', params.search);
     if (params.limit) p.append('limit', params.limit.toString());
     if (params.cursor) p.append('cursor', params.cursor);
+    if (params.includeCount !== undefined) p.append('includeCount', String(params.includeCount));
     const q = p.toString() ? `?${p.toString()}` : '';
     return this.request(`/v1/clients${q}`);
   }

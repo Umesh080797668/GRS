@@ -58,7 +58,7 @@ export class ClientService {
   async getClients(
     caller: ScopeContext,
     query: ListClientsDto,
-  ): Promise<{ clients: any[]; totalCount: number; nextCursor?: string }> {
+  ): Promise<{ clients: any[]; totalCount?: number; nextCursor?: string }> {
     const whereCondition: Record<string, any> = { deletedAt: null };
 
     if (caller.role === UserRole.team_member) {
@@ -119,27 +119,35 @@ export class ClientService {
 
     const limit = query.limit ?? 50;
 
-    const [clients, totalCount] = await Promise.all([
-      this.prisma.client.findMany({
-        where: whereCondition,
-        take: limit + 1,
-        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-        include: {
-          household: {
-            select: { id: true, houseNo: true, serialNo: true, address: true },
-          },
-          collector: {
-            select: { id: true, fullName: true, userCode: true },
-          },
+    const clientsPromise = this.prisma.client.findMany({
+      where: whereCondition,
+      take: limit + 1,
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      include: {
+        household: {
+          select: { id: true, houseNo: true, serialNo: true, address: true },
         },
-        ...(query.cursor && query.cursor.trim().length > 0
-          ? {
-              cursor: { id: query.cursor.trim() },
-              skip: 1,
-            }
-          : {}),
-      }),
-      this.prisma.client.count({ where: whereCondition }),
+        collector: {
+          select: { id: true, fullName: true, userCode: true },
+        },
+      },
+      ...(query.cursor && query.cursor.trim().length > 0
+        ? {
+            cursor: { id: query.cursor.trim() },
+            skip: 1,
+          }
+        : {}),
+    });
+
+    const shouldCount =
+      query.includeCount === true || (query.includeCount as any) === 'true';
+    const countPromise = shouldCount
+      ? this.prisma.client.count({ where: whereCondition })
+      : Promise.resolve(undefined);
+
+    const [clients, totalCount] = await Promise.all([
+      clientsPromise,
+      countPromise,
     ]);
 
     let nextCursor: string | undefined;
@@ -148,11 +156,19 @@ export class ClientService {
       nextCursor = clients[clients.length - 1]?.id;
     }
 
-    return {
+    const response: {
+      clients: any[];
+      totalCount?: number;
+      nextCursor?: string;
+    } = {
       clients,
-      totalCount,
       nextCursor,
     };
+    if (totalCount !== undefined) {
+      response.totalCount = totalCount;
+    }
+
+    return response;
   }
 
   /**

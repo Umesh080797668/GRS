@@ -24,12 +24,15 @@ describe('StatsService (M5.6 & M5.7)', () => {
       },
       divisionalSecretariat: {
         findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn(),
       },
       gnDivision: {
         findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn(),
       },
       team: {
         findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn(),
         count: jest.fn().mockResolvedValue(0),
       },
     };
@@ -84,6 +87,108 @@ describe('StatsService (M5.6 & M5.7)', () => {
 
     await expect(
       service.getProgress(caller, { areaType: 'gn', areaId: 'gn-9999' }),
+    ).rejects.toThrow();
+  });
+
+  it('returns null refreshedAt when no stats row exists', async () => {
+    const caller: ScopeContext = {
+      userId: 'admin-uuid',
+      role: UserRole.super_admin,
+    };
+    prisma.areaStat.findUnique.mockResolvedValueOnce(null);
+
+    const result = await service.getProgress(caller);
+    expect(result.summary.housesAssigned).toBe(0);
+    expect(result.refreshedAt).toBeNull();
+  });
+
+  it('restricts team_member strictly to their own team', async () => {
+    const caller: ScopeContext = {
+      userId: 'tm-uuid',
+      role: UserRole.team_member,
+      teamId: 'team-own',
+    };
+
+    // Cannot query national
+    await expect(
+      service.getProgress(caller, { areaType: 'national', areaId: 'national' }),
+    ).rejects.toThrow();
+
+    // Cannot query other team
+    await expect(
+      service.getProgress(caller, { areaType: 'team', areaId: 'team-other' }),
+    ).rejects.toThrow();
+
+    // Can query own team
+    prisma.teamStat.findUnique.mockResolvedValueOnce({
+      teamId: 'team-own',
+      housesAssigned: 10,
+      housesStarted: 5,
+      housesDone: 2,
+      clientsCount: 8,
+      epfCount: 1,
+      etfCount: 1,
+      aswesumaCount: 0,
+      samurdhiCount: 0,
+      specialNeedsCount: 0,
+      refreshedAt: new Date('2026-11-02T10:00:00Z'),
+    });
+    const res = await service.getProgress(caller, { areaType: 'team', areaId: 'team-own' });
+    expect(res.areaId).toBe('team-own');
+  });
+
+  it('rejects cdc_secretary for team outside their GN division', async () => {
+    const caller: ScopeContext = {
+      userId: 'sec-uuid',
+      role: UserRole.cdc_secretary,
+      gnId: 'gn-1111',
+    };
+
+    prisma.team.findUnique.mockResolvedValueOnce({ gnId: 'gn-2222' });
+
+    await expect(
+      service.getProgress(caller, { areaType: 'team', areaId: 'team-other' }),
+    ).rejects.toThrow();
+  });
+
+  it('rejects sda for GN or team outside their DS division', async () => {
+    const caller: ScopeContext = {
+      userId: 'sda-uuid',
+      role: UserRole.sda,
+      dsId: 'ds-1111',
+    };
+
+    prisma.gnDivision.findUnique.mockResolvedValueOnce({ dsId: 'ds-2222' });
+    await expect(
+      service.getProgress(caller, { areaType: 'gn', areaId: 'gn-other' }),
+    ).rejects.toThrow();
+
+    prisma.team.findUnique.mockResolvedValueOnce({ gn: { dsId: 'ds-2222' } });
+    await expect(
+      service.getProgress(caller, { areaType: 'team', areaId: 'team-other' }),
+    ).rejects.toThrow();
+  });
+
+  it('rejects dc for DS, GN, or team outside their District', async () => {
+    const caller: ScopeContext = {
+      userId: 'dc-uuid',
+      role: UserRole.dc,
+      districtId: 'dist-1111',
+    };
+
+    prisma.divisionalSecretariat.findUnique.mockResolvedValueOnce({ districtId: 'dist-2222' });
+    await expect(
+      service.getProgress(caller, { areaType: 'ds', areaId: 'ds-other' }),
+    ).rejects.toThrow();
+
+    prisma.gnDivision.findUnique.mockResolvedValueOnce({ ds: { districtId: 'dist-2222' } });
+    await expect(
+      service.getProgress(caller, { areaType: 'gn', areaId: 'gn-other' }),
+    ).rejects.toThrow();
+
+    prisma.team.findUnique.mockResolvedValueOnce({ gn: { ds: { districtId: 'dist-2222' } } });
+    await expect(
+      service.getProgress(caller, { areaType: 'team', areaId: 'team-other' }),
     ).rejects.toThrow();
   });
 });

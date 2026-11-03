@@ -31,7 +31,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const stored = api.getStoredUser();
     if (stored) {
-      setUser(stored);
+      if (stored.role === 'team_member') {
+        api.clearSession();
+        setUser(null);
+      } else {
+        setUser(stored);
+      }
     }
     setIsLoading(false);
   }, []);
@@ -46,7 +51,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user && !isPublic) {
       router.replace('/login');
     } else if (user) {
-      if (user.mustChangePassword && !isFirstSignIn) {
+      if (user.role === 'team_member') {
+        api.clearSession();
+        setUser(null);
+        router.replace('/login');
+      } else if (user.mustChangePassword && !isFirstSignIn) {
         router.replace('/first-sign-in');
       } else if (!user.mustChangePassword && (isPublic || isFirstSignIn)) {
         router.replace('/progress');
@@ -56,6 +65,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (identifier: string, pwd: string) => {
     const session = await api.login(identifier, pwd);
+    if (session.user.role === 'team_member') {
+      api.clearSession();
+      throw new Error(
+        'Level 5 Team Members must access the mobile tablet application. Web dashboard access is restricted.'
+      );
+    }
     setUser(session.user);
     if (session.user.mustChangePassword) {
       router.push('/first-sign-in');

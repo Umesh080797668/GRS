@@ -31,7 +31,7 @@ import type { ScopeContext } from '../common/scope/scope.types';
 @ApiTags('auth')
 @Controller('v1/auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -57,7 +57,8 @@ export class AuthController {
     if (!dto.deviceId && req?.headers?.['x-device-id']) {
       dto.deviceId = req.headers['x-device-id'] as string;
     }
-    return this.authService.login(dto, clientIp);
+    const clientType = (req?.headers?.['x-client-type'] as string) || undefined;
+    return this.authService.login(dto, clientIp, clientType);
   }
 
   @Post('change-password')

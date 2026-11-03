@@ -103,8 +103,9 @@ describe('ApiClient - Single-flight refresh (Bug 4)', () => {
     // ONLY ONE refresh request must have been made (single flight)!
     assert.strictEqual(refreshCallCount, 1);
 
-    // Tokens must be updated in localStorage
-    assert.strictEqual(localStorageMock.grs_access_token, 'new-refreshed-access-token');
+    // Access token is securely kept in memory, not left in localStorage
+    assert.strictEqual(client.getAccessToken(), 'new-refreshed-access-token');
+    assert.strictEqual(localStorageMock.grs_access_token, undefined);
     assert.strictEqual(localStorageMock.grs_refresh_token, 'new-refreshed-refresh-token');
   });
 

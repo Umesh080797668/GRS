@@ -31,7 +31,10 @@ export default function UsersPage() {
   // Modals
   const [showSingleModal, setShowSingleModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [showReissueModal, setShowReissueModal] = useState(false);
+  const [reissueBatchId, setReissueBatchId] = useState('');
   const [latestCredentials, setLatestCredentials] = useState<CredentialSlipItem[] | null>(null);
+  const [teams, setTeams] = useState<any[]>([]);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -50,6 +53,10 @@ export default function UsersPage() {
   });
 
   const [actionLoading, setActionLoading] = useState(false);
+
+  useEffect(() => {
+    api.getTeams().then(setTeams).catch(() => { });
+  }, []);
 
   const fetchAccounts = async (cursor?: string, isReset = false) => {
     try {
@@ -103,11 +110,30 @@ export default function UsersPage() {
   const handleCreateBulk = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
-    try {
-      // Chunk bulk creation in batches of <= 100 per M5.2
-      const allCreds: CredentialSlipItem[] = [];
-      let remaining = Number(bulkData.count);
 
+    // Atomicity check across > 100: Enforce team member limit upfront before chunking
+    if (bulkData.role === 'team_member' && bulkData.teamId) {
+      const targetTeam = teams.find((t) => t.id === bulkData.teamId);
+      if (targetTeam) {
+        const activeInTeam = accounts.filter(
+          (a) => a.teamId === bulkData.teamId && a.isActive
+        ).length;
+        const availableSlots = Math.max(0, targetTeam.maxMembers - activeInTeam);
+        if (Number(bulkData.count) > availableSlots) {
+          alert(
+            `Team member limit exceeded. Team ${targetTeam.teamNo} allows a maximum of ${targetTeam.maxMembers} members (${activeInTeam} currently active). Only ${availableSlots} slot(s) remain, but ${bulkData.count} were requested.`
+          );
+          setActionLoading(false);
+          return;
+        }
+      }
+    }
+
+    const allCreds: CredentialSlipItem[] = [];
+    const createdBatchIds: string[] = [];
+    let remaining = Number(bulkData.count);
+
+    try {
       while (remaining > 0) {
         const chunk = remaining > 100 ? 100 : remaining;
         const res = await api.createBulkAccounts({
@@ -115,6 +141,10 @@ export default function UsersPage() {
           count: chunk,
           teamId: bulkData.teamId || undefined,
         });
+
+        if (res.batchId) {
+          createdBatchIds.push(res.batchId);
+        }
 
         const usersList = res.accounts || res.users || [];
         for (const u of usersList) {
@@ -132,7 +162,41 @@ export default function UsersPage() {
       setLatestCredentials(allCreds);
       fetchAccounts(undefined, true);
     } catch (err: any) {
-      alert(`Error in bulk creation: ${err.message}`);
+      // Invariant: Keep and show partial credentials even on partial chunk failure
+      if (allCreds.length > 0) {
+        setShowBulkModal(false);
+        setLatestCredentials(allCreds);
+        fetchAccounts(undefined, true);
+        alert(
+          `Bulk creation partially completed: ${allCreds.length} accounts were successfully generated across batch(es): ${createdBatchIds.join(', ')}.\n\nSubsequent chunk failed: ${err.message}.\n\nYour created credentials are shown below. You can also reissue credentials using the batch ID if needed.`
+        );
+      } else {
+        alert(`Error in bulk creation: ${err.message}`);
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReissueBatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reissueBatchId.trim()) return;
+    setActionLoading(true);
+    try {
+      const res = await api.reissueBatch(reissueBatchId.trim());
+      setShowReissueModal(false);
+      const slips: CredentialSlipItem[] = (res.credentials || []).map((c: any) => ({
+        userCode: c.userCode,
+        fullName: c.fullName,
+        role: 'team_member',
+        initialPassword: c.initialPassword,
+      }));
+      setLatestCredentials(slips);
+      alert(
+        `Successfully reissued credentials for ${res.totalReissued} accounts in batch ${res.batchId}.`
+      );
+    } catch (err: any) {
+      alert(`Failed to reissue batch credentials: ${err.message}`);
     } finally {
       setActionLoading(false);
     }
@@ -187,6 +251,11 @@ export default function UsersPage() {
         </div>
 
         <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={() => setShowReissueModal(true)} className="btn-secondary">
+            <KeyRound size={16} />
+            <span>Reissue Batch</span>
+          </button>
+
           <button onClick={() => setShowSingleModal(true)} className="btn-secondary">
             <UserPlus size={16} />
             <span>{t('users.create_single')}</span>
@@ -194,7 +263,7 @@ export default function UsersPage() {
 
           <button onClick={() => setShowBulkModal(true)} className="btn-primary">
             <Layers size={16} />
-            <span>{t('users.create_bulk')} (≤100)</span>
+            <span>{t('users.create_bulk')}</span>
           </button>
         </div>
       </div>
@@ -441,6 +510,26 @@ export default function UsersPage() {
                 </select>
               </div>
 
+              {bulkData.role === 'team_member' && teams.length > 0 && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                    Assign to Team (Optional)
+                  </label>
+                  <select
+                    value={bulkData.teamId}
+                    onChange={(e) => setBulkData({ ...bulkData, teamId: e.target.value })}
+                    className="input-field"
+                  >
+                    <option value="">No team pre-assignment</option>
+                    {teams.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        Team {t.teamNo} (Max: {t.maxMembers})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
                   Total Number of Accounts to Generate
@@ -462,6 +551,44 @@ export default function UsersPage() {
                 </button>
                 <button type="submit" disabled={actionLoading} className="btn-primary">
                   {actionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Generate Batch & Slips'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Batch Reissue Modal */}
+      {showReissueModal && (
+        <div className="modal-backdrop">
+          <div className="modal-content">
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Reissue Batch Credentials</h3>
+              <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>
+                Regenerate temporary credentials for users in a creation batch who have not yet changed passwords.
+              </p>
+            </div>
+            <form onSubmit={handleReissueBatch} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                  Batch UUID
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. 12345678-1234-1234-1234-123456789abc"
+                  value={reissueBatchId}
+                  onChange={(e) => setReissueBatchId(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setShowReissueModal(false)} className="btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={actionLoading || !reissueBatchId.trim()} className="btn-primary">
+                  {actionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Reissue Passwords & Slips'}
                 </button>
               </div>
             </form>

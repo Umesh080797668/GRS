@@ -1,6 +1,7 @@
 import {
   Injectable,
   UnauthorizedException,
+  ForbiddenException,
   BadRequestException,
   ConflictException,
   Logger,
@@ -25,11 +26,11 @@ export type AuthSession = {
 
 export type LoginResult =
   | {
-      mustChangePassword: true;
-      accessToken: string;
-      user: Record<string, any>;
-      profile?: Record<string, any>;
-    }
+    mustChangePassword: true;
+    accessToken: string;
+    user: Record<string, any>;
+    profile?: Record<string, any>;
+  }
   | AuthSession;
 
 @Injectable()
@@ -49,7 +50,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly rateLimitService: RateLimitService,
-  ) {}
+  ) { }
 
   /**
    * Normalizes login identifier (GRS ID -> uppercase, Email -> lowercase).
@@ -72,7 +73,11 @@ export class AuthService {
    * Authenticates user with uniform failure semantics (Invariant 14).
    * Supports GRS ID and verified email addresses.
    */
-  async login(dto: LoginDto, ip: string = '127.0.0.1'): Promise<LoginResult> {
+  async login(
+    dto: LoginDto,
+    ip: string = '127.0.0.1',
+    clientType?: string,
+  ): Promise<LoginResult> {
     const cleanIp = (ip || '127.0.0.1').trim();
     const cleanDeviceId = dto.deviceId?.trim();
     const deviceSuffix = cleanDeviceId ? `:${cleanDeviceId}` : `:${cleanIp}`;
@@ -225,6 +230,18 @@ export class AuthService {
       throw new UnauthorizedException({
         code: 'ACCOUNT_DEACTIVATED',
         message_key: 'errors.auth.deactivated',
+      });
+    }
+
+    // Restrict Level 5 team members from accessing the web dashboard
+    if (
+      (clientType === 'web' || (dto as any).clientType === 'web') &&
+      profile.role === 'team_member'
+    ) {
+      throw new ForbiddenException({
+        code: 'WEB_ACCESS_RESTRICTED',
+        message:
+          'Team members (Level 5) are restricted to the mobile application and cannot access the web dashboard.',
       });
     }
 
