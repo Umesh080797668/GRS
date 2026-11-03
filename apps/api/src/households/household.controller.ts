@@ -26,7 +26,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 @Controller('v1/houses')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class HouseholdController {
-  constructor(private readonly householdService: HouseholdService) {}
+  constructor(private readonly householdService: HouseholdService) { }
 
   @Get()
   @Roles(
@@ -98,5 +98,21 @@ export class HouseholdController {
     @Param('id') id: string,
   ) {
     return this.householdService.finishHousehold(user, id);
+  }
+
+  @Post(':id/reopen')
+  @Roles(
+    UserRole.cdc_secretary,
+    UserRole.sda,
+    UserRole.dc,
+    UserRole.cg,
+    UserRole.admin,
+    UserRole.super_admin,
+  )
+  async reopenHousehold(
+    @CurrentUser() user: ScopeContext,
+    @Param('id') id: string,
+  ) {
+    return this.householdService.reopenHousehold(user, id);
   }
 }

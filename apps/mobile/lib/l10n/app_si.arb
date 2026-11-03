@@ -216,6 +216,8 @@
   "@addBeneficiaryButton": {},
   "finishHouseButton": "නිවස අවසන් කරන්න",
   "@finishHouseButton": {},
+  "reopenHouseButton": "නැවත විවෘත කරන්න",
+  "@reopenHouseButton": {},
   "clientFormTitle": "ප්‍රතිලාභී තොරතුරු (DD/S/001)",
   "@clientFormTitle": {},
   "personalInfo": "පුද්ගලික තොරතුරු",

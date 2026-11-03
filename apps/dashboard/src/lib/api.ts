@@ -599,6 +599,12 @@ export class ApiClient {
     });
   }
 
+  async reopenHousehold(houseId: string): Promise<any> {
+    return this.request(`/v1/houses/${houseId}/reopen`, {
+      method: 'POST',
+    });
+  }
+
   // --- SERVER-SIDE IMPORT (PREVIEW / CONFIRM) ---
 
   async previewImport(gnId: string, file: File): Promise<any> {

@@ -216,6 +216,8 @@
   "@addBeneficiaryButton": {},
   "finishHouseButton": "வீட்டை முடிக்கவும்",
   "@finishHouseButton": {},
+  "reopenHouseButton": "மீண்டும் திறக்கவும்",
+  "@reopenHouseButton": {},
   "clientFormTitle": "பயனாளி விவரங்கள் (DD/S/001)",
   "@clientFormTitle": {},
   "personalInfo": "தனிநபர் தகவல்",

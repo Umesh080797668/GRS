@@ -543,6 +543,21 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
   },
   {
     method: 'POST',
+    path: '/houses/:id/reopen',
+    category: 'houses',
+    allowedRoles: [
+      'cdc_secretary',
+      'sda',
+      'dc',
+      'cg',
+      'admin',
+      'super_admin',
+    ],
+    scopeEnforcement: 'team_only',
+    description: 'Reopen completed household visit (team leader and above)',
+  },
+  {
+    method: 'POST',
     path: '/teams/:id/houses',
     category: 'houses',
     allowedRoles: ['cdc_secretary', 'super_admin'],

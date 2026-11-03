@@ -592,6 +592,19 @@ class GrsApiClient {
     _handleError(response);
   }
 
+  /// POST /v1/houses/:id/reopen - Reopen completed household visit
+  Future<Map<String, dynamic>> reopenHousehold(String id) async {
+    final uri = Uri.parse('$baseUrl/v1/houses/$id/reopen');
+    final response = await _sendWithAuthRetry(
+      () => _client.post(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
   /// DELETE /v1/houses/:id
   Future<Map<String, dynamic>> deleteHousehold(
     String id, {

@@ -26,7 +26,7 @@
    ```bash
    grep "uses-permission" apps/mobile/android/app/src/main/AndroidManifest.xml
    ```
-   *Only `INTERNET` and `ACCESS_NETWORK_STATE` are permitted.*
+   *Only `INTERNET`, `ACCESS_NETWORK_STATE`, and `REQUEST_INSTALL_PACKAGES` (Decision C22 OTA updater) are permitted.*
 
 ### Step 2: Build Signed Release APK
 ```bash

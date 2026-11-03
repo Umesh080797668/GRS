@@ -427,12 +427,14 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
     });
 
     describe('GET /v1/areas/ds scoping & pagination', () => {
-      it('super_admin can view all DS divisions and response is paginated', async () => {
+      it('super_admin can view all DS divisions and response is keyset-paginated', async () => {
         const result = await service.getDivisionalSecretariats(superAdminScope);
         expect(result.items.length).toBe(3);
-        expect(result.total).toBe(3);
-        expect(result.page).toBe(1);
         expect(result.limit).toBe(50);
+        expect(result.total).toBeUndefined(); // count omitted by default for big-table scale
+
+        const withTotal = await service.getDivisionalSecretariats(superAdminScope, { includeTotal: true });
+        expect(withTotal.total).toBe(3);
       });
 
       it('dc is scoped to their district and rejected when requesting outside district', async () => {
@@ -483,11 +485,13 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
         );
       });
 
-      it('cdc_secretary can list teams in their assigned GN division with pagination', async () => {
+      it('cdc_secretary can list teams in their assigned GN division with keyset pagination', async () => {
         const result = await service.getTeams(secretaryScope);
         expect(result.items).toBeDefined();
-        expect(result.total).toBe(2);
-        expect(result.page).toBe(1);
+        expect(result.total).toBeUndefined(); // count omitted by default
+
+        const withTotal = await service.getTeams(secretaryScope, { includeTotal: true });
+        expect(withTotal.total).toBe(2);
       });
 
       it('cdc_secretary is rejected when querying teams for another GN division', async () => {

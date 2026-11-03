@@ -9,7 +9,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 export class ListDsDto {
   @IsUUID()
@@ -23,15 +23,19 @@ export class ListDsDto {
   @Type(() => Number)
   limit?: number;
 
-  @IsInt()
-  @Min(1)
-  @IsOptional()
-  @Type(() => Number)
-  page?: number;
-
   @IsUUID()
   @IsOptional()
   cursor?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  includeTotal?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  includeCount?: boolean;
 }
 
 export class ListGnDto {
@@ -46,15 +50,19 @@ export class ListGnDto {
   @Type(() => Number)
   limit?: number;
 
-  @IsInt()
-  @Min(1)
-  @IsOptional()
-  @Type(() => Number)
-  page?: number;
-
   @IsUUID()
   @IsOptional()
   cursor?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  includeTotal?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  includeCount?: boolean;
 }
 
 export class ListTeamsDto {
@@ -69,15 +77,19 @@ export class ListTeamsDto {
   @Type(() => Number)
   limit?: number;
 
-  @IsInt()
-  @Min(1)
-  @IsOptional()
-  @Type(() => Number)
-  page?: number;
-
   @IsUUID()
   @IsOptional()
   cursor?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  includeTotal?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  includeCount?: boolean;
 }
 
 export class CreateDsDto {

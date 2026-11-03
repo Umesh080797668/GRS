@@ -12,11 +12,11 @@ export type LatestReleaseResponse = ReleaseManifest;
 @Injectable()
 export class ReleasesService {
   private readonly logger = new Logger(ReleasesService.name);
-  private cachedGithubRelease: ReleaseManifest | null = null;
+  private cachedLatestRelease: ReleaseManifest | null = null;
   private cacheExpiry: number = 0;
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Compares two semantic version strings (e.g. "1.1.0" vs "1.0.0").
@@ -56,8 +56,12 @@ export class ReleasesService {
   async syncFromGitHub(): Promise<ReleaseManifest | null> {
     const repo =
       process.env.GITHUB_REPO ||
-      process.env.GITHUB_REPOSITORY ||
-      'Umesh080797668/GRS';
+      process.env.GITHUB_REPOSITORY;
+
+    if (!repo) {
+      this.logger.log('GITHUB_REPO not configured, skipping GitHub release sync.');
+      return null;
+    }
 
     try {
       const headers: Record<string, string> = {
@@ -128,7 +132,7 @@ export class ReleasesService {
               const match = text.match(/[a-f0-9]{64}/i);
               if (match) checksum = match[0];
             }
-          } catch (_) {}
+          } catch (_) { }
         }
       }
 
@@ -186,7 +190,7 @@ export class ReleasesService {
         this.logger.warn(`Could not persist synced release to DB: ${dbErr}`);
       }
 
-      this.cachedGithubRelease = releaseManifest;
+      this.cachedLatestRelease = releaseManifest;
       this.cacheExpiry = Date.now() + this.CACHE_TTL_MS;
       return releaseManifest;
     } catch (err) {
@@ -200,7 +204,24 @@ export class ReleasesService {
    * If [currentVersion] is supplied, evaluates if client is already up-to-date.
    */
   async getLatestRelease(currentVersion?: string): Promise<ReleaseManifest> {
-    // 1. Check if DB has a release
+    // 1. Check in-memory cache first to avoid database or network pressure
+    if (this.cachedLatestRelease && Date.now() < this.cacheExpiry) {
+      if (currentVersion) {
+        const cmp = this.compareSemver(this.cachedLatestRelease.version, currentVersion);
+        return {
+          ...this.cachedLatestRelease,
+          isUpdateAvailable: cmp > 0,
+          isLatest: cmp <= 0,
+          message: cmp > 0
+            ? `Update v${this.cachedLatestRelease.version} is available.`
+            : 'You are already up to date.',
+          currentVersion,
+        };
+      }
+      return this.cachedLatestRelease;
+    }
+
+    // 2. Check if DB has a release
     let dbRelease: any = null;
     try {
       dbRelease = await this.prisma.appRelease.findFirst({
@@ -209,11 +230,6 @@ export class ReleasesService {
     } catch (e) {
       this.logger.warn(`Error querying database for app release: ${e}`);
     }
-
-    // 2. In normal runtime (or when explicitly enabled in tests), sync from GitHub if no DB release or cache expired
-    const shouldSyncGithub =
-      process.env.NODE_ENV !== 'test' ||
-      process.env.ENABLE_GITHUB_SYNC === 'true';
 
     let latestManifest: ReleaseManifest | null = null;
 
@@ -229,21 +245,22 @@ export class ReleasesService {
         releasedAt: dbRelease.releasedAt,
         mandatory: false,
       };
+      this.cachedLatestRelease = latestManifest;
+      this.cacheExpiry = Date.now() + this.CACHE_TTL_MS;
     }
 
-    // Check GitHub if DB is empty or cache expired
-    if (
-      shouldSyncGithub &&
-      (!latestManifest || Date.now() > this.cacheExpiry)
-    ) {
+    // 3. Optional fallback to GitHub only when explicitly enabled and no DB release exists
+    const shouldSyncGithub =
+      process.env.ENABLE_GITHUB_SYNC === 'true' &&
+      (!latestManifest || Date.now() > this.cacheExpiry);
+
+    if (shouldSyncGithub) {
       const ghRelease = await this.syncFromGitHub();
       if (ghRelease) {
-        if (!latestManifest) {
+        if (!latestManifest || this.compareSemver(ghRelease.version, latestManifest.version) > 0) {
           latestManifest = ghRelease;
-        } else if (
-          this.compareSemver(ghRelease.version, latestManifest.version) > 0
-        ) {
-          latestManifest = ghRelease;
+          this.cachedLatestRelease = latestManifest;
+          this.cacheExpiry = Date.now() + this.CACHE_TTL_MS;
         }
       }
     }
@@ -336,9 +353,7 @@ export class ReleasesService {
     }
 
     const isOfficialUrl =
-      data.apkUrl.startsWith(
-        'https://github.com/Umesh080797668/GRS/releases/download/',
-      ) ||
+      data.apkUrl.startsWith('https://') ||
       data.apkUrl === '/v1/releases/download' ||
       data.apkUrl.startsWith('/v1/releases/download?');
 
@@ -346,9 +361,13 @@ export class ReleasesService {
       throw new BadRequestException({
         code: 'UNTRUSTED_APK_HOST',
         message:
-          'apkUrl must point to official GitHub releases (https://github.com/Umesh080797668/GRS/releases/download/...) or local download endpoint (/v1/releases/download).',
+          'apkUrl must point to a valid HTTPS release URL or local download endpoint (/v1/releases/download).',
       });
     }
+
+    // Invalidate cached release so the new release is served immediately
+    this.cachedLatestRelease = null;
+    this.cacheExpiry = 0;
 
     const created = await this.prisma.appRelease.create({
       data: {

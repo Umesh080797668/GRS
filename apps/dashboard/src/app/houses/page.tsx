@@ -15,6 +15,7 @@ import {
   CheckSquare,
   Square,
   ArrowRight,
+  RotateCcw,
 } from 'lucide-react';
 
 export default function HousesPage() {
@@ -253,6 +254,20 @@ export default function HousesPage() {
       fetchHouseholds(selectedGn, true);
     } catch (err: any) {
       setErrorBanner(err.message || 'Failed to finish house.');
+    }
+  }
+
+  // Reopen house
+  async function handleReopen(house: any) {
+    if (!confirm(`Reopen finished house #${house.houseNo}? This will mark it as in progress for further surveys.`)) return;
+    setErrorBanner(null);
+    setSuccessBanner(null);
+    try {
+      await api.reopenHousehold(house.id);
+      setSuccessBanner(t('houses.reopened'));
+      fetchHouseholds(selectedGn, true);
+    } catch (err: any) {
+      setErrorBanner(err.message || 'Failed to reopen house.');
     }
   }
 
@@ -634,6 +649,16 @@ export default function HousesPage() {
                                 title={t('houses.finish_house')}
                               >
                                 {t('houses.finish_house')}
+                              </button>
+                            )}
+                            {isAssigned && isFinished && (
+                              <button
+                                onClick={() => handleReopen(h)}
+                                className="btn btn-secondary text-xs py-1 px-2 text-amber-400 hover:text-amber-300 flex items-center gap-1"
+                                title={t('houses.reopen_house')}
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                {t('houses.reopen_house')}
                               </button>
                             )}
                             {isAssigned && (

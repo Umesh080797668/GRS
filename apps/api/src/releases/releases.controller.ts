@@ -42,10 +42,10 @@ export class CreateReleaseDto {
   @IsString()
   @IsNotEmpty()
   @Matches(
-    /^(https:\/\/github\.com\/Umesh080797668\/GRS\/releases\/download\/.*|\/v1\/releases\/download(\?.*)?)$/,
+    /^(https:\/\/[a-zA-Z0-9_.-]+\/.*|\/v1\/releases\/download(\?.*)?)$/,
     {
       message:
-        'apkUrl must point to official repository releases (https://github.com/Umesh080797668/GRS/releases/download/...) or local download endpoint (/v1/releases/download)',
+        'apkUrl must point to a valid HTTPS download URL or local download endpoint (/v1/releases/download)',
     },
   )
   apkUrl: string;
@@ -89,7 +89,7 @@ export class ReleasesController {
     private readonly releasesService: ReleasesService,
     private readonly prisma: PrismaService,
     @Optional() private readonly jwtService?: JwtService,
-  ) {}
+  ) { }
 
   /**
    * Validates that the request comes from an authorized publisher:

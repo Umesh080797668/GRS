@@ -650,10 +650,7 @@ void main() {
         fakeApi.pushedRequests.clear();
         fakeApi.onPushSync = (req) async {
           // Server omits finishedHouseholds field completely
-          return const SyncPushResponse(
-            results: [],
-            finishedHouseholds: null,
-          );
+          return const SyncPushResponse(results: [], finishedHouseholds: null);
         };
 
         final syncNotifier = container.read(syncProvider.notifier);

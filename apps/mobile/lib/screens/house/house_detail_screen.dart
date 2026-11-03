@@ -47,6 +47,8 @@ class HouseDetailScreen extends ConsumerWidget {
             final isAswesuma = (house['is_aswesuma'] as int) == 1;
             final isSamurdhi = (house['is_samurdhi'] as int) == 1;
             final hasSpecialNeeds = (house['has_special_needs'] as int) == 1;
+            final isCompleted =
+                (house['visit_status'] as String?) == 'completed';
 
             return FutureBuilder<List<Map<String, dynamic>>>(
               key: ValueKey('c_${houseId}_$revision'),
@@ -280,55 +282,82 @@ class HouseDetailScreen extends ConsumerWidget {
 
                         const SizedBox(height: 24),
 
-                        // ── Finish house ───────────────────────────────────
+                        // ── Finish / Reopen house ──────────────────────────
                         GrsFadeSlideItem(
                           index: clients.length + 2,
-                          child: GrsButton(
-                            label: l10n.get('finishHouseButton'),
-                            icon: Icons.check_circle_outline_rounded,
-                            variant: GrsButtonVariant.outline,
-                            isFullWidth: true,
-                            onPressed: () async {
-                              if (clients.isEmpty) {
-                                final confirmed = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: Text(l10n.get('finishHouseButton')),
-                                    content: Text(
-                                      l10n.get('finishHouseNoClientsConfirm'),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(ctx).pop(false),
-                                        child: Text(l10n.get('cancel')),
-                                      ),
-                                      FilledButton(
-                                        onPressed: () =>
-                                            Navigator.of(ctx).pop(true),
-                                        child: Text(l10n.get('confirm')),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                                if (confirmed != true) return;
-                              }
+                          child: isCompleted
+                              ? GrsButton(
+                                  label: l10n.get('reopenHouseButton'),
+                                  icon: Icons.replay_rounded,
+                                  variant: GrsButtonVariant.outline,
+                                  isFullWidth: true,
+                                  onPressed: () async {
+                                    await db.reopenHouseholdLocally(houseId);
+                                    try {
+                                      final api = ref.read(apiClientProvider);
+                                      await api.reopenHousehold(houseId);
+                                    } catch (_) {
+                                      // Handled offline or synced on next push batch
+                                    }
+                                    ref
+                                        .read(recordsRevisionProvider.notifier)
+                                        .increment();
+                                    if (context.mounted) context.pop();
+                                  },
+                                )
+                              : GrsButton(
+                                  label: l10n.get('finishHouseButton'),
+                                  icon: Icons.check_circle_outline_rounded,
+                                  variant: GrsButtonVariant.outline,
+                                  isFullWidth: true,
+                                  onPressed: () async {
+                                    if (clients.isEmpty) {
+                                      final confirmed = await showDialog<bool>(
+                                        context: context,
+                                        builder: (ctx) => AlertDialog(
+                                          title: Text(
+                                            l10n.get('finishHouseButton'),
+                                          ),
+                                          content: Text(
+                                            l10n.get(
+                                              'finishHouseNoClientsConfirm',
+                                            ),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.of(ctx).pop(false),
+                                              child: Text(l10n.get('cancel')),
+                                            ),
+                                            FilledButton(
+                                              onPressed: () =>
+                                                  Navigator.of(ctx).pop(true),
+                                              child: Text(l10n.get('confirm')),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirmed != true) return;
+                                    }
 
-                              await db.markHouseholdCompletedLocally(houseId);
+                                    await db.markHouseholdCompletedLocally(
+                                      houseId,
+                                    );
 
-                              try {
-                                final api = ref.read(apiClientProvider);
-                                await api.finishHousehold(houseId);
-                                await db.removePendingFinishedHouseholdIds([
-                                  houseId,
-                                ]);
-                              } catch (_) {
-                                // Handled offline or synced on next push batch
-                              }
+                                    try {
+                                      final api = ref.read(apiClientProvider);
+                                      await api.finishHousehold(houseId);
+                                      await db
+                                          .removePendingFinishedHouseholdIds([
+                                            houseId,
+                                          ]);
+                                    } catch (_) {
+                                      // Handled offline or synced on next push batch
+                                    }
 
-                              if (context.mounted) context.pop();
-                            },
-                          ),
+                                    if (context.mounted) context.pop();
+                                  },
+                                ),
                         ),
                       ],
                     ),

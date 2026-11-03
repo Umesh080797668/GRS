@@ -216,6 +216,8 @@
   "@addBeneficiaryButton": {},
   "finishHouseButton": "Finish House",
   "@finishHouseButton": {},
+  "reopenHouseButton": "Reopen House",
+  "@reopenHouseButton": {},
   "clientFormTitle": "Beneficiary Details (DD/S/001)",
   "@clientFormTitle": {},
   "personalInfo": "Personal Information",

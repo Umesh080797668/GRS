@@ -105,6 +105,7 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       create: jest.fn().mockImplementation(({ data }) => {
         const row = {
           id: `house-${mockHouseholds.length + 1}`,
+          visitStatus: data.visitStatus ?? 'not_started',
           ...data,
           version: 1,
           createdAt: new Date(),
@@ -213,8 +214,8 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       };
       const p = run();
       lockQueue = p.then(
-        () => {},
-        () => {},
+        () => { },
+        () => { },
       );
       return p;
     }),
@@ -820,6 +821,93 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       await expect(
         service.finishHousehold(teamMemberNoTeam, unassignedHouse.id),
       ).rejects.toThrow();
+    });
+
+    it('reopenHousehold: allows team leader to reopen completed house', async () => {
+      const house = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: '506',
+        houseLeaderName: 'Leader 506',
+      });
+      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [house.id]);
+
+      const teamMemberScope: ScopeContext = {
+        userId: 'team-member-1',
+        role: UserRole.team_member,
+        teamId: mockTeamId,
+      };
+
+      const finished = await service.finishHousehold(teamMemberScope, house.id);
+      expect(finished.visitStatus).toBe('completed');
+      expect(finished.finishedAt).toBeDefined();
+
+      const reopened = await service.reopenHousehold(cdcSecretaryScope, house.id);
+      expect(reopened.visitStatus).toBe('not_started');
+      expect(reopened.finishedAt).toBeNull();
+      expect(reopened.finishedBy).toBeNull();
+      expect(reopened.version).toBe(finished.version + 1);
+    });
+
+    it('reopenHousehold: rejects Level 5 team member with 403 Forbidden', async () => {
+      const house = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: '507',
+        houseLeaderName: 'Leader 507',
+      });
+      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [house.id]);
+
+      const teamMemberScope: ScopeContext = {
+        userId: 'team-member-1',
+        role: UserRole.team_member,
+        teamId: mockTeamId,
+      };
+
+      await service.finishHousehold(teamMemberScope, house.id);
+
+      await expect(
+        service.reopenHousehold(teamMemberScope, house.id),
+      ).rejects.toThrow('Level 5 enumerators cannot reopen finished houses');
+    });
+
+    it('reopenHousehold: rejects team leader trying to reopen another team house', async () => {
+      const house = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: '508',
+        houseLeaderName: 'Leader 508',
+      });
+      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [house.id]);
+
+      const teamMemberScope: ScopeContext = {
+        userId: 'team-member-1',
+        role: UserRole.team_member,
+        teamId: mockTeamId,
+      };
+      await service.finishHousehold(teamMemberScope, house.id);
+
+      const otherLeaderScope: ScopeContext = {
+        userId: 'other-leader',
+        role: UserRole.cdc_secretary,
+        gnId: mockGnId,
+        teamId: 'other-team-id',
+      };
+
+      await expect(
+        service.reopenHousehold(otherLeaderScope, house.id),
+      ).rejects.toThrow('Household is not assigned to your team');
+    });
+
+    it('reopenHousehold: is idempotent when house is already not completed', async () => {
+      const house = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: '509',
+        houseLeaderName: 'Leader 509',
+      });
+      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [house.id]);
+
+      const initialVersion = house.version;
+      const res = await service.reopenHousehold(cdcSecretaryScope, house.id);
+      expect(res.visitStatus).toBe('not_started');
+      expect(res.version).toBe(initialVersion);
     });
   });
 });

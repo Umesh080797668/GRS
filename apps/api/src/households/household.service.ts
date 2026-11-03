@@ -1022,4 +1022,103 @@ export class HouseholdService {
 
     return updated;
   }
+
+  /**
+   * Reopens a completed household visit (Reopen house).
+   * Restricted to Team Leader (CDC Secretary) and administrative roles.
+   * Resets visit_status to 'in_progress' (or 'not_started' if no active clients exist),
+   * clears finished_at and finished_by, increments version, and dirties team stats.
+   */
+  async reopenHousehold(caller: ScopeContext, id: string): Promise<any> {
+    const household = await this.prisma.household.findUnique({
+      where: { id },
+      include: {
+        team: true,
+        clients: {
+          where: { deletedAt: null },
+          select: { id: true },
+        },
+      },
+    });
+
+    if (!household || household.deletedAt) {
+      throw new NotFoundException({
+        code: 'HOUSEHOLD_NOT_FOUND',
+        message: 'Household not found',
+      });
+    }
+
+    if (caller.role === UserRole.team_member) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_SCOPE',
+        message: 'Level 5 enumerators cannot reopen finished houses. Contact your team leader.',
+      });
+    } else if (caller.role === UserRole.cdc_secretary) {
+      if (
+        !caller.teamId ||
+        !household.teamId ||
+        household.teamId !== caller.teamId
+      ) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_TEAM',
+          message: 'Household is not assigned to your team',
+        });
+      }
+    } else if (caller.role === UserRole.sda) {
+      if (caller.dsId && household.dsId !== caller.dsId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DS',
+          message: 'Household is outside your division',
+        });
+      }
+    } else if (caller.role === UserRole.dc) {
+      if (caller.districtId && household.districtId !== caller.districtId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DISTRICT',
+          message: 'Household is outside your district',
+        });
+      }
+    }
+
+    // Idempotency: if already not marked completed, return current state
+    if (household.visitStatus !== 'completed') {
+      return household;
+    }
+
+    const activeClientsCount = household.clients?.length ?? 0;
+    const nextStatus = activeClientsCount > 0 ? 'in_progress' : 'not_started';
+    const now = new Date();
+
+    const updated = await this.prisma.household.update({
+      where: { id },
+      data: {
+        visitStatus: nextStatus,
+        finishedAt: null,
+        finishedBy: null,
+        version: { increment: 1 },
+        updatedAt: now,
+      },
+    });
+
+    if (household.teamId) {
+      if (typeof (this.prisma as any).$executeRawUnsafe === 'function') {
+        await (this.prisma as any).$executeRawUnsafe(
+          `UPDATE teams SET stats_dirty_at = now() WHERE id = $1::uuid`,
+          household.teamId,
+        );
+      } else if (typeof (this.prisma as any).$queryRawUnsafe === 'function') {
+        await (this.prisma as any).$queryRawUnsafe(
+          `UPDATE teams SET stats_dirty_at = now() WHERE id = $1::uuid`,
+          household.teamId,
+        );
+      } else if (this.prisma.team?.update) {
+        await this.prisma.team.update({
+          where: { id: household.teamId },
+          data: { statsDirtyAt: now },
+        });
+      }
+    }
+
+    return updated;
+  }
 }

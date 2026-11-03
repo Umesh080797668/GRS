@@ -619,5 +619,33 @@ void main() {
         expect(lookupCalls, equals(1));
       },
     );
+
+    test('reopenHousehold dispatches POST to /v1/houses/:id/reopen', () async {
+      final mockClient = MockClient((request) async {
+        expect(request.method, equals('POST'));
+        expect(request.url.path, equals('/v1/houses/house-123/reopen'));
+        return http.Response(
+          jsonEncode({
+            'id': 'house-123',
+            'visitStatus': 'in_progress',
+            'finishedAt': null,
+            'finishedBy': null,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = GrsApiClient(
+        baseUrl: 'http://localhost:3000',
+        client: mockClient,
+        accessToken: 'valid-token',
+      );
+
+      final res = await client.reopenHousehold('house-123');
+      expect(res['id'], equals('house-123'));
+      expect(res['visitStatus'], equals('in_progress'));
+      expect(res['finishedAt'], isNull);
+    });
   });
 }

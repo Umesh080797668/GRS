@@ -46,6 +46,7 @@ This document records settled decisions (D1–D14) and conflict resolution defau
 | **C19** | Accepted Default | Web data entry screen exists (M5.8) but is disabled for Level 00 by default via `web_entry_roles`. |
 | **C20** | Accepted Default | Cloud cost forecasts derived empirically from pilot load tests; capacity bounded by verified test thresholds. |
 | **C21** | Confirmed (Explicit Decision) | Web Dashboard migrated from Flutter Web to Next.js 16 (React 19 / Turbopack / Tailwind). Flutter remains dedicated to the Android tablet/mobile application (`apps/mobile`). Next.js provides superior initial load time, native browser DOM accessibility floor, robust desktop windowing, responsive print engine (`@media print` for credential slips and survey summaries), and zero CanvasKit WASM overhead. |
+| **C22** | Confirmed (Explicit Decision) | Invariant 7 amended to permit `android.permission.REQUEST_INSTALL_PACKAGES` alongside `INTERNET` and `ACCESS_NETWORK_STATE` in `apps/mobile/android/app/src/main/AndroidManifest.xml`. Per Decision D2, GRS mobile app is distributed directly via signed APKs to Android 10+ enumerator devices without Google Play Store. `REQUEST_INSTALL_PACKAGES` is strictly required on Android 10+ (API 29+) to prompt the system package installer when an in-app OTA APK update is downloaded and its SHA-256 and signing certificate are verified. `scripts/ci.sh` and release verification steps updated accordingly. |
 
 ## 3. Milestone 0 Spike Findings & Technical Evidence (S1–S7)
 

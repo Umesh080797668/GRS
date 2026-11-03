@@ -163,42 +163,50 @@ export class AreaService {
     }
 
     const limit = Math.min(query.limit || 50, 100);
-    const skip = query.cursor
-      ? 1
-      : query.page && query.page > 1
-        ? (query.page - 1) * limit
-        : 0;
     const cursor = query.cursor ? { id: query.cursor } : undefined;
+    const skip = query.cursor ? 1 : 0;
 
-    const [items, total] = await Promise.all([
-      this.prisma.divisionalSecretariat.findMany({
-        where,
-        select: {
-          id: true,
-          districtId: true,
-          nameEn: true,
-          nameSi: true,
-          nameTa: true,
-          sdoName: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-        orderBy: { nameEn: 'asc' },
-        take: limit,
-        skip,
-        cursor,
-      }),
-      this.prisma.divisionalSecretariat.count({ where }),
-    ]);
+    const shouldCount =
+      query.includeTotal === true ||
+      query.includeCount === true ||
+      (query.includeTotal as any) === 'true' ||
+      (query.includeCount as any) === 'true';
 
-    const nextCursor =
-      items.length === limit ? items[items.length - 1].id : undefined;
+    const findPromise = this.prisma.divisionalSecretariat.findMany({
+      where,
+      select: {
+        id: true,
+        districtId: true,
+        nameEn: true,
+        nameSi: true,
+        nameTa: true,
+        sdoName: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: [{ nameEn: 'asc' }, { id: 'asc' }],
+      take: limit + 1,
+      skip,
+      cursor,
+    });
+
+    const countPromise = shouldCount
+      ? this.prisma.divisionalSecretariat.count({ where })
+      : Promise.resolve(undefined);
+
+    const [rawItems, total] = await Promise.all([findPromise, countPromise]);
+
+    let nextCursor: string | undefined;
+    const items = [...rawItems];
+    if (items.length > limit) {
+      items.pop();
+      nextCursor = items[items.length - 1]?.id;
+    }
 
     return {
       items,
-      total,
+      ...(total !== undefined ? { total } : {}),
       limit,
-      page: query.page || 1,
       nextCursor,
     };
   }
@@ -316,51 +324,59 @@ export class AreaService {
     }
 
     const limit = Math.min(query.limit || 50, 100);
-    const skip = query.cursor
-      ? 1
-      : query.page && query.page > 1
-        ? (query.page - 1) * limit
-        : 0;
     const cursor = query.cursor ? { id: query.cursor } : undefined;
+    const skip = query.cursor ? 1 : 0;
+
+    const shouldCount =
+      query.includeTotal === true ||
+      query.includeCount === true ||
+      (query.includeTotal as any) === 'true' ||
+      (query.includeCount as any) === 'true';
 
     // CRITICAL SECURITY FIX: Never return CDC secretary contact details (secretaryName,
     // secretaryContact, secretaryEmail) in bulk list queries to prevent Level 5 or unauthorized enumeration.
-    const [items, total] = await Promise.all([
-      this.prisma.gnDivision.findMany({
-        where,
-        select: {
-          id: true,
-          dsId: true,
-          gnNumber: true,
-          gnName: true,
-          nextSerial: true,
-          createdAt: true,
-          updatedAt: true,
-          teams: {
-            select: {
-              id: true,
-              teamNo: true,
-              maxMembers: true,
-            },
-            orderBy: { teamNo: 'asc' },
+    const findPromise = this.prisma.gnDivision.findMany({
+      where,
+      select: {
+        id: true,
+        dsId: true,
+        gnNumber: true,
+        gnName: true,
+        nextSerial: true,
+        createdAt: true,
+        updatedAt: true,
+        teams: {
+          select: {
+            id: true,
+            teamNo: true,
+            maxMembers: true,
           },
+          orderBy: { teamNo: 'asc' },
         },
-        orderBy: { gnNumber: 'asc' },
-        take: limit,
-        skip,
-        cursor,
-      }),
-      this.prisma.gnDivision.count({ where }),
-    ]);
+      },
+      orderBy: [{ gnNumber: 'asc' }, { id: 'asc' }],
+      take: limit + 1,
+      skip,
+      cursor,
+    });
 
-    const nextCursor =
-      items.length === limit ? items[items.length - 1].id : undefined;
+    const countPromise = shouldCount
+      ? this.prisma.gnDivision.count({ where })
+      : Promise.resolve(undefined);
+
+    const [rawItems, total] = await Promise.all([findPromise, countPromise]);
+
+    let nextCursor: string | undefined;
+    const items = [...rawItems];
+    if (items.length > limit) {
+      items.pop();
+      nextCursor = items[items.length - 1]?.id;
+    }
 
     return {
       items,
-      total,
+      ...(total !== undefined ? { total } : {}),
       limit,
-      page: query.page || 1,
       nextCursor,
     };
   }
@@ -589,35 +605,44 @@ export class AreaService {
     }
 
     const limit = Math.min(query.limit || 50, 100);
-    const skip = query.cursor
-      ? 1
-      : query.page && query.page > 1
-        ? (query.page - 1) * limit
-        : 0;
     const cursor = query.cursor ? { id: query.cursor } : undefined;
+    const skip = query.cursor ? 1 : 0;
 
-    const [items, total] = await Promise.all([
-      this.prisma.team.findMany({
-        where,
-        select: {
-          id: true,
-          gnId: true,
-          teamNo: true,
-          maxMembers: true,
-          leaderId: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-        orderBy: { teamNo: 'asc' },
-        take: limit,
-        skip,
-        cursor,
-      }),
-      this.prisma.team.count({ where }),
-    ]);
+    const shouldCount =
+      query.includeTotal === true ||
+      query.includeCount === true ||
+      (query.includeTotal as any) === 'true' ||
+      (query.includeCount as any) === 'true';
 
-    const nextCursor =
-      items.length === limit ? items[items.length - 1].id : undefined;
+    const findPromise = this.prisma.team.findMany({
+      where,
+      select: {
+        id: true,
+        gnId: true,
+        teamNo: true,
+        maxMembers: true,
+        leaderId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: [{ teamNo: 'asc' }, { id: 'asc' }],
+      take: limit + 1,
+      skip,
+      cursor,
+    });
+
+    const countPromise = shouldCount
+      ? this.prisma.team.count({ where })
+      : Promise.resolve(undefined);
+
+    const [rawItems, total] = await Promise.all([findPromise, countPromise]);
+
+    let nextCursor: string | undefined;
+    const items = [...rawItems];
+    if (items.length > limit) {
+      items.pop();
+      nextCursor = items[items.length - 1]?.id;
+    }
 
     const teamIds = items.map((t) => t.id);
     const countMap = new Map<string, number>();
@@ -661,9 +686,8 @@ export class AreaService {
 
     return {
       items: formattedItems,
-      total,
+      ...(total !== undefined ? { total } : {}),
       limit,
-      page: query.page || 1,
       nextCursor,
     };
   }

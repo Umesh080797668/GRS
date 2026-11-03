@@ -83,7 +83,8 @@ jobs:
             DISALLOWED=$(grep "uses-permission" apps/mobile/android/app/src/main/AndroidManifest.xml | \
               grep -v "android.permission.INTERNET" | \
               grep -v "android.permission.ACCESS_NETWORK_STATE" | \
-              grep -v "android.permission.RECEIVE_BOOT_COMPLETED" || true)
+              grep -v "android.permission.RECEIVE_BOOT_COMPLETED" | \
+              grep -v "android.permission.REQUEST_INSTALL_PACKAGES" || true)
             if [ -n "$DISALLOWED" ]; then
               echo "FATAL: Unauthorized Android permissions found:"
               echo "$DISALLOWED"

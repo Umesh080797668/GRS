@@ -692,6 +692,11 @@ class AppDatabase {
     await removePendingFinishedHouseholdIds([householdId]);
   }
 
+  /// Reopens a completed household locally.
+  Future<void> reopenHouseholdLocally(String householdId) async {
+    await revertHouseholdFinish(householdId);
+  }
+
   // --- CLIENTS (SURVEYS) CRUD ---
 
   /// Atomically saves a client survey (Invariant 1).
