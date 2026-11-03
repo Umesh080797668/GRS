@@ -1,3 +1,5 @@
+import { translateMessageKey } from './translations.ts';
+
 export interface SessionTokens {
   accessToken: string;
   refreshToken: string;
@@ -15,7 +17,33 @@ export interface SessionTokens {
   };
 }
 
-const DEFAULT_API_URL = '';
+export class ApiError extends Error {
+  public readonly status: number;
+  public readonly code?: string;
+  public readonly messageKey?: string;
+  public readonly retryAfter?: number;
+  public readonly details?: any;
+
+  constructor(params: {
+    message: string;
+    status: number;
+    code?: string;
+    messageKey?: string;
+    retryAfter?: number;
+    details?: any;
+  }) {
+    super(params.message);
+    this.name = 'ApiError';
+    this.status = params.status;
+    this.code = params.code;
+    this.messageKey = params.messageKey;
+    this.retryAfter = params.retryAfter;
+    this.details = params.details;
+    Object.setPrototypeOf(this, ApiError.prototype);
+  }
+}
+
+const DEFAULT_API_URL = 'http://localhost:3000';
 
 export class ApiClient {
   private baseUrl: string;
@@ -140,23 +168,86 @@ export class ApiClient {
             if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
               window.location.href = '/login';
             }
-            throw new Error('Session expired. Please sign in again.');
+            throw new ApiError({
+              message: 'Session expired. Please sign in again.',
+              status: 401,
+              code: 'SESSION_EXPIRED',
+              messageKey: 'errors.auth.session_revoked',
+            });
           }
         }
       }
 
       if (!response.ok) {
-        let errMessage = `HTTP ${response.status}: ${response.statusText}`;
+        let errData: any = {};
         try {
-          const errData = await response.json();
-          errMessage = errData.message || errData.error || errMessage;
+          errData = await response.json();
         } catch { }
-        throw new Error(errMessage);
+
+        const retryAfterHeader =
+          response.headers.get('Retry-After') ||
+          response.headers.get('retry-after');
+        const retryAfterSeconds = retryAfterHeader
+          ? parseInt(retryAfterHeader, 10)
+          : undefined;
+
+        const code =
+          errData.code ||
+          (response.status === 426
+            ? 'UPGRADE_REQUIRED'
+            : response.status === 429
+              ? 'RATE_LIMITED'
+              : undefined);
+
+        const messageKey =
+          errData.message_key ||
+          (response.status === 426 ? 'errors.upgrade_required' : undefined) ||
+          (response.status === 429 ? 'errors.rate_limited' : undefined) ||
+          (response.status === 503 ? 'errors.server_busy' : undefined);
+
+        // Translate via messageKey when available
+        const translated = messageKey ? translateMessageKey(messageKey) : null;
+
+        let serverMessage = '';
+        if (Array.isArray(errData.message)) {
+          serverMessage = errData.message.join('; ');
+        } else if (typeof errData.message === 'string') {
+          serverMessage = errData.message;
+        } else if (errData.error) {
+          serverMessage = String(errData.error);
+        }
+
+        let message =
+          translated ||
+          serverMessage ||
+          `HTTP ${response.status}: ${response.statusText}`;
+
+        if (retryAfterSeconds && !translated) {
+          message += ` (Retry after ${retryAfterSeconds}s)`;
+        }
+
+        throw new ApiError({
+          message,
+          status: response.status,
+          code,
+          messageKey,
+          retryAfter: retryAfterSeconds,
+          details: errData,
+        });
       }
 
       return (await response.json()) as T;
     } catch (err: any) {
-      throw new Error(err.message || 'Network error communicating with GRS servers.');
+      if (err instanceof ApiError) {
+        throw err;
+      }
+      const networkTranslated = translateMessageKey('errors.network');
+      throw new ApiError({
+        message: err.message || networkTranslated || 'Network error communicating with GRS servers.',
+        status: 0,
+        code: 'NETWORK_ERROR',
+        messageKey: 'errors.network',
+      });
     }
   }
 

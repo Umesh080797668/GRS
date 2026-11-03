@@ -262,6 +262,30 @@ describe('ImportService', () => {
         'already been confirmed',
       );
     });
+
+    it('getErrorReportCsv sanitizes =, +, -, @, tab, and carriage return per Plan Invariant 9', async () => {
+      prisma.importBatch.findUnique.mockResolvedValue({
+        id: 'batch-uuid-1',
+        gnId: 'gn-uuid-1',
+        status: 'previewed',
+        stagingRows: [
+          {
+            rowNo: 2,
+            errors: ['Validation failed'],
+            data: {
+              houseNo: '\t=calc',
+              headName: '\r+cmd',
+              address: '@SUM(A1)',
+            },
+          },
+        ],
+      });
+
+      const csv = await service.getErrorReportCsv(mockCdcCaller as any, 'batch-uuid-1');
+      expect(csv).toContain('"\'\t=calc"');
+      expect(csv).toContain('"\'\r+cmd"');
+      expect(csv).toContain('"\'@SUM(A1)"');
+    });
   });
 });
 

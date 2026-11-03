@@ -6,7 +6,7 @@ This document records settled decisions (D1–D14) and conflict resolution defau
 
 | ID | Status | Decision Summary |
 | --- | --- | --- |
-| **D1** | Settled (Owner Confirmed) | Flutter (Android + Web Dashboard), NestJS (TypeScript) API, Supabase PostgreSQL. Direct DB access (D1) under Supabase PostgREST/RLS is **DEFERRED** by explicit owner decision. All client traffic is mediated through the NestJS API with database RLS maintained as defense in depth. Service-role key never leaves the server. |
+| **D1** | Settled (Owner Confirmed) | Flutter (Android Mobile App), Next.js (Web Dashboard — migrated from Flutter Web per Decision C21 for desktop browser UX, accessibility, and bundle performance), NestJS (TypeScript) API, Supabase PostgreSQL. Direct DB access (D1) under Supabase PostgREST/RLS is **DEFERRED** by explicit owner decision. All client traffic is mediated through the NestJS API with database RLS maintained as defense in depth. Service-role key never leaves the server. |
 | **D2** | Settled | Android 10+ (minSdk 29) first, iOS later from same codebase. Direct signed APK distribution. |
 | **D3** | Settled | Offline-first: local encrypted SQLite (Drift + SQLCipher), outbox-style sync, client-generated UUIDs. Sync is demand-driven and paced. |
 | **D4** | Settled | Tri-lingual support: Sinhala, Tamil, English for app, dashboard, and exports. Stable lookup codes with 3 labels. |
@@ -45,6 +45,7 @@ This document records settled decisions (D1–D14) and conflict resolution defau
 | **C18** | Accepted Default | Password reissue restricted to the account creator or Level 00 super admin. |
 | **C19** | Accepted Default | Web data entry screen exists (M5.8) but is disabled for Level 00 by default via `web_entry_roles`. |
 | **C20** | Accepted Default | Cloud cost forecasts derived empirically from pilot load tests; capacity bounded by verified test thresholds. |
+| **C21** | Confirmed (Explicit Decision) | Web Dashboard migrated from Flutter Web to Next.js 16 (React 19 / Turbopack / Tailwind). Flutter remains dedicated to the Android tablet/mobile application (`apps/mobile`). Next.js provides superior initial load time, native browser DOM accessibility floor, robust desktop windowing, responsive print engine (`@media print` for credential slips and survey summaries), and zero CanvasKit WASM overhead. |
 
 ## 3. Milestone 0 Spike Findings & Technical Evidence (S1–S7)
 

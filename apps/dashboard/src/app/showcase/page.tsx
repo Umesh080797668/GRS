@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { notFound } from 'next/navigation';
 import { Shell } from '@/components/Shell';
 import { useLanguage } from '@/context/LanguageContext';
 import * as XLSX from 'xlsx';
@@ -28,6 +29,10 @@ interface BenchmarkResult {
 }
 
 export default function ShowcasePage() {
+  if (process.env.NODE_ENV === 'production') {
+    notFound();
+  }
+
   const { t } = useLanguage();
 
   // Typography Playground State

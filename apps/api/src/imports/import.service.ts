@@ -759,8 +759,15 @@ export class ImportService {
     const headers = ['Row_Number', 'House_No', 'Head_Name', 'Address', 'Error_Reason'];
     const escapeCsv = (str: any) => {
       if (str === null || str === undefined) return '""';
-      let s = String(str).trim();
-      if (s.startsWith('=') || s.startsWith('+') || s.startsWith('-') || s.startsWith('@')) {
+      let s = String(str);
+      if (
+        s.startsWith('=') ||
+        s.startsWith('+') ||
+        s.startsWith('-') ||
+        s.startsWith('@') ||
+        s.startsWith('\t') ||
+        s.startsWith('\r')
+      ) {
         s = `'${s}`;
       }
       return `"${s.replace(/"/g, '""')}"`;

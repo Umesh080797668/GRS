@@ -1,6 +1,6 @@
-import { describe, it, beforeEach, mock } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
-import { ApiClient } from './api.ts';
+import { ApiClient, ApiError } from './api.ts';
 
 describe('ApiClient - Single-flight refresh (Bug 4)', () => {
   let client: ApiClient;
@@ -139,5 +139,81 @@ describe('ApiClient - Single-flight refresh (Bug 4)', () => {
     // Session must be cleared
     assert.strictEqual(localStorageMock.grs_access_token, undefined);
     assert.strictEqual(localStorageMock.grs_refresh_token, undefined);
+  });
+
+  it('throws typed ApiError translating message_key instead of falling back to HTTP 400', async () => {
+    (globalThis as any).fetch = async () => ({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+      headers: { get: () => null },
+      json: async () => ({
+        code: 'AUTH_INVALID',
+        message_key: 'errors.auth.invalid_credentials',
+      }),
+    });
+
+    try {
+      await (client as any).request('/v1/auth/login', {}, false);
+      assert.fail('Should have thrown ApiError');
+    } catch (err: any) {
+      assert.ok(err instanceof ApiError);
+      assert.strictEqual(err.status, 400);
+      assert.strictEqual(err.code, 'AUTH_INVALID');
+      assert.strictEqual(err.messageKey, 'errors.auth.invalid_credentials');
+      // Should translate to English text rather than "HTTP 400: Bad Request"
+      assert.strictEqual(
+        err.message,
+        'Invalid User ID or password. Please verify your credentials.',
+      );
+    }
+  });
+
+  it('handles HTTP 426 upgrade required and sets code UPGRADE_REQUIRED', async () => {
+    (globalThis as any).fetch = async () => ({
+      ok: false,
+      status: 426,
+      statusText: 'Upgrade Required',
+      headers: { get: () => null },
+      json: async () => ({
+        minVersion: '2.0.0',
+      }),
+    });
+
+    try {
+      await (client as any).request('/v1/data', {}, false);
+      assert.fail('Should have thrown ApiError');
+    } catch (err: any) {
+      assert.ok(err instanceof ApiError);
+      assert.strictEqual(err.status, 426);
+      assert.strictEqual(err.code, 'UPGRADE_REQUIRED');
+      assert.strictEqual(err.messageKey, 'errors.upgrade_required');
+      assert.ok(err.message.includes('HTTP 426'));
+    }
+  });
+
+  it('extracts Retry-After header on 429 rate limit', async () => {
+    (globalThis as any).fetch = async () => ({
+      ok: false,
+      status: 429,
+      statusText: 'Too Many Requests',
+      headers: {
+        get: (h: string) => (h.toLowerCase() === 'retry-after' ? '45' : null),
+      },
+      json: async () => ({
+        code: 'RATE_LIMITED',
+        message_key: 'errors.rate_limited',
+      }),
+    });
+
+    try {
+      await (client as any).request('/v1/data', {}, false);
+      assert.fail('Should have thrown ApiError');
+    } catch (err: any) {
+      assert.ok(err instanceof ApiError);
+      assert.strictEqual(err.status, 429);
+      assert.strictEqual(err.code, 'RATE_LIMITED');
+      assert.strictEqual(err.retryAfter, 45);
+    }
   });
 });

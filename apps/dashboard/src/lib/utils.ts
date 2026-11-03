@@ -1,10 +1,10 @@
 /**
- * Escapes CSV cell to defend against Excel / Calc formula injection (M5.2 Done When).
- * Cells starting with =, +, -, or @ are prefixed with a single quote (').
+ * Escapes CSV cell to defend against Excel / Calc formula injection (Plan Invariant 9 & M5.2).
+ * Any cell starting with =, +, -, @, tab (\t), or carriage return (\r) is prefixed with a single quote (').
  */
 export function sanitizeCsvCell(value: string | number | boolean | null | undefined): string {
   if (value === null || value === undefined) return '""';
-  const str = String(value).trim();
+  const str = String(value);
   if (str.length === 0) return '""';
 
   let sanitized = str;
@@ -12,7 +12,9 @@ export function sanitizeCsvCell(value: string | number | boolean | null | undefi
     sanitized.startsWith('=') ||
     sanitized.startsWith('+') ||
     sanitized.startsWith('-') ||
-    sanitized.startsWith('@')
+    sanitized.startsWith('@') ||
+    sanitized.startsWith('\t') ||
+    sanitized.startsWith('\r')
   ) {
     sanitized = `'${sanitized}`;
   }

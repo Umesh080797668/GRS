@@ -48,7 +48,9 @@ export function Shell({ children, activePath }: ShellProps) {
     { key: 'nav.records', href: '/records', icon: <ClipboardCheck size={18} /> },
     { key: 'nav.data_entry', href: '/data-entry', icon: <FileText size={18} /> },
     { key: 'nav.sync_health', href: '/progress#sync-health', icon: <Activity size={18} /> },
-    { key: 'nav.showcase', href: '/showcase', icon: <Sparkles size={18} /> },
+    ...(process.env.NODE_ENV !== 'production'
+      ? [{ key: 'nav.showcase', href: '/showcase', icon: <Sparkles size={18} /> }]
+      : []),
   ];
 
   const getRoleBadgeColor = (role?: string) => {
