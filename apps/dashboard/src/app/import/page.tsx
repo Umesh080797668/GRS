@@ -6,7 +6,6 @@ import { useLanguage } from '@/context/LanguageContext';
 import { api } from '@/lib/api';
 import {
   getOfficialHouseholdTemplateCsv,
-  sanitizeCsvCell,
   downloadFile,
 } from '@/lib/utils';
 import {
@@ -17,22 +16,33 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 
-
-interface ParsedHouseholdRow {
-  rowNumber: number;
-  houseNo: string;
-  headName: string;
-  address: string;
-  village: string;
-  numMembers?: number;
-  samurdhi?: boolean;
-  aswesuma?: boolean;
-  specialNeeds?: boolean;
+interface StagingRowView {
+  rowNo: number;
   isValid: boolean;
-  errorReason?: string;
+  errors: string[];
+  data: {
+    houseNo: string;
+    houseNoNorm: string;
+    headName: string;
+    address?: string;
+    villageName?: string;
+    isAswesuma?: boolean;
+    isEtf?: boolean;
+    isEpf?: boolean;
+    isSamurdhi?: boolean;
+    hasSpecialNeeds?: boolean;
+    targetFemale?: number;
+    targetMale?: number;
+    ageGroupMin?: number | null;
+    ageGroupMax?: number | null;
+    langSinhala?: boolean;
+    langTamil?: boolean;
+    langEnglish?: boolean;
+    numMembers?: number | null;
+  };
 }
 
 export default function ImportPage() {
@@ -46,18 +56,21 @@ export default function ImportPage() {
   const [selectedDs, setSelectedDs] = useState<string>('');
   const [selectedGn, setSelectedGn] = useState<string>('');
 
-  // File & parsing state
+  // File & batch state
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [parsing, setParsing] = useState(false);
-  const [rows, setRows] = useState<ParsedHouseholdRow[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [currentBatchId, setCurrentBatchId] = useState<string | null>(null);
+  const [batchStatus, setBatchStatus] = useState<string | null>(null);
+  const [rows, setRows] = useState<StagingRowView[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'valid' | 'errors'>('all');
   const [fileError, setFileError] = useState<string | null>(null);
 
   // Commit state
   const [committing, setCommitting] = useState(false);
-  const [commitProgress, setCommitProgress] = useState<{ current: number; total: number } | null>(null);
   const [commitSuccess, setCommitSuccess] = useState<string | null>(null);
+  const [commitError, setCommitError] = useState<string | null>(null);
+  const [isCommitted, setIsCommitted] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -109,264 +122,102 @@ export default function ImportPage() {
     }
   }
 
-  function handleFileSelected(selectedFile: File) {
+  async function handleFileSelected(selectedFile: File) {
     setFileError(null);
     setCommitSuccess(null);
+    setCommitError(null);
+    setIsCommitted(false);
+    setCurrentBatchId(null);
     setRows([]);
 
-    // Check 4.5 MB cap (M5.4 Done When)
+    if (!selectedGn) {
+      setFileError('Please select a target GN Division before uploading.');
+      return;
+    }
+
+    // Check 4.5 MB cap
     const MAX_SIZE_BYTES = 4.5 * 1024 * 1024;
     if (selectedFile.size > MAX_SIZE_BYTES) {
       setFileError(
-        `File size ${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB exceeds the maximum 4.5 MB threshold.`
+        `File size ${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB exceeds the maximum 4.5 MB upload threshold.`
       );
       setFile(null);
       return;
     }
 
     setFile(selectedFile);
-    parseFile(selectedFile);
+    await uploadAndPreviewFile(selectedFile);
   }
 
-  function parseFile(f: File) {
-    setParsing(true);
-
-    const isExcel = f.name.endsWith('.xlsx') || f.name.endsWith('.xls');
-
-    if (isExcel) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const buffer = e.target?.result as ArrayBuffer;
-          if (!buffer) {
-            setFileError('File is empty.');
-            setParsing(false);
-            return;
-          }
-
-          const workbook = XLSX.read(buffer, { type: 'array' });
-          const firstSheet = workbook.SheetNames[0];
-          const rawRows: any[][] = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { header: 1 });
-
-          if (!rawRows || rawRows.length < 2) {
-            setFileError('File must contain at least a header row and one data row.');
-            setParsing(false);
-            return;
-          }
-
-          processRows(rawRows);
-        } catch (err: any) {
-          setFileError(`Failed to parse Excel file: ${err.message}`);
-        } finally {
-          setParsing(false);
-        }
-      };
-      reader.onerror = () => {
-        setFileError('Error reading file.');
-        setParsing(false);
-      };
-      reader.readAsArrayBuffer(f);
-    } else {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const text = e.target?.result as string;
-          if (!text) {
-            setFileError('File is empty.');
-            setParsing(false);
-            return;
-          }
-
-          const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-          if (lines.length < 2) {
-            setFileError('File must contain at least a header row and one data row.');
-            setParsing(false);
-            return;
-          }
-
-          const rawRows: string[][] = lines.map((line) => {
-            const cols: string[] = [];
-            let current = '';
-            let inQuotes = false;
-            for (let charIdx = 0; charIdx < line.length; charIdx++) {
-              const char = line[charIdx];
-              if (char === '"') {
-                inQuotes = !inQuotes;
-              } else if (char === ',' && !inQuotes) {
-                cols.push(current.trim());
-                current = '';
-              } else {
-                current += char;
-              }
-            }
-            cols.push(current.trim());
-            return cols;
-          });
-
-          processRows(rawRows);
-        } catch (err: any) {
-          setFileError(`Failed to parse CSV file: ${err.message}`);
-        } finally {
-          setParsing(false);
-        }
-      };
-      reader.onerror = () => {
-        setFileError('Error reading file.');
-        setParsing(false);
-      };
-      reader.readAsText(f);
+  async function uploadAndPreviewFile(f: File) {
+    setUploading(true);
+    setFileError(null);
+    try {
+      // Server-side preview/confirm parsed with patched library
+      const res = await api.previewImport(selectedGn, f);
+      setCurrentBatchId(res.batchId);
+      setBatchStatus(res.status);
+      setRows(res.rows || []);
+    } catch (err: any) {
+      setFileError(err.message || 'Failed to parse and preview spreadsheet.');
+      setCurrentBatchId(null);
+      setRows([]);
+    } finally {
+      setUploading(false);
     }
   }
-
-  function processRows(rawRows: any[][]) {
-    const headers = (rawRows[0] || []).map((h: any) =>
-      String(h || '').trim().toLowerCase().replace(/"/g, '')
-    );
-
-    const houseNoIdx = headers.findIndex((h: string) => h.includes('house_no') || h.includes('houseno') || h.includes('house'));
-    const headIdx = headers.findIndex((h: string) => h.includes('head') || h.includes('leader') || h.includes('name'));
-    const addrIdx = headers.findIndex((h: string) => h.includes('addr'));
-    const villageIdx = headers.findIndex((h: string) => h.includes('village'));
-    const membersIdx = headers.findIndex((h: string) => h.includes('member'));
-    const samurdhiIdx = headers.findIndex((h: string) => h.includes('samurdhi'));
-    const aswesumaIdx = headers.findIndex((h: string) => h.includes('aswesuma'));
-    const specialIdx = headers.findIndex((h: string) => h.includes('special'));
-
-    if (houseNoIdx === -1 || headIdx === -1) {
-      setFileError('Invalid headers: Missing required columns "house_no" or "household_head".');
-      return;
-    }
-
-    const parsedRows: ParsedHouseholdRow[] = [];
-    const seenHouseNos = new Set<string>();
-
-    for (let i = 1; i < rawRows.length; i++) {
-      const cols = rawRows[i];
-      if (!cols || cols.length === 0 || cols.every((c) => c === undefined || c === null || String(c).trim() === '')) {
-        continue;
-      }
-
-      const houseNo = String(cols[houseNoIdx] ?? '').replace(/"/g, '').trim();
-      const headName = String(cols[headIdx] ?? '').replace(/"/g, '').trim();
-      const address = addrIdx !== -1 ? String(cols[addrIdx] ?? '').replace(/"/g, '').trim() : '';
-      const village = villageIdx !== -1 ? String(cols[villageIdx] ?? '').replace(/"/g, '').trim() : '';
-      const numMembersStr = membersIdx !== -1 ? String(cols[membersIdx] ?? '').replace(/"/g, '').trim() : '';
-      const samurdhiStr = samurdhiIdx !== -1 ? String(cols[samurdhiIdx] ?? '').replace(/"/g, '').trim().toLowerCase() : '';
-      const aswesumaStr = aswesumaIdx !== -1 ? String(cols[aswesumaIdx] ?? '').replace(/"/g, '').trim().toLowerCase() : '';
-      const specialStr = specialIdx !== -1 ? String(cols[specialIdx] ?? '').replace(/"/g, '').trim().toLowerCase() : '';
-
-      let isValid = true;
-      let errorReason = '';
-
-      if (!houseNo) {
-        isValid = false;
-        errorReason = 'Missing House Number.';
-      } else if (!headName) {
-        isValid = false;
-        errorReason = 'Missing Household Head Name.';
-      } else if (seenHouseNos.has(houseNo.toLowerCase())) {
-        isValid = false;
-        errorReason = `Duplicate House Number "${houseNo}" detected within file.`;
-      } else {
-        seenHouseNos.add(houseNo.toLowerCase());
-      }
-
-      parsedRows.push({
-        rowNumber: i + 1,
-        houseNo,
-        headName,
-        address,
-        village,
-        numMembers: parseInt(numMembersStr, 10) || undefined,
-        samurdhi: samurdhiStr === 'yes' || samurdhiStr === 'true' || samurdhiStr === '1',
-        aswesuma: aswesumaStr === 'yes' || aswesumaStr === 'true' || aswesumaStr === '1',
-        specialNeeds: specialStr === 'yes' || specialStr === 'true' || specialStr === '1',
-        isValid,
-        errorReason,
-      });
-    }
-
-    setRows(parsedRows);
-  }
-
 
   function handleDownloadTemplate() {
     const csv = getOfficialHouseholdTemplateCsv();
     downloadFile(csv, 'grs_household_import_template.csv');
   }
 
-  function handleDownloadErrorReport() {
-    const errorRows = rows.filter((r) => !r.isValid);
-    if (errorRows.length === 0) return;
-
-    const headers = ['Row_Number', 'House_No', 'Head_Name', 'Address', 'Error_Reason'];
-    const csvLines = [
-      headers.join(','),
-      ...errorRows.map((r) =>
-        [
-          r.rowNumber,
-          sanitizeCsvCell(r.houseNo),
-          sanitizeCsvCell(r.headName),
-          sanitizeCsvCell(r.address),
-          sanitizeCsvCell(r.errorReason || 'Validation error'),
-        ].join(',')
-      ),
-    ];
-
-    downloadFile(csvLines.join('\n'), `household_import_errors_${Date.now()}.csv`);
+  async function handleDownloadErrorReport() {
+    if (!currentBatchId) return;
+    try {
+      const csv = await api.downloadImportErrors(currentBatchId);
+      downloadFile(csv, `household_import_errors_${currentBatchId}.csv`);
+    } catch (err: any) {
+      alert(`Failed to download error report: ${err.message}`);
+    }
   }
 
   async function handleCommitValidRows() {
-    const validRows = rows.filter((r) => r.isValid);
-    if (validRows.length === 0) {
-      alert('There are no valid rows to commit.');
+    if (!currentBatchId) {
+      setCommitError('No active import preview to commit.');
       return;
     }
 
-    if (!selectedGn) {
-      alert('Please select a target GN Division to associate these households.');
+    if (isCommitted) {
+      setCommitError('This batch has already been committed.');
+      return;
+    }
+
+    const validRowsCount = rows.filter((r) => r.isValid).length;
+    if (validRowsCount === 0) {
+      setCommitError('There are no valid rows to commit in this batch.');
       return;
     }
 
     setCommitting(true);
-    setCommitProgress({ current: 0, total: validRows.length });
     setCommitSuccess(null);
+    setCommitError(null);
 
-    let committedCount = 0;
-    const errors: string[] = [];
-
-    for (let i = 0; i < validRows.length; i++) {
-      const row = validRows[i];
-      try {
-        await api.createHousehold({
-          gnId: selectedGn,
-          houseNo: row.houseNo,
-          houseLeaderName: row.headName,
-          address: row.address || undefined,
-          villageName: row.village || undefined,
-          isSamurdhi: row.samurdhi,
-          isAswesuma: row.aswesuma,
-          hasSpecialNeeds: row.specialNeeds,
-        });
-        committedCount++;
-      } catch (err: any) {
-        errors.push(`Row ${row.rowNumber} (${row.houseNo}): ${err.message}`);
-      }
-      setCommitProgress({ current: i + 1, total: validRows.length });
-    }
-
-    setCommitting(false);
-    setCommitProgress(null);
-
-    if (errors.length === 0) {
-      setCommitSuccess(`Successfully committed all ${committedCount} valid households to the designated GN division!`);
-      // Clear file
-      setFile(null);
-      setRows([]);
-    } else {
+    try {
+      const result = await api.confirmImport(currentBatchId);
       setCommitSuccess(
-        `Committed ${committedCount} households with ${errors.length} errors: ${errors.slice(0, 3).join('; ')}`
+        `Successfully committed all ${result.committedCount} valid households to the designated GN division!`
       );
+      setIsCommitted(true);
+      setBatchStatus('committed');
+      // Clear file and file input so clicking again cannot re-post
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (err: any) {
+      // On partial failure or error: show error banner (NOT success banner!) and prevent re-posts
+      setCommitError(err.message || 'Failed to commit import batch.');
+    } finally {
+      setCommitting(false);
     }
   }
 
@@ -390,7 +241,7 @@ export default function ImportPage() {
               {t('import.title')}
             </h1>
             <p className="text-sm text-slate-400 mt-1">
-              Upload pre-existing household lists from Divisional Secretariats with automatic error sanitization and 4.5 MB cap enforcement.
+              Server-side preview and atomic confirmation for GN household rosters with 4.5 MB hosting cap.
             </p>
           </div>
           <button
@@ -501,7 +352,7 @@ export default function ImportPage() {
                 {file ? file.name : t('import.drop_hint')}
               </p>
               <p className="text-xs text-slate-400 mt-1">
-                Supported formats: CSV, XLSX. File size must be under 4.5 MB.
+                Supported formats: XLSX, XLS, CSV. Enforcing 4.5 MB upload limit with server-side staging.
               </p>
             </div>
             {file && (
@@ -520,6 +371,14 @@ export default function ImportPage() {
           </div>
         )}
 
+        {/* Commit error notification */}
+        {commitError && (
+          <div className="card border-red-500/40 bg-red-500/10 p-4 text-sm text-red-300 flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
+            <span>{commitError}</span>
+          </div>
+        )}
+
         {/* Commit success notification */}
         {commitSuccess && (
           <div className="card border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-300 flex items-center gap-3">
@@ -528,16 +387,16 @@ export default function ImportPage() {
           </div>
         )}
 
-        {/* Parsing Indicator */}
-        {parsing && (
+        {/* Uploading & Parsing Indicator */}
+        {uploading && (
           <div className="card p-6 flex items-center justify-center gap-3 text-slate-300">
             <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
-            <span>{t('import.parse_verify')}...</span>
+            <span>Uploading to server staging and validating rows...</span>
           </div>
         )}
 
         {/* Parsed Rows Summary & Action Bar */}
-        {rows.length > 0 && !parsing && (
+        {rows.length > 0 && !uploading && (
           <div className="space-y-4">
             {/* KPI pill cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -576,7 +435,15 @@ export default function ImportPage() {
             {/* Action Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 card">
               <div className="text-sm text-slate-300">
-                Ready to commit <strong className="text-emerald-400">{validRowsCount}</strong> valid households.
+                {isCommitted ? (
+                  <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                    <CheckCircle className="w-4 h-4" /> Batch committed to database.
+                  </span>
+                ) : (
+                  <>
+                    Ready to commit <strong className="text-emerald-400">{validRowsCount}</strong> valid households via atomic preview/confirm.
+                  </>
+                )}
               </div>
               <div className="flex items-center gap-3">
                 {errorRowsCount > 0 && (
@@ -588,81 +455,113 @@ export default function ImportPage() {
                     {t('import.download_errors')}
                   </button>
                 )}
-                <button
-                  onClick={handleCommitValidRows}
-                  disabled={validRowsCount === 0 || committing}
-                  className="btn btn-primary flex items-center gap-2 text-sm"
-                >
-                  {committing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Committing ({commitProgress?.current}/{commitProgress?.total})...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-4 h-4" />
-                      {t('import.commit_valid')}
-                    </>
-                  )}
-                </button>
+                {!isCommitted && (
+                  <button
+                    onClick={handleCommitValidRows}
+                    disabled={validRowsCount === 0 || committing}
+                    className="btn btn-primary flex items-center gap-2 text-sm"
+                  >
+                    {committing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Committing atomic batch...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Confirm Import ({validRowsCount} Rows)
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
             {/* Table of Rows */}
             <div className="card overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="table w-full text-left">
+                <table className="table w-full text-left text-xs">
                   <thead>
                     <tr>
                       <th className="w-12">#</th>
                       <th>House No</th>
                       <th>Head of Household</th>
                       <th>Address / Village</th>
-                      <th>Welfare Flags</th>
+                      <th>Welfare (EPF/ETF/Asw/Sam)</th>
+                      <th>Targets / Age</th>
+                      <th>Languages</th>
                       <th>Status</th>
                       <th>Validation Note</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRows.slice(0, 100).map((r) => (
-                      <tr
-                        key={r.rowNumber}
-                        className={!r.isValid ? 'bg-red-500/5 hover:bg-red-500/10' : ''}
-                      >
-                        <td className="text-slate-400 text-xs font-mono">{r.rowNumber}</td>
-                        <td className="font-semibold text-white">{r.houseNo || '-'}</td>
-                        <td className="text-slate-200">{r.headName || '-'}</td>
-                        <td className="text-slate-400 text-xs">
-                          {r.address} {r.village ? `(${r.village})` : ''}
-                        </td>
-                        <td className="text-xs">
-                          <div className="flex gap-1">
-                            {r.samurdhi && <span className="badge badge-info text-[10px]">Samurdhi</span>}
-                            {r.aswesuma && <span className="badge badge-info text-[10px]">Aswesuma</span>}
-                            {r.specialNeeds && <span className="badge badge-warning text-[10px]">Special</span>}
-                            {!r.samurdhi && !r.aswesuma && !r.specialNeeds && <span className="text-slate-600">-</span>}
-                          </div>
-                        </td>
-                        <td>
-                          {r.isValid ? (
-                            <span className="badge badge-success flex items-center gap-1 w-fit">
-                              <CheckCircle className="w-3 h-3" /> Valid
-                            </span>
-                          ) : (
-                            <span className="badge badge-danger flex items-center gap-1 w-fit">
-                              <XCircle className="w-3 h-3" /> Error
-                            </span>
-                          )}
-                        </td>
-                        <td className="text-xs">
-                          {r.errorReason ? (
-                            <span className="text-red-400 font-medium">{r.errorReason}</span>
-                          ) : (
-                            <span className="text-slate-500">Ready for database</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredRows.slice(0, 100).map((r) => {
+                      const d = r.data;
+                      return (
+                        <tr
+                          key={r.rowNo}
+                          className={!r.isValid ? 'bg-red-500/5 hover:bg-red-500/10' : ''}
+                        >
+                          <td className="text-slate-400 font-mono">{r.rowNo}</td>
+                          <td className="font-semibold text-white">
+                            {d.houseNo || '-'}
+                            {d.houseNoNorm && d.houseNoNorm !== d.houseNo && (
+                              <span className="text-[10px] text-slate-500 block">Norm: {d.houseNoNorm}</span>
+                            )}
+                          </td>
+                          <td className="text-slate-200">{d.headName || '-'}</td>
+                          <td className="text-slate-400">
+                            {d.address} {d.villageName ? `(${d.villageName})` : ''}
+                          </td>
+                          <td>
+                            <div className="flex flex-wrap gap-1">
+                              {d.isEpf && <span className="badge badge-info text-[9px]">EPF</span>}
+                              {d.isEtf && <span className="badge badge-info text-[9px]">ETF</span>}
+                              {d.isSamurdhi && <span className="badge badge-info text-[9px]">Samurdhi</span>}
+                              {d.isAswesuma && <span className="badge badge-info text-[9px]">Aswesuma</span>}
+                              {d.hasSpecialNeeds && <span className="badge badge-warning text-[9px]">Special</span>}
+                              {!d.isEpf && !d.isEtf && !d.isSamurdhi && !d.isAswesuma && !d.hasSpecialNeeds && (
+                                <span className="text-slate-600">-</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="text-slate-300">
+                            <span>F:{d.targetFemale || 0} / M:{d.targetMale || 0}</span>
+                            {(d.ageGroupMin || d.ageGroupMax) && (
+                              <span className="text-slate-500 block text-[10px]">
+                                Age: {d.ageGroupMin ?? '?'}-{d.ageGroupMax ?? '?'}
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            <div className="flex gap-1">
+                              {d.langSinhala && <span className="text-emerald-400">SI</span>}
+                              {d.langTamil && <span className="text-amber-400">TA</span>}
+                              {d.langEnglish && <span className="text-sky-400">EN</span>}
+                              {!d.langSinhala && !d.langTamil && !d.langEnglish && <span className="text-slate-600">-</span>}
+                            </div>
+                          </td>
+                          <td>
+                            {r.isValid ? (
+                              <span className="badge badge-success flex items-center gap-1 w-fit">
+                                <CheckCircle className="w-3 h-3" /> Valid
+                              </span>
+                            ) : (
+                              <span className="badge badge-danger flex items-center gap-1 w-fit">
+                                <XCircle className="w-3 h-3" /> Error
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            {r.errors && r.errors.length > 0 ? (
+                              <span className="text-red-400 font-medium">{r.errors.join('; ')}</span>
+                            ) : (
+                              <span className="text-slate-500">Ready to commit</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

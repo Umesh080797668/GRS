@@ -65,3 +65,8 @@
 | `/releases/check` | **GET** | ✅ Allow | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `none` |
 | `/releases/sync` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `national` |
 | `/releases` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `national` |
+| `/imports/preview` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | ✅ Allow | `gn_only` |
+| `/imports/:id/confirm` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | ✅ Allow | `gn_only` |
+| `/imports/template` | **GET** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | ✅ Allow | `none` |
+| `/imports/:id` | **GET** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | ✅ Allow | `gn_only` |
+| `/imports/:id/errors` | **GET** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | ✅ Allow | `gn_only` |

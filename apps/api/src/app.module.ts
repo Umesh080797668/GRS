@@ -18,6 +18,7 @@ import { SyncModule } from './sync/sync.module';
 import { HouseholdModule } from './households/household.module';
 import { ClientModule } from './clients/client.module';
 import { StatsModule } from './stats/stats.module';
+import { ImportModule } from './imports/import.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { StatsModule } from './stats/stats.module';
     HouseholdModule,
     ClientModule,
     StatsModule,
+    ImportModule,
   ],
   controllers: [AppController],
   providers: [

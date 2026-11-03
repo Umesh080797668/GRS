@@ -53,14 +53,14 @@ export function downloadFile(content: string, filename: string, mimeType = 'text
 }
 
 /**
- * Official CSV template for household bulk import (M5.4).
+ * Official CSV template for household bulk import (M5.4 & Appendix B).
  */
 export function getOfficialHouseholdTemplateCsv(): string {
   return [
-    'house_no,household_head,address,village,num_members,samurdhi,aswesuma,special_needs',
-    '102/B,Sunil Perera,No. 102/B Kandy Road,Pallekele,4,yes,no,no',
-    '104,කමල් සිරිවර්ධන,ප්‍රධාන වීදිය,නුවර,5,no,yes,no',
-    '105/A,கமலேஸ்வரன்,கோயில் வீதி,யாழ்ப்பாணம்,3,no,no,yes',
+    'house_no,house_leader_name,address,village_name,aswesuma,etf,epf,samurdhi,special_needs,target_female,target_male,age_group,lang_sinhala,lang_tamil,lang_english,num_members',
+    '102/B,Sunil Perera,No. 102/B Kandy Road,Pallekele,yes,no,yes,no,no,2,1,18-35,yes,no,yes,4',
+    '104,කමල් සිරිවර්ධන,ප්‍රධාන වීදිය,නුවර,ඔව්,නැත,ඔව්,නැත,නැත,1,2,18-25,ඔව්,නැත,නැත,5',
+    '105/A,கமலேஸ்வரன்,கோயில் வீதி,யாழ்ப்பாணம்,ஆம்,இல்லை,ஆம்,இல்லை,ஆம்,0,2,20-40,இல்லை,ஆம்,இல்லை,3',
   ].join('\n');
 }
 

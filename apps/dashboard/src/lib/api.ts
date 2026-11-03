@@ -19,6 +19,7 @@ const DEFAULT_API_URL = '';
 
 export class ApiClient {
   private baseUrl: string;
+  private refreshPromise: Promise<boolean> | null = null;
 
   constructor() {
     this.baseUrl =
@@ -72,11 +73,14 @@ export class ApiClient {
     const token = this.getToken();
 
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       Accept: 'application/json',
       'X-Client-Type': 'web',
       ...((options.headers as Record<string, string>) || {}),
     };
+
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -86,16 +90,24 @@ export class ApiClient {
       const response = await fetch(url, { ...options, headers });
 
       // Handle 401 Refresh flow
-      if (response.status === 401 && retryAuth && this.getRefreshToken()) {
-        const refreshed = await this.refreshSession();
-        if (refreshed) {
+      if (response.status === 401 && retryAuth) {
+        const currentToken = this.getToken();
+        // If the token in storage already changed while this request was in flight, retry with new token
+        if (currentToken && token && currentToken !== token) {
           return this.request<T>(path, options, false);
-        } else {
-          this.clearSession();
-          if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-            window.location.href = '/login';
+        }
+
+        if (this.getRefreshToken()) {
+          const refreshed = await this.refreshSession();
+          if (refreshed) {
+            return this.request<T>(path, options, false);
+          } else {
+            this.clearSession();
+            if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+              window.location.href = '/login';
+            }
+            throw new Error('Session expired. Please sign in again.');
           }
-          throw new Error('Session expired. Please sign in again.');
         }
       }
 
@@ -135,27 +147,38 @@ export class ApiClient {
   }
 
   async refreshSession(): Promise<boolean> {
+    if (this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
     const rt = this.getRefreshToken();
     if (!rt) return false;
-    try {
-      const res = await fetch(`${this.baseUrl}/v1/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Client-Type': 'web',
-        },
-        body: JSON.stringify({ refreshToken: rt }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        localStorage.setItem('grs_access_token', data.accessToken);
-        if (data.refreshToken) localStorage.setItem('grs_refresh_token', data.refreshToken);
-        return true;
+
+    this.refreshPromise = (async () => {
+      try {
+        const res = await fetch(`${this.baseUrl}/v1/auth/refresh`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Client-Type': 'web',
+          },
+          body: JSON.stringify({ refreshToken: rt }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.accessToken) localStorage.setItem('grs_access_token', data.accessToken);
+          if (data.refreshToken) localStorage.setItem('grs_refresh_token', data.refreshToken);
+          return true;
+        }
+        return false;
+      } catch {
+        return false;
+      } finally {
+        this.refreshPromise = null;
       }
-      return false;
-    } catch {
-      return false;
-    }
+    })();
+
+    return this.refreshPromise;
   }
 
   // --- CONFIG ---
@@ -290,6 +313,40 @@ export class ApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  // --- SERVER-SIDE IMPORT (PREVIEW / CONFIRM) ---
+
+  async previewImport(gnId: string, file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('gnId', gnId);
+    formData.append('file', file);
+    return this.request('/v1/imports/preview', {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
+  async confirmImport(batchId: string): Promise<any> {
+    return this.request(`/v1/imports/${batchId}/confirm`, {
+      method: 'POST',
+    });
+  }
+
+  async getImportBatch(batchId: string): Promise<any> {
+    return this.request(`/v1/imports/${batchId}`);
+  }
+
+  async downloadImportErrors(batchId: string): Promise<string> {
+    const token = this.getToken();
+    const res = await fetch(`${this.baseUrl}/v1/imports/${batchId}/errors`, {
+      headers: {
+        'X-Client-Type': 'web',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (!res.ok) throw new Error('Failed to download error report');
+    return res.text();
   }
 
   // --- RECORDS & SUPERVISOR AUDIT (M5.5) & ONLINE ENTRY (M5.8) ---

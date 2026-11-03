@@ -151,15 +151,16 @@ class SyncEngine {
         );
         final response = await apiClient.pushSync(request);
         if (response.finishedHouseholds != null) {
+          final sentSet = finishedList.toSet();
           for (final f in response.finishedHouseholds!) {
-            if (f.isOk) {
-              await db.removePendingFinishedHouseholdIds([f.id]);
-            } else if (f.isForbidden || f.isNotFound) {
-              await db.revertHouseholdFinish(f.id);
+            if (sentSet.contains(f.id)) {
+              if (f.isOk) {
+                await db.removePendingFinishedHouseholdIds([f.id]);
+              } else if (f.isForbidden || f.isNotFound) {
+                await db.revertHouseholdFinish(f.id);
+              }
             }
           }
-        } else {
-          await db.removePendingFinishedHouseholdIds(finishedList);
         }
         break;
       }
@@ -189,8 +190,9 @@ class SyncEngine {
 
       Future<void> processResponse(
         SyncPushResponse response,
-        List<String> subBatchIds,
-      ) async {
+        List<String> subBatchIds, {
+        List<String>? sentFinishedIds,
+      }) async {
         var batchSynced = 0;
         var batchRejected = 0;
         var batchFailed = 0;
@@ -242,16 +244,19 @@ class SyncEngine {
           }
         }
 
-        if (response.finishedHouseholds != null) {
+        if (response.finishedHouseholds != null &&
+            sentFinishedIds != null &&
+            sentFinishedIds.isNotEmpty) {
+          final sentSet = sentFinishedIds.toSet();
           for (final f in response.finishedHouseholds!) {
-            if (f.isOk) {
-              await db.removePendingFinishedHouseholdIds([f.id]);
-            } else if (f.isForbidden || f.isNotFound) {
-              await db.revertHouseholdFinish(f.id);
+            if (sentSet.contains(f.id)) {
+              if (f.isOk) {
+                await db.removePendingFinishedHouseholdIds([f.id]);
+              } else if (f.isForbidden || f.isNotFound) {
+                await db.revertHouseholdFinish(f.id);
+              }
             }
           }
-        } else if (pendingFinishedIds.isNotEmpty) {
-          await db.removePendingFinishedHouseholdIds(pendingFinishedIds);
         }
 
         totalSynced += batchSynced;
@@ -284,7 +289,11 @@ class SyncEngine {
             subBatch,
             finishedHouseholdIds: finishedToSend,
           );
-          await processResponse(response, subBatchIds);
+          await processResponse(
+            response,
+            subBatchIds,
+            sentFinishedIds: finishedToSend,
+          );
           return;
         } on GrsApiException catch (e) {
           // System-level responses: 426 (Version Gate), 401 (Auth/Deactivated), 429/503 (Pacing).

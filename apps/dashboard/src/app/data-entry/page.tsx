@@ -34,12 +34,16 @@ export default function DataEntryPage() {
   const [selectedDs, setSelectedDs] = useState<string>('');
   const [selectedGn, setSelectedGn] = useState<string>('');
 
-  // Household fields (DD/S/001)
+  // Household fields (DD/S/001) & attach mode
+  const [householdMode, setHouseholdMode] = useState<'new' | 'existing'>('new');
+  const [existingHouseholds, setExistingHouseholds] = useState<any[]>([]);
+  const [selectedHouseholdId, setSelectedHouseholdId] = useState<string>('');
   const [houseNo, setHouseNo] = useState('');
   const [headName, setHeadName] = useState('');
   const [address, setAddress] = useState('');
   const [villageName, setVillageName] = useState('');
   const [isEpf, setIsEpf] = useState(false);
+  const [isEtf, setIsEtf] = useState(false);
   const [isAswesuma, setIsAswesuma] = useState(false);
   const [isSamurdhi, setIsSamurdhi] = useState(false);
   const [hasSpecialNeeds, setHasSpecialNeeds] = useState(false);
@@ -54,7 +58,11 @@ export default function DataEntryPage() {
   const [highestVocational, setHighestVocational] = useState('NVQ3');
   const [interestedStream, setInterestedStream] = useState('ICT');
   const [interestedJob, setInterestedJob] = useState('SOFTWARE_DEV');
+  const [futureHopes, setFutureHopes] = useState<string[]>([]);
+  const [infoProvidedBy, setInfoProvidedBy] = useState<'self' | 'mother' | 'father' | 'sister' | 'other'>('self');
+  const [infoProvidedByOther, setInfoProvidedByOther] = useState('');
   const [consentGiven, setConsentGiven] = useState(false);
+  const [consentVersion, setConsentVersion] = useState('consent.v0');
 
   // Submission state
   const [submitting, setSubmitting] = useState(false);
@@ -71,10 +79,43 @@ export default function DataEntryPage() {
     try {
       const cfg = await api.getConfig();
       setWebEntryEnabled(Boolean(cfg?.features?.webDataEntry));
+      if (cfg?.consentVersion || cfg?.consent_version) {
+        setConsentVersion(cfg.consentVersion || cfg.consent_version);
+      }
     } catch (err: any) {
       console.error('Config fetch failed:', err);
     } finally {
       setLoadingConfig(false);
+    }
+  }
+
+  async function loadHouseholdsForGn(gnId: string) {
+    if (!gnId) {
+      setExistingHouseholds([]);
+      return;
+    }
+    try {
+      const res = await api.getHouseholds({ gnId, limit: 1000 });
+      const list = Array.isArray(res) ? res : res?.households || [];
+      setExistingHouseholds(list);
+    } catch (err) {
+      console.error('Failed to load households for GN:', err);
+    }
+  }
+
+  function handleSelectExistingHousehold(hId: string) {
+    setSelectedHouseholdId(hId);
+    const found = existingHouseholds.find((h) => h.id === hId);
+    if (found) {
+      setHouseNo(found.houseNo || '');
+      setHeadName(found.houseLeaderName || '');
+      setAddress(found.address || '');
+      setVillageName(found.villageName || '');
+      setIsEpf(Boolean(found.isEpf));
+      setIsEtf(Boolean(found.isEtf));
+      setIsAswesuma(Boolean(found.isAswesuma));
+      setIsSamurdhi(Boolean(found.isSamurdhi));
+      setHasSpecialNeeds(Boolean(found.hasSpecialNeeds));
     }
   }
 
@@ -90,7 +131,10 @@ export default function DataEntryPage() {
           setSelectedDs(dsList[0].id);
           const gnList = await api.getGnDivisions(dsList[0].id);
           setGnDivisions(gnList);
-          if (gnList.length > 0) setSelectedGn(gnList[0].id);
+          if (gnList.length > 0) {
+            setSelectedGn(gnList[0].id);
+            loadHouseholdsForGn(gnList[0].id);
+          }
         }
       }
     } catch (err: any) {
@@ -100,6 +144,7 @@ export default function DataEntryPage() {
 
   async function handleDistrictChange(distId: string) {
     setSelectedDistrict(distId);
+    setSelectedHouseholdId('');
     try {
       const dsList = await api.getDsDivisions(distId);
       setDsDivisions(dsList);
@@ -107,11 +152,15 @@ export default function DataEntryPage() {
         setSelectedDs(dsList[0].id);
         const gnList = await api.getGnDivisions(dsList[0].id);
         setGnDivisions(gnList);
-        if (gnList.length > 0) setSelectedGn(gnList[0].id);
+        if (gnList.length > 0) {
+          setSelectedGn(gnList[0].id);
+          loadHouseholdsForGn(gnList[0].id);
+        }
       } else {
         setSelectedDs('');
         setGnDivisions([]);
         setSelectedGn('');
+        setExistingHouseholds([]);
       }
     } catch (err: any) {
       console.error(err);
@@ -120,13 +169,29 @@ export default function DataEntryPage() {
 
   async function handleDsChange(dsId: string) {
     setSelectedDs(dsId);
+    setSelectedHouseholdId('');
     try {
       const gnList = await api.getGnDivisions(dsId);
       setGnDivisions(gnList);
-      if (gnList.length > 0) setSelectedGn(gnList[0].id);
-      else setSelectedGn('');
+      if (gnList.length > 0) {
+        setSelectedGn(gnList[0].id);
+        loadHouseholdsForGn(gnList[0].id);
+      } else {
+        setSelectedGn('');
+        setExistingHouseholds([]);
+      }
     } catch (err: any) {
       console.error(err);
+    }
+  }
+
+  async function handleGnChange(gnId: string) {
+    setSelectedGn(gnId);
+    setSelectedHouseholdId('');
+    if (gnId) {
+      loadHouseholdsForGn(gnId);
+    } else {
+      setExistingHouseholds([]);
     }
   }
 
@@ -171,20 +236,49 @@ export default function DataEntryPage() {
 
     setSubmitting(true);
     try {
-      // 1. Create household
-      const houseRes = await api.createHousehold({
-        gnId: selectedGn,
-        houseNo: houseNo.trim(),
-        houseLeaderName: headName.trim(),
-        address: address.trim() || undefined,
-        villageName: villageName.trim() || undefined,
-        isEpf,
-        isAswesuma,
-        isSamurdhi,
-        hasSpecialNeeds,
-      });
+      let householdId = selectedHouseholdId;
+      let isAttachedToExisting = Boolean(householdId);
 
-      const householdId = houseRes.id;
+      // 1. Resolve or Create household
+      if (!householdId) {
+        try {
+          const houseRes = await api.createHousehold({
+            gnId: selectedGn,
+            houseNo: houseNo.trim(),
+            houseLeaderName: headName.trim(),
+            address: address.trim() || undefined,
+            villageName: villageName.trim() || undefined,
+            isEpf,
+            isEtf,
+            isAswesuma,
+            isSamurdhi,
+            hasSpecialNeeds,
+          });
+          householdId = houseRes.id;
+        } catch (err: any) {
+          // If household already exists, attach to it instead of failing with duplicate error
+          if (
+            err.message?.includes('already exists') ||
+            err.message?.includes('DUPLICATE_HOUSE_NUMBER')
+          ) {
+            const listRes = await api.getHouseholds({ gnId: selectedGn, search: houseNo.trim(), limit: 50 });
+            const list = Array.isArray(listRes) ? listRes : listRes?.households || [];
+            const existing = list.find(
+              (h: any) =>
+                h.houseNo?.trim().toLowerCase() === houseNo.trim().toLowerCase() ||
+                h.houseNoNorm === houseNo.trim().toUpperCase()
+            );
+            if (existing) {
+              householdId = existing.id;
+              isAttachedToExisting = true;
+            } else {
+              throw err;
+            }
+          } else {
+            throw err;
+          }
+        }
+      }
 
       // 2. Create client record attached to household
       await api.createClient({
@@ -200,21 +294,33 @@ export default function DataEntryPage() {
         interestedVocationalStream: interestedStream,
         interestedJob,
         isEpf,
+        isEtf,
         isAswesuma,
         isSamurdhi,
         hasSpecialNeeds,
+        futureHopes,
+        infoProvidedBy,
+        infoProvidedByOther: infoProvidedBy === 'other' ? (infoProvidedByOther.trim() || undefined) : undefined,
         consentGiven: true,
-        infoProvidedBy: 'self',
+        consentVersion,
       });
 
+      // Refresh existing households for the GN
+      loadHouseholdsForGn(selectedGn);
+
       setSubmitSuccess(
-        `Successfully registered household #${houseNo} and survey record for "${clientName}".`
+        isAttachedToExisting
+          ? `Successfully recorded survey for "${clientName}" attached to existing household #${houseNo} (${headName}).`
+          : `Successfully registered household #${houseNo} and survey record for "${clientName}".`
       );
 
-      // Reset individual form fields
+      // Reset individual form fields (keep household selected/filled so next person in same house can be added easily!)
       setClientName('');
       setClientPhone('');
       setClientWhatsapp('');
+      setFutureHopes([]);
+      setInfoProvidedBy('self');
+      setInfoProvidedByOther('');
       setConsentGiven(false);
     } catch (err: any) {
       setSubmitError(err.message || 'Failed to submit online entry.');
@@ -322,12 +428,75 @@ export default function DataEntryPage() {
 
             {/* Section 1: Household Information (DD/S/001) */}
             <div className="card p-6 space-y-4">
-              <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-                <Home className="w-5 h-5 text-emerald-400" />
-                <h2 className="text-base font-bold text-white">
-                  Section 1: Household Roster (DD/S/001)
-                </h2>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <Home className="w-5 h-5 text-emerald-400" />
+                  <h2 className="text-base font-bold text-white">
+                    Section 1: Household Roster (DD/S/001)
+                  </h2>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs bg-slate-900/80 p-1 rounded-lg border border-slate-800 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHouseholdMode('new');
+                      setSelectedHouseholdId('');
+                      setHouseNo('');
+                      setHeadName('');
+                      setAddress('');
+                      setVillageName('');
+                      setIsEpf(false);
+                      setIsEtf(false);
+                      setIsAswesuma(false);
+                      setIsSamurdhi(false);
+                      setHasSpecialNeeds(false);
+                    }}
+                    className={`px-3 py-1 rounded font-medium transition-colors ${householdMode === 'new'
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
+                  >
+                    + Register New Household
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHouseholdMode('existing')}
+                    className={`px-3 py-1 rounded font-medium transition-colors ${householdMode === 'existing'
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
+                  >
+                    Attach to Existing House ({existingHouseholds.length})
+                  </button>
+                </div>
               </div>
+
+              {householdMode === 'existing' && (
+                <div className="bg-slate-900/60 p-4 rounded-lg border border-slate-800 space-y-2">
+                  <label className="text-xs text-slate-300 block font-semibold">
+                    Select Existing Household to Attach Survey Entry *
+                  </label>
+                  {existingHouseholds.length === 0 ? (
+                    <p className="text-xs text-amber-400">
+                      No registered households found in this GN division. Please register a new household first.
+                    </p>
+                  ) : (
+                    <select
+                      className="input text-sm"
+                      value={selectedHouseholdId}
+                      onChange={(e) => handleSelectExistingHousehold(e.target.value)}
+                      required
+                    >
+                      <option value="">-- Choose Household in {gnDivisions.find((g) => g.id === selectedGn)?.nameEn || 'GN'} --</option>
+                      {existingHouseholds.map((h) => (
+                        <option key={h.id} value={h.id}>
+                          House #{h.houseNo} — {h.houseLeaderName} {h.villageName ? `(${h.villageName})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -365,7 +534,7 @@ export default function DataEntryPage() {
                   <select
                     className="input text-sm"
                     value={selectedGn}
-                    onChange={(e) => setSelectedGn(e.target.value)}
+                    onChange={(e) => handleGnChange(e.target.value)}
                   >
                     {gnDivisions.map((gn) => (
                       <option key={gn.id} value={gn.id}>
@@ -382,6 +551,7 @@ export default function DataEntryPage() {
                     className="input"
                     placeholder="e.g. 102/B or 45"
                     value={houseNo}
+                    disabled={householdMode === 'existing'}
                     onChange={(e) => setHouseNo(e.target.value)}
                     required
                   />
@@ -394,6 +564,7 @@ export default function DataEntryPage() {
                     className="input"
                     placeholder="e.g. Sunil Perera"
                     value={headName}
+                    disabled={householdMode === 'existing'}
                     onChange={(e) => setHeadName(e.target.value)}
                     required
                   />
@@ -406,6 +577,7 @@ export default function DataEntryPage() {
                     className="input"
                     placeholder="e.g. Pallekele North"
                     value={villageName}
+                    disabled={householdMode === 'existing'}
                     onChange={(e) => setVillageName(e.target.value)}
                   />
                 </div>
@@ -417,6 +589,7 @@ export default function DataEntryPage() {
                     className="input"
                     placeholder="e.g. No. 102/B, Kandy Road, Pallekele"
                     value={address}
+                    disabled={householdMode === 'existing'}
                     onChange={(e) => setAddress(e.target.value)}
                   />
                 </div>
@@ -424,11 +597,12 @@ export default function DataEntryPage() {
 
               <div className="pt-2 border-t border-slate-800">
                 <span className="text-xs text-slate-400 block mb-2">Household Welfare Indicators</span>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
                   <label className="flex items-center gap-2 cursor-pointer text-slate-300">
                     <input
                       type="checkbox"
                       checked={isSamurdhi}
+                      disabled={householdMode === 'existing'}
                       onChange={(e) => setIsSamurdhi(e.target.checked)}
                     />
                     Samurdhi Beneficiary
@@ -437,6 +611,7 @@ export default function DataEntryPage() {
                     <input
                       type="checkbox"
                       checked={isAswesuma}
+                      disabled={householdMode === 'existing'}
                       onChange={(e) => setIsAswesuma(e.target.checked)}
                     />
                     Aswesuma Beneficiary
@@ -445,14 +620,25 @@ export default function DataEntryPage() {
                     <input
                       type="checkbox"
                       checked={isEpf}
+                      disabled={householdMode === 'existing'}
                       onChange={(e) => setIsEpf(e.target.checked)}
                     />
-                    EPF / ETF Contributor
+                    EPF Contributor
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={isEtf}
+                      disabled={householdMode === 'existing'}
+                      onChange={(e) => setIsEtf(e.target.checked)}
+                    />
+                    ETF Contributor
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer text-slate-300">
                     <input
                       type="checkbox"
                       checked={hasSpecialNeeds}
+                      disabled={householdMode === 'existing'}
                       onChange={(e) => setHasSpecialNeeds(e.target.checked)}
                     />
                     Special Needs in House
@@ -580,6 +766,66 @@ export default function DataEntryPage() {
                     <option value="BEAUTY">Cosmetology & Hair</option>
                     <option value="AGRICULTURE">Agri-Business & Farming</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Information Provided By *</label>
+                  <select
+                    className="input text-sm"
+                    value={infoProvidedBy}
+                    onChange={(e) => setInfoProvidedBy(e.target.value as any)}
+                  >
+                    <option value="self">Self (Surveyed Individual)</option>
+                    <option value="mother">Mother</option>
+                    <option value="father">Father</option>
+                    <option value="sister">Sister</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                {infoProvidedBy === 'other' && (
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">Provided By (Other Details) *</label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="Specify relation or person"
+                      value={infoProvidedByOther}
+                      onChange={(e) => setInfoProvidedByOther(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Future Aspirations (DD/S/002 #13) */}
+              <div className="pt-2 border-t border-slate-800">
+                <span className="text-xs text-slate-400 block mb-2 font-medium">
+                  Future Aspirations / Hopes (DD/S/002 #13) — Select all that apply
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-xs">
+                  {[
+                    { id: 'higher_education', label: 'Higher Education' },
+                    { id: 'vocational_education', label: 'Vocational Training' },
+                    { id: 'entrepreneur', label: 'Entrepreneurship' },
+                    { id: 'local_job', label: 'Local Job' },
+                    { id: 'foreign_job', label: 'Foreign Job' },
+                  ].map((hope) => (
+                    <label key={hope.id} className="flex items-center gap-2 cursor-pointer text-slate-300 bg-slate-900/40 p-2 rounded border border-slate-800 hover:border-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={futureHopes.includes(hope.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFutureHopes([...futureHopes, hope.id]);
+                          } else {
+                            setFutureHopes(futureHopes.filter((h) => h !== hope.id));
+                          }
+                        }}
+                      />
+                      {hope.label}
+                    </label>
+                  ))}
                 </div>
               </div>
 

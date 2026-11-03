@@ -623,5 +623,45 @@ void main() {
         expect(await db.getPendingFinishedHouseholdIds(), isEmpty);
       },
     );
+
+    test(
+      'Server omitting finishedHouseholds preserves pending finished IDs',
+      () async {
+        const houseId = 'house-finish-omitted';
+        await db.upsertHousehold(
+          Household(
+            id: houseId,
+            districtId: 'd-1',
+            dsId: 'ds-1',
+            gnId: 'gn-1',
+            serialNo: 803,
+            houseNo: 'H-803',
+            houseLeaderName: 'Leader 803',
+            visitStatus: 'in_progress',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+
+        await db.markHouseholdCompletedLocally(houseId);
+        expect(await db.getPendingFinishedHouseholdIds(), contains(houseId));
+
+        fakeApi.pushCount = 0;
+        fakeApi.pushedRequests.clear();
+        fakeApi.onPushSync = (req) async {
+          // Server omits finishedHouseholds field completely
+          return const SyncPushResponse(
+            results: [],
+            finishedHouseholds: null,
+          );
+        };
+
+        final syncNotifier = container.read(syncProvider.notifier);
+        await syncNotifier.sync();
+
+        // Pending flag should NOT be removed because server never confirmed it
+        expect(await db.getPendingFinishedHouseholdIds(), contains(houseId));
+      },
+    );
   });
 }

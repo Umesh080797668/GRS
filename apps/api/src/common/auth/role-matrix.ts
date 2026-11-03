@@ -6,21 +6,22 @@ export interface EndpointPolicy {
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   path: string;
   category:
-    | 'auth'
-    | 'accounts'
-    | 'config'
-    | 'lookups'
-    | 'areas'
-    | 'houses'
-    | 'clients'
-    | 'sync'
-    | 'duplicates'
-    | 'stats'
-    | 'exports'
-    | 'releases';
+  | 'auth'
+  | 'accounts'
+  | 'config'
+  | 'lookups'
+  | 'areas'
+  | 'houses'
+  | 'clients'
+  | 'sync'
+  | 'duplicates'
+  | 'stats'
+  | 'exports'
+  | 'releases'
+  | 'imports';
   allowedRoles: ExtendedRole[];
   scopeEnforcement:
-    'none' | 'own_only' | 'team_only' | 'gn_only' | 'hierarchical' | 'national';
+  'none' | 'own_only' | 'team_only' | 'gn_only' | 'hierarchical' | 'national';
   description: string;
 }
 
@@ -795,6 +796,47 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     allowedRoles: ['super_admin'],
     scopeEnforcement: 'national',
     description: 'Publish new application release metadata (L00 only)',
+  },
+  // Import Endpoints (Preview / Confirm Workflow & Staging)
+  {
+    method: 'POST',
+    path: '/imports/preview',
+    category: 'imports',
+    allowedRoles: ['cdc_secretary', 'admin', 'super_admin'],
+    scopeEnforcement: 'gn_only',
+    description: 'Preview household spreadsheet/CSV import and store in staging table',
+  },
+  {
+    method: 'POST',
+    path: '/imports/:id/confirm',
+    category: 'imports',
+    allowedRoles: ['cdc_secretary', 'admin', 'super_admin'],
+    scopeEnforcement: 'gn_only',
+    description: 'Confirm and commit valid staging rows into households table in atomic transaction',
+  },
+  {
+    method: 'GET',
+    path: '/imports/template',
+    category: 'imports',
+    allowedRoles: ['cdc_secretary', 'admin', 'super_admin'],
+    scopeEnforcement: 'none',
+    description: 'Download official CSV template with trilingual comments',
+  },
+  {
+    method: 'GET',
+    path: '/imports/:id',
+    category: 'imports',
+    allowedRoles: ['cdc_secretary', 'admin', 'super_admin'],
+    scopeEnforcement: 'gn_only',
+    description: 'Retrieve import batch details and staging rows',
+  },
+  {
+    method: 'GET',
+    path: '/imports/:id/errors',
+    category: 'imports',
+    allowedRoles: ['cdc_secretary', 'admin', 'super_admin'],
+    scopeEnforcement: 'gn_only',
+    description: 'Download sanitized error report CSV for invalid rows in batch',
   },
 ];
 
