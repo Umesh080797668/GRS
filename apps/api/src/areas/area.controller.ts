@@ -20,6 +20,9 @@ import {
   CreateTeamDto,
   UpdateTeamDto,
   ImportPilotAreaCsvDto,
+  ListDsDto,
+  ListGnDto,
+  ListTeamsDto,
 } from './dto/area.dto';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { ScopeContext } from '../common/scope/scope.types';
@@ -27,7 +30,7 @@ import type { ScopeContext } from '../common/scope/scope.types';
 @Controller('v1/areas')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AreaController {
-  constructor(private readonly areaService: AreaService) {}
+  constructor(private readonly areaService: AreaService) { }
 
   @Get('districts')
   async getDistricts() {
@@ -53,8 +56,20 @@ export class AreaController {
   }
 
   @Get('ds')
-  async getDs(@Query('districtId') districtId?: string) {
-    return this.areaService.getDivisionalSecretariats(districtId);
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+    UserRole.cdc_secretary,
+    UserRole.team_member,
+  )
+  async getDs(
+    @CurrentUser() user: ScopeContext,
+    @Query() query: ListDsDto,
+  ) {
+    return this.areaService.getDivisionalSecretariats(user, query);
   }
 
   @Post('gn')
@@ -64,8 +79,20 @@ export class AreaController {
   }
 
   @Get('gn')
-  async getGn(@Query('dsId') dsId?: string) {
-    return this.areaService.getGnDivisions(dsId);
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+    UserRole.cdc_secretary,
+    UserRole.team_member,
+  )
+  async getGn(
+    @CurrentUser() user: ScopeContext,
+    @Query() query: ListGnDto,
+  ) {
+    return this.areaService.getGnDivisions(user, query);
   }
 
   @Get('gn/:id')
@@ -99,8 +126,19 @@ export class AreaController {
   }
 
   @Get('teams')
-  async getTeams(@Query('gnId') gnId?: string) {
-    return this.areaService.getTeams(gnId);
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+    UserRole.cdc_secretary,
+  )
+  async getTeams(
+    @CurrentUser() user: ScopeContext,
+    @Query() query: ListTeamsDto,
+  ) {
+    return this.areaService.getTeams(user, query);
   }
 
   @Patch('teams/:id')

@@ -44,13 +44,16 @@ describe('ImportService', () => {
         create: jest.fn().mockImplementation(({ data }) =>
           Promise.resolve({ id: 'batch-uuid-1', ...data, importedAt: new Date() }),
         ),
-        findUnique: jest.fn().mockResolvedValue({
-          id: 'batch-uuid-1',
-          gnId: 'gn-uuid-1',
-          status: 'previewed',
-          rowsTotal: 3,
-          fileName: 'test.xlsx',
-        }),
+        findUnique: jest.fn().mockImplementation(() =>
+          Promise.resolve({
+            id: 'batch-uuid-1',
+            gnId: 'gn-uuid-1',
+            status: 'previewed',
+            rowsTotal: 3,
+            fileName: 'test.xlsx',
+            importedAt: new Date(),
+          }),
+        ),
         update: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: 'batch-uuid-1', ...data })),
       },
       importStaging: {
@@ -58,7 +61,20 @@ describe('ImportService', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       $transaction: jest.fn().mockImplementation((cb) => cb(prisma)),
-      $queryRawUnsafe: jest.fn().mockResolvedValue([{ next_serial: 10 }]),
+      $queryRawUnsafe: jest.fn().mockImplementation((query: string) => {
+        if (typeof query === 'string' && query.includes('import_batches')) {
+          return Promise.resolve([
+            {
+              id: 'batch-uuid-1',
+              gn_id: 'gn-uuid-1',
+              status: 'previewed',
+              imported_at: new Date(),
+              rows_total: 3,
+            },
+          ]);
+        }
+        return Promise.resolve([{ next_serial: 10 }]);
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -256,11 +272,91 @@ describe('ImportService', () => {
         id: 'batch-uuid-1',
         gnId: 'gn-uuid-1',
         status: 'committed',
+        importedAt: new Date(),
       });
 
       await expect(service.confirmImport(mockCdcCaller as any, 'batch-uuid-1')).rejects.toThrow(
         'already been confirmed',
       );
+    });
+
+    it('rejects double-confirmation inside transaction when batch row status is committed', async () => {
+      prisma.importStaging.findMany.mockResolvedValue([
+        {
+          id: 'stage-1',
+          batchId: 'batch-uuid-1',
+          rowNo: 2,
+          errors: [],
+          data: { houseNo: '102/B', houseNoNorm: '102/B', headName: 'Sunil Perera' },
+        },
+      ]);
+
+      // Initial check passes (previewed), but under row lock in tx status is committed by concurrent transaction
+      prisma.importBatch.findUnique.mockResolvedValue({
+        id: 'batch-uuid-1',
+        gnId: 'gn-uuid-1',
+        status: 'previewed',
+        importedAt: new Date(),
+      });
+
+      prisma.$queryRawUnsafe.mockImplementation((query: string) => {
+        if (typeof query === 'string' && query.includes('import_batches')) {
+          return Promise.resolve([
+            {
+              id: 'batch-uuid-1',
+              gn_id: 'gn-uuid-1',
+              status: 'committed', // Committed while waiting for lock!
+              imported_at: new Date(),
+              rows_total: 3,
+            },
+          ]);
+        }
+        return Promise.resolve([{ next_serial: 10 }]);
+      });
+
+      await expect(
+        service.confirmImport(mockCdcCaller as any, 'batch-uuid-1'),
+      ).rejects.toThrow('already been confirmed');
+    });
+
+    it('enforces expiry on previewed batches older than 24 hours', async () => {
+      const expiredDate = new Date(Date.now() - 25 * 60 * 60 * 1000); // 25 hours ago
+      prisma.importBatch.findUnique.mockResolvedValue({
+        id: 'batch-uuid-1',
+        gnId: 'gn-uuid-1',
+        status: 'previewed',
+        importedAt: expiredDate,
+      });
+
+      await expect(
+        service.confirmImport(mockCdcCaller as any, 'batch-uuid-1'),
+      ).rejects.toThrow('expired');
+
+      expect(prisma.importBatch.update).toHaveBeenCalledWith({
+        where: { id: 'batch-uuid-1' },
+        data: { status: 'expired' },
+      });
+    });
+
+    it('correctly parses Sinhala UTF-8 CSV saved without a BOM', async () => {
+      // Create raw UTF-8 CSV string without Byte Order Mark (BOM)
+      const sinhalaCsv = 'house_no,house_leader_name,lang_sinhala\n1,සුනිල් පෙරේරා,ඔව්\n2,කමල් ප්‍රනාන්දු,නැත';
+      const buf = Buffer.from(sinhalaCsv, 'utf8');
+
+      const file = {
+        originalname: 'sinhala_no_bom.csv',
+        buffer: buf,
+        size: buf.length,
+        mimetype: 'text/csv',
+      };
+
+      const result = await service.previewImport(mockAdminCaller as any, 'gn-uuid-1', file);
+      expect(result.rowsTotal).toBe(2);
+      expect(result.rowsOk).toBe(2);
+      expect(result.rows[0].data.headName).toBe('සුනිල් පෙරේරා');
+      expect(result.rows[0].data.langSinhala).toBe(true);
+      expect(result.rows[1].data.headName).toBe('කමල් ප්‍රනාන්දු');
+      expect(result.rows[1].data.langSinhala).toBe(false);
     });
 
     it('getErrorReportCsv sanitizes =, +, -, @, tab, and carriage return per Plan Invariant 9', async () => {

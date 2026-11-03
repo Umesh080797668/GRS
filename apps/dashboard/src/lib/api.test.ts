@@ -216,4 +216,45 @@ describe('ApiClient - Single-flight refresh (Bug 4)', () => {
       assert.strictEqual(err.retryAfter, 45);
     }
   });
+
+  it('handles 204 No Content without throwing and returns undefined', async () => {
+    (globalThis as any).fetch = async () => ({
+      ok: true,
+      status: 204,
+      statusText: 'No Content',
+      text: async () => '',
+    });
+
+    const result = await (client as any).request('/v1/accounts/user-1/deactivate', { method: 'PATCH' }, false);
+    assert.strictEqual(result, undefined);
+  });
+
+  it('handles empty response bodies on 200 OK without throwing and returns undefined', async () => {
+    (globalThis as any).fetch = async () => ({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: async () => '',
+    });
+
+    const result = await (client as any).request('/v1/data', {}, false);
+    assert.strictEqual(result, undefined);
+  });
+
+  it('sends X-App-Version and X-Client-Type: web headers on all requests', async () => {
+    let capturedHeaders: Record<string, string> = {};
+    (globalThis as any).fetch = async (_url: string, options: any = {}) => {
+      capturedHeaders = options.headers || {};
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: async () => JSON.stringify({ ok: true }),
+      };
+    };
+
+    await (client as any).request('/v1/config', {}, false);
+    assert.strictEqual(capturedHeaders['X-Client-Type'], 'web');
+    assert.strictEqual(capturedHeaders['X-App-Version'], '1.0.0');
+  });
 });

@@ -177,10 +177,14 @@ export class ImportService {
       });
     }
 
-    // Parse with patched @e965/xlsx
+    // Parse with patched @e965/xlsx with UTF-8 codepage 65001 for non-BOM CSV and Sinhala/Tamil support
     let workbook: XLSX.WorkBook;
     try {
-      workbook = XLSX.read(file.buffer, { type: 'buffer', cellDates: true });
+      workbook = XLSX.read(file.buffer, {
+        type: 'buffer',
+        cellDates: true,
+        codepage: 65001,
+      });
     } catch (err: any) {
       throw new BadRequestException({
         code: 'INVALID_FILE_FORMAT',
@@ -561,6 +565,23 @@ export class ImportService {
       });
     }
 
+    const BATCH_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours preview expiry
+    const isBatchExpired =
+      Date.now() - new Date(batch.importedAt).getTime() > BATCH_EXPIRY_MS;
+    if (batch.status === 'expired' || isBatchExpired) {
+      if (batch.status !== 'expired') {
+        await this.prisma.importBatch.update({
+          where: { id: batchId },
+          data: { status: 'expired' },
+        });
+      }
+      throw new BadRequestException({
+        code: 'IMPORT_BATCH_EXPIRED',
+        message:
+          'This previewed import batch has expired and can no longer be confirmed. Please re-upload.',
+      });
+    }
+
     const stagingRows = await this.prisma.importStaging.findMany({
       where: { batchId },
       orderBy: { rowNo: 'asc' },
@@ -593,6 +614,54 @@ export class ImportService {
     // Atomic transaction committing valid rows
     return await this.prisma.$transaction(
       async (tx) => {
+        // 0. Take row-level lock on import_batches to serialize concurrent confirms and prevent corruption
+        const batchRows = await tx.$queryRawUnsafe<
+          Array<{
+            id: string;
+            gn_id: string;
+            status: string;
+            imported_at: Date;
+            rows_total: number;
+          }>
+        >(
+          `SELECT id, gn_id, status, imported_at, rows_total FROM import_batches WHERE id = $1::uuid FOR UPDATE`,
+          batchId,
+        );
+
+        const lockedBatch = batchRows?.[0];
+        if (!lockedBatch) {
+          throw new NotFoundException({
+            code: 'IMPORT_BATCH_NOT_FOUND',
+            message: 'Import batch not found',
+          });
+        }
+
+        // Re-check status inside transaction under row lock
+        if (lockedBatch.status === 'committed') {
+          throw new ConflictException({
+            code: 'IMPORT_ALREADY_COMMITTED',
+            message:
+              'This import batch has already been confirmed and committed.',
+          });
+        }
+
+        const isLockedExpired =
+          Date.now() - new Date(lockedBatch.imported_at).getTime() >
+          BATCH_EXPIRY_MS;
+        if (lockedBatch.status === 'expired' || isLockedExpired) {
+          if (lockedBatch.status !== 'expired') {
+            await tx.importBatch.update({
+              where: { id: batchId },
+              data: { status: 'expired' },
+            });
+          }
+          throw new BadRequestException({
+            code: 'IMPORT_BATCH_EXPIRED',
+            message:
+              'This previewed import batch has expired and can no longer be confirmed. Please re-upload.',
+          });
+        }
+
         // 1. Take row-level lock on gn_divisions to serialize serial allocation
         const gnRows = await tx.$queryRawUnsafe<
           Array<{ next_serial: number }>

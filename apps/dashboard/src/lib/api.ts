@@ -44,6 +44,7 @@ export class ApiError extends Error {
 }
 
 const DEFAULT_API_URL = 'http://localhost:3000';
+export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
 
 export class ApiClient {
   private baseUrl: string;
@@ -137,6 +138,7 @@ export class ApiClient {
     const headers: Record<string, string> = {
       Accept: 'application/json',
       'X-Client-Type': 'web',
+      'X-App-Version': APP_VERSION,
       ...((options.headers as Record<string, string>) || {}),
     };
 
@@ -236,7 +238,31 @@ export class ApiClient {
         });
       }
 
-      return (await response.json()) as T;
+      if (response.status === 204 || response.status === 205) {
+        return undefined as unknown as T;
+      }
+
+      if (typeof response.text === 'function') {
+        const text = await response.text();
+        if (!text || text.trim() === '') {
+          return undefined as unknown as T;
+        }
+        try {
+          return JSON.parse(text) as T;
+        } catch {
+          return text as unknown as T;
+        }
+      }
+
+      if (typeof response.json === 'function') {
+        try {
+          return (await response.json()) as T;
+        } catch {
+          return undefined as unknown as T;
+        }
+      }
+
+      return undefined as unknown as T;
     } catch (err: any) {
       if (err instanceof ApiError) {
         throw err;
@@ -286,6 +312,7 @@ export class ApiClient {
           headers: {
             'Content-Type': 'application/json',
             'X-Client-Type': 'web',
+            'X-App-Version': APP_VERSION,
           },
           body: JSON.stringify({ refreshToken: rt }),
         });
@@ -490,6 +517,7 @@ export class ApiClient {
     const res = await fetch(`${this.baseUrl}/v1/imports/${batchId}/errors`, {
       headers: {
         'X-Client-Type': 'web',
+        'X-App-Version': APP_VERSION,
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     });

@@ -902,7 +902,12 @@ class GrsApiClient {
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return jsonDecode(response.body) as List<dynamic>;
+      final decoded = jsonDecode(response.body);
+      if (decoded is List) return decoded;
+      if (decoded is Map && decoded['items'] is List) {
+        return decoded['items'] as List<dynamic>;
+      }
+      return [];
     }
     _handleError(response);
   }
@@ -920,7 +925,12 @@ class GrsApiClient {
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return jsonDecode(response.body) as List<dynamic>;
+      final decoded = jsonDecode(response.body);
+      if (decoded is List) return decoded;
+      if (decoded is Map && decoded['items'] is List) {
+        return decoded['items'] as List<dynamic>;
+      }
+      return [];
     }
     _handleError(response);
   }
@@ -938,7 +948,12 @@ class GrsApiClient {
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return jsonDecode(response.body) as List<dynamic>;
+      final decoded = jsonDecode(response.body);
+      if (decoded is List) return decoded;
+      if (decoded is Map && decoded['items'] is List) {
+        return decoded['items'] as List<dynamic>;
+      }
+      return [];
     }
     _handleError(response);
   }

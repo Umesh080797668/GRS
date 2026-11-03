@@ -9,6 +9,76 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class ListDsDto {
+  @IsUUID()
+  @IsOptional()
+  districtId?: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  limit?: number;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  page?: number;
+
+  @IsUUID()
+  @IsOptional()
+  cursor?: string;
+}
+
+export class ListGnDto {
+  @IsUUID()
+  @IsOptional()
+  dsId?: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  limit?: number;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  page?: number;
+
+  @IsUUID()
+  @IsOptional()
+  cursor?: string;
+}
+
+export class ListTeamsDto {
+  @IsUUID()
+  @IsOptional()
+  gnId?: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  limit?: number;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  page?: number;
+
+  @IsUUID()
+  @IsOptional()
+  cursor?: string;
+}
 
 export class CreateDsDto {
   @IsUUID()

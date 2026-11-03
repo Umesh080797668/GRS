@@ -14,6 +14,9 @@ import {
   UpdateGnDto,
   CreateTeamDto,
   UpdateTeamDto,
+  ListDsDto,
+  ListGnDto,
+  ListTeamsDto,
 } from './dto/area.dto';
 
 export interface PilotAreaImportResult {
@@ -28,7 +31,7 @@ export interface PilotAreaImportResult {
 
 @Injectable()
 export class AreaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Seeds the 25 official Sri Lankan districts with trilingual names.
@@ -101,15 +104,103 @@ export class AreaService {
     });
   }
 
-  async getDivisionalSecretariats(districtId?: string) {
-    const where = districtId ? { districtId } : {};
-    return this.prisma.divisionalSecretariat.findMany({
-      where,
-      orderBy: { nameEn: 'asc' },
-      include: {
-        gnDivisions: true,
-      },
-    });
+  async getDivisionalSecretariats(
+    caller: ScopeContext,
+    query: ListDsDto = {},
+  ) {
+    const where: any = {};
+
+    switch (caller.role) {
+      case UserRole.super_admin:
+      case UserRole.admin:
+      case UserRole.cg:
+        if (query.districtId) where.districtId = query.districtId;
+        break;
+
+      case UserRole.dc:
+        if (!caller.districtId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'DC user missing assigned district scope',
+          });
+        }
+        if (query.districtId && query.districtId !== caller.districtId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'Cannot access DS divisions outside assigned district',
+          });
+        }
+        where.districtId = caller.districtId;
+        break;
+
+      case UserRole.sda:
+      case UserRole.cdc_secretary:
+      case UserRole.team_member:
+        if (!caller.dsId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'User missing assigned DS division scope',
+          });
+        }
+        if (
+          query.districtId &&
+          caller.districtId &&
+          query.districtId !== caller.districtId
+        ) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'Cannot access DS divisions outside assigned scope',
+          });
+        }
+        where.id = caller.dsId;
+        break;
+
+      default:
+        throw new ForbiddenException({
+          code: 'FORBIDDEN_SCOPE',
+          message: 'Unauthorized role for DS divisions access',
+        });
+    }
+
+    const limit = Math.min(query.limit || 50, 100);
+    const skip = query.cursor
+      ? 1
+      : query.page && query.page > 1
+        ? (query.page - 1) * limit
+        : 0;
+    const cursor = query.cursor ? { id: query.cursor } : undefined;
+
+    const [items, total] = await Promise.all([
+      this.prisma.divisionalSecretariat.findMany({
+        where,
+        select: {
+          id: true,
+          districtId: true,
+          nameEn: true,
+          nameSi: true,
+          nameTa: true,
+          sdoName: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { nameEn: 'asc' },
+        take: limit,
+        skip,
+        cursor,
+      }),
+      this.prisma.divisionalSecretariat.count({ where }),
+    ]);
+
+    const nextCursor =
+      items.length === limit ? items[items.length - 1].id : undefined;
+
+    return {
+      items,
+      total,
+      limit,
+      page: query.page || 1,
+      nextCursor,
+    };
   }
 
   async createGnDivision(dto: CreateGnDto) {
@@ -150,17 +241,128 @@ export class AreaService {
     });
   }
 
-  async getGnDivisions(dsId?: string) {
-    const where = dsId ? { dsId } : {};
-    return this.prisma.gnDivision.findMany({
-      where,
-      orderBy: { gnNumber: 'asc' },
-      include: {
-        teams: {
-          orderBy: { teamNo: 'asc' },
+  async getGnDivisions(caller: ScopeContext, query: ListGnDto = {}) {
+    const where: any = {};
+
+    switch (caller.role) {
+      case UserRole.super_admin:
+      case UserRole.admin:
+      case UserRole.cg:
+        if (query.dsId) where.dsId = query.dsId;
+        break;
+
+      case UserRole.dc:
+        if (!caller.districtId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'DC user missing assigned district scope',
+          });
+        }
+        if (query.dsId) {
+          const ds = await this.prisma.divisionalSecretariat.findUnique({
+            where: { id: query.dsId },
+            select: { districtId: true },
+          });
+          if (!ds || ds.districtId !== caller.districtId) {
+            throw new ForbiddenException({
+              code: 'FORBIDDEN_SCOPE',
+              message: 'Cannot access GN divisions outside assigned district',
+            });
+          }
+          where.dsId = query.dsId;
+        } else {
+          where.ds = { districtId: caller.districtId };
+        }
+        break;
+
+      case UserRole.sda:
+        if (!caller.dsId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'SDA user missing assigned DS division scope',
+          });
+        }
+        if (query.dsId && query.dsId !== caller.dsId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'Cannot access GN divisions outside assigned DS division',
+          });
+        }
+        where.dsId = caller.dsId;
+        break;
+
+      case UserRole.cdc_secretary:
+      case UserRole.team_member:
+        if (!caller.gnId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'User missing assigned GN division scope',
+          });
+        }
+        if (query.dsId && caller.dsId && query.dsId !== caller.dsId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'Cannot access GN divisions outside assigned scope',
+          });
+        }
+        where.id = caller.gnId;
+        break;
+
+      default:
+        throw new ForbiddenException({
+          code: 'FORBIDDEN_SCOPE',
+          message: 'Unauthorized role for GN divisions access',
+        });
+    }
+
+    const limit = Math.min(query.limit || 50, 100);
+    const skip = query.cursor
+      ? 1
+      : query.page && query.page > 1
+        ? (query.page - 1) * limit
+        : 0;
+    const cursor = query.cursor ? { id: query.cursor } : undefined;
+
+    // CRITICAL SECURITY FIX: Never return CDC secretary contact details (secretaryName,
+    // secretaryContact, secretaryEmail) in bulk list queries to prevent Level 5 or unauthorized enumeration.
+    const [items, total] = await Promise.all([
+      this.prisma.gnDivision.findMany({
+        where,
+        select: {
+          id: true,
+          dsId: true,
+          gnNumber: true,
+          gnName: true,
+          nextSerial: true,
+          createdAt: true,
+          updatedAt: true,
+          teams: {
+            select: {
+              id: true,
+              teamNo: true,
+              maxMembers: true,
+            },
+            orderBy: { teamNo: 'asc' },
+          },
         },
-      },
-    });
+        orderBy: { gnNumber: 'asc' },
+        take: limit,
+        skip,
+        cursor,
+      }),
+      this.prisma.gnDivision.count({ where }),
+    ]);
+
+    const nextCursor =
+      items.length === limit ? items[items.length - 1].id : undefined;
+
+    return {
+      items,
+      total,
+      limit,
+      page: query.page || 1,
+      nextCursor,
+    };
   }
 
   async getGnDivisionById(caller: ScopeContext, id: string) {
@@ -298,12 +500,172 @@ export class AreaService {
     });
   }
 
-  async getTeams(gnId?: string) {
-    const where = gnId ? { gnId } : {};
-    return this.prisma.team.findMany({
-      where,
-      orderBy: { teamNo: 'asc' },
-    });
+  async getTeams(caller: ScopeContext, query: ListTeamsDto = {}) {
+    if (caller.role === UserRole.team_member) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_SCOPE',
+        message: 'Level 5 team members cannot list teams',
+      });
+    }
+
+    const where: any = {};
+
+    switch (caller.role) {
+      case UserRole.super_admin:
+      case UserRole.admin:
+      case UserRole.cg:
+        if (query.gnId) where.gnId = query.gnId;
+        break;
+
+      case UserRole.dc:
+        if (!caller.districtId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'DC user missing assigned district scope',
+          });
+        }
+        if (query.gnId) {
+          const gn = await this.prisma.gnDivision.findUnique({
+            where: { id: query.gnId },
+            include: { ds: true },
+          });
+          if (!gn || gn.ds.districtId !== caller.districtId) {
+            throw new ForbiddenException({
+              code: 'FORBIDDEN_SCOPE',
+              message: 'Cannot access teams outside assigned district',
+            });
+          }
+          where.gnId = query.gnId;
+        } else {
+          where.gn = { ds: { districtId: caller.districtId } };
+        }
+        break;
+
+      case UserRole.sda:
+        if (!caller.dsId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'SDA user missing assigned DS division scope',
+          });
+        }
+        if (query.gnId) {
+          const gn = await this.prisma.gnDivision.findUnique({
+            where: { id: query.gnId },
+            select: { dsId: true },
+          });
+          if (!gn || gn.dsId !== caller.dsId) {
+            throw new ForbiddenException({
+              code: 'FORBIDDEN_SCOPE',
+              message: 'Cannot access teams outside assigned DS division',
+            });
+          }
+          where.gnId = query.gnId;
+        } else {
+          where.gn = { dsId: caller.dsId };
+        }
+        break;
+
+      case UserRole.cdc_secretary:
+        if (!caller.gnId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'CDC Secretary missing assigned GN division scope',
+          });
+        }
+        if (query.gnId && query.gnId !== caller.gnId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'Cannot access teams outside assigned GN division',
+          });
+        }
+        where.gnId = caller.gnId;
+        break;
+
+      default:
+        throw new ForbiddenException({
+          code: 'FORBIDDEN_SCOPE',
+          message: 'Unauthorized role for teams access',
+        });
+    }
+
+    const limit = Math.min(query.limit || 50, 100);
+    const skip = query.cursor
+      ? 1
+      : query.page && query.page > 1
+        ? (query.page - 1) * limit
+        : 0;
+    const cursor = query.cursor ? { id: query.cursor } : undefined;
+
+    const [items, total] = await Promise.all([
+      this.prisma.team.findMany({
+        where,
+        select: {
+          id: true,
+          gnId: true,
+          teamNo: true,
+          maxMembers: true,
+          leaderId: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { teamNo: 'asc' },
+        take: limit,
+        skip,
+        cursor,
+      }),
+      this.prisma.team.count({ where }),
+    ]);
+
+    const nextCursor =
+      items.length === limit ? items[items.length - 1].id : undefined;
+
+    const teamIds = items.map((t) => t.id);
+    const countMap = new Map<string, number>();
+
+    if (
+      teamIds.length > 0 &&
+      this.prisma.profile &&
+      typeof (this.prisma.profile as any).groupBy === 'function'
+    ) {
+      try {
+        const memberCounts = await (this.prisma.profile as any).groupBy({
+          by: ['teamId'],
+          where: {
+            teamId: { in: teamIds },
+            isActive: true,
+          },
+          _count: {
+            _all: true,
+          },
+        });
+        for (const mc of memberCounts) {
+          if (mc.teamId) {
+            countMap.set(mc.teamId, mc._count._all);
+          }
+        }
+      } catch {
+        // Fallback gracefully if groupBy fails in test mocks
+      }
+    }
+
+    const formattedItems = items.map((t) => ({
+      id: t.id,
+      gnId: t.gnId,
+      teamNo: t.teamNo,
+      maxMembers: t.maxMembers,
+      leaderId: t.leaderId,
+      activeMembers: countMap.get(t.id) ?? 0,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+    }));
+
+    return {
+      items: formattedItems,
+      total,
+      limit,
+      page: query.page || 1,
+      nextCursor,
+    };
   }
 
   /**

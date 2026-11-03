@@ -43,7 +43,7 @@ describe('AreaService (M1.7)', () => {
             (ds) =>
               ds.districtId === where.districtId &&
               ds.nameEn.toLowerCase() ===
-                (where.nameEn.equals || where.nameEn).toLowerCase(),
+              (where.nameEn.equals || where.nameEn).toLowerCase(),
           ) || null,
         );
       }),
@@ -52,7 +52,23 @@ describe('AreaService (M1.7)', () => {
           inMemoryDs.find((ds) => ds.id === where.id) || null,
         );
       }),
-      findMany: jest.fn().mockImplementation(() => Promise.resolve(inMemoryDs)),
+      findMany: jest.fn().mockImplementation(({ select }) => {
+        if (select) {
+          return Promise.resolve(
+            inMemoryDs.map((ds) => {
+              const res: any = {};
+              for (const k of Object.keys(select)) {
+                if (select[k]) res[k] = ds[k];
+              }
+              return res;
+            }),
+          );
+        }
+        return Promise.resolve(inMemoryDs);
+      }),
+      count: jest
+        .fn()
+        .mockImplementation(() => Promise.resolve(inMemoryDs.length)),
       create: jest.fn().mockImplementation(({ data }) => {
         const ds = { id: `ds-${Date.now()}-${Math.random()}`, ...data };
         inMemoryDs.push(ds);
@@ -77,7 +93,23 @@ describe('AreaService (M1.7)', () => {
         }
         return Promise.resolve(null);
       }),
-      findMany: jest.fn().mockImplementation(() => Promise.resolve(inMemoryGn)),
+      findMany: jest.fn().mockImplementation(({ select }) => {
+        if (select) {
+          return Promise.resolve(
+            inMemoryGn.map((gn) => {
+              const res: any = {};
+              for (const k of Object.keys(select)) {
+                if (select[k]) res[k] = gn[k];
+              }
+              return res;
+            }),
+          );
+        }
+        return Promise.resolve(inMemoryGn);
+      }),
+      count: jest
+        .fn()
+        .mockImplementation(() => Promise.resolve(inMemoryGn.length)),
       create: jest.fn().mockImplementation(({ data }) => {
         const gn = { id: `gn-${Date.now()}-${Math.random()}`, ...data };
         inMemoryGn.push(gn);
@@ -102,9 +134,23 @@ describe('AreaService (M1.7)', () => {
         }
         return Promise.resolve(null);
       }),
-      findMany: jest
+      findMany: jest.fn().mockImplementation(({ select }) => {
+        if (select) {
+          return Promise.resolve(
+            inMemoryTeams.map((t) => {
+              const res: any = {};
+              for (const k of Object.keys(select)) {
+                if (select[k]) res[k] = t[k];
+              }
+              return res;
+            }),
+          );
+        }
+        return Promise.resolve(inMemoryTeams);
+      }),
+      count: jest
         .fn()
-        .mockImplementation(() => Promise.resolve(inMemoryTeams)),
+        .mockImplementation(() => Promise.resolve(inMemoryTeams.length)),
       create: jest.fn().mockImplementation(({ data }) => {
         const t = { id: `team-${Date.now()}-${Math.random()}`, ...data };
         inMemoryTeams.push(t);
@@ -304,6 +350,151 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
       expect(result.rowCount).toBe(1);
       expect(inMemoryGn[0].gnName).toBe('Kirulapone, West');
       expect(inMemoryTeams).toHaveLength(2);
+    });
+  });
+
+  describe('Area Scoping, Field Restriction & Pagination', () => {
+    const superAdminScope = {
+      userId: 'user-sa',
+      role: 'super_admin' as any,
+    };
+
+    const dcScope = {
+      userId: 'user-dc',
+      role: 'dc' as any,
+      districtId: 'dist-colombo',
+    };
+
+    const sdaScope = {
+      userId: 'user-sda',
+      role: 'sda' as any,
+      districtId: 'dist-colombo',
+      dsId: 'ds-thimbiri',
+    };
+
+    const secretaryScope = {
+      userId: 'user-sec',
+      role: 'cdc_secretary' as any,
+      districtId: 'dist-colombo',
+      dsId: 'ds-thimbiri',
+      gnId: 'gn-kirula',
+      teamId: 'team-1',
+    };
+
+    const memberScope = {
+      userId: 'user-agent',
+      role: 'team_member' as any,
+      districtId: 'dist-colombo',
+      dsId: 'ds-thimbiri',
+      gnId: 'gn-kirula',
+      teamId: 'team-1',
+    };
+
+    beforeEach(async () => {
+      inMemoryDs = [
+        { id: 'ds-thimbiri', districtId: 'dist-colombo', nameEn: 'Thimbirigasyaya' },
+        { id: 'ds-kaduwela', districtId: 'dist-colombo', nameEn: 'Kaduwela' },
+        { id: 'ds-galle', districtId: 'dist-galle', nameEn: 'Galle Four Gravets' },
+      ];
+
+      inMemoryGn = [
+        {
+          id: 'gn-kirula',
+          dsId: 'ds-thimbiri',
+          gnNumber: '514A',
+          gnName: 'Kirulapone',
+          secretaryName: 'Private Secretary Silva',
+          secretaryContact: '+94771112233',
+          secretaryEmail: 'silva@cdc.gov.lk',
+          nextSerial: 1,
+        },
+        {
+          id: 'gn-pamankada',
+          dsId: 'ds-thimbiri',
+          gnNumber: '514B',
+          gnName: 'Pamankada',
+          secretaryName: 'Private Secretary Perera',
+          secretaryContact: '+94774445566',
+          secretaryEmail: 'perera@cdc.gov.lk',
+          nextSerial: 1,
+        },
+      ];
+
+      inMemoryTeams = [
+        { id: 'team-1', gnId: 'gn-kirula', teamNo: 1, maxMembers: 10 },
+        { id: 'team-2', gnId: 'gn-kirula', teamNo: 2, maxMembers: 10 },
+      ];
+    });
+
+    describe('GET /v1/areas/ds scoping & pagination', () => {
+      it('super_admin can view all DS divisions and response is paginated', async () => {
+        const result = await service.getDivisionalSecretariats(superAdminScope);
+        expect(result.items.length).toBe(3);
+        expect(result.total).toBe(3);
+        expect(result.page).toBe(1);
+        expect(result.limit).toBe(50);
+      });
+
+      it('dc is scoped to their district and rejected when requesting outside district', async () => {
+        const allowed = await service.getDivisionalSecretariats(dcScope);
+        expect(allowed.items).toBeDefined();
+
+        await expect(
+          service.getDivisionalSecretariats(dcScope, { districtId: 'dist-galle' }),
+        ).rejects.toThrow('Cannot access DS divisions outside assigned district');
+      });
+
+      it('sda is scoped to their assigned dsId', async () => {
+        const result = await service.getDivisionalSecretariats(sdaScope);
+        expect(result.items).toBeDefined();
+      });
+    });
+
+    describe('GET /v1/areas/gn scoping, field redaction & pagination', () => {
+      it('returns only needed fields and strictly omits CDC secretary contact details', async () => {
+        const result = await service.getGnDivisions(superAdminScope);
+        expect(result.items.length).toBe(2);
+
+        for (const gn of result.items) {
+          expect(gn.id).toBeDefined();
+          expect(gn.gnNumber).toBeDefined();
+          expect(gn.gnName).toBeDefined();
+          // Sensitive CDC secretary contact details MUST NOT be exposed in list
+          expect((gn as any).secretaryName).toBeUndefined();
+          expect((gn as any).secretaryContact).toBeUndefined();
+          expect((gn as any).secretaryEmail).toBeUndefined();
+        }
+      });
+
+      it('team_member is scoped to their own GN division and cannot enumerate others', async () => {
+        const result = await service.getGnDivisions(memberScope);
+        expect(result.items.length).toBe(2); // in-memory mock returns filtered where
+        // Rejects out-of-scope dsId query
+        await expect(
+          service.getGnDivisions(memberScope, { dsId: 'ds-other' }),
+        ).rejects.toThrow('Cannot access GN divisions outside assigned scope');
+      });
+    });
+
+    describe('GET /v1/areas/teams scoping, role restriction & pagination', () => {
+      it('rejects Level 5 team members with 403 Forbidden', async () => {
+        await expect(service.getTeams(memberScope)).rejects.toThrow(
+          'Level 5 team members cannot list teams',
+        );
+      });
+
+      it('cdc_secretary can list teams in their assigned GN division with pagination', async () => {
+        const result = await service.getTeams(secretaryScope);
+        expect(result.items).toBeDefined();
+        expect(result.total).toBe(2);
+        expect(result.page).toBe(1);
+      });
+
+      it('cdc_secretary is rejected when querying teams for another GN division', async () => {
+        await expect(
+          service.getTeams(secretaryScope, { gnId: 'gn-other' }),
+        ).rejects.toThrow('Cannot access teams outside assigned GN division');
+      });
     });
   });
 });
