@@ -73,6 +73,21 @@ export default function RecordsPage() {
     try {
       const data = await api.getDistricts();
       setDistricts(data);
+      if (user?.role === 'cdc_secretary') {
+        if (user.districtId) {
+          setSelectedDistrict(user.districtId);
+          const dsList = await api.getDsDivisions(user.districtId);
+          setDsDivisions(dsList);
+          if (user.dsId) {
+            setSelectedDs(user.dsId);
+            const gnList = await api.getGnDivisions(user.dsId);
+            setGnDivisions(gnList);
+            if (user.gnId) {
+              setSelectedGn(user.gnId);
+            }
+          }
+        }
+      }
     } catch (err) {
       console.error('Failed to load districts:', err);
     }
@@ -301,8 +316,9 @@ export default function RecordsPage() {
               className="input text-xs py-1.5 px-3"
               value={selectedDistrict}
               onChange={(e) => handleDistrictChange(e.target.value)}
+              disabled={user?.role === 'cdc_secretary'}
             >
-              <option value="">All Districts</option>
+              <option value="">{user?.role === 'cdc_secretary' ? 'Assigned District' : 'All Districts'}</option>
               {districts.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.nameEn || d.name}
@@ -314,9 +330,9 @@ export default function RecordsPage() {
               className="input text-xs py-1.5 px-3"
               value={selectedDs}
               onChange={(e) => handleDsChange(e.target.value)}
-              disabled={!selectedDistrict || dsDivisions.length === 0}
+              disabled={!selectedDistrict || dsDivisions.length === 0 || user?.role === 'cdc_secretary'}
             >
-              <option value="">All DS Divisions</option>
+              <option value="">{user?.role === 'cdc_secretary' ? 'Assigned DS Division' : 'All DS Divisions'}</option>
               {dsDivisions.map((ds) => (
                 <option key={ds.id} value={ds.id}>
                   {ds.nameEn || ds.name}
@@ -328,9 +344,9 @@ export default function RecordsPage() {
               className="input text-xs py-1.5 px-3"
               value={selectedGn}
               onChange={(e) => setSelectedGn(e.target.value)}
-              disabled={!selectedDs || gnDivisions.length === 0}
+              disabled={!selectedDs || gnDivisions.length === 0 || user?.role === 'cdc_secretary'}
             >
-              <option value="">All GN Divisions</option>
+              <option value="">{user?.role === 'cdc_secretary' ? 'Assigned GN Division' : 'All GN Divisions'}</option>
               {gnDivisions.map((gn) => (
                 <option key={gn.id} value={gn.id}>
                   {gn.nameEn || gn.name} ({gn.gnCode || gn.gnNumber})

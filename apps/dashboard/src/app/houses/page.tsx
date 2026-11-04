@@ -108,7 +108,9 @@ export default function HousesPage() {
     try {
       const teamList = await api.getTeams(gnId);
       setTeams(teamList);
-      if (teamList.length > 0) {
+      if (user?.role === 'cdc_secretary' && user.teamId) {
+        setTargetTeamId(user.teamId);
+      } else if (teamList.length > 0) {
         setTargetTeamId(teamList[0].id);
       } else {
         setTargetTeamId('');
@@ -414,6 +416,7 @@ export default function HousesPage() {
                 className="input text-sm"
                 value={selectedDistrict}
                 onChange={(e) => handleDistrictChange(e.target.value)}
+                disabled={user?.role === 'cdc_secretary'}
               >
                 {districts.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -429,6 +432,7 @@ export default function HousesPage() {
                 className="input text-sm"
                 value={selectedDs}
                 onChange={(e) => handleDsChange(e.target.value)}
+                disabled={user?.role === 'cdc_secretary'}
               >
                 {dsDivisions.map((ds) => (
                   <option key={ds.id} value={ds.id}>
@@ -444,6 +448,7 @@ export default function HousesPage() {
                 className="input text-sm"
                 value={selectedGn}
                 onChange={(e) => loadGnData(e.target.value)}
+                disabled={user?.role === 'cdc_secretary'}
               >
                 {gnDivisions.map((gn) => (
                   <option key={gn.id} value={gn.id}>
@@ -503,7 +508,7 @@ export default function HousesPage() {
               className="input text-xs py-1.5 px-3 max-w-xs"
               value={targetTeamId}
               onChange={(e) => setTargetTeamId(e.target.value)}
-              disabled={teams.length === 0}
+              disabled={teams.length === 0 || user?.role === 'cdc_secretary'}
             >
               {teams.length === 0 ? (
                 <option value="">No teams available in GN</option>

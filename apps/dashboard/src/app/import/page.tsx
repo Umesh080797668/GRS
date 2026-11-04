@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Shell } from '@/components/Shell';
 import { useLanguage } from '@/context/LanguageContext';
+import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import {
   getOfficialHouseholdTemplateCsv,
@@ -47,6 +48,7 @@ interface StagingRowView {
 
 export default function ImportPage() {
   const { t } = useLanguage();
+  const { user } = useAuth();
 
   // Location selector for import
   const [districts, setDistricts] = useState<any[]>([]);
@@ -83,8 +85,9 @@ export default function ImportPage() {
       const data = await api.getDistricts();
       setDistricts(data);
       if (data.length > 0) {
-        setSelectedDistrict(data[0].id);
-        loadDs(data[0].id);
+        const initialDist = user?.districtId || data[0].id;
+        setSelectedDistrict(initialDist);
+        loadDs(initialDist);
       }
     } catch (err: any) {
       console.error(err);
@@ -96,8 +99,9 @@ export default function ImportPage() {
       const data = await api.getDsDivisions(districtId);
       setDsDivisions(data);
       if (data.length > 0) {
-        setSelectedDs(data[0].id);
-        loadGns(data[0].id);
+        const initialDs = user?.dsId || data[0].id;
+        setSelectedDs(initialDs);
+        loadGns(initialDs);
       } else {
         setSelectedDs('');
         setGnDivisions([]);
@@ -113,7 +117,8 @@ export default function ImportPage() {
       const data = await api.getGnDivisions(dsId);
       setGnDivisions(data);
       if (data.length > 0) {
-        setSelectedGn(data[0].id);
+        const initialGn = user?.gnId || data[0].id;
+        setSelectedGn(initialGn);
       } else {
         setSelectedGn('');
       }
@@ -268,6 +273,7 @@ export default function ImportPage() {
                   setSelectedDistrict(e.target.value);
                   loadDs(e.target.value);
                 }}
+                disabled={user?.role === 'cdc_secretary'}
               >
                 {districts.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -285,7 +291,7 @@ export default function ImportPage() {
                   setSelectedDs(e.target.value);
                   loadGns(e.target.value);
                 }}
-                disabled={dsDivisions.length === 0}
+                disabled={dsDivisions.length === 0 || user?.role === 'cdc_secretary'}
               >
                 {dsDivisions.map((ds) => (
                   <option key={ds.id} value={ds.id}>
@@ -300,7 +306,7 @@ export default function ImportPage() {
                 className="input text-sm"
                 value={selectedGn}
                 onChange={(e) => setSelectedGn(e.target.value)}
-                disabled={gnDivisions.length === 0}
+                disabled={gnDivisions.length === 0 || user?.role === 'cdc_secretary'}
               >
                 {gnDivisions.map((gn) => (
                   <option key={gn.id} value={gn.id}>

@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { ClientService } from './client.service';
+import { ListClientsDto } from './dto/client.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScopeService } from '../common/scope/scope.service';
 import { UserRole, ScopeContext } from '../common/scope/scope.types';
@@ -456,6 +459,14 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       });
       expect(countSpy).toHaveBeenCalledTimes(1);
       expect(res.totalCount).toBe(42);
+    });
+
+    it('ListClientsDto transforms string query parameter limit to number', async () => {
+      const dto = plainToInstance(ListClientsDto, { limit: '20' });
+      expect(typeof dto.limit).toBe('number');
+      expect(dto.limit).toBe(20);
+      const errors = await validate(dto);
+      expect(errors.length).toBe(0);
     });
   });
 });

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Shell from '../../components/Shell';
 import KPICard from '../../components/KPICard';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { formatDate } from '../../lib/utils';
 import {
@@ -19,6 +20,7 @@ import {
 
 export default function ProgressPage() {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<any>(null);
@@ -40,6 +42,21 @@ export default function ProgressPage() {
     try {
       const data = await api.getDistricts();
       setDistricts(data);
+      if (user?.role === 'cdc_secretary') {
+        if (user.districtId) {
+          setSelectedDistrict(user.districtId);
+          const dsList = await api.getDsDivisions(user.districtId);
+          setDsDivisions(dsList);
+          if (user.dsId) {
+            setSelectedDs(user.dsId);
+            const gnList = await api.getGnDivisions(user.dsId);
+            setGnDivisions(gnList);
+            if (user.gnId) {
+              setSelectedGn(user.gnId);
+            }
+          }
+        }
+      }
     } catch (err) {
       console.error(err);
     }
@@ -168,8 +185,9 @@ export default function ProgressPage() {
           style={{ width: '180px' }}
           value={selectedDistrict}
           onChange={(e) => handleDistrictChange(e.target.value)}
+          disabled={user?.role === 'cdc_secretary'}
         >
-          <option value="">National / All Districts</option>
+          <option value="">{user?.role === 'cdc_secretary' ? 'Assigned District' : 'National / All Districts'}</option>
           {districts.map((d) => (
             <option key={d.id} value={d.id}>
               {d.nameEn || d.name}
@@ -182,9 +200,9 @@ export default function ProgressPage() {
           style={{ width: '180px' }}
           value={selectedDs}
           onChange={(e) => handleDsChange(e.target.value)}
-          disabled={!selectedDistrict || dsDivisions.length === 0}
+          disabled={!selectedDistrict || dsDivisions.length === 0 || user?.role === 'cdc_secretary'}
         >
-          <option value="">All DS Divisions</option>
+          <option value="">{user?.role === 'cdc_secretary' ? 'Assigned DS Division' : 'All DS Divisions'}</option>
           {dsDivisions.map((ds) => (
             <option key={ds.id} value={ds.id}>
               {ds.nameEn || ds.name}
@@ -197,9 +215,9 @@ export default function ProgressPage() {
           style={{ width: '180px' }}
           value={selectedGn}
           onChange={(e) => setSelectedGn(e.target.value)}
-          disabled={!selectedDs || gnDivisions.length === 0}
+          disabled={!selectedDs || gnDivisions.length === 0 || user?.role === 'cdc_secretary'}
         >
-          <option value="">All GN Divisions</option>
+          <option value="">{user?.role === 'cdc_secretary' ? 'Assigned GN Division' : 'All GN Divisions'}</option>
           {gnDivisions.map((gn) => (
             <option key={gn.id} value={gn.id}>
               {gn.nameEn || gn.name} ({gn.gnCode || gn.gnNumber})

@@ -195,16 +195,19 @@ export default function DataEntryPage() {
       const data = await api.getDistricts();
       setDistricts(data);
       if (data.length > 0) {
-        setSelectedDistrict(data[0].id);
-        const dsList = await api.getDsDivisions(data[0].id);
+        const initialDist = user?.districtId || data[0].id;
+        setSelectedDistrict(initialDist);
+        const dsList = await api.getDsDivisions(initialDist);
         setDsDivisions(dsList);
         if (dsList.length > 0) {
-          setSelectedDs(dsList[0].id);
-          const gnList = await api.getGnDivisions(dsList[0].id);
+          const initialDs = user?.dsId || dsList[0].id;
+          setSelectedDs(initialDs);
+          const gnList = await api.getGnDivisions(initialDs);
           setGnDivisions(gnList);
           if (gnList.length > 0) {
-            setSelectedGn(gnList[0].id);
-            loadHouseholdsForGn(gnList[0].id);
+            const initialGn = user?.gnId || gnList[0].id;
+            setSelectedGn(initialGn);
+            loadHouseholdsForGn(initialGn);
           }
         }
       }
@@ -617,6 +620,7 @@ export default function DataEntryPage() {
                     className="input text-sm"
                     value={selectedDistrict}
                     onChange={(e) => handleDistrictChange(e.target.value)}
+                    disabled={user?.role === 'cdc_secretary'}
                   >
                     {districts.map((d) => (
                       <option key={d.id} value={d.id}>
@@ -632,6 +636,7 @@ export default function DataEntryPage() {
                     className="input text-sm"
                     value={selectedDs}
                     onChange={(e) => handleDsChange(e.target.value)}
+                    disabled={user?.role === 'cdc_secretary'}
                   >
                     {dsDivisions.map((ds) => (
                       <option key={ds.id} value={ds.id}>
@@ -647,6 +652,7 @@ export default function DataEntryPage() {
                     className="input text-sm"
                     value={selectedGn}
                     onChange={(e) => handleGnChange(e.target.value)}
+                    disabled={user?.role === 'cdc_secretary'}
                   >
                     {gnDivisions.map((gn) => (
                       <option key={gn.id} value={gn.id}>

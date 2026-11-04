@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Shell from '../../components/Shell';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import {
   MapPin,
@@ -18,6 +19,8 @@ import {
 
 export default function AreasPage() {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
   const [districts, setDistricts] = useState<any[]>([]);
   const [dsDivisions, setDsDivisions] = useState<any[]>([]);
   const [gnDivisions, setGnDivisions] = useState<any[]>([]);
@@ -295,17 +298,19 @@ export default function AreasPage() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button onClick={handleOpenConfigModal} className="btn-secondary">
-            <Settings size={16} />
-            <span>{t('areas.system_config')}</span>
-          </button>
+        {isSuperAdmin && (
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button onClick={handleOpenConfigModal} className="btn-secondary">
+              <Settings size={16} />
+              <span>{t('areas.system_config')}</span>
+            </button>
 
-          <button onClick={() => setShowPilotImport(true)} className="btn-primary">
-            <Upload size={16} />
-            <span>{t('areas.import_pilot')}</span>
-          </button>
-        </div>
+            <button onClick={() => setShowPilotImport(true)} className="btn-primary">
+              <Upload size={16} />
+              <span>{t('areas.import_pilot')}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {errorBanner && (
@@ -368,15 +373,17 @@ export default function AreasPage() {
               <Layers size={18} color="#059669" />
               <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>{t('areas.ds_divisions')} ({dsDivisions.length})</h3>
             </div>
-            <button
-              onClick={() => setShowDsModal(true)}
-              disabled={!selectedDistrictId}
-              className="btn-secondary"
-              style={{ padding: '4px 8px', fontSize: '11px' }}
-              title="Add DS Division"
-            >
-              + Add DS
-            </button>
+            {isSuperAdmin && (
+              <button
+                onClick={() => setShowDsModal(true)}
+                disabled={!selectedDistrictId}
+                className="btn-secondary"
+                style={{ padding: '4px 8px', fontSize: '11px' }}
+                title="Add DS Division"
+              >
+                + Add DS
+              </button>
+            )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '450px', overflowY: 'auto' }}>
             {dsDivisions.length === 0 ? (
@@ -420,15 +427,17 @@ export default function AreasPage() {
               <MapPin size={18} color="#d97706" />
               <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>{t('areas.gn_divisions')} ({gnDivisions.length})</h3>
             </div>
-            <button
-              onClick={() => setShowGnModal(true)}
-              disabled={!selectedDsId}
-              className="btn-secondary"
-              style={{ padding: '4px 8px', fontSize: '11px' }}
-              title="Add GN Division"
-            >
-              + Add GN
-            </button>
+            {isSuperAdmin && (
+              <button
+                onClick={() => setShowGnModal(true)}
+                disabled={!selectedDsId}
+                className="btn-secondary"
+                style={{ padding: '4px 8px', fontSize: '11px' }}
+                title="Add GN Division"
+              >
+                + Add GN
+              </button>
+            )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '450px', overflowY: 'auto' }}>
             {gnDivisions.length === 0 ? (
@@ -475,15 +484,17 @@ export default function AreasPage() {
               <Users size={18} color="#7c3aed" />
               <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>{t('areas.teams')} ({teams.length})</h3>
             </div>
-            <button
-              onClick={() => setShowTeamModal(true)}
-              disabled={!selectedGnId}
-              className="btn-secondary"
-              style={{ padding: '4px 8px', fontSize: '11px' }}
-              title="Add Field Team"
-            >
-              + Add Team
-            </button>
+            {isSuperAdmin && (
+              <button
+                onClick={() => setShowTeamModal(true)}
+                disabled={!selectedGnId}
+                className="btn-secondary"
+                style={{ padding: '4px 8px', fontSize: '11px' }}
+                title="Add Field Team"
+              >
+                + Add Team
+              </button>
+            )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '450px', overflowY: 'auto' }}>
             {teams.length === 0 ? (
@@ -515,17 +526,19 @@ export default function AreasPage() {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => {
-                        setEditingTeam(tm);
-                        setNewTeamLimit(limit);
-                      }}
-                      className="btn-secondary"
-                      style={{ padding: '6px 10px', fontSize: '11px' }}
-                    >
-                      <Edit2 size={12} />
-                      <span>Edit Limit</span>
-                    </button>
+                    {isSuperAdmin && (
+                      <button
+                        onClick={() => {
+                          setEditingTeam(tm);
+                          setNewTeamLimit(limit);
+                        }}
+                        className="btn-secondary"
+                        style={{ padding: '6px 10px', fontSize: '11px' }}
+                      >
+                        <Edit2 size={12} />
+                        <span>Edit Limit</span>
+                      </button>
+                    )}
                   </div>
                 );
               })

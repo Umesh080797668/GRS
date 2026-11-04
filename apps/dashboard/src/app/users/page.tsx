@@ -100,7 +100,7 @@ export default function UsersPage() {
       role: allowedSingleRoles[0]?.value || 'team_member',
       email: '',
       phone: '',
-      teamId: '',
+      teamId: user?.role === 'cdc_secretary' ? (user.teamId || '') : '',
     });
     setShowSingleModal(true);
   };
@@ -109,7 +109,7 @@ export default function UsersPage() {
     setBulkData({
       role: allowedBulkRoles[0]?.value || 'team_member',
       count: 10,
-      teamId: '',
+      teamId: user?.role === 'cdc_secretary' ? (user.teamId || '') : '',
     });
     setShowBulkModal(true);
   };
@@ -377,13 +377,19 @@ export default function UsersPage() {
           className="input-field"
           style={{ width: '180px' }}
         >
-          <option value="">All Roles</option>
-          <option value="team_member">Team Member</option>
-          <option value="cdc_secretary">CDC Secretary</option>
-          <option value="sda">SDA (Divisional)</option>
-          <option value="dc">DC (District)</option>
-          <option value="cg">CG (Central)</option>
-          <option value="admin">Administrator</option>
+          {user?.role === 'cdc_secretary' ? (
+            <option value="team_member">Team Members (Assigned)</option>
+          ) : (
+            <>
+              <option value="">All Roles</option>
+              <option value="team_member">Team Member</option>
+              <option value="cdc_secretary">CDC Secretary</option>
+              <option value="sda">SDA (Divisional)</option>
+              <option value="dc">DC (District)</option>
+              <option value="cg">CG (Central)</option>
+              <option value="admin">Administrator</option>
+            </>
+          )}
         </select>
 
         <button onClick={() => fetchAccounts(undefined, true)} className="btn-secondary" style={{ padding: '0.625rem 0.875rem' }}>
@@ -438,36 +444,41 @@ export default function UsersPage() {
                       {formatDate(acc.created_at || acc.createdAt)}
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                        <button
-                          onClick={() => handleResetPassword(acc.id)}
-                          title={t('users.reset_pwd')}
-                          className="btn-secondary"
-                          style={{ padding: '4px 8px', fontSize: '11px' }}
-                        >
-                          <KeyRound size={13} />
-                        </button>
-
-                        {isActive ? (
+                      {/* Restrict UI actions: Level 00 can manage accounts, Level 4 only manages team_member */}
+                      {(user?.role === 'super_admin' || (user?.role === 'cdc_secretary' && acc.role === 'team_member')) && (
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                           <button
-                            onClick={() => handleDeactivate(acc.id)}
-                            title={t('users.deactivate')}
-                            className="btn-danger"
+                            onClick={() => handleResetPassword(acc.id)}
+                            title={t('users.reset_pwd')}
+                            className="btn-secondary"
                             style={{ padding: '4px 8px', fontSize: '11px' }}
                           >
-                            <UserX size={13} />
+                            <KeyRound size={13} />
                           </button>
-                        ) : (
-                          <button
-                            onClick={() => handleReactivate(acc.id)}
-                            title={t('users.reactivate')}
-                            className="btn-secondary"
-                            style={{ padding: '4px 8px', fontSize: '11px', color: '#059669' }}
-                          >
-                            <UserCheck size={13} />
-                          </button>
-                        )}
-                      </div>
+
+                          {acc.id !== user?.id && (
+                            isActive ? (
+                              <button
+                                onClick={() => handleDeactivate(acc.id)}
+                                title={t('users.deactivate')}
+                                className="btn-danger"
+                                style={{ padding: '4px 8px', fontSize: '11px' }}
+                              >
+                                <UserX size={13} />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleReactivate(acc.id)}
+                                title={t('users.reactivate')}
+                                className="btn-secondary"
+                                style={{ padding: '4px 8px', fontSize: '11px', color: '#059669' }}
+                              >
+                                <UserCheck size={13} />
+                              </button>
+                            )
+                          )}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -596,24 +607,30 @@ export default function UsersPage() {
                 </select>
               </div>
 
-              {bulkData.role === 'team_member' && teams.length > 0 && (
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                    Assign to Team (Optional)
-                  </label>
-                  <select
-                    value={bulkData.teamId}
-                    onChange={(e) => setBulkData({ ...bulkData, teamId: e.target.value })}
-                    className="input-field"
-                  >
-                    <option value="">No team pre-assignment</option>
-                    {teams.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        Team {t.teamNo} (Max: {t.maxMembers})
-                      </option>
-                    ))}
-                  </select>
+              {user?.role === 'cdc_secretary' ? (
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '10px 14px', borderRadius: '8px', fontSize: '12px', color: '#475569' }}>
+                  <span>Assigned Field Team: <strong>Your Field Team (Pre-assigned)</strong></span>
                 </div>
+              ) : (
+                bulkData.role === 'team_member' && teams.length > 0 && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                      Assign to Team (Optional)
+                    </label>
+                    <select
+                      value={bulkData.teamId}
+                      onChange={(e) => setBulkData({ ...bulkData, teamId: e.target.value })}
+                      className="input-field"
+                    >
+                      <option value="">No team pre-assignment</option>
+                      {teams.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          Team {t.teamNo} (Max: {t.maxMembers})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )
               )}
 
               <div>
