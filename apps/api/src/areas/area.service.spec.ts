@@ -43,7 +43,7 @@ describe('AreaService (M1.7)', () => {
             (ds) =>
               ds.districtId === where.districtId &&
               ds.nameEn.toLowerCase() ===
-              (where.nameEn.equals || where.nameEn).toLowerCase(),
+                (where.nameEn.equals || where.nameEn).toLowerCase(),
           ) || null,
         );
       }),
@@ -392,9 +392,17 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
 
     beforeEach(async () => {
       inMemoryDs = [
-        { id: 'ds-thimbiri', districtId: 'dist-colombo', nameEn: 'Thimbirigasyaya' },
+        {
+          id: 'ds-thimbiri',
+          districtId: 'dist-colombo',
+          nameEn: 'Thimbirigasyaya',
+        },
         { id: 'ds-kaduwela', districtId: 'dist-colombo', nameEn: 'Kaduwela' },
-        { id: 'ds-galle', districtId: 'dist-galle', nameEn: 'Galle Four Gravets' },
+        {
+          id: 'ds-galle',
+          districtId: 'dist-galle',
+          nameEn: 'Galle Four Gravets',
+        },
       ];
 
       inMemoryGn = [
@@ -433,7 +441,10 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
         expect(result.limit).toBe(50);
         expect(result.total).toBeUndefined(); // count omitted by default for big-table scale
 
-        const withTotal = await service.getDivisionalSecretariats(superAdminScope, { includeTotal: true });
+        const withTotal = await service.getDivisionalSecretariats(
+          superAdminScope,
+          { includeTotal: true },
+        );
         expect(withTotal.total).toBe(3);
       });
 
@@ -442,8 +453,12 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
         expect(allowed.items).toBeDefined();
 
         await expect(
-          service.getDivisionalSecretariats(dcScope, { districtId: 'dist-galle' }),
-        ).rejects.toThrow('Cannot access DS divisions outside assigned district');
+          service.getDivisionalSecretariats(dcScope, {
+            districtId: 'dist-galle',
+          }),
+        ).rejects.toThrow(
+          'Cannot access DS divisions outside assigned district',
+        );
       });
 
       it('sda is scoped to their assigned dsId', async () => {
@@ -490,7 +505,9 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
         expect(result.items).toBeDefined();
         expect(result.total).toBeUndefined(); // count omitted by default
 
-        const withTotal = await service.getTeams(secretaryScope, { includeTotal: true });
+        const withTotal = await service.getTeams(secretaryScope, {
+          includeTotal: true,
+        });
         expect(withTotal.total).toBe(2);
       });
 

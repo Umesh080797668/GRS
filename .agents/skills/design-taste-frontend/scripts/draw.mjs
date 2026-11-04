@@ -29,7 +29,14 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const LIB = join(HERE, '..', 'library');
 const ASSETS_PATH = join(HERE, 'assets.mjs').split('\\').join('/');
 const ASSETS_CMD = `node ${/\s/.test(ASSETS_PATH) ? `"${ASSETS_PATH}"` : ASSETS_PATH}`;
-const load = (name) => JSON.parse(readFileSync(join(LIB, name + '.json'), 'utf8'));
+const load = (name) => {
+  const safeName = String(name).replace(/[^a-zA-Z0-9_-]/g, '');
+  const filePath = resolve(LIB, safeName + '.json');
+  if (!filePath.startsWith(resolve(LIB))) {
+    throw new Error('Access denied: invalid file path');
+  }
+  return JSON.parse(readFileSync(filePath, 'utf8'));
+};
 
 const argv = process.argv.slice(2);
 const opt = (name, def) => { const i = argv.indexOf('--' + name); if (i === -1) return def; const v = argv[i + 1]; return v === undefined || v.startsWith('--') ? true : v; };
@@ -67,7 +74,15 @@ const DEFAULT_SECTIONS = {
 const ROLE_ALIAS = { features: 'features', feature: 'features', benefits: 'features', services: 'features', showcase: 'showcase', product: 'showcase', demo: 'showcase', 'how-it-works': 'how-it-works', how: 'how-it-works', process: 'how-it-works', steps: 'how-it-works', testimonial: 'testimonial', testimonials: 'testimonial', quotes: 'testimonial', proof: 'proof', logos: 'proof', press: 'proof', stats: 'stats', numbers: 'stats', pricing: 'pricing', plans: 'pricing', faq: 'faq', cta: 'cta', footer: 'footer', intro: 'intro', manifesto: 'intro', about: 'about', team: 'about', work: 'work', projects: 'work', index: 'work', 'case-studies': 'work', gallery: 'gallery', images: 'gallery', list: 'list', menu: 'list', schedule: 'list', lineup: 'list', 'line-up': 'list', speakers: 'list', agenda: 'list', programme: 'list', program: 'list', timetable: 'list', rooms: 'list', tickets: 'pricing', price: 'pricing', contact: 'contact', booking: 'contact', newsletter: 'contact', signup: 'contact' };
 
 // App screens (dashboards, admin, settings) have their own library and sheet: scripts/lib/app-draw.mjs.
-const savedKind = (() => { try { return JSON.parse(readFileSync(sheetPath, 'utf8')).kind; } catch { return null; } })();
+const savedKind = (() => {
+  try {
+    const resolvedSheet = resolve(sheetPath);
+    if (!resolvedSheet.startsWith(outDir)) return null;
+    return JSON.parse(readFileSync(resolvedSheet, 'utf8')).kind;
+  } catch {
+    return null;
+  }
+})();
 if (opt('app') || ((opt('show') || opt('redraw')) && savedKind === 'app')) await import('./lib/app-draw.mjs');
 
 if (opt('list')) {
@@ -103,17 +118,35 @@ let seed = opt('seed') !== undefined && opt('seed') !== true ? Number(opt('seed'
 const startSeed = seed;
 const rnd = () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
-const shuffle = (arr) => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const shuffle = (arr) => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; } return a; };
 // prefer items not used recently, without ever emptying the pool
 const fresh = (pool, recent) => { const f = pool.filter((x) => !recent.includes(x.id)); return f.length ? f : pool; };
 
 // ---------- history (project + user level) ----------
 const userHist = process.env.TASTE_SKILL_HISTORY || join(homedir(), '.taste-skill', 'history.json');
-const readHist = () => { for (const p of [userHist]) { try { return JSON.parse(readFileSync(p, 'utf8')); } catch {} } return []; };
-const writeHist = (entry) => { try { mkdirSync(dirname(userHist), { recursive: true }); const h = readHist(); h.unshift(entry); writeFileSync(userHist, JSON.stringify(h.slice(0, 24), null, 1)); } catch {} };
+const readHist = () => {
+  for (const p of [userHist]) {
+    try {
+      const resolved = resolve(p);
+      if (!existsSync(resolved)) continue;
+      return JSON.parse(readFileSync(resolved, 'utf8'));
+    } catch { }
+  }
+  return [];
+};
+const writeHist = (entry) => { try { mkdirSync(dirname(userHist), { recursive: true }); const h = readHist(); h.unshift(entry); writeFileSync(userHist, JSON.stringify(h.slice(0, 24), null, 1)); } catch { } };
 
 // ---------- show / redraw ----------
-const saved = existsSync(sheetPath) ? JSON.parse(readFileSync(sheetPath, 'utf8')) : null;
+const saved = (() => {
+  try {
+    const resolvedSheet = resolve(sheetPath);
+    return existsSync(resolvedSheet) && resolvedSheet.startsWith(outDir)
+      ? JSON.parse(readFileSync(resolvedSheet, 'utf8'))
+      : null;
+  } catch {
+    return null;
+  }
+})();
 if (opt('show')) {
   if (!saved) { console.error('No saved direction. Run a draw first.'); process.exit(2); }
   console.log(render(saved)); process.exit(0);

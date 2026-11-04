@@ -44,11 +44,20 @@ const startSeed = seed;
 const rnd = () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
 const userHist = process.env.TASTE_SKILL_HISTORY || join(homedir(), '.taste-skill', 'history.json');
-const readHist = () => { try { return JSON.parse(readFileSync(userHist, 'utf8')); } catch { return []; } };
+const readHist = () => {
+  try {
+    const resolved = resolve(userHist);
+    if (!existsSync(resolved)) return [];
+    return JSON.parse(readFileSync(resolved, 'utf8'));
+  } catch {
+    return [];
+  }
+};
 const writeHist = (e) => { try { mkdirSync(dirname(userHist), { recursive: true }); const h = readHist(); h.unshift(e); writeFileSync(userHist, JSON.stringify(h.slice(0, 24), null, 1)); } catch {} };
 const recentStyles = readHist().filter((h) => h.kind === 'app').slice(0, 3).map((h) => h.style);
 
-const saved = existsSync(sheetPath) ? JSON.parse(readFileSync(sheetPath, 'utf8')) : null;
+const safeSheetPath = resolve(sheetPath);
+const saved = existsSync(safeSheetPath) && safeSheetPath.startsWith(outDir) ? JSON.parse(readFileSync(safeSheetPath, 'utf8')) : null;
 if (opt('show')) { if (!saved || saved.kind !== 'app') { console.error('No saved app sheet. Run draw.mjs --app first.'); process.exit(2); } console.log(render(saved)); process.exit(0); }
 
 function stylePool(input) {

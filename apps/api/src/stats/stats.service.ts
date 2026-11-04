@@ -1,4 +1,8 @@
-import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScopeService } from '../common/scope/scope.service';
 import { ScopeContext, UserRole } from '../common/scope/scope.types';
@@ -10,7 +14,7 @@ export class StatsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: ScopeService,
-  ) { }
+  ) {}
 
   async getProgress(
     caller: ScopeContext,
@@ -50,7 +54,8 @@ export class StatsService {
       if (targetAreaType !== 'team' || targetAreaId !== caller.teamId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE',
-          message: 'Team member can only view statistics for their assigned team',
+          message:
+            'Team member can only view statistics for their assigned team',
         });
       }
     } else if (caller.role === UserRole.cdc_secretary) {
@@ -75,7 +80,8 @@ export class StatsService {
         if (!team || team.gnId !== caller.gnId) {
           throw new ForbiddenException({
             code: 'OUT_OF_SCOPE',
-            message: 'Cannot view statistics for a team outside your GN division',
+            message:
+              'Cannot view statistics for a team outside your GN division',
           });
         }
       }
@@ -100,7 +106,8 @@ export class StatsService {
         if (!gn || gn.dsId !== caller.dsId) {
           throw new ForbiddenException({
             code: 'OUT_OF_SCOPE',
-            message: 'Cannot view statistics for a GN division outside your DS division',
+            message:
+              'Cannot view statistics for a GN division outside your DS division',
           });
         }
       }
@@ -112,7 +119,8 @@ export class StatsService {
         if (!team || team.gn?.dsId !== caller.dsId) {
           throw new ForbiddenException({
             code: 'OUT_OF_SCOPE',
-            message: 'Cannot view statistics for a team outside your DS division',
+            message:
+              'Cannot view statistics for a team outside your DS division',
           });
         }
       }
@@ -137,7 +145,8 @@ export class StatsService {
         if (!ds || ds.districtId !== caller.districtId) {
           throw new ForbiddenException({
             code: 'OUT_OF_SCOPE',
-            message: 'Cannot view statistics for a DS division outside your District',
+            message:
+              'Cannot view statistics for a DS division outside your District',
           });
         }
       }
@@ -149,7 +158,8 @@ export class StatsService {
         if (!gn || gn.ds?.districtId !== caller.districtId) {
           throw new ForbiddenException({
             code: 'OUT_OF_SCOPE',
-            message: 'Cannot view statistics for a GN division outside your District',
+            message:
+              'Cannot view statistics for a GN division outside your District',
           });
         }
       }

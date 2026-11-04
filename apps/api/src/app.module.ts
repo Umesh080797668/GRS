@@ -51,4 +51,4 @@ import { ImportModule } from './imports/import.module';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

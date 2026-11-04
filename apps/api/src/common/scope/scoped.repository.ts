@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ScopeService } from './scope.service';
@@ -31,25 +32,31 @@ export class ScopedRepository {
     params: KeysetPaginationParams & { status?: string },
   ): Promise<{ items: Household[]; nextCursor?: string }> {
     const scopeFilter = this.scopeService.getHouseholdScopeFilter(scope);
-    const take = Math.min(params.take || 50, 100);
+    const take = Math.min(Number(params.take) || 50, 100);
 
     const where: Prisma.HouseholdWhereInput = {
       ...scopeFilter,
     };
 
-    if (params.search) {
+    if (params.search && typeof params.search === 'string') {
+      const searchStr = params.search.trim();
       where.OR = [
-        { houseNo: { contains: params.search, mode: 'insensitive' } },
-        { houseLeaderName: { contains: params.search, mode: 'insensitive' } },
-        { address: { contains: params.search, mode: 'insensitive' } },
+        { houseNo: { contains: searchStr, mode: 'insensitive' } },
+        { houseLeaderName: { contains: searchStr, mode: 'insensitive' } },
+        { address: { contains: searchStr, mode: 'insensitive' } },
       ];
     }
+
+    const cursorId =
+      params.cursor && typeof params.cursor === 'string'
+        ? params.cursor.trim()
+        : undefined;
 
     const items = await this.prisma.household.findMany({
       where,
       take: take + 1,
-      cursor: params.cursor ? { id: params.cursor } : undefined,
-      skip: params.cursor ? 1 : 0,
+      cursor: cursorId ? { id: cursorId } : undefined,
+      skip: cursorId ? 1 : 0,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -66,11 +73,18 @@ export class ScopedRepository {
    * Finds a single household by ID, asserting area scope.
    */
   async findHouseholdById(scope: ScopeContext, id: string): Promise<Household> {
+    if (typeof id !== 'string' || !id.trim()) {
+      throw new BadRequestException({
+        code: 'INVALID_ID',
+        message_key: 'errors.household.invalid_id',
+      });
+    }
+    const cleanId = id.trim();
     const scopeFilter = this.scopeService.getHouseholdScopeFilter(scope);
 
     const household = await this.prisma.household.findFirst({
       where: {
-        id,
+        id: { equals: cleanId },
         ...scopeFilter,
       },
     });
@@ -95,22 +109,32 @@ export class ScopedRepository {
     params: KeysetPaginationParams & { householdId?: string },
   ): Promise<{ items: Client[]; nextCursor?: string }> {
     const scopeFilter = this.scopeService.getClientScopeFilter(scope);
-    const take = Math.min(params.take || 50, 100);
+    const take = Math.min(Number(params.take) || 50, 100);
+
+    const householdId =
+      params.householdId && typeof params.householdId === 'string'
+        ? params.householdId.trim()
+        : undefined;
 
     const where: Prisma.ClientWhereInput = {
       ...scopeFilter,
-      householdId: params.householdId,
+      householdId: householdId ? { equals: householdId } : undefined,
     };
 
-    if (params.search) {
-      where.name = { contains: params.search, mode: 'insensitive' };
+    if (params.search && typeof params.search === 'string') {
+      where.name = { contains: params.search.trim(), mode: 'insensitive' };
     }
+
+    const cursorId =
+      params.cursor && typeof params.cursor === 'string'
+        ? params.cursor.trim()
+        : undefined;
 
     const items = await this.prisma.client.findMany({
       where,
       take: take + 1,
-      cursor: params.cursor ? { id: params.cursor } : undefined,
-      skip: params.cursor ? 1 : 0,
+      cursor: cursorId ? { id: cursorId } : undefined,
+      skip: cursorId ? 1 : 0,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -127,11 +151,18 @@ export class ScopedRepository {
    * Finds a client by ID within authorized scope.
    */
   async findClientById(scope: ScopeContext, id: string): Promise<Client> {
+    if (typeof id !== 'string' || !id.trim()) {
+      throw new BadRequestException({
+        code: 'INVALID_ID',
+        message_key: 'errors.client.invalid_id',
+      });
+    }
+    const cleanId = id.trim();
     const scopeFilter = this.scopeService.getClientScopeFilter(scope);
 
     const client = await this.prisma.client.findFirst({
       where: {
-        id,
+        id: { equals: cleanId },
         ...scopeFilter,
       },
     });
@@ -157,7 +188,14 @@ export class ScopedRepository {
     data: Prisma.ClientUpdateInput,
     reason?: string,
   ): Promise<Client> {
-    const existing = await this.findClientById(scope, id);
+    if (typeof id !== 'string' || !id.trim()) {
+      throw new BadRequestException({
+        code: 'INVALID_ID',
+        message_key: 'errors.client.invalid_id',
+      });
+    }
+    const cleanId = id.trim();
+    const existing = await this.findClientById(scope, cleanId);
 
     // Assert edit permission for synced records
     if (!this.scopeService.canEditSyncedClient(scope, existing)) {
@@ -170,7 +208,7 @@ export class ScopedRepository {
     // Atomic update and audit trail creation
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.client.update({
-        where: { id },
+        where: { id: cleanId },
         data: {
           ...data,
           serverVersion: { increment: 1 },
@@ -180,7 +218,7 @@ export class ScopedRepository {
 
       await tx.clientAudit.create({
         data: {
-          clientId: id,
+          clientId: cleanId,
           changedBy: scope.userId,
           before: existing as any,
           after: updated as any,
@@ -201,6 +239,24 @@ export class ScopedRepository {
     teamId: string,
     houseIds: string[],
   ): Promise<void> {
+    if (typeof teamId !== 'string' || !teamId.trim()) {
+      throw new BadRequestException({
+        code: 'INVALID_TEAM_ID',
+        message_key: 'errors.team.invalid_id',
+      });
+    }
+    const cleanTeamId = teamId.trim();
+
+    if (!Array.isArray(houseIds)) {
+      throw new BadRequestException({
+        code: 'INVALID_HOUSE_IDS',
+        message_key: 'errors.household.invalid_ids',
+      });
+    }
+    const cleanHouseIds = houseIds
+      .filter((h) => typeof h === 'string' && h.trim().length > 0)
+      .map((h) => h.trim());
+
     const gnId = scope.gnId;
     if (!gnId) {
       throw new ForbiddenException({
@@ -213,7 +269,7 @@ export class ScopedRepository {
       // Find any houses from the requested list that are already taken or belong to another GN
       const conflicting = await tx.household.findMany({
         where: {
-          id: { in: houseIds },
+          id: { in: cleanHouseIds },
           OR: [
             { teamId: { not: null } },
             { gnId: { not: gnId } },
@@ -234,13 +290,13 @@ export class ScopedRepository {
       // Assign all requested houses atomically
       await tx.household.updateMany({
         where: {
-          id: { in: houseIds },
+          id: { in: cleanHouseIds },
           gnId,
           teamId: null,
           deletedAt: null,
         },
         data: {
-          teamId,
+          teamId: cleanTeamId,
           version: { increment: 1 },
           updatedBy: scope.userId,
         },

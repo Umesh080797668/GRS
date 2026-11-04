@@ -13,7 +13,10 @@ const asJson = args.includes('--json');
 // App screens (references/app-screens.md) keep quiet table and panel lines, faint shadows, data labels
 // and their own typefaces; a sheet dealt with draw.mjs --app switches this on by itself.
 let appMode = args.includes('--app');
-try { if (JSON.parse(readFileSync('.taste-skill/direction.json', 'utf8')).kind === 'app') appMode = true; } catch {}
+try {
+  const directionFile = resolve('.taste-skill/direction.json');
+  if (existsSync(directionFile) && JSON.parse(readFileSync(directionFile, 'utf8')).kind === 'app') appMode = true;
+} catch {}
 const APP_LEVEL = { hairline: null, 'outlined-box': null, 'default-font': null, numbering: 'WARN', mono: 'WARN', shadow: 'WARN', eyebrow: 'WARN', 'cta-copy': null, 'h-screen': null };
 const roots = args.filter((a) => !a.startsWith('--'));
 if (!roots.length) roots.push('.');

@@ -26,11 +26,11 @@ export type AuthSession = {
 
 export type LoginResult =
   | {
-    mustChangePassword: true;
-    accessToken: string;
-    user: Record<string, any>;
-    profile?: Record<string, any>;
-  }
+      mustChangePassword: true;
+      accessToken: string;
+      user: Record<string, any>;
+      profile?: Record<string, any>;
+    }
   | AuthSession;
 
 @Injectable()
@@ -50,12 +50,15 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly rateLimitService: RateLimitService,
-  ) { }
+  ) {}
 
   /**
    * Normalizes login identifier (GRS ID -> uppercase, Email -> lowercase).
    */
   normalizeIdentifier(raw: string): { type: 'code' | 'email'; value: string } {
+    if (!raw || typeof raw !== 'string') {
+      throw new BadRequestException('Identifier must be a string');
+    }
     const trimmed = raw.trim();
     if (trimmed.includes('@')) {
       return { type: 'email', value: trimmed.toLowerCase() };
@@ -78,8 +81,16 @@ export class AuthService {
     ip: string = '127.0.0.1',
     clientType?: string,
   ): Promise<LoginResult> {
+    if (
+      !dto ||
+      typeof dto.identifier !== 'string' ||
+      typeof dto.password !== 'string'
+    ) {
+      throw new BadRequestException('Invalid credentials payload');
+    }
     const cleanIp = (ip || '127.0.0.1').trim();
-    const cleanDeviceId = dto.deviceId?.trim();
+    const cleanDeviceId =
+      typeof dto.deviceId === 'string' ? dto.deviceId.trim() : undefined;
     const deviceSuffix = cleanDeviceId ? `:${cleanDeviceId}` : `:${cleanIp}`;
     const { type, value } = this.normalizeIdentifier(dto.identifier);
 
@@ -128,7 +139,10 @@ export class AuthService {
     }
 
     const profile = await this.prisma.profile.findFirst({
-      where: type === 'code' ? { userCode: value } : { email: value },
+      where:
+        type === 'code'
+          ? { userCode: { equals: value } }
+          : { email: { equals: value } },
     });
 
     if (profile && this.rateLimitService?.checkRateLimit) {
@@ -303,8 +317,15 @@ export class AuthService {
     userId: string,
     dto: ChangePasswordDto,
   ): Promise<AuthSession> {
+    if (typeof userId !== 'string' || !userId.trim()) {
+      throw new UnauthorizedException({
+        code: 'AUTH_INVALID',
+        message_key: 'errors.auth.invalid_user',
+      });
+    }
+    const cleanUserId = userId.trim();
     const profile = await this.prisma.profile.findUnique({
-      where: { id: userId },
+      where: { id: cleanUserId },
     });
 
     if (!profile || !profile.isActive) {
@@ -391,13 +412,23 @@ export class AuthService {
    * Rotates refresh tokens with reuse detection.
    */
   async refreshTokens(dto: RefreshTokenDto): Promise<AuthSession> {
+    if (
+      !dto ||
+      typeof dto.refreshToken !== 'string' ||
+      !dto.refreshToken.trim()
+    ) {
+      throw new UnauthorizedException({
+        code: 'AUTH_INVALID',
+        message_key: 'errors.auth.invalid_refresh_token',
+      });
+    }
     const tokenHash = crypto
       .createHash('sha256')
-      .update(dto.refreshToken)
+      .update(dto.refreshToken.trim())
       .digest('hex');
 
     const tokenRecord = await this.prisma.refreshToken.findFirst({
-      where: { tokenHash },
+      where: { tokenHash: { equals: tokenHash } },
       include: { profile: true },
     });
 
@@ -554,15 +585,21 @@ export class AuthService {
    * Adds a pending email and dispatches a 6-digit verification code (M1.15 / M2.5).
    */
   async addPendingEmail(userId: string, email: string) {
-    if (!email || typeof email !== 'string') {
+    if (
+      !userId ||
+      typeof userId !== 'string' ||
+      !email ||
+      typeof email !== 'string'
+    ) {
       throw new BadRequestException({
         code: 'VALIDATION_FAILED',
-        message: 'Valid email address is required',
+        message: 'Valid user ID and email address are required',
       });
     }
+    const cleanUserId = userId.trim();
     const cleanEmail = email.trim().toLowerCase();
     const existing = await this.prisma.profile.findFirst({
-      where: { email: cleanEmail, id: { not: userId } },
+      where: { email: { equals: cleanEmail }, id: { not: cleanUserId } },
     });
     if (existing) {
       throw new ConflictException({
@@ -572,26 +609,32 @@ export class AuthService {
     }
 
     await this.prisma.profile.update({
-      where: { id: userId },
+      where: { id: cleanUserId },
       data: { pendingEmail: cleanEmail },
     });
 
-    return this.emailService.sendCode(userId, cleanEmail, 'verify');
+    return this.emailService.sendCode(cleanUserId, cleanEmail, 'verify');
   }
 
   /**
    * Verifies the 6-digit code and promotes pending email to verified primary email (M1.15 / M2.5).
    */
   async verifyEmail(userId: string, code: string) {
-    if (!code || typeof code !== 'string') {
+    if (
+      !userId ||
+      typeof userId !== 'string' ||
+      !code ||
+      typeof code !== 'string'
+    ) {
       throw new BadRequestException({
         code: 'VALIDATION_FAILED',
         message: '6-digit verification code is required',
       });
     }
+    const cleanUserId = userId.trim();
     const cleanCode = code.trim();
     const profile = await this.prisma.profile.findUnique({
-      where: { id: userId },
+      where: { id: cleanUserId },
     });
     if (!profile || !profile.pendingEmail) {
       throw new BadRequestException({
@@ -602,14 +645,14 @@ export class AuthService {
     }
 
     await this.emailService.verifyCode(
-      userId,
+      cleanUserId,
       profile.pendingEmail,
       cleanCode,
       'verify',
     );
 
     const updated = await this.prisma.profile.update({
-      where: { id: userId },
+      where: { id: cleanUserId },
       data: {
         email: profile.pendingEmail,
         pendingEmail: null,
@@ -618,8 +661,8 @@ export class AuthService {
 
     await this.prisma.accountAudit.create({
       data: {
-        actorId: userId,
-        targetId: userId,
+        actorId: cleanUserId,
+        targetId: cleanUserId,
         action: 'email_added',
       },
     });
@@ -648,7 +691,7 @@ export class AuthService {
     }
 
     const profile = await this.prisma.profile.findFirst({
-      where: { email: cleanEmail, isActive: true },
+      where: { email: { equals: cleanEmail }, isActive: true },
     });
 
     if (profile) {
@@ -684,7 +727,14 @@ export class AuthService {
     newPassword: string,
     clientIp?: string,
   ) {
-    if (!email || !code || !newPassword) {
+    if (
+      !email ||
+      typeof email !== 'string' ||
+      !code ||
+      typeof code !== 'string' ||
+      !newPassword ||
+      typeof newPassword !== 'string'
+    ) {
       throw new BadRequestException({
         code: 'VALIDATION_FAILED',
         message_key: 'errors.validation.missing_fields',
@@ -703,7 +753,7 @@ export class AuthService {
     }
 
     const profile = await this.prisma.profile.findFirst({
-      where: { email: cleanEmail, isActive: true },
+      where: { email: { equals: cleanEmail }, isActive: true },
     });
 
     if (!profile) {

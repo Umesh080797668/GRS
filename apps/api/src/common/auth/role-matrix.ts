@@ -6,22 +6,22 @@ export interface EndpointPolicy {
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   path: string;
   category:
-  | 'auth'
-  | 'accounts'
-  | 'config'
-  | 'lookups'
-  | 'areas'
-  | 'houses'
-  | 'clients'
-  | 'sync'
-  | 'duplicates'
-  | 'stats'
-  | 'exports'
-  | 'releases'
-  | 'imports';
+    | 'auth'
+    | 'accounts'
+    | 'config'
+    | 'lookups'
+    | 'areas'
+    | 'houses'
+    | 'clients'
+    | 'sync'
+    | 'duplicates'
+    | 'stats'
+    | 'exports'
+    | 'releases'
+    | 'imports';
   allowedRoles: ExtendedRole[];
   scopeEnforcement:
-  'none' | 'own_only' | 'team_only' | 'gn_only' | 'hierarchical' | 'national';
+    'none' | 'own_only' | 'team_only' | 'gn_only' | 'hierarchical' | 'national';
   description: string;
 }
 
@@ -545,14 +545,7 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     method: 'POST',
     path: '/houses/:id/reopen',
     category: 'houses',
-    allowedRoles: [
-      'cdc_secretary',
-      'sda',
-      'dc',
-      'cg',
-      'admin',
-      'super_admin',
-    ],
+    allowedRoles: ['cdc_secretary', 'sda', 'dc', 'cg', 'admin', 'super_admin'],
     scopeEnforcement: 'team_only',
     description: 'Reopen completed household visit (team leader and above)',
   },
@@ -835,7 +828,8 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     category: 'imports',
     allowedRoles: ['cdc_secretary', 'admin', 'super_admin'],
     scopeEnforcement: 'gn_only',
-    description: 'Preview household spreadsheet/CSV import and store in staging table',
+    description:
+      'Preview household spreadsheet/CSV import and store in staging table',
   },
   {
     method: 'POST',
@@ -843,7 +837,8 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     category: 'imports',
     allowedRoles: ['cdc_secretary', 'admin', 'super_admin'],
     scopeEnforcement: 'gn_only',
-    description: 'Confirm and commit valid staging rows into households table in atomic transaction',
+    description:
+      'Confirm and commit valid staging rows into households table in atomic transaction',
   },
   {
     method: 'GET',
@@ -867,7 +862,8 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     category: 'imports',
     allowedRoles: ['cdc_secretary', 'admin', 'super_admin'],
     scopeEnforcement: 'gn_only',
-    description: 'Download sanitized error report CSV for invalid rows in batch',
+    description:
+      'Download sanitized error report CSV for invalid rows in batch',
   },
 ];
 

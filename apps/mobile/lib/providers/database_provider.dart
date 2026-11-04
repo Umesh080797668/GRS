@@ -4,6 +4,14 @@ import 'package:path_provider/path_provider.dart';
 import '../data/local/database.dart';
 import '../data/local/secure_storage_service.dart';
 
+String _sanitizeDatabaseFileName(String input) {
+  return input
+      .replaceAll('..', '')
+      .replaceAll('/', '_')
+      .replaceAll(r'\', '_')
+      .replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+}
+
 final secureStorageProvider = Provider<SecureStorageService>((ref) {
   return SecureStorageService();
 });
@@ -17,7 +25,7 @@ final databaseProvider = FutureProvider<AppDatabase>((ref) async {
 
   final appDocDir = await getApplicationDocumentsDirectory();
   final fileName = userId != null && userId.isNotEmpty
-      ? 'grs_offline_$userId.db'
+      ? 'grs_offline_${_sanitizeDatabaseFileName(userId)}.db'
       : 'grs_offline_v1.db';
   final dbFile = File('${appDocDir.path}/$fileName');
 
@@ -36,7 +44,8 @@ Future<void> wipeUserDatabase({
   try {
     final appDocDir = await getApplicationDocumentsDirectory();
     final fileNames = [
-      if (userId != null && userId.isNotEmpty) 'grs_offline_$userId.db',
+      if (userId != null && userId.isNotEmpty)
+        'grs_offline_${_sanitizeDatabaseFileName(userId)}.db',
       'grs_offline_v1.db',
     ];
 
@@ -67,7 +76,8 @@ Future<bool> hasUnsyncedRecordsForUser({
 }) async {
   try {
     final appDocDir = await getApplicationDocumentsDirectory();
-    final dbFile = File('${appDocDir.path}/grs_offline_$userId.db');
+    final sanitizedUserId = _sanitizeDatabaseFileName(userId);
+    final dbFile = File('${appDocDir.path}/grs_offline_$sanitizedUserId.db');
     if (!await dbFile.exists()) {
       return false;
     }

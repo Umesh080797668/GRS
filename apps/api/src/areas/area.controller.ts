@@ -31,7 +31,7 @@ import type { ScopeContext } from '../common/scope/scope.types';
 @Controller('v1/areas')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AreaController {
-  constructor(private readonly areaService: AreaService) { }
+  constructor(private readonly areaService: AreaService) {}
 
   @Get('districts')
   async getDistricts() {
@@ -66,10 +66,7 @@ export class AreaController {
     UserRole.cdc_secretary,
     UserRole.team_member,
   )
-  async getDs(
-    @CurrentUser() user: ScopeContext,
-    @Query() query: ListDsDto,
-  ) {
+  async getDs(@CurrentUser() user: ScopeContext, @Query() query: ListDsDto) {
     return this.areaService.getDivisionalSecretariats(user, query);
   }
 
@@ -89,10 +86,7 @@ export class AreaController {
     UserRole.cdc_secretary,
     UserRole.team_member,
   )
-  async getGn(
-    @CurrentUser() user: ScopeContext,
-    @Query() query: ListGnDto,
-  ) {
+  async getGn(@CurrentUser() user: ScopeContext, @Query() query: ListGnDto) {
     return this.areaService.getGnDivisions(user, query);
   }
 
@@ -106,7 +100,10 @@ export class AreaController {
     UserRole.admin,
     UserRole.super_admin,
   )
-  async getGnById(@CurrentUser() user: ScopeContext, @Param('id', ParseUUIDPipe) id: string) {
+  async getGnById(
+    @CurrentUser() user: ScopeContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.areaService.getGnDivisionById(user, id);
   }
 
@@ -144,7 +141,10 @@ export class AreaController {
 
   @Patch('teams/:id')
   @Roles(UserRole.super_admin)
-  async updateTeam(@Param('id', ParseUUIDPipe) teamId: string, @Body() dto: UpdateTeamDto) {
+  async updateTeam(
+    @Param('id', ParseUUIDPipe) teamId: string,
+    @Body() dto: UpdateTeamDto,
+  ) {
     return this.areaService.updateTeam(teamId, dto);
   }
 

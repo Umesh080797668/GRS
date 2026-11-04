@@ -179,7 +179,8 @@ class AppDatabase {
     final executor = NativeDatabase(
       file,
       setup: (rawDb) {
-        rawDb.execute("PRAGMA key = '$cipherKey';");
+        final escapedKey = cipherKey.replaceAll("'", "''");
+        rawDb.execute("PRAGMA key = '$escapedKey';");
       },
     );
 
@@ -245,7 +246,8 @@ class AppDatabase {
     }
     final executor = NativeDatabase.memory(
       setup: (rawDb) {
-        rawDb.execute("PRAGMA key = '$cipherKey';");
+        final escapedKey = cipherKey.replaceAll("'", "''");
+        rawDb.execute("PRAGMA key = '$escapedKey';");
       },
     );
     final db = AppDatabase._(executor, cipherKey);

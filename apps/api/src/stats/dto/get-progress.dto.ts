@@ -19,4 +19,3 @@ export class GetProgressDto {
   @IsString()
   areaId?: string;
 }
-

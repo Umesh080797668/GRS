@@ -16,7 +16,7 @@ export interface DriftReport {
 export class StatsRefreshService {
   private readonly logger = new Logger(StatsRefreshService.name);
 
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Refreshes team_stats for all dirty teams (or all teams if forceAll),
@@ -38,11 +38,13 @@ export class StatsRefreshService {
     try {
       const rows = await this.prisma.$queryRawUnsafe<
         Array<{ refresh_dirty_team_stats: any } | { count: any }>
-      >(`SELECT public.refresh_dirty_team_stats()::text AS refresh_dirty_team_stats;`);
+      >(
+        `SELECT public.refresh_dirty_team_stats()::text AS refresh_dirty_team_stats;`,
+      );
       refreshedTeams = Number(
         (rows[0] as any)?.refresh_dirty_team_stats ??
-        (rows[0] as any)?.count ??
-        0,
+          (rows[0] as any)?.count ??
+          0,
       );
     } catch {
       await this.prisma.$executeRawUnsafe(
@@ -218,7 +220,9 @@ export class StatsRefreshService {
     });
 
     const totalSummaryClients = summaryClientAgg._sum.clientsCount || 0;
-    const totalSummaryHouseholds = nationalStat?.housesAssigned ?? (summaryClientAgg._sum.housesAssigned || 0);
+    const totalSummaryHouseholds =
+      nationalStat?.housesAssigned ??
+      (summaryClientAgg._sum.housesAssigned || 0);
 
     const clientDrift = Math.abs(freshClients - totalSummaryClients);
     const householdDrift = Math.abs(freshHouseholds - totalSummaryHouseholds);

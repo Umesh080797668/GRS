@@ -19,7 +19,7 @@ import { AssignHousesDto } from './dto/household.dto';
 @Controller('v1/teams')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class TeamHousesController {
-  constructor(private readonly householdService: HouseholdService) { }
+  constructor(private readonly householdService: HouseholdService) {}
 
   @Post(':id/houses')
   @Roles(UserRole.cdc_secretary, UserRole.super_admin)

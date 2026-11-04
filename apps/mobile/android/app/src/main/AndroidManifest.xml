@@ -7,6 +7,7 @@
         android:label="GRS Mobile"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
         android:networkSecurityConfig="@xml/network_security_config"
         android:requestLegacyExternalStorage="true">
         <activity
@@ -36,7 +37,8 @@
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileProvider"
             android:exported="false"
-            android:grantUriPermissions="true">
+            android:grantUriPermissions="true"
+            android:readPermission="android.permission.MANAGE_DOCUMENTS">
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />

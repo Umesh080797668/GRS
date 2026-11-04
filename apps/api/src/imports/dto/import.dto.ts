@@ -11,4 +11,3 @@ export class ImportTemplateQueryDto {
   @IsOptional()
   lang?: string = 'en';
 }
-

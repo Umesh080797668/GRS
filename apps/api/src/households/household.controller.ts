@@ -27,7 +27,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 @Controller('v1/houses')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class HouseholdController {
-  constructor(private readonly householdService: HouseholdService) { }
+  constructor(private readonly householdService: HouseholdService) {}
 
   @Get()
   @Roles(

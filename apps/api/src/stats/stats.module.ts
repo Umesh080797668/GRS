@@ -10,4 +10,4 @@ import { ScopeModule } from '../common/scope/scope.module';
   providers: [StatsService],
   exports: [StatsService],
 })
-export class StatsModule { }
+export class StatsModule {}

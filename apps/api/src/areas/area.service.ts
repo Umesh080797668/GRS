@@ -31,7 +31,7 @@ export interface PilotAreaImportResult {
 
 @Injectable()
 export class AreaService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Seeds the 25 official Sri Lankan districts with trilingual names.
@@ -104,10 +104,7 @@ export class AreaService {
     });
   }
 
-  async getDivisionalSecretariats(
-    caller: ScopeContext,
-    query: ListDsDto = {},
-  ) {
+  async getDivisionalSecretariats(caller: ScopeContext, query: ListDsDto = {}) {
     const where: any = {};
 
     switch (caller.role) {

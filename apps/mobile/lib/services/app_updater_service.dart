@@ -160,8 +160,19 @@ class AppUpdaterService {
 
     final totalBytes = streamedResponse.contentLength ?? -1;
     final tempDir = await (_tempDirProvider?.call() ?? getTemporaryDirectory());
-    final fileName = 'grs-release-${release.version.replaceAll('/', '_')}.apk';
+    final sanitizedVersion = release.version
+        .replaceAll('..', '')
+        .replaceAll('/', '_')
+        .replaceAll(r'\', '_')
+        .replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final fileName = 'grs-release-$sanitizedVersion.apk';
     final targetFile = File('${tempDir.path}/$fileName');
+    if (!targetFile.path.startsWith(tempDir.path)) {
+      throw FileSystemException(
+        'Path traversal detected in update filename',
+        targetFile.path,
+      );
+    }
 
     if (await targetFile.exists()) {
       await targetFile.delete();

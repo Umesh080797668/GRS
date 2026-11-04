@@ -38,7 +38,8 @@ if (!target || target === '-h' || target.startsWith('--')) {
 }
 // Allowances granted by the drawn direction (written by draw.mjs) apply automatically.
 for (const p of ['.taste-skill/direction.json', join(outDir, '..', 'direction.json')]) {
-  if (existsSync(p)) { try { const d = JSON.parse(readFileSync(p, 'utf8')); allow = [...new Set([...allow, ...(d.allow || [])])]; if (d.kind === 'app') appMode = true; if (Array.isArray(d.scenes) && d.scenes.length) film = true; dealtFonts = (d.input?.keep || []).includes('type') ? [] : d.kind === 'app' ? [d.style?.tokens?.font?.family].filter(Boolean) : [d.type?.display?.family, d.type?.text?.family].filter(Boolean); } catch {} break; }
+  const resolvedP = resolve(p);
+  if (existsSync(resolvedP)) { try { const d = JSON.parse(readFileSync(resolvedP, 'utf8')); allow = [...new Set([...allow, ...(d.allow || [])])]; if (d.kind === 'app') appMode = true; if (Array.isArray(d.scenes) && d.scenes.length) film = true; dealtFonts = (d.input?.keep || []).includes('type') ? [] : d.kind === 'app' ? [d.style?.tokens?.font?.family].filter(Boolean) : [d.type?.display?.family, d.type?.text?.family].filter(Boolean); } catch {} break; }
 }
 // A local file is served over http from a throwaway server on 127.0.0.1, so the browser never has to
 // open a file path (some sandboxes show Node and the browser different views of the disk) and relative
@@ -128,7 +129,8 @@ try {
     const devServer = await page.eval(`(() => { const s = [...document.scripts].map((x) => x.src || '').join(' '); if (/@vite\\/client|webpack-dev-server|\\/_next\\/static\\/development\\/|react-refresh|webpack-hmr/.test(s)) return true; try { return !!(window.__NEXT_DATA__ && window.__NEXT_DATA__.buildId === 'development'); } catch { return false; } })()`).catch(() => false);
     await page.eval('document.fonts.ready.then(() => true)').catch(() => {});
     await sleep(800); // let the load choreography finish before judging the first screen
-    const fold = join(outDir, `${imageLabel}-fold.jpg`);
+    const fold = resolve(outDir, `${imageLabel}-fold.jpg`);
+    if (!fold.startsWith(resolve(outDir))) throw new Error('Path traversal');
     await page.screenshot({ path: fold, quality: 82 });
     const metrics = await page.eval(probe);
 

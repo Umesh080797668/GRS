@@ -15,5 +15,15 @@
   },
   "devDependencies": {
     "typescript": "^5.7.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "deepmerge-ts": "^8.0.0",
+      "multer": "^2.5.0",
+      "zod": "^4.6.0",
+      "js-yaml": "^5.4.1",
+      "raw-body": "2.5.3",
+      "jose": "^6.2.15"
+    }
   }
 }

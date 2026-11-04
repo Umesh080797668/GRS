@@ -74,7 +74,8 @@ export class UpdateConfigDto {
 
   @ApiPropertyOptional({
     example: ['cdc_secretary', 'sda', 'dc', 'admin'],
-    description: 'Roles permitted to perform direct web data entry (Decision C19)',
+    description:
+      'Roles permitted to perform direct web data entry (Decision C19)',
   })
   @IsOptional()
   web_entry_roles?: string[];

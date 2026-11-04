@@ -38,27 +38,29 @@ on:
         required: false
         default: false
 
-permissions:
-  contents: write
+permissions: {}
 
 jobs:
   build-and-release:
     name: Build & Publish Signed Android APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
+          persist-credentials: true
 
       - name: Setup Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4.7.0
         with:
           distribution: 'temurin'
           java-version: '17'
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff # v2.18.0
         with:
           flutter-version: '3.38.4'
           channel: 'stable'
@@ -66,6 +68,13 @@ jobs:
 
       - name: Determine Version & Tag
         id: vars
+        env:
+          INPUT_TAG_NAME: ${{ github.event.inputs.tag_name }}
+          INPUT_BUMP: ${{ github.event.inputs.bump }}
+          GITHUB_REF_TYPE: ${{ github.ref_type }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: |
           git fetch --tags --force origin 2>/dev/null || true
 
@@ -83,17 +92,17 @@ jobs:
           echo "Latest git tag: ${LATEST_TAG:-none}"
 
           # 1. Custom tag specified in inputs
-          if [ -n "${{ github.event.inputs.tag_name }}" ]; then
-            TAG="${{ github.event.inputs.tag_name }}"
+          if [ -n "$INPUT_TAG_NAME" ]; then
+            TAG="$INPUT_TAG_NAME"
             VERSION="${TAG#v}"
 
           # 2. Triggered by a Git Tag push
-          elif [ "${{ github.ref_type }}" = "tag" ]; then
-            TAG="${{ github.ref_name }}"
+          elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            TAG="$GITHUB_REF_NAME"
             VERSION="${TAG#v}"
 
           # 3. Triggered by push to main when pubspec.yaml was updated
-          elif [ "${{ github.event_name }}" = "push" ]; then
+          elif [ "$GITHUB_EVENT_NAME" = "push" ]; then
             TAG="v${PUBSPEC_VER}"
             VERSION="${PUBSPEC_VER}"
             if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
@@ -104,7 +113,7 @@ jobs:
 
           # 4. workflow_dispatch with automated bump
           else
-            BUMP="${{ github.event.inputs.bump || 'patch' }}"
+            BUMP="${INPUT_BUMP:-patch}"
             BASE_VER="${LATEST_VER:-$PUBSPEC_VER}"
 
             if [ "$BUMP" = "auto" ]; then
@@ -127,7 +136,7 @@ jobs:
             TAG="v${VERSION}"
           fi
 
-          BUILD_NUMBER="${{ github.run_number }}"
+          BUILD_NUMBER="$GITHUB_RUN_NUMBER"
           echo "TAG=${TAG}" >> $GITHUB_ENV
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo "BUILD_NUMBER=${BUILD_NUMBER}" >> $GITHUB_ENV
@@ -150,9 +159,11 @@ jobs:
 
       - name: Prepare Release Changelog
         if: env.SKIP_RELEASE != 'true'
+        env:
+          INPUT_RELEASE_NOTES: ${{ github.event.inputs.release_notes }}
         run: |
-          if [ -n "${{ github.event.inputs.release_notes }}" ]; then
-            NOTES="${{ github.event.inputs.release_notes }}"
+          if [ -n "$INPUT_RELEASE_NOTES" ]; then
+            NOTES="$INPUT_RELEASE_NOTES"
           else
             PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
             if [ -n "$PREV_TAG" ]; then
@@ -182,6 +193,10 @@ jobs:
       - name: Generate Checksum & Release Manifest
         if: env.SKIP_RELEASE != 'true'
         id: manifest
+        env:
+          INPUT_MIN_SUPPORTED_VERSION: ${{ github.event.inputs.min_supported_version }}
+          INPUT_MANDATORY: ${{ github.event.inputs.mandatory }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           APK_PATH="apps/mobile/build/app/outputs/flutter-apk/app-release.apk"
           SHA256=$(sha256sum "$APK_PATH" | awk '{print $1}')
@@ -191,15 +206,8 @@ jobs:
           echo "FILE_SIZE=${FILE_SIZE}" >> $GITHUB_ENV
           echo "${SHA256}  app-release.apk" > checksum.txt
 
-          MIN_SUPP="${{ github.event.inputs.min_supported_version }}"
-          if [ -z "$MIN_SUPP" ]; then
-            MIN_SUPP="1.0.0"
-          fi
-
-          MANDATORY="${{ github.event.inputs.mandatory }}"
-          if [ -z "$MANDATORY" ]; then
-            MANDATORY=false
-          fi
+          MIN_SUPP="${INPUT_MIN_SUPPORTED_VERSION:-1.0.0}"
+          MANDATORY="${INPUT_MANDATORY:-false}"
 
           # Clean multiline notes for JSON escaping
           JSON_NOTES=$(python3 -c "import json, os; print(json.dumps(os.environ.get('RELEASE_NOTES', 'Automated release build.')))")
@@ -209,7 +217,7 @@ jobs:
             "version": "${VERSION}",
             "buildNumber": ${BUILD_NUMBER},
             "minSupportedVersion": "${MIN_SUPP}",
-            "apkUrl": "https://github.com/${{ github.repository }}/releases/download/${TAG}/app-release.apk",
+            "apkUrl": "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/app-release.apk",
             "sha256": "${SHA256}",
             "checksum": "${SHA256}",
             "fileSize": ${FILE_SIZE},
@@ -224,7 +232,10 @@ jobs:
 
       - name: Create GitHub Release & Upload Assets
         if: env.SKIP_RELEASE != 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2.2.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MIN_SUPP: ${{ github.event.inputs.min_supported_version || '1.0.0' }}
         with:
           tag_name: ${{ env.TAG }}
           name: Release ${{ env.TAG }}
@@ -238,13 +249,11 @@ jobs:
             - **Binary:** `app-release.apk`
             - **SHA-256:** `${{ env.SHA256 }}`
             - **Size:** `${{ env.FILE_SIZE }} bytes`
-            - **Minimum Supported Version:** `${{ github.event.inputs.min_supported_version || '1.0.0' }}`
+            - **Minimum Supported Version:** `${{ env.MIN_SUPP }}`
           files: |
             apps/mobile/build/app/outputs/flutter-apk/app-release.apk
             manifest.json
             checksum.txt
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Notify NestJS Backend (Optional)
         if: env.SKIP_RELEASE != 'true' && env.BACKEND_URL != ''

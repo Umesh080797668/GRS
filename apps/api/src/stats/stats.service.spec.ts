@@ -148,7 +148,10 @@ describe('StatsService (M5.6 & M5.7)', () => {
       specialNeedsCount: 0,
       refreshedAt: new Date('2026-11-02T10:00:00Z'),
     });
-    const res = await service.getProgress(caller, { areaType: 'team', areaId: 'team-own' });
+    const res = await service.getProgress(caller, {
+      areaType: 'team',
+      areaId: 'team-own',
+    });
     expect(res.areaId).toBe('team-own');
   });
 
@@ -191,17 +194,23 @@ describe('StatsService (M5.6 & M5.7)', () => {
       districtId: 'dist-1111',
     };
 
-    prisma.divisionalSecretariat.findUnique.mockResolvedValueOnce({ districtId: 'dist-2222' });
+    prisma.divisionalSecretariat.findUnique.mockResolvedValueOnce({
+      districtId: 'dist-2222',
+    });
     await expect(
       service.getProgress(caller, { areaType: 'ds', areaId: 'ds-other' }),
     ).rejects.toThrow();
 
-    prisma.gnDivision.findUnique.mockResolvedValueOnce({ ds: { districtId: 'dist-2222' } });
+    prisma.gnDivision.findUnique.mockResolvedValueOnce({
+      ds: { districtId: 'dist-2222' },
+    });
     await expect(
       service.getProgress(caller, { areaType: 'gn', areaId: 'gn-other' }),
     ).rejects.toThrow();
 
-    prisma.team.findUnique.mockResolvedValueOnce({ gn: { ds: { districtId: 'dist-2222' } } });
+    prisma.team.findUnique.mockResolvedValueOnce({
+      gn: { ds: { districtId: 'dist-2222' } },
+    });
     await expect(
       service.getProgress(caller, { areaType: 'team', areaId: 'team-other' }),
     ).rejects.toThrow();

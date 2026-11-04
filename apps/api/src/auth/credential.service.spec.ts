@@ -79,8 +79,6 @@ describe('CredentialService (Appendix G & Spike S2)', () => {
     }, 120000);
   });
 
-
-
   describe('Password Generation & Verification (Appendix G)', () => {
     it('generates 12-character passwords without look-alikes', () => {
       const { raw, display } = service.generateInitialPassword();

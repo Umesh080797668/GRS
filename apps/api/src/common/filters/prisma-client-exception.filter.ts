@@ -20,7 +20,9 @@ export class PrismaClientExceptionFilter implements ExceptionFilter {
         (exception.message.includes('invalid input syntax for type uuid') ||
           exception.message.includes('Inconsistent column data') ||
           exception.message.includes('Malformed ObjectID') ||
-          exception.message.includes('Conversion failed when converting from a character string to uniqueidentifier')));
+          exception.message.includes(
+            'Conversion failed when converting from a character string to uniqueidentifier',
+          )));
 
     if (isInvalidUuid) {
       return response.status(HttpStatus.BAD_REQUEST).json({
@@ -45,9 +47,11 @@ export class PrismaClientExceptionFilter implements ExceptionFilter {
     if (typeof exception?.getStatus === 'function') {
       const status = exception.getStatus();
       const res = exception.getResponse();
-      return response.status(status).json(
-        typeof res === 'object' ? res : { statusCode: status, message: res },
-      );
+      return response
+        .status(status)
+        .json(
+          typeof res === 'object' ? res : { statusCode: status, message: res },
+        );
     }
 
     // 4. Default unhandled fallback 500
@@ -58,4 +62,3 @@ export class PrismaClientExceptionFilter implements ExceptionFilter {
     });
   }
 }
-

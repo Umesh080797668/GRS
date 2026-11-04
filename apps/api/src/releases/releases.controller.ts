@@ -89,7 +89,7 @@ export class ReleasesController {
     private readonly releasesService: ReleasesService,
     private readonly prisma: PrismaService,
     @Optional() private readonly jwtService?: JwtService,
-  ) { }
+  ) {}
 
   /**
    * Validates that the request comes from an authorized publisher:

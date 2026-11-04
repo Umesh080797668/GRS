@@ -59,7 +59,10 @@ export const importMulterOptions = {
         false,
       );
     }
-    if (file.mimetype && !ALLOWED_MIME_TYPES.includes(file.mimetype.toLowerCase())) {
+    if (
+      file.mimetype &&
+      !ALLOWED_MIME_TYPES.includes(file.mimetype.toLowerCase())
+    ) {
       return callback(
         new BadRequestException({
           code: 'INVALID_FILE_MIME_TYPE',
@@ -75,7 +78,7 @@ export const importMulterOptions = {
 @Controller('v1/imports')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ImportController {
-  constructor(private readonly importService: ImportService) { }
+  constructor(private readonly importService: ImportService) {}
 
   @Post('preview')
   @Roles(UserRole.cdc_secretary, UserRole.admin, UserRole.super_admin)
@@ -100,7 +103,10 @@ export class ImportController {
   @Get('template')
   @Roles(UserRole.cdc_secretary, UserRole.admin, UserRole.super_admin)
   @Header('Content-Type', 'text/csv; charset=utf-8')
-  @Header('Content-Disposition', 'attachment; filename="grs_household_import_template.csv"')
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="grs_household_import_template.csv"',
+  )
   getTemplate(@Query() query: ImportTemplateQueryDto) {
     return this.importService.getTemplateCsv(query.lang);
   }

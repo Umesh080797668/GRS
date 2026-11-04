@@ -47,7 +47,7 @@ export class ClientService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: ScopeService,
-  ) { }
+  ) {}
 
   /**
    * Keyset-paged clients within caller scope (Blueprint §5.5, §10.2).
@@ -162,9 +162,9 @@ export class ClientService {
       },
       ...(query.cursor && query.cursor.trim().length > 0
         ? {
-          cursor: { id: query.cursor.trim() },
-          skip: 1,
-        }
+            cursor: { id: query.cursor.trim() },
+            skip: 1,
+          }
         : {}),
     });
 
@@ -204,8 +204,15 @@ export class ClientService {
    * Retrieves single client with territorial verification.
    */
   async getClientById(caller: ScopeContext, id: string): Promise<any> {
+    if (!id || typeof id !== 'string') {
+      throw new BadRequestException({
+        code: 'INVALID_ID',
+        message: 'Invalid client ID',
+      });
+    }
+    const cleanId = id.trim();
     const client = await this.prisma.client.findUnique({
-      where: { id },
+      where: { id: cleanId },
       include: {
         household: true,
         collector: { select: { id: true, fullName: true, userCode: true } },
@@ -250,11 +257,11 @@ export class ClientService {
     if (caller.role !== UserRole.team_member) {
       const webRolesSetting = this.prisma?.appSetting?.findUnique
         ? await this.prisma.appSetting.findUnique({
-          where: { key: 'web_entry_roles' },
-        })
+            where: { key: 'web_entry_roles' },
+          })
         : null;
       const allowedRoles: string[] = Array.isArray(webRolesSetting?.value)
-        ? (webRolesSetting!.value as string[])
+        ? (webRolesSetting.value as string[])
         : ['cdc_secretary', 'sda', 'dc', 'admin'];
 
       if (!allowedRoles.includes(caller.role)) {

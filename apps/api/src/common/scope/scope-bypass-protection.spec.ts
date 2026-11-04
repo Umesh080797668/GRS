@@ -20,7 +20,12 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
     admin: { userId: 'adm-1', role: UserRole.admin },
     cg: { userId: 'cg-1', role: UserRole.cg },
     dc: { userId: 'dc-1', role: UserRole.dc, districtId: 'district-colombo' },
-    sda: { userId: 'sda-1', role: UserRole.sda, districtId: 'district-colombo', dsId: 'ds-colombo-1' },
+    sda: {
+      userId: 'sda-1',
+      role: UserRole.sda,
+      districtId: 'district-colombo',
+      dsId: 'ds-colombo-1',
+    },
     cdc_secretary: {
       userId: 'sec-1',
       role: UserRole.cdc_secretary,
@@ -62,7 +67,10 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
           provide: AccountService,
           useFactory: (prisma, scope) => {
             const credService = {
-              generateInitialPassword: () => ({ raw: 'P@ss1234', display: 'P@ss1234' }),
+              generateInitialPassword: () => ({
+                raw: 'P@ss1234',
+                display: 'P@ss1234',
+              }),
               hashInitialPassword: async () => 'hashed',
               generateUserCode: () => 'GRS1234567890',
             } as any;
@@ -100,15 +108,24 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
     });
 
     it('returns single condition when only one non-empty condition is provided', () => {
-      expect(scopeService.combineConditions({ teamId: 'team-1' })).toEqual({ teamId: 'team-1' });
+      expect(scopeService.combineConditions({ teamId: 'team-1' })).toEqual({
+        teamId: 'team-1',
+      });
     });
 
     it('ANDs multiple conditions preserving individual ORs', () => {
-      const scopeCond = { deletedAt: null, OR: [{ districtId: 'colombo' }, { collectedBy: 'user-1' }] };
+      const scopeCond = {
+        deletedAt: null,
+        OR: [{ districtId: 'colombo' }, { collectedBy: 'user-1' }],
+      };
       const beneficiaryCond = { OR: [{ isEpf: true }, { isEtf: true }] };
       const searchCond = { OR: [{ name: { contains: 'test' } }] };
 
-      const combined = scopeService.combineConditions(scopeCond, beneficiaryCond, searchCond);
+      const combined = scopeService.combineConditions(
+        scopeCond,
+        beneficiaryCond,
+        searchCond,
+      );
       expect(combined).toEqual({
         AND: [scopeCond, beneficiaryCond, searchCond],
       });
@@ -226,7 +243,10 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
 
     it('dc: ?beneficiary=epf AND search both preserve scope OR in three-way AND', async () => {
       const dc = mockUsers.dc;
-      await clientService.getClients(dc, { beneficiary: 'epf', search: 'Sunil' });
+      await clientService.getClients(dc, {
+        beneficiary: 'epf',
+        search: 'Sunil',
+      });
 
       const callArg = mockPrisma.client.findMany.mock.calls[0][0];
       expect(callArg.where.AND).toBeDefined();
@@ -321,7 +341,9 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
   describe('UUID Validation & Global Exception Filter (Bug C)', () => {
     it('ParseUUIDPipe rejects malformed UUID with 400 Bad Request', async () => {
       const pipe = new ParseUUIDPipe();
-      await expect(pipe.transform('not-a-uuid', { type: 'param' })).rejects.toThrow();
+      await expect(
+        pipe.transform('not-a-uuid', { type: 'param' }),
+      ).rejects.toThrow();
     });
 
     it('ParseUUIDPipe accepts valid UUID', async () => {
@@ -353,7 +375,10 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
         }),
       };
 
-      filter.catch({ code: 'P2023', message: 'Inconsistent column data' }, mockHost);
+      filter.catch(
+        { code: 'P2023', message: 'Inconsistent column data' },
+        mockHost,
+      );
 
       expect(statusCalledWith).toBe(400);
       expect(jsonCalledWith).toEqual({

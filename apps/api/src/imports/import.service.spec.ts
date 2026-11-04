@@ -38,12 +38,24 @@ describe('ImportService', () => {
       },
       household: {
         findMany: jest.fn().mockResolvedValue([]),
-        create: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: 'h-1', ...data })),
-        createMany: jest.fn().mockImplementation(({ data }) => Promise.resolve({ count: data.length })),
+        create: jest
+          .fn()
+          .mockImplementation(({ data }) =>
+            Promise.resolve({ id: 'h-1', ...data }),
+          ),
+        createMany: jest
+          .fn()
+          .mockImplementation(({ data }) =>
+            Promise.resolve({ count: data.length }),
+          ),
       },
       importBatch: {
         create: jest.fn().mockImplementation(({ data }) =>
-          Promise.resolve({ id: 'batch-uuid-1', ...data, importedAt: new Date() }),
+          Promise.resolve({
+            id: 'batch-uuid-1',
+            ...data,
+            importedAt: new Date(),
+          }),
         ),
         findUnique: jest.fn().mockImplementation(() =>
           Promise.resolve({
@@ -55,7 +67,11 @@ describe('ImportService', () => {
             importedAt: new Date(),
           }),
         ),
-        update: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: 'batch-uuid-1', ...data })),
+        update: jest
+          .fn()
+          .mockImplementation(({ data }) =>
+            Promise.resolve({ id: 'batch-uuid-1', ...data }),
+          ),
       },
       importStaging: {
         createMany: jest.fn().mockResolvedValue({ count: 3 }),
@@ -79,10 +95,7 @@ describe('ImportService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ImportService,
-        { provide: PrismaService, useValue: prisma },
-      ],
+      providers: [ImportService, { provide: PrismaService, useValue: prisma }],
     }).compile();
 
     service = module.get<ImportService>(ImportService);
@@ -93,10 +106,74 @@ describe('ImportService', () => {
       // Build test workbook with Sinhala, Tamil, English rows, and quotes in text
       const wb = XLSX.utils.book_new();
       const rows = [
-        ['house_no', 'house_leader_name', 'address', 'aswesuma', 'etf', 'epf', 'samurdhi', 'special_needs', 'target_female', 'target_male', 'age_group', 'lang_sinhala', 'lang_tamil', 'lang_english', 'num_members'],
-        ['102/B', 'Sunil "The Leader" Perera', 'No. "102" Kandy Rd', 'yes', 'no', '1', '0', 'true', '2', '1', '18-35', 'yes', 'no', 'yes', '4'],
-        ['104', 'කමල් "විශේෂ" සිරිවර්ධන', 'ප්‍රධාන වීදිය', 'ඔව්', 'නැත', 'ඔව්', 'නැත', 'නැත', '1', '2', '18-25', 'ඔව්', 'නැත', 'නැත', '5'],
-        ['105/A', 'கமலேஸ்வரன்', 'கோயில் வீதி', 'ஆம்', 'இல்லை', 'ஆம்', 'இல்லை', 'ஆம்', '0', '2', '20-40', 'இல்லை', 'ஆம்', 'இல்லை', '3'],
+        [
+          'house_no',
+          'house_leader_name',
+          'address',
+          'aswesuma',
+          'etf',
+          'epf',
+          'samurdhi',
+          'special_needs',
+          'target_female',
+          'target_male',
+          'age_group',
+          'lang_sinhala',
+          'lang_tamil',
+          'lang_english',
+          'num_members',
+        ],
+        [
+          '102/B',
+          'Sunil "The Leader" Perera',
+          'No. "102" Kandy Rd',
+          'yes',
+          'no',
+          '1',
+          '0',
+          'true',
+          '2',
+          '1',
+          '18-35',
+          'yes',
+          'no',
+          'yes',
+          '4',
+        ],
+        [
+          '104',
+          'කමල් "විශේෂ" සිරිවර්ධන',
+          'ප්‍රධාන වීදිය',
+          'ඔව්',
+          'නැත',
+          'ඔව්',
+          'නැත',
+          'නැත',
+          '1',
+          '2',
+          '18-25',
+          'ඔව්',
+          'නැත',
+          'නැත',
+          '5',
+        ],
+        [
+          '105/A',
+          'கமலேஸ்வரன்',
+          'கோயில் வீதி',
+          'ஆம்',
+          'இல்லை',
+          'ஆம்',
+          'இல்லை',
+          'ஆம்',
+          '0',
+          '2',
+          '20-40',
+          'இல்லை',
+          'ஆம்',
+          'இல்லை',
+          '3',
+        ],
       ];
       const ws = XLSX.utils.aoa_to_sheet(rows);
       XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
@@ -106,10 +183,15 @@ describe('ImportService', () => {
         originalname: 'test_trilingual.xlsx',
         buffer: buf,
         size: buf.length,
-        mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        mimetype:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       };
 
-      const result = await service.previewImport(mockCdcCaller as any, 'gn-uuid-1', file);
+      const result = await service.previewImport(
+        mockCdcCaller,
+        'gn-uuid-1',
+        file,
+      );
 
       expect(result.rowsTotal).toBe(3);
       expect(result.rowsOk).toBe(3);
@@ -167,7 +249,24 @@ describe('ImportService', () => {
       ];
       const rows = [
         templateHeaders,
-        ['10/A', 'Perera Silva', 'Main St', 'Pallekele', 'yes', 'no', 'yes', 'no', 'no', '1', '1', '18-35', 'yes', 'no', 'no', '3'],
+        [
+          '10/A',
+          'Perera Silva',
+          'Main St',
+          'Pallekele',
+          'yes',
+          'no',
+          'yes',
+          'no',
+          'no',
+          '1',
+          '1',
+          '18-35',
+          'yes',
+          'no',
+          'no',
+          '3',
+        ],
       ];
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet(rows);
@@ -178,10 +277,15 @@ describe('ImportService', () => {
         originalname: 'official_template.xlsx',
         buffer: buf,
         size: buf.length,
-        mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        mimetype:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       };
 
-      const result = await service.previewImport(mockCdcCaller as any, 'gn-uuid-1', file);
+      const result = await service.previewImport(
+        mockCdcCaller,
+        'gn-uuid-1',
+        file,
+      );
       expect(result.rowsTotal).toBe(1);
       expect(result.rowsOk).toBe(1);
       expect(result.rowsFailed).toBe(0);
@@ -207,10 +311,16 @@ describe('ImportService', () => {
         size: buf.length,
       };
 
-      const result = await service.previewImport(mockAdminCaller as any, 'gn-uuid-1', file);
+      const result = await service.previewImport(
+        mockAdminCaller,
+        'gn-uuid-1',
+        file,
+      );
       expect(result.rowsFailed).toBe(1);
       expect(result.rows[0].isValid).toBe(false);
-      expect(result.rows[0].errors[0]).toContain('Invalid boolean value "maybe" for aswesuma');
+      expect(result.rows[0].errors[0]).toContain(
+        'Invalid boolean value "maybe" for aswesuma',
+      );
     });
 
     it('detects duplicates using normalized house_no_norm (e.g. 025 and 25, or 25 a and 25/A)', async () => {
@@ -230,10 +340,16 @@ describe('ImportService', () => {
         size: buf.length,
       };
 
-      const result = await service.previewImport(mockAdminCaller as any, 'gn-uuid-1', file);
+      const result = await service.previewImport(
+        mockAdminCaller,
+        'gn-uuid-1',
+        file,
+      );
       expect(result.rows[0].isValid).toBe(true);
       expect(result.rows[1].isValid).toBe(false);
-      expect(result.rows[1].errors[0]).toContain('Duplicate House Number "25" (normalized: "25") detected within file');
+      expect(result.rows[1].errors[0]).toContain(
+        'Duplicate House Number "25" (normalized: "25") detected within file',
+      );
     });
 
     it('detects duplicates against existing database records using house_no_norm', async () => {
@@ -256,9 +372,15 @@ describe('ImportService', () => {
         size: buf.length,
       };
 
-      const result = await service.previewImport(mockAdminCaller as any, 'gn-uuid-1', file);
+      const result = await service.previewImport(
+        mockAdminCaller,
+        'gn-uuid-1',
+        file,
+      );
       expect(result.rows[0].isValid).toBe(false);
-      expect(result.rows[0].errors[0]).toContain('already exists in this GN division');
+      expect(result.rows[0].errors[0]).toContain(
+        'already exists in this GN division',
+      );
     });
   });
 
@@ -286,7 +408,10 @@ describe('ImportService', () => {
         },
       ]);
 
-      const confirmResult = await service.confirmImport(mockCdcCaller as any, 'batch-uuid-1');
+      const confirmResult = await service.confirmImport(
+        mockCdcCaller,
+        'batch-uuid-1',
+      );
 
       expect(confirmResult.status).toBe('committed');
       expect(confirmResult.committedCount).toBe(1);
@@ -321,9 +446,9 @@ describe('ImportService', () => {
         importedAt: new Date(),
       });
 
-      await expect(service.confirmImport(mockCdcCaller as any, 'batch-uuid-1')).rejects.toThrow(
-        'already been confirmed',
-      );
+      await expect(
+        service.confirmImport(mockCdcCaller as any, 'batch-uuid-1'),
+      ).rejects.toThrow('already been confirmed');
     });
 
     it('rejects double-confirmation inside transaction when batch row status is committed', async () => {
@@ -333,7 +458,11 @@ describe('ImportService', () => {
           batchId: 'batch-uuid-1',
           rowNo: 2,
           errors: [],
-          data: { houseNo: '102/B', houseNoNorm: '102/B', headName: 'Sunil Perera' },
+          data: {
+            houseNo: '102/B',
+            houseNoNorm: '102/B',
+            headName: 'Sunil Perera',
+          },
         },
       ]);
 
@@ -386,7 +515,8 @@ describe('ImportService', () => {
 
     it('correctly parses Sinhala UTF-8 CSV saved without a BOM', async () => {
       // Create raw UTF-8 CSV string without Byte Order Mark (BOM)
-      const sinhalaCsv = 'house_no,house_leader_name,lang_sinhala\n1,සුනිල් පෙරේරා,ඔව්\n2,කමල් ප්‍රනාන්දු,නැත';
+      const sinhalaCsv =
+        'house_no,house_leader_name,lang_sinhala\n1,සුනිල් පෙරේරා,ඔව්\n2,කමල් ප්‍රනාන්දු,නැත';
       const buf = Buffer.from(sinhalaCsv, 'utf8');
 
       const file = {
@@ -396,7 +526,11 @@ describe('ImportService', () => {
         mimetype: 'text/csv',
       };
 
-      const result = await service.previewImport(mockAdminCaller as any, 'gn-uuid-1', file);
+      const result = await service.previewImport(
+        mockAdminCaller,
+        'gn-uuid-1',
+        file,
+      );
       expect(result.rowsTotal).toBe(2);
       expect(result.rowsOk).toBe(2);
       expect(result.rows[0].data.headName).toBe('සුනිල් පෙරේරා');
@@ -423,7 +557,10 @@ describe('ImportService', () => {
         ],
       });
 
-      const csv = await service.getErrorReportCsv(mockCdcCaller as any, 'batch-uuid-1');
+      const csv = await service.getErrorReportCsv(
+        mockCdcCaller,
+        'batch-uuid-1',
+      );
       expect(csv).toContain('"\'\t=calc"');
       expect(csv).toContain('"\'\r+cmd"');
       expect(csv).toContain('"\'@SUM(A1)"');
@@ -463,7 +600,8 @@ describe('ImportService', () => {
       const file = {
         buffer: zipBuf,
         size: zipBuf.length,
-        mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        mimetype:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       };
 
       await expect(
@@ -476,4 +614,3 @@ describe('ImportService', () => {
     });
   });
 });
-

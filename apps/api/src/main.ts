@@ -31,12 +31,14 @@ export async function createNestServer(server: Express) {
 
   // Secure CORS policy: Restrict to exact configured origins or localhost development
   const allowedOrigins = process.env.CORS_ORIGINS
-    ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+    ? process.env.CORS_ORIGINS.split(',')
+        .map((o) => o.trim())
+        .filter(Boolean)
     : [
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'http://localhost:8080',
-    ];
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:8080',
+      ];
 
   const isOriginAllowed = (origin: string): boolean => {
     if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
@@ -44,7 +46,9 @@ export async function createNestServer(server: Express) {
     }
     for (const pattern of allowedOrigins) {
       if (pattern.startsWith('*.') || pattern.includes('*')) {
-        const regex = new RegExp('^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$');
+        const regex = new RegExp(
+          '^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$',
+        );
         if (regex.test(origin)) return true;
       }
     }
@@ -59,7 +63,11 @@ export async function createNestServer(server: Express) {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-        styleSrcElem: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        styleSrcElem: [
+          "'self'",
+          "'unsafe-inline'",
+          'https://fonts.googleapis.com',
+        ],
         imgSrc: ["'self'", 'data:', 'blob:'],
         connectSrc: ["'self'", ...allowedOrigins],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],

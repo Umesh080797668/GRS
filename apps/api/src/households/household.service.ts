@@ -22,7 +22,7 @@ export class HouseholdService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: ScopeService,
-  ) { }
+  ) {}
 
   /**
    * Creates a household in the designated GN division with concurrency-safe serial allocation.
@@ -196,7 +196,6 @@ export class HouseholdService {
         },
         { maxWait: 20000, timeout: 60000 },
       );
-
     } catch (err: any) {
       if (err instanceof ConflictException) throw err;
       if (
@@ -269,13 +268,13 @@ export class HouseholdService {
       const leaderNameCondition =
         caller.role === UserRole.cdc_secretary
           ? {
-            AND: [
-              { houseLeaderName: { contains: search, mode: 'insensitive' } },
-              {
-                OR: [...callerTeamFilter, { teamId: null }],
-              },
-            ],
-          }
+              AND: [
+                { houseLeaderName: { contains: search, mode: 'insensitive' } },
+                {
+                  OR: [...callerTeamFilter, { teamId: null }],
+                },
+              ],
+            }
           : { houseLeaderName: { contains: search, mode: 'insensitive' } };
 
       const searchConditions = [
@@ -306,9 +305,9 @@ export class HouseholdService {
         },
         ...(query.cursor && query.cursor.trim().length > 0
           ? {
-            cursor: { id: query.cursor.trim() },
-            skip: 1,
-          }
+              cursor: { id: query.cursor.trim() },
+              skip: 1,
+            }
           : {}),
       }),
       this.prisma.household.count({ where: whereCondition }),
@@ -358,8 +357,15 @@ export class HouseholdService {
    * Retrieves a single household by ID with territorial boundary checks.
    */
   async getHouseholdById(caller: ScopeContext, id: string): Promise<any> {
+    if (!id || typeof id !== 'string') {
+      throw new BadRequestException({
+        code: 'INVALID_ID',
+        message: 'Invalid household ID',
+      });
+    }
+    const cleanId = id.trim();
     const household = await this.prisma.household.findUnique({
-      where: { id },
+      where: { id: cleanId },
       include: {
         team: { select: { id: true, teamNo: true } },
         gn: { select: { id: true, gnNumber: true, gnName: true } },
@@ -1042,7 +1048,8 @@ export class HouseholdService {
     if (caller.role === UserRole.team_member) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_SCOPE',
-        message: 'Level 5 enumerators cannot reopen finished houses. Contact your team leader.',
+        message:
+          'Level 5 enumerators cannot reopen finished houses. Contact your team leader.',
       });
     } else if (caller.role === UserRole.cdc_secretary) {
       if (

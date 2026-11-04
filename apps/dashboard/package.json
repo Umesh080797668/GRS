@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "lucide-react": "^1.66.0",
-    "next": "16.4.3",
+    "next": "16.4.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "xlsx": "npm:@e965/xlsx@^0.20.3"
@@ -22,7 +22,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.4.5",
     "typescript": "^5",
     "wrangler": "^4.156.1"
   },

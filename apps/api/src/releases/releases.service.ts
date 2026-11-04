@@ -16,7 +16,7 @@ export class ReleasesService {
   private cacheExpiry: number = 0;
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
 
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Compares two semantic version strings (e.g. "1.1.0" vs "1.0.0").
@@ -54,12 +54,12 @@ export class ReleasesService {
    * If a release exists on GitHub, it automatically upserts it into the Prisma database.
    */
   async syncFromGitHub(): Promise<ReleaseManifest | null> {
-    const repo =
-      process.env.GITHUB_REPO ||
-      process.env.GITHUB_REPOSITORY;
+    const repo = process.env.GITHUB_REPO || process.env.GITHUB_REPOSITORY;
 
     if (!repo) {
-      this.logger.log('GITHUB_REPO not configured, skipping GitHub release sync.');
+      this.logger.log(
+        'GITHUB_REPO not configured, skipping GitHub release sync.',
+      );
       return null;
     }
 
@@ -132,7 +132,7 @@ export class ReleasesService {
               const match = text.match(/[a-f0-9]{64}/i);
               if (match) checksum = match[0];
             }
-          } catch (_) { }
+          } catch (_) {}
         }
       }
 
@@ -207,14 +207,18 @@ export class ReleasesService {
     // 1. Check in-memory cache first to avoid database or network pressure
     if (this.cachedLatestRelease && Date.now() < this.cacheExpiry) {
       if (currentVersion) {
-        const cmp = this.compareSemver(this.cachedLatestRelease.version, currentVersion);
+        const cmp = this.compareSemver(
+          this.cachedLatestRelease.version,
+          currentVersion,
+        );
         return {
           ...this.cachedLatestRelease,
           isUpdateAvailable: cmp > 0,
           isLatest: cmp <= 0,
-          message: cmp > 0
-            ? `Update v${this.cachedLatestRelease.version} is available.`
-            : 'You are already up to date.',
+          message:
+            cmp > 0
+              ? `Update v${this.cachedLatestRelease.version} is available.`
+              : 'You are already up to date.',
           currentVersion,
         };
       }
@@ -257,7 +261,10 @@ export class ReleasesService {
     if (shouldSyncGithub) {
       const ghRelease = await this.syncFromGitHub();
       if (ghRelease) {
-        if (!latestManifest || this.compareSemver(ghRelease.version, latestManifest.version) > 0) {
+        if (
+          !latestManifest ||
+          this.compareSemver(ghRelease.version, latestManifest.version) > 0
+        ) {
           latestManifest = ghRelease;
           this.cachedLatestRelease = latestManifest;
           this.cacheExpiry = Date.now() + this.CACHE_TTL_MS;
@@ -353,7 +360,9 @@ export class ReleasesService {
     }
 
     const isOfficialUrl =
-      data.apkUrl.startsWith('https://github.com/Umesh080797668/GRS/releases/download/') ||
+      data.apkUrl.startsWith(
+        'https://github.com/Umesh080797668/GRS/releases/download/',
+      ) ||
       data.apkUrl.startsWith('https://objects.githubusercontent.com/') ||
       data.apkUrl === '/v1/releases/download' ||
       data.apkUrl.startsWith('/v1/releases/download?');

@@ -4,7 +4,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir, hostname } from 'node:os';
-import { join } from 'node:path';
+import { join, basename, resolve } from 'node:path';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -50,11 +50,16 @@ function alive(pid) {
 export function sweepProfiles(base) {
   let names;
   try { names = readdirSync(base); } catch { return; }
+  const resolvedBase = resolve(base);
   for (const name of names) {
     if (!name.startsWith('ad-chrome-')) continue;
-    const p = join(base, name);
+    const safeName = basename(name);
+    const p = resolve(resolvedBase, safeName);
+    if (!p.startsWith(resolvedBase)) continue;
     try {
-      const o = JSON.parse(readFileSync(join(p, OWNER), 'utf8'));
+      const ownerPath = resolve(p, OWNER);
+      if (!ownerPath.startsWith(p)) continue;
+      const o = JSON.parse(readFileSync(ownerPath, 'utf8'));
       if (o.host !== hostname() || !Number.isInteger(o.pid) || alive(o.pid) || alive(o.chrome)) continue;
       rmSync(p, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     } catch {}

@@ -40,7 +40,11 @@ export function checkZipDecompressedSize(
   let eocdOffset = -1;
   const minEocdSize = 22;
   const maxSearch = Math.min(buffer.length, 65536 + minEocdSize);
-  for (let i = buffer.length - minEocdSize; i >= buffer.length - maxSearch; i--) {
+  for (
+    let i = buffer.length - minEocdSize;
+    i >= buffer.length - maxSearch;
+    i--
+  ) {
     if (
       buffer[i] === 0x50 &&
       buffer[i + 1] === 0x4b &&
@@ -116,7 +120,7 @@ export function checkZipDecompressedSize(
 
 @Injectable()
 export class ImportService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Helper to parse boolean cell per Technical Blueprint & Plan §13:
@@ -232,11 +236,7 @@ export class ImportService {
    * POST /v1/imports/preview
    * Upload file (<4.5 MB), parse server-side with patched library, store in import_staging.
    */
-  async previewImport(
-    caller: ScopeContext,
-    gnId: string,
-    file?: any,
-  ) {
+  async previewImport(caller: ScopeContext, gnId: string, file?: any) {
     if (!file || !file.buffer) {
       throw new BadRequestException({
         code: 'FILE_REQUIRED',
@@ -268,7 +268,8 @@ export class ImportService {
     if (caller.role === UserRole.cdc_secretary && caller.gnId !== gnId) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_SCOPE',
-        message: 'CDC Secretary can only import house lists for their own GN division',
+        message:
+          'CDC Secretary can only import house lists for their own GN division',
       });
     }
 
@@ -524,7 +525,8 @@ export class ImportService {
     if (houseNoIdx === -1 || headIdx === -1) {
       throw new BadRequestException({
         code: 'MISSING_REQUIRED_HEADERS',
-        message: 'Invalid headers: File must contain "house_no" and "house_leader_name" columns.',
+        message:
+          'Invalid headers: File must contain "house_no" and "house_leader_name" columns.',
       });
     }
 
@@ -533,7 +535,9 @@ export class ImportService {
       where: { gnId, deletedAt: null },
       select: { houseNo: true, houseNoNorm: true },
     });
-    const existingNormSet = new Set(existingDbHouseholds.map((h) => h.houseNoNorm));
+    const existingNormSet = new Set(
+      existingDbHouseholds.map((h) => h.houseNoNorm),
+    );
 
     const seenNormsInFile = new Set<string>();
     const stagingPayloads: StagingRowPayload[] = [];
@@ -547,7 +551,9 @@ export class ImportService {
       if (
         !cols ||
         cols.length === 0 ||
-        cols.every((c) => c === undefined || c === null || String(c).trim() === '')
+        cols.every(
+          (c) => c === undefined || c === null || String(c).trim() === '',
+        )
       ) {
         continue;
       }
@@ -558,8 +564,10 @@ export class ImportService {
       // Cell strings: do NOT strip quotes from content!
       const rawHouseNo = String(cols[houseNoIdx] ?? '').trim();
       const rawHeadName = String(cols[headIdx] ?? '').trim();
-      const rawAddress = addrIdx !== -1 ? String(cols[addrIdx] ?? '').trim() : '';
-      const rawVillage = villageIdx !== -1 ? String(cols[villageIdx] ?? '').trim() : '';
+      const rawAddress =
+        addrIdx !== -1 ? String(cols[addrIdx] ?? '').trim() : '';
+      const rawVillage =
+        villageIdx !== -1 ? String(cols[villageIdx] ?? '').trim() : '';
 
       // Validate House Number & Normalization
       let houseNoNorm = '';
@@ -769,7 +777,8 @@ export class ImportService {
     if (caller.role === UserRole.cdc_secretary && caller.gnId !== batch.gnId) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_SCOPE',
-        message: 'CDC Secretary can only confirm batches for their assigned GN division',
+        message:
+          'CDC Secretary can only confirm batches for their assigned GN division',
       });
     }
 
@@ -878,9 +887,7 @@ export class ImportService {
         }
 
         // 1. Take row-level lock on gn_divisions to serialize serial allocation
-        const gnRows = await tx.$queryRawUnsafe<
-          Array<{ next_serial: number }>
-        >(
+        const gnRows = await tx.$queryRawUnsafe<Array<{ next_serial: number }>>(
           `SELECT next_serial FROM gn_divisions WHERE id = $1::uuid FOR UPDATE`,
           batch.gnId,
         );
@@ -968,7 +975,8 @@ export class ImportService {
           batchId: batch.id,
           status: 'committed',
           committedCount,
-          skippedCount: skippedConflictCount + (batch.rowsTotal - validRows.length),
+          skippedCount:
+            skippedConflictCount + (batch.rowsTotal - validRows.length),
         };
       },
       { timeout: 60000 },
@@ -998,7 +1006,8 @@ export class ImportService {
     if (caller.role === UserRole.cdc_secretary && caller.gnId !== batch.gnId) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_SCOPE',
-        message: 'CDC Secretary can only view batches for their assigned GN division',
+        message:
+          'CDC Secretary can only view batches for their assigned GN division',
       });
     }
 
@@ -1024,7 +1033,10 @@ export class ImportService {
    * GET /v1/imports/:id/errors
    * Download sanitized CSV error report for a batch.
    */
-  async getErrorReportCsv(caller: ScopeContext, batchId: string): Promise<string> {
+  async getErrorReportCsv(
+    caller: ScopeContext,
+    batchId: string,
+  ): Promise<string> {
     const batch = await this.prisma.importBatch.findUnique({
       where: { id: batchId },
       include: {
@@ -1045,7 +1057,13 @@ export class ImportService {
       (r) => Array.isArray(r.errors) && r.errors.length > 0,
     );
 
-    const headers = ['Row_Number', 'House_No', 'Head_Name', 'Address', 'Error_Reason'];
+    const headers = [
+      'Row_Number',
+      'House_No',
+      'Head_Name',
+      'Address',
+      'Error_Reason',
+    ];
     const escapeCsv = (str: any) => {
       if (str === null || str === undefined) return '""';
       let s = String(str);
@@ -1066,7 +1084,9 @@ export class ImportService {
       headers.join(','),
       ...errorRows.map((r) => {
         const d = r.data as any;
-        const errs = Array.isArray(r.errors) ? (r.errors as string[]).join('; ') : 'Validation error';
+        const errs = Array.isArray(r.errors)
+          ? (r.errors as string[]).join('; ')
+          : 'Validation error';
         return [
           r.rowNo,
           escapeCsv(d?.houseNo || ''),

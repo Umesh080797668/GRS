@@ -4,21 +4,26 @@ name: CI
 on:
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   api-checks:
     name: API (NestJS + Prisma)
     runs-on: ubuntu-latest
+    permissions: {}
     if: false # Restricted: Hosted runner disabled. Run locally via `pnpm run ci:local` or `bash scripts/ci.sh`.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js 22.x
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: 22
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@e9540b3eafaf84907c087a645d3258bfaa861427 # v3.0.0
         with:
           version: 9.15.9
 
@@ -34,12 +39,15 @@ jobs:
   flutter-checks:
     name: Flutter & Dart Packages
     runs-on: ubuntu-latest
+    permissions: {}
     if: false # Restricted: Hosted runner disabled. Run locally via `scripts/ci.sh`.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff # v2.18.0
         with:
           flutter-version: '3.38.4'
           channel: 'stable'
@@ -72,9 +80,12 @@ jobs:
   security-checks:
     name: Security & Permissions Verification
     runs-on: ubuntu-latest
+    permissions: {}
     if: false # Restricted: Hosted runner disabled. Run locally via `scripts/ci.sh`.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Verify Android Manifest Permissions (Invariant 7)
         run: |

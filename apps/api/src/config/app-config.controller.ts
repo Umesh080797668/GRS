@@ -36,7 +36,7 @@ const KEY_MAPPINGS: Record<string, string> = {
 
 @Controller('v1/config')
 export class AppConfigController {
-  constructor(private readonly configService: AppConfigService) { }
+  constructor(private readonly configService: AppConfigService) {}
 
   @Get()
   async getConfig() {
@@ -120,7 +120,10 @@ export class AppConfigController {
           });
         }
       } else if (canonicalKey === 'web_entry_roles') {
-        if (!Array.isArray(rawValue) || !rawValue.every((r) => typeof r === 'string')) {
+        if (
+          !Array.isArray(rawValue) ||
+          !rawValue.every((r) => typeof r === 'string')
+        ) {
           throw new BadRequestException({
             code: 'INVALID_CONFIG_VALUE',
             message: 'web_entry_roles must be an array of role strings',
@@ -145,7 +148,10 @@ export class AppConfigController {
           roles = roles.filter((r) => r !== 'super_admin');
         }
         await this.configService.updateSetting('web_entry_roles', roles);
-      } else if (canonicalKey === 'web_entry_roles' && Array.isArray(rawValue)) {
+      } else if (
+        canonicalKey === 'web_entry_roles' &&
+        Array.isArray(rawValue)
+      ) {
         await this.configService.updateSetting(
           'web_data_entry_enabled',
           rawValue.includes('super_admin'),

@@ -30,7 +30,7 @@ export class SyncService {
     private readonly prisma: PrismaService,
     private readonly lookupService: LookupService,
     private readonly scopeService: ScopeService,
-  ) { }
+  ) {}
 
   /**
    * Normalizes a person name according to Build Plan §9:
@@ -291,9 +291,9 @@ export class SyncService {
       where: parsedCursor.h
         ? buildKeysetFilter(householdFilter, 'updatedAt', parsedCursor.h)
         : {
-          ...householdFilter,
-          updatedAt: { gt: sinceDate },
-        },
+            ...householdFilter,
+            updatedAt: { gt: sinceDate },
+          },
       orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
       take: take + 1,
     };
@@ -316,19 +316,19 @@ export class SyncService {
     const unassignedQueryArgs: any =
       user.teamId && this.prisma.householdUnassignment
         ? {
-          where: buildKeysetFilter(
-            { teamId: user.teamId },
-            'unassignedAt',
-            parsedCursor.u,
-          ),
-          select: {
-            id: true,
-            householdId: true,
-            unassignedAt: true,
-          },
-          orderBy: [{ unassignedAt: 'asc' }, { id: 'asc' }],
-          take: take + 1,
-        }
+            where: buildKeysetFilter(
+              { teamId: user.teamId },
+              'unassignedAt',
+              parsedCursor.u,
+            ),
+            select: {
+              id: true,
+              householdId: true,
+              unassignedAt: true,
+            },
+            orderBy: [{ unassignedAt: 'asc' }, { id: 'asc' }],
+            take: take + 1,
+          }
         : null;
 
     const clientQueryArgs: any = {
@@ -897,13 +897,13 @@ export class SyncService {
           : new Date();
       const clientUpdatedAt =
         record.client_updated_at ||
-          data.client_updated_at ||
-          data.clientUpdatedAt
+        data.client_updated_at ||
+        data.clientUpdatedAt
           ? new Date(
-            record.client_updated_at ||
-            data.client_updated_at ||
-            data.clientUpdatedAt,
-          )
+              record.client_updated_at ||
+                data.client_updated_at ||
+                data.clientUpdatedAt,
+            )
           : new Date();
 
       const normalized = {

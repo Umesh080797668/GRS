@@ -17,7 +17,7 @@ export interface AppConfig {
 
 @Injectable()
 export class AppConfigService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Returns current application configuration including sync pacing and version gates.
@@ -46,10 +46,12 @@ export class AppConfigService {
       'web_data_entry_enabled',
       false,
     );
-    const webRolesSetting = await this.getSetting(
-      'web_entry_roles',
-      ['cdc_secretary', 'sda', 'dc', 'admin'],
-    );
+    const webRolesSetting = await this.getSetting('web_entry_roles', [
+      'cdc_secretary',
+      'sda',
+      'dc',
+      'admin',
+    ]);
     const webEntryRoles = Array.isArray(webRolesSetting)
       ? webRolesSetting
       : ['cdc_secretary', 'sda', 'dc', 'admin'];
@@ -64,7 +66,8 @@ export class AppConfigService {
       initialPasswordTtlDays: Number(ttlDaysSetting),
       webEntryRoles,
       features: {
-        webDataEntry: Boolean(webEntrySetting) || webEntryRoles.includes('super_admin'),
+        webDataEntry:
+          Boolean(webEntrySetting) || webEntryRoles.includes('super_admin'),
       },
     };
   }

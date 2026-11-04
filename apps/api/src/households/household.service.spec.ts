@@ -214,8 +214,8 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       };
       const p = run();
       lockQueue = p.then(
-        () => { },
-        () => { },
+        () => {},
+        () => {},
       );
       return p;
     }),
@@ -829,7 +829,9 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
         houseNo: '506',
         houseLeaderName: 'Leader 506',
       });
-      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [house.id]);
+      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [
+        house.id,
+      ]);
 
       const teamMemberScope: ScopeContext = {
         userId: 'team-member-1',
@@ -841,7 +843,10 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       expect(finished.visitStatus).toBe('completed');
       expect(finished.finishedAt).toBeDefined();
 
-      const reopened = await service.reopenHousehold(cdcSecretaryScope, house.id);
+      const reopened = await service.reopenHousehold(
+        cdcSecretaryScope,
+        house.id,
+      );
       expect(reopened.visitStatus).toBe('not_started');
       expect(reopened.finishedAt).toBeNull();
       expect(reopened.finishedBy).toBeNull();
@@ -854,7 +859,9 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
         houseNo: '507',
         houseLeaderName: 'Leader 507',
       });
-      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [house.id]);
+      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [
+        house.id,
+      ]);
 
       const teamMemberScope: ScopeContext = {
         userId: 'team-member-1',
@@ -875,7 +882,9 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
         houseNo: '508',
         houseLeaderName: 'Leader 508',
       });
-      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [house.id]);
+      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [
+        house.id,
+      ]);
 
       const teamMemberScope: ScopeContext = {
         userId: 'team-member-1',
@@ -902,7 +911,9 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
         houseNo: '509',
         houseLeaderName: 'Leader 509',
       });
-      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [house.id]);
+      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [
+        house.id,
+      ]);
 
       const initialVersion = house.version;
       const res = await service.reopenHousehold(cdcSecretaryScope, house.id);
