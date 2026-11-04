@@ -405,12 +405,15 @@ export class ApiClient {
 
   // --- USER MANAGEMENT (M5.2) ---
 
-  async getAccounts(params: { cursor?: string; limit?: number; search?: string; role?: string } = {}): Promise<any> {
+  async getAccounts(params: { cursor?: string; limit?: number; take?: number; search?: string; role?: string; teamId?: string; gnId?: string } = {}): Promise<any> {
     const p = new URLSearchParams();
     if (params.cursor) p.append('cursor', params.cursor);
-    if (params.limit) p.append('limit', params.limit.toString());
+    if (params.limit !== undefined) p.append('limit', params.limit.toString());
+    if (params.take !== undefined) p.append('take', params.take.toString());
     if (params.search) p.append('search', params.search);
     if (params.role) p.append('role', params.role);
+    if (params.teamId) p.append('teamId', params.teamId);
+    if (params.gnId) p.append('gnId', params.gnId);
     const q = p.toString() ? `?${p.toString()}` : '';
     return this.request(`/v1/accounts${q}`);
   }

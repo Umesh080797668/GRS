@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   Header,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -26,7 +27,7 @@ import { UpdateAccountDto } from './dto/update-account.dto';
 @Controller('v1/accounts')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AccountController {
-  constructor(private readonly accountService: AccountService) {}
+  constructor(private readonly accountService: AccountService) { }
 
   @Post()
   @Header('Cache-Control', 'no-store')
@@ -86,7 +87,7 @@ export class AccountController {
   )
   async updateAccount(
     @CurrentUser() user: ScopeContext,
-    @Param('id') targetId: string,
+    @Param('id', ParseUUIDPipe) targetId: string,
     @Body() dto: UpdateAccountDto,
   ) {
     return this.accountService.updateAccount(user, targetId, dto);
@@ -104,7 +105,7 @@ export class AccountController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async deactivateAccount(
     @CurrentUser() user: ScopeContext,
-    @Param('id') targetId: string,
+    @Param('id', ParseUUIDPipe) targetId: string,
   ) {
     await this.accountService.deactivateAccount(user, targetId);
   }
@@ -121,7 +122,7 @@ export class AccountController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async reactivateAccount(
     @CurrentUser() user: ScopeContext,
-    @Param('id') targetId: string,
+    @Param('id', ParseUUIDPipe) targetId: string,
   ) {
     await this.accountService.reactivateAccount(user, targetId);
   }
@@ -138,7 +139,7 @@ export class AccountController {
   )
   async reissuePassword(
     @CurrentUser() user: ScopeContext,
-    @Param('id') targetId: string,
+    @Param('id', ParseUUIDPipe) targetId: string,
   ) {
     return this.accountService.reissuePassword(user, targetId);
   }
@@ -155,7 +156,7 @@ export class AccountController {
   )
   async resetPassword(
     @CurrentUser() user: ScopeContext,
-    @Param('id') targetId: string,
+    @Param('id', ParseUUIDPipe) targetId: string,
   ) {
     return this.accountService.resetPassword(user, targetId);
   }
@@ -172,7 +173,7 @@ export class AccountController {
   )
   async reissueBatch(
     @CurrentUser() user: ScopeContext,
-    @Param('id') batchId: string,
+    @Param('id', ParseUUIDPipe) batchId: string,
   ) {
     return this.accountService.reissueBatch(user, batchId);
   }

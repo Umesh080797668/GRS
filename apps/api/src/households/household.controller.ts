@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -57,7 +58,7 @@ export class HouseholdController {
   )
   async getHouseholdById(
     @CurrentUser() user: ScopeContext,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.householdService.getHouseholdById(user, id);
   }
@@ -75,7 +76,7 @@ export class HouseholdController {
   @Roles(UserRole.cdc_secretary, UserRole.super_admin)
   async updateHousehold(
     @CurrentUser() user: ScopeContext,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateHouseholdDto,
   ) {
     return this.householdService.updateHousehold(user, id, dto);
@@ -85,7 +86,7 @@ export class HouseholdController {
   @Roles(UserRole.cdc_secretary, UserRole.super_admin)
   async deleteHousehold(
     @CurrentUser() user: ScopeContext,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto?: DeleteHouseholdDto,
   ) {
     return this.householdService.deleteHousehold(user, id, dto);
@@ -95,7 +96,7 @@ export class HouseholdController {
   @Roles(UserRole.team_member, UserRole.cdc_secretary, UserRole.super_admin)
   async finishHousehold(
     @CurrentUser() user: ScopeContext,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.householdService.finishHousehold(user, id);
   }
@@ -111,7 +112,7 @@ export class HouseholdController {
   )
   async reopenHousehold(
     @CurrentUser() user: ScopeContext,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.householdService.reopenHousehold(user, id);
   }

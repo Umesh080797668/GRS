@@ -4,6 +4,82 @@ import { UserRole, ScopeContext } from './scope.types';
 @Injectable()
 export class ScopeService {
   /**
+   * Combines multiple Prisma query filters using AND, preventing user filters
+   * from clobbering or widening scope filters (e.g. overwriting OR conditions).
+   */
+  combineConditions(
+    ...conditions: Array<Record<string, any> | undefined | null>
+  ): Record<string, any> {
+    const valid = conditions.filter(
+      (c) => c && Object.keys(c).length > 0,
+    ) as Record<string, any>[];
+    if (valid.length === 0) return {};
+    if (valid.length === 1) return valid[0];
+
+    const hasMultipleOrs = valid.filter((c) => c.OR !== undefined).length > 1;
+    const hasAnd = valid.some((c) => c.AND !== undefined);
+
+    if (hasMultipleOrs || hasAnd) {
+      return { AND: valid };
+    }
+
+    const merged: Record<string, any> = {};
+    for (const c of valid) {
+      Object.assign(merged, c);
+    }
+    return merged;
+  }
+
+  /**
+   * Generates Prisma WHERE filter for querying accounts (profiles) according to scope.
+   * Ensures scope cannot be widened by query parameters.
+   */
+  getAccountScopeFilter(scope: ScopeContext): Record<string, any> {
+    switch (scope.role) {
+      case UserRole.super_admin:
+      case UserRole.admin:
+      case UserRole.cg:
+        return {};
+
+      case UserRole.dc:
+        if (!scope.districtId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message_key: 'errors.scope.missing_district',
+          });
+        }
+        return { districtId: scope.districtId };
+
+      case UserRole.sda:
+        if (!scope.dsId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message_key: 'errors.scope.missing_ds',
+          });
+        }
+        return { dsId: scope.dsId };
+
+      case UserRole.cdc_secretary:
+        if (!scope.teamId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message_key: 'errors.scope.missing_team',
+          });
+        }
+        return { teamId: scope.teamId };
+
+      case UserRole.team_member:
+        return { id: scope.userId };
+
+      default:
+        throw new ForbiddenException({
+          code: 'FORBIDDEN_SCOPE',
+          message_key: 'errors.scope.unauthorized_role',
+        });
+    }
+  }
+
+  /**
    * Generates Prisma WHERE filter for querying households according to scope.
    * Ensures zero cross-area leaks per Invariant 4.
    */

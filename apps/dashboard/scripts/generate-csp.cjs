@@ -46,14 +46,15 @@ for (const filePath of htmlFiles) {
   perFileHashes.set(filePath, fileHashes);
 }
 
-const apiOrigin = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://grs-umber-eight.vercel.app';
+const rawApiOrigin = process.env.NEXT_PUBLIC_API_BASE_URL ? process.env.NEXT_PUBLIC_API_BASE_URL.trim() : '';
+const connectSrc = rawApiOrigin ? `'self' ${rawApiOrigin}` : "'self'";
 const hashList = Array.from(allHashes).sort().join(' ');
 
-// Formulate strict production CSP without 'unsafe-inline' or 'unsafe-eval', and connect-src strictly to exact API origin
-const cspHeader = `default-src 'self'; script-src 'self' ${hashList}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; connect-src 'self' ${apiOrigin}; font-src 'self' https://fonts.gstatic.com data:; object-src 'none';`;
+// Formulate strict production CSP without 'unsafe-inline' or 'unsafe-eval', and connect-src strictly to exact API origin or 'self'
+const cspHeader = `default-src 'self'; script-src 'self' ${hashList}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; connect-src ${connectSrc}; font-src 'self' https://fonts.gstatic.com data:; object-src 'none';`;
 
 console.log(`[generate-csp] Collected ${allHashes.size} unique script hashes across ${htmlFiles.length} HTML files.`);
-console.log(`[generate-csp] Setting connect-src to: 'self' ${apiOrigin}`);
+console.log(`[generate-csp] Setting connect-src to: ${connectSrc}`);
 
 // 1. Update HTML files meta tag with exact hashes
 for (const filePath of htmlFiles) {

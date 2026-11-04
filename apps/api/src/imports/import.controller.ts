@@ -11,6 +11,7 @@ import {
   Header,
   Res,
   BadRequestException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
@@ -91,7 +92,7 @@ export class ImportController {
   @Roles(UserRole.cdc_secretary, UserRole.admin, UserRole.super_admin)
   async confirmImport(
     @CurrentUser() user: ScopeContext,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.importService.confirmImport(user, id);
   }
@@ -108,7 +109,7 @@ export class ImportController {
   @Roles(UserRole.cdc_secretary, UserRole.admin, UserRole.super_admin)
   async getImportBatch(
     @CurrentUser() user: ScopeContext,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.importService.getImportBatch(user, id);
   }
@@ -117,7 +118,7 @@ export class ImportController {
   @Roles(UserRole.cdc_secretary, UserRole.admin, UserRole.super_admin)
   async downloadErrorReport(
     @CurrentUser() user: ScopeContext,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Res() res: Response,
   ) {
     const csv = await this.importService.getErrorReportCsv(user, id);

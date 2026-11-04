@@ -42,10 +42,10 @@ export class CreateReleaseDto {
   @IsString()
   @IsNotEmpty()
   @Matches(
-    /^(https:\/\/[a-zA-Z0-9_.-]+\/.*|\/v1\/releases\/download(\?.*)?)$/,
+    /^(https:\/\/github\.com\/Umesh080797668\/GRS\/releases\/download\/.*|https:\/\/objects\.githubusercontent\.com\/.*|\/v1\/releases\/download(\?.*)?)$/,
     {
       message:
-        'apkUrl must point to a valid HTTPS download URL or local download endpoint (/v1/releases/download)',
+        'apkUrl must point to an official GitHub release under /Umesh080797668/GRS/releases/download/, objects.githubusercontent.com, or local download endpoint (/v1/releases/download)',
     },
   )
   apkUrl: string;

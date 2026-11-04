@@ -7,6 +7,7 @@ import {
   Param,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AreaService } from './area.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -38,7 +39,7 @@ export class AreaController {
   }
 
   @Get('districts/:id')
-  async getDistrictById(@Param('id') id: string) {
+  async getDistrictById(@Param('id', ParseUUIDPipe) id: string) {
     return this.areaService.getDistrictById(id);
   }
 
@@ -105,7 +106,7 @@ export class AreaController {
     UserRole.admin,
     UserRole.super_admin,
   )
-  async getGnById(@CurrentUser() user: ScopeContext, @Param('id') id: string) {
+  async getGnById(@CurrentUser() user: ScopeContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.areaService.getGnDivisionById(user, id);
   }
 
@@ -113,7 +114,7 @@ export class AreaController {
   @Roles(UserRole.cdc_secretary, UserRole.super_admin)
   async updateGn(
     @CurrentUser() user: ScopeContext,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateGnDto,
   ) {
     return this.areaService.updateGnDivision(user, id, dto);
@@ -143,7 +144,7 @@ export class AreaController {
 
   @Patch('teams/:id')
   @Roles(UserRole.super_admin)
-  async updateTeam(@Param('id') teamId: string, @Body() dto: UpdateTeamDto) {
+  async updateTeam(@Param('id', ParseUUIDPipe) teamId: string, @Body() dto: UpdateTeamDto) {
     return this.areaService.updateTeam(teamId, dto);
   }
 

@@ -59,109 +59,92 @@ export class ClientService {
     caller: ScopeContext,
     query: ListClientsDto,
   ): Promise<{ clients: any[]; totalCount?: number; nextCursor?: string }> {
-    const whereCondition: Record<string, any> = { deletedAt: null };
+    // 1. Mandatory scope enforcement
+    let scopeFilter: Record<string, any>;
 
-    if (caller.role === UserRole.team_member) {
-      whereCondition.collectedBy = caller.userId;
-    } else if (caller.role === UserRole.cdc_secretary) {
+    if (caller.role === UserRole.cdc_secretary) {
       if (!caller.teamId) {
         throw new ForbiddenException({
           code: 'FORBIDDEN_SCOPE',
           message: 'CDC Secretary missing team scope',
         });
       }
-      whereCondition.teamId = caller.teamId;
-    } else if (caller.role === UserRole.super_admin) {
-      if (query.teamId) whereCondition.teamId = query.teamId;
-      if (query.gnId) whereCondition.gnId = query.gnId;
+      if (query.teamId && query.teamId !== caller.teamId) {
+        throw new ForbiddenException({
+          code: 'FORBIDDEN_SCOPE',
+          message: 'Cannot access clients outside assigned team',
+        });
+      }
+      scopeFilter = { deletedAt: null, teamId: caller.teamId };
+    } else if (caller.role === UserRole.team_member) {
+      scopeFilter = { deletedAt: null, collectedBy: caller.userId };
     } else {
-      const scopeFilter = this.scopeService.getClientScopeFilter(caller);
-      Object.assign(whereCondition, scopeFilter);
-      if (query.teamId) whereCondition.teamId = query.teamId;
-      if (query.gnId) whereCondition.gnId = query.gnId;
+      scopeFilter = this.scopeService.getClientScopeFilter(caller);
     }
 
-    if (query.districtId && !whereCondition.districtId) {
-      whereCondition.districtId = query.districtId;
-    }
-    if (query.dsId && !whereCondition.dsId) {
-      whereCondition.dsId = query.dsId;
-    }
-    if (query.gnId && !whereCondition.gnId) {
-      whereCondition.gnId = query.gnId;
-    }
+    // 2. Build caller query filters
+    const userFilter: Record<string, any> = {};
+    if (query.teamId) userFilter.teamId = query.teamId;
+    if (query.gnId) userFilter.gnId = query.gnId;
+    if (query.dsId) userFilter.dsId = query.dsId;
+    if (query.districtId) userFilter.districtId = query.districtId;
+    if (query.householdId) userFilter.householdId = query.householdId;
 
     if (query.gender && query.gender !== 'all') {
       const g = query.gender.toUpperCase();
       if (g === 'M' || g === 'MALE') {
-        whereCondition.gender = 'M';
+        userFilter.gender = 'M';
       } else if (g === 'F' || g === 'FEMALE') {
-        whereCondition.gender = 'F';
+        userFilter.gender = 'F';
       }
     }
 
+    let beneficiaryCondition: Record<string, any> | undefined;
     if (query.beneficiary && query.beneficiary !== 'all') {
       switch (query.beneficiary) {
         case 'aswesuma':
-          whereCondition.isAswesuma = true;
+          userFilter.isAswesuma = true;
           break;
         case 'samurdhi':
-          whereCondition.isSamurdhi = true;
+          userFilter.isSamurdhi = true;
           break;
         case 'epf':
-          whereCondition.OR = [{ isEpf: true }, { isEtf: true }];
+          beneficiaryCondition = { OR: [{ isEpf: true }, { isEtf: true }] };
           break;
         case 'special_needs':
-          whereCondition.hasSpecialNeeds = true;
+          userFilter.hasSpecialNeeds = true;
           break;
       }
     }
 
     if (query.language && query.language !== 'all') {
       if (query.language === 'si') {
-        whereCondition.household = { ...whereCondition.household, langSinhala: true };
+        userFilter.household = { ...userFilter.household, langSinhala: true };
       } else if (query.language === 'ta') {
-        whereCondition.household = { ...whereCondition.household, langTamil: true };
+        userFilter.household = { ...userFilter.household, langTamil: true };
       } else if (query.language === 'en') {
-        whereCondition.household = { ...whereCondition.household, langEnglish: true };
+        userFilter.household = { ...userFilter.household, langEnglish: true };
       }
     }
 
-    if (query.householdId) {
-      whereCondition.householdId = query.householdId;
-    }
-
+    let searchCondition: Record<string, any> | undefined;
     if (query.search) {
       const s = query.search.trim();
-      const searchConditions = [
-        { name: { contains: s, mode: 'insensitive' } },
-        { phoneRaw: { contains: s } },
-        { phoneE164: { contains: s } },
-      ];
-
-      if (whereCondition.OR) {
-        const scopeOr = whereCondition.OR;
-        delete whereCondition.OR;
-        whereCondition.AND = [
-          ...(Array.isArray(whereCondition.AND)
-            ? whereCondition.AND
-            : whereCondition.AND
-              ? [whereCondition.AND]
-              : []),
-          { OR: scopeOr },
-          { OR: searchConditions },
-        ];
-      } else if (whereCondition.AND) {
-        whereCondition.AND = [
-          ...(Array.isArray(whereCondition.AND)
-            ? whereCondition.AND
-            : [whereCondition.AND]),
-          { OR: searchConditions },
-        ];
-      } else {
-        whereCondition.OR = searchConditions;
-      }
+      searchCondition = {
+        OR: [
+          { name: { contains: s, mode: 'insensitive' } },
+          { phoneRaw: { contains: s } },
+          { phoneE164: { contains: s } },
+        ],
+      };
     }
+
+    const whereCondition = this.scopeService.combineConditions(
+      scopeFilter,
+      userFilter,
+      beneficiaryCondition,
+      searchCondition,
+    );
 
     const limit = query.limit ?? 50;
 
@@ -267,8 +250,8 @@ export class ClientService {
     if (caller.role !== UserRole.team_member) {
       const webRolesSetting = this.prisma?.appSetting?.findUnique
         ? await this.prisma.appSetting.findUnique({
-            where: { key: 'web_entry_roles' },
-          })
+          where: { key: 'web_entry_roles' },
+        })
         : null;
       const allowedRoles: string[] = Array.isArray(webRolesSetting?.value)
         ? (webRolesSetting!.value as string[])

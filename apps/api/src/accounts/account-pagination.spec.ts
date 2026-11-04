@@ -37,7 +37,7 @@ describe('Account Keyset Pagination & Shared Timestamp Tiebreaker (M5.2)', () =>
         },
         {
           provide: ScopeService,
-          useValue: {},
+          useValue: new ScopeService(),
         },
       ],
     }).compile();

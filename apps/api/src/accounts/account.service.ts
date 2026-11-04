@@ -871,34 +871,51 @@ export class AccountService {
     }>;
     nextCursor?: string;
   }> {
-    const take = Math.min(query.take || 50, 100);
-    const where: Prisma.ProfileWhereInput = {};
+    const take = Math.min(query.limit ?? query.take ?? 50, 100);
 
-    // Territorial scope filtering
+    // 1. Enforce territorial scope filter via ScopeService
+    const scopeFilter = this.scopeService.getAccountScopeFilter(callerScope);
+
+    // Guard against explicit cross-scope query widening
     if (callerScope.role === UserRole.cdc_secretary) {
-      where.teamId = callerScope.teamId || undefined;
+      if (query.teamId && query.teamId !== callerScope.teamId) {
+        throw new ForbiddenException({
+          code: 'FORBIDDEN_SCOPE',
+          message: 'Cannot access accounts outside assigned team',
+        });
+      }
     } else if (callerScope.role === UserRole.team_member) {
-      where.id = callerScope.userId;
-    } else if (callerScope.gnId) {
-      where.gnId = callerScope.gnId;
-    } else if (callerScope.dsId) {
-      where.dsId = callerScope.dsId;
-    } else if (callerScope.districtId) {
-      where.districtId = callerScope.districtId;
+      if (query.teamId && query.teamId !== callerScope.teamId) {
+        throw new ForbiddenException({
+          code: 'FORBIDDEN_SCOPE',
+          message: 'Cannot access accounts outside assigned scope',
+        });
+      }
     }
 
-    if (query.role) where.role = query.role;
-    if (query.teamId) where.teamId = query.teamId;
-    if (query.gnId) where.gnId = query.gnId;
-    if (query.isActive !== undefined) where.isActive = query.isActive;
+    // 2. Build caller query filters
+    const userFilter: Prisma.ProfileWhereInput = {};
+    if (query.role) userFilter.role = query.role;
+    if (query.teamId) userFilter.teamId = query.teamId;
+    if (query.gnId) userFilter.gnId = query.gnId;
+    if (query.isActive !== undefined) userFilter.isActive = query.isActive;
 
+    let searchFilter: Prisma.ProfileWhereInput | undefined;
     if (query.search) {
-      where.OR = [
-        { fullName: { contains: query.search, mode: 'insensitive' } },
-        { userCode: { contains: query.search, mode: 'insensitive' } },
-        { phoneE164: { contains: query.search, mode: 'insensitive' } },
-      ];
+      searchFilter = {
+        OR: [
+          { fullName: { contains: query.search, mode: 'insensitive' } },
+          { userCode: { contains: query.search, mode: 'insensitive' } },
+          { phoneE164: { contains: query.search, mode: 'insensitive' } },
+        ],
+      };
     }
+
+    const where = this.scopeService.combineConditions(
+      scopeFilter,
+      userFilter,
+      searchFilter,
+    );
 
     const items = await this.prisma.profile.findMany({
       where,

@@ -7,21 +7,25 @@ echo "===================================================="
 
 # 1. API Checks
 echo ""
-echo "--- [1/3] Running NestJS API Quality Gates ---"
+echo "--- [1/5] Running NestJS API Quality Gates ---"
 echo "Building NestJS API..."
 pnpm --filter api run build
 echo "Running NestJS Unit Tests..."
-pnpm --filter api test
+pnpm --filter api run test:unit
 
 # 2. Next.js Web Dashboard Checks
 echo ""
-echo "--- [2/4] Running Next.js Web Dashboard Quality Gates ---"
+echo "--- [2/5] Running Next.js Web Dashboard Quality Gates ---"
+echo "Linting Next.js Web Dashboard..."
+pnpm --filter dashboard lint
+echo "Running Next.js Web Dashboard Unit Tests..."
+pnpm --filter dashboard test
 echo "Building and validating Next.js Web Dashboard (apps/dashboard)..."
 (cd apps/dashboard && pnpm build)
 
 # 3. Dart & Flutter Checks (Mobile & Packages)
 echo ""
-echo "--- [3/4] Running Dart & Flutter Quality Gates (Mobile & Shared Packages) ---"
+echo "--- [3/5] Running Dart & Flutter Quality Gates (Mobile & Shared Packages) ---"
 echo "Checking Dart formatting..."
 dart format --output=none --set-exit-if-changed packages/grs_core packages/grs_ui apps/mobile
 

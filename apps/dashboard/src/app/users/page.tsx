@@ -20,6 +20,34 @@ import {
   Loader2,
 } from 'lucide-react';
 
+// Role creation hierarchy aligned strictly with backend CREATION_MATRIX (§6.1)
+const CREATABLE_ROLES: Record<string, { value: string; label: string }[]> = {
+  super_admin: [
+    { value: 'admin', label: 'Administrator' },
+    { value: 'cg', label: 'CG (Level 1 Central)' },
+    { value: 'dc', label: 'DC (Level 2 District)' },
+    { value: 'sda', label: 'SDA (Level 3 Divisional)' },
+    { value: 'cdc_secretary', label: 'CDC Secretary (Level 4)' },
+    { value: 'team_member', label: 'Team Member (Enumerator)' },
+  ],
+  admin: [],
+  cg: [
+    { value: 'dc', label: 'DC (Level 2 District)' },
+    { value: 'team_member', label: 'Team Member (Enumerator)' },
+  ],
+  dc: [
+    { value: 'sda', label: 'SDA (Level 3 Divisional)' },
+    { value: 'team_member', label: 'Team Member (Enumerator)' },
+  ],
+  sda: [
+    { value: 'cdc_secretary', label: 'CDC Secretary (Level 4)' },
+    { value: 'team_member', label: 'Team Member (Enumerator)' },
+  ],
+  cdc_secretary: [
+    { value: 'team_member', label: 'Team Member (Enumerator)' },
+  ],
+};
+
 export default function UsersPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
@@ -57,6 +85,34 @@ export default function UsersPage() {
   });
 
   const [actionLoading, setActionLoading] = useState(false);
+
+  const allowedSingleRoles = (user?.role && CREATABLE_ROLES[user.role])
+    ? CREATABLE_ROLES[user.role]
+    : [{ value: 'team_member', label: 'Team Member (Enumerator)' }];
+
+  const allowedBulkRoles = ((user?.role && CREATABLE_ROLES[user.role]) || [])
+    .filter((r) => ['team_member', 'cdc_secretary'].includes(r.value));
+
+  const handleOpenSingleModal = () => {
+    setFormData({
+      userCode: '',
+      fullName: '',
+      role: allowedSingleRoles[0]?.value || 'team_member',
+      email: '',
+      phone: '',
+      teamId: '',
+    });
+    setShowSingleModal(true);
+  };
+
+  const handleOpenBulkModal = () => {
+    setBulkData({
+      role: allowedBulkRoles[0]?.value || 'team_member',
+      count: 10,
+      teamId: '',
+    });
+    setShowBulkModal(true);
+  };
 
   useEffect(() => {
     api.getTeams().then(setTeams).catch(() => { });
@@ -275,12 +331,12 @@ export default function UsersPage() {
             <span>Reissue Batch</span>
           </button>
 
-          <button onClick={() => setShowSingleModal(true)} className="btn-secondary">
+          <button onClick={handleOpenSingleModal} className="btn-secondary">
             <UserPlus size={16} />
             <span>{t('users.create_single')}</span>
           </button>
 
-          <button onClick={() => setShowBulkModal(true)} className="btn-primary">
+          <button onClick={handleOpenBulkModal} className="btn-primary">
             <Layers size={16} />
             <span>{t('users.create_bulk')}</span>
           </button>
@@ -478,16 +534,11 @@ export default function UsersPage() {
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   className="input-field"
                 >
-                  <option value="team_member">Team Member (Enumerator)</option>
-                  {user?.role !== 'cdc_secretary' && (
-                    <>
-                      <option value="cdc_secretary">CDC Secretary (Level 4)</option>
-                      <option value="sda">SDA (Level 3 Divisional)</option>
-                      <option value="dc">DC (Level 2 District)</option>
-                      <option value="cg">CG (Level 1 Central)</option>
-                      <option value="admin">Administrator</option>
-                    </>
-                  )}
+                  {allowedSingleRoles.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -537,10 +588,11 @@ export default function UsersPage() {
                   onChange={(e) => setBulkData({ ...bulkData, role: e.target.value })}
                   className="input-field"
                 >
-                  <option value="team_member">Team Member</option>
-                  {user?.role !== 'cdc_secretary' && (
-                    <option value="cdc_secretary">CDC Secretary</option>
-                  )}
+                  {allowedBulkRoles.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 

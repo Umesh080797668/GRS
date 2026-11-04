@@ -7,6 +7,7 @@ import {
   Param,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -64,7 +65,7 @@ export class ClientController {
   @Roles(UserRole.cdc_secretary, UserRole.super_admin)
   async updateClient(
     @CurrentUser() user: ScopeContext,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateClientDto,
   ) {
     return this.clientService.updateClient(user, id, dto);

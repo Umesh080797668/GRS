@@ -353,7 +353,8 @@ export class ReleasesService {
     }
 
     const isOfficialUrl =
-      data.apkUrl.startsWith('https://') ||
+      data.apkUrl.startsWith('https://github.com/Umesh080797668/GRS/releases/download/') ||
+      data.apkUrl.startsWith('https://objects.githubusercontent.com/') ||
       data.apkUrl === '/v1/releases/download' ||
       data.apkUrl.startsWith('/v1/releases/download?');
 
@@ -361,7 +362,7 @@ export class ReleasesService {
       throw new BadRequestException({
         code: 'UNTRUSTED_APK_HOST',
         message:
-          'apkUrl must point to a valid HTTPS release URL or local download endpoint (/v1/releases/download).',
+          'apkUrl must point to an official GitHub release under /Umesh080797668/GRS/releases/download/, objects.githubusercontent.com, or local download endpoint (/v1/releases/download).',
       });
     }
 

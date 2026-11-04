@@ -210,19 +210,30 @@ export default function HousesPage() {
     setSelectedHouseIds([]);
   };
 
-  // Assign houses to team
+  // Assign houses to team (chunked in batches of ≤200 to comply with API cap)
   async function handleAssignSelected() {
     if (!targetTeamId || selectedHouseIds.length === 0) return;
     setAssigning(true);
     setErrorBanner(null);
     setSuccessBanner(null);
+    const BATCH_SIZE = 200;
+    const totalToAssign = selectedHouseIds.length;
+    let assignedCount = 0;
     try {
-      await api.assignHousesToTeam(targetTeamId, selectedHouseIds);
-      setSuccessBanner(`Successfully assigned ${selectedHouseIds.length} house(s) to team.`);
+      for (let i = 0; i < totalToAssign; i += BATCH_SIZE) {
+        const batch = selectedHouseIds.slice(i, i + BATCH_SIZE);
+        await api.assignHousesToTeam(targetTeamId, batch);
+        assignedCount += batch.length;
+      }
+      setSuccessBanner(`Successfully assigned ${assignedCount} house(s) to team.`);
       setSelectedHouseIds([]);
       fetchHouseholds(selectedGn, true);
     } catch (err: any) {
       setErrorBanner(err.message || 'Failed to assign houses.');
+      if (assignedCount > 0) {
+        setSelectedHouseIds(selectedHouseIds.slice(assignedCount));
+        fetchHouseholds(selectedGn, true);
+      }
     } finally {
       setAssigning(false);
     }
@@ -479,6 +490,11 @@ export default function HousesPage() {
               >
                 Clear Selection
               </button>
+            )}
+            {selectedHouseIds.length > 200 && (
+              <span className="text-[11px] text-amber-300 bg-amber-950/60 border border-amber-800/80 px-2.5 py-0.5 rounded-full font-medium">
+                ⚠️ {selectedHouseIds.length} houses selected (exceeds single-batch limit of 200; will be assigned in {Math.ceil(selectedHouseIds.length / 200)} batches)
+              </span>
             )}
           </div>
 

@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -18,13 +19,13 @@ import { AssignHousesDto } from './dto/household.dto';
 @Controller('v1/teams')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class TeamHousesController {
-  constructor(private readonly householdService: HouseholdService) {}
+  constructor(private readonly householdService: HouseholdService) { }
 
   @Post(':id/houses')
   @Roles(UserRole.cdc_secretary, UserRole.super_admin)
   async assignHousesToTeam(
     @CurrentUser() user: ScopeContext,
-    @Param('id') teamId: string,
+    @Param('id', ParseUUIDPipe) teamId: string,
     @Body() dto: AssignHousesDto,
   ) {
     return this.householdService.assignHousesToTeam(user, teamId, dto.houseIds);
@@ -34,8 +35,8 @@ export class TeamHousesController {
   @Roles(UserRole.cdc_secretary, UserRole.super_admin)
   async unassignHouseFromTeam(
     @CurrentUser() user: ScopeContext,
-    @Param('id') teamId: string,
-    @Param('houseId') houseId: string,
+    @Param('id', ParseUUIDPipe) teamId: string,
+    @Param('houseId', ParseUUIDPipe) houseId: string,
   ) {
     return this.householdService.unassignHouseFromTeam(user, teamId, houseId);
   }
@@ -44,8 +45,8 @@ export class TeamHousesController {
   @Roles(UserRole.super_admin)
   async reassignHouseToTeam(
     @CurrentUser() user: ScopeContext,
-    @Param('id') teamId: string,
-    @Param('houseId') houseId: string,
+    @Param('id', ParseUUIDPipe) teamId: string,
+    @Param('houseId', ParseUUIDPipe) houseId: string,
   ) {
     return this.householdService.reassignHouseToTeam(user, teamId, houseId);
   }

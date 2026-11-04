@@ -381,6 +381,26 @@ describe('Releases (Self-Hosted APK Update System)', () => {
       await expect(controller.createRelease(dto, mockReq)).rejects.toThrow();
     });
 
+    it('POST /v1/releases rejects release if github repository path is not Umesh080797668/GRS', async () => {
+      process.env.RELEASE_SECRET = 'ci-secret';
+
+      const dto: CreateReleaseDto = {
+        version: '1.0.5',
+        minSupportedVersion: '1.0.0',
+        apkUrl:
+          'https://github.com/AttackerRepo/GRS/releases/download/v1.0.0/app.apk',
+        sha256: validSha256,
+      };
+
+      const mockReq = {
+        headers: {
+          'x-release-secret': 'ci-secret',
+        },
+      } as unknown as Request;
+
+      await expect(controller.createRelease(dto, mockReq)).rejects.toThrow();
+    });
+
     it('POST /v1/releases rejects release if checksum is missing or invalid format', async () => {
       process.env.RELEASE_SECRET = 'ci-secret';
 

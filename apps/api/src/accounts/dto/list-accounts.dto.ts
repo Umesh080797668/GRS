@@ -42,5 +42,12 @@ export class ListAccountsDto {
   @Max(100)
   @IsOptional()
   @Type(() => Number)
+  limit?: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
   take?: number = 50;
 }

@@ -220,7 +220,8 @@ export class HouseholdService {
     caller: ScopeContext,
     query: ListHouseholdsDto,
   ): Promise<{ households: any[]; totalCount: number; nextCursor?: string }> {
-    const whereCondition: Record<string, any> = { deletedAt: null };
+    let scopeFilter: Record<string, any>;
+    const userFilter: Record<string, any> = {};
 
     if (caller.role === UserRole.cdc_secretary) {
       // CDC Secretary scope: their GN division
@@ -230,12 +231,18 @@ export class HouseholdService {
           message: 'CDC Secretary missing GN division scope',
         });
       }
-      whereCondition.gnId = caller.gnId;
+      if (query.gnId && query.gnId !== caller.gnId) {
+        throw new ForbiddenException({
+          code: 'FORBIDDEN_SCOPE',
+          message: 'Cannot access households outside assigned GN',
+        });
+      }
+      scopeFilter = { deletedAt: null, gnId: caller.gnId };
 
       if (query.unassignedOnly) {
-        whereCondition.teamId = null;
+        userFilter.teamId = null;
       } else if (query.teamId) {
-        whereCondition.teamId = query.teamId;
+        userFilter.teamId = query.teamId;
       }
     } else if (caller.role === UserRole.team_member) {
       // Team member scope: assigned team
@@ -245,17 +252,17 @@ export class HouseholdService {
           message: 'Team member missing team scope',
         });
       }
-      whereCondition.teamId = caller.teamId;
+      scopeFilter = { deletedAt: null, teamId: caller.teamId };
     } else {
       // Higher roles: use scope service filter
-      const filter = this.scopeService.getHouseholdScopeFilter(caller);
-      Object.assign(whereCondition, filter);
+      scopeFilter = this.scopeService.getHouseholdScopeFilter(caller);
 
-      if (query.gnId) whereCondition.gnId = query.gnId;
-      if (query.teamId) whereCondition.teamId = query.teamId;
-      if (query.unassignedOnly) whereCondition.teamId = null;
+      if (query.gnId) userFilter.gnId = query.gnId;
+      if (query.teamId) userFilter.teamId = query.teamId;
+      if (query.unassignedOnly) userFilter.teamId = null;
     }
 
+    let searchCondition: Record<string, any> | undefined;
     if (query.search) {
       const search = query.search.trim();
       const callerTeamFilter = caller.teamId ? [{ teamId: caller.teamId }] : [];
@@ -276,30 +283,14 @@ export class HouseholdService {
         leaderNameCondition,
         { villageName: { contains: search, mode: 'insensitive' } },
       ];
-
-      if (whereCondition.OR) {
-        const scopeOr = whereCondition.OR;
-        delete whereCondition.OR;
-        whereCondition.AND = [
-          ...(Array.isArray(whereCondition.AND)
-            ? whereCondition.AND
-            : whereCondition.AND
-              ? [whereCondition.AND]
-              : []),
-          { OR: scopeOr },
-          { OR: searchConditions },
-        ];
-      } else if (whereCondition.AND) {
-        whereCondition.AND = [
-          ...(Array.isArray(whereCondition.AND)
-            ? whereCondition.AND
-            : [whereCondition.AND]),
-          { OR: searchConditions },
-        ];
-      } else {
-        whereCondition.OR = searchConditions;
-      }
+      searchCondition = { OR: searchConditions };
     }
+
+    const whereCondition = this.scopeService.combineConditions(
+      scopeFilter,
+      userFilter,
+      searchCondition,
+    );
 
     const limit = query.limit ?? 50;
 

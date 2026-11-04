@@ -9,6 +9,7 @@ import { AppModule } from './app.module';
 import * as Sentry from '@sentry/node';
 import { sentryEventScrubber } from './common/logging/sentry-scrubber';
 import { StructuredLoggerService } from './common/logging/structured-logger.service';
+import { PrismaClientExceptionFilter } from './common/filters/prisma-client-exception.filter';
 
 const expressApp: Express = express();
 let isInitialized = false;
@@ -98,6 +99,8 @@ export async function createNestServer(server: Express) {
       transform: true,
     }),
   );
+
+  app.useGlobalFilters(new PrismaClientExceptionFilter());
 
   // OpenAPI Swagger Documentation (Section 6)
   const config = new DocumentBuilder()
