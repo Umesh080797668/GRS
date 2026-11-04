@@ -19,6 +19,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import LanguageSwitch from './LanguageSwitch';
+import OrbitCanvas from './OrbitCanvas';
 
 interface NavItem {
   key: string;
@@ -131,12 +132,12 @@ export function Shell({ children, activePath }: ShellProps) {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
+    <div className="dashboard-enter" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
       {/* Sidebar */}
       <aside
         style={{
           width: collapsed ? '72px' : '260px',
-          background: 'linear-gradient(180deg, #090e1a 0%, #0f172a 100%)',
+          background: 'linear-gradient(180deg, #080d18 0%, #111b30 100%)',
           color: '#ffffff',
           display: 'flex',
           flexDirection: 'column',
@@ -217,7 +218,7 @@ export function Shell({ children, activePath }: ShellProps) {
                   width: '100%',
                   borderRadius: '8px',
                   border: 'none',
-                  background: isActive ? 'linear-gradient(135deg, #1e3a8a, #2563eb)' : 'transparent',
+                  background: isActive ? 'linear-gradient(135deg, #4255c7, #6d7cff)' : 'transparent',
                   color: isActive ? '#ffffff' : '#cbd5e1',
                   fontWeight: isActive ? 600 : 500,
                   fontSize: '13px',
@@ -329,7 +330,8 @@ export function Shell({ children, activePath }: ShellProps) {
         </header>
 
         {/* Page Container */}
-        <main style={{ flex: 1, padding: '1.5rem', maxWidth: '1440px', width: '100%', margin: '0 auto' }}>
+        <main style={{ flex: 1, padding: 'clamp(1rem, 2.4vw, 2rem)', maxWidth: '1480px', width: '100%', margin: '0 auto', position: 'relative' }}>
+          <div aria-hidden="true" style={{ position: 'absolute', right: '2rem', top: '1rem', width: '180px', height: '120px', pointerEvents: 'none', opacity: 0.72 }}><OrbitCanvas /></div>
           {children}
         </main>
       </div>
