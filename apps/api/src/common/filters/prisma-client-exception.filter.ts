@@ -3,12 +3,16 @@ import {
   Catch,
   ArgumentsHost,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { Prisma } from '@prisma/client';
+import * as Sentry from '@sentry/node';
 
 @Catch()
 export class PrismaClientExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(PrismaClientExceptionFilter.name);
+
   catch(exception: any, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -18,7 +22,6 @@ export class PrismaClientExceptionFilter implements ExceptionFilter {
       exception?.code === 'P2023' ||
       (typeof exception?.message === 'string' &&
         (exception.message.includes('invalid input syntax for type uuid') ||
-          exception.message.includes('Inconsistent column data') ||
           exception.message.includes('Malformed ObjectID') ||
           exception.message.includes(
             'Conversion failed when converting from a character string to uniqueidentifier',
@@ -32,7 +35,27 @@ export class PrismaClientExceptionFilter implements ExceptionFilter {
       });
     }
 
-    // 2. Prisma P2025: Record not found
+    // 2. Prisma P2002: Unique constraint violation -> Map to 409 Conflict
+    const isUniqueConstraint =
+      exception?.code === 'P2002' ||
+      (exception instanceof Prisma.PrismaClientKnownRequestError &&
+        exception.code === 'P2002');
+
+    if (isUniqueConstraint) {
+      const target = exception?.meta?.target;
+      const targetStr = Array.isArray(target)
+        ? target.join(', ')
+        : target
+          ? String(target)
+          : 'field';
+      return response.status(HttpStatus.CONFLICT).json({
+        statusCode: HttpStatus.CONFLICT,
+        message: `Unique constraint violation on ${targetStr}`,
+        error: 'Conflict',
+      });
+    }
+
+    // 3. Prisma P2025: Record not found
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       if (exception.code === 'P2025') {
         return response.status(HttpStatus.NOT_FOUND).json({
@@ -43,10 +66,20 @@ export class PrismaClientExceptionFilter implements ExceptionFilter {
       }
     }
 
-    // 3. If standard Nest HttpException, delegate status and response
+    // 4. If standard Nest HttpException, delegate status and response
     if (typeof exception?.getStatus === 'function') {
       const status = exception.getStatus();
       const res = exception.getResponse();
+
+      // Log and capture 5xx HTTP errors
+      if (status >= 500) {
+        this.logger.error(
+          `HTTP ${status} Server Error: ${exception.message || JSON.stringify(res)}`,
+          exception.stack,
+        );
+        Sentry.captureException(exception);
+      }
+
       return response
         .status(status)
         .json(
@@ -54,7 +87,14 @@ export class PrismaClientExceptionFilter implements ExceptionFilter {
         );
     }
 
-    // 4. Default unhandled fallback 500
+    // 5. Default unhandled fallback 500 (Non-HTTP error)
+    // Capture and log non-HTTP errors
+    this.logger.error(
+      `Unhandled Exception: ${exception?.message || exception}`,
+      exception?.stack,
+    );
+    Sentry.captureException(exception);
+
     const status = HttpStatus.INTERNAL_SERVER_ERROR;
     response.status(status).json({
       statusCode: status,

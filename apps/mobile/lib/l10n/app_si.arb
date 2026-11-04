@@ -709,5 +709,19 @@
         "type": "String"
       }
     }
-  }
+  },
+  "recordRejected": "වාර්තාව ප්‍රතික්ෂේප විය",
+  "@recordRejected": {},
+  "fixAndResubmit": "සකසා නැවත ඉදිරිපත් කරන්න",
+  "@fixAndResubmit": {},
+  "themeSystem": "පද්ධතිය",
+  "@themeSystem": {},
+  "themeLight": "ආලෝකය",
+  "@themeLight": {},
+  "themeDark": "අඳුරු",
+  "@themeDark": {},
+  "householdNotFound": "නිවස සොයාගත නොහැකි විය.",
+  "@householdNotFound": {},
+  "genericErrorNotice": "යම් දෝෂයක් සිදු විය. කරුණාකර නැවත උත්සාහ කරන්න.",
+  "@genericErrorNotice": {}
 }

@@ -161,8 +161,7 @@ class AppTranslations {
     "consentTitle": "Statutory Consent (PDPA)",
     "consentCheckboxLabel":
         "I confirm that informed consent has been obtained from the beneficiary.",
-    "consentRequiredError":
-        "You must obtain consent before recording beneficiary data.",
+    "consentRequiredError": "Cannot save without informed consent.",
     "checkForUpdates": "Check for Updates",
     "appUpToDate": "App is up to date",
     "updateAvailable": "Update Available",
@@ -344,6 +343,13 @@ class AppTranslations {
     "clientRecordUpdatedSuccess":
         "Client record updated and audit trail logged.",
     "failedWithError": "Failed: {error}",
+    "recordRejected": "Record Rejected",
+    "fixAndResubmit": "Fix & Resubmit",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "householdNotFound": "Household not found.",
+    "genericErrorNotice": "Something went wrong. Please try again.",
   };
 
   static const Map<String, String> si = {
@@ -696,6 +702,13 @@ class AppTranslations {
     "clientRecordUpdatedSuccess":
         "ප්‍රතිලාභී වාර්තාව යාවත්කාලීන කර විගණන සටහන ලොග් කරන ලදී.",
     "failedWithError": "අසාර්ථක විය: {error}",
+    "recordRejected": "වාර්තාව ප්‍රතික්ෂේප විය",
+    "fixAndResubmit": "සකසා නැවත ඉදිරිපත් කරන්න",
+    "themeSystem": "පද්ධතිය",
+    "themeLight": "ආලෝකය",
+    "themeDark": "අඳුරු",
+    "householdNotFound": "නිවස සොයාගත නොහැකි විය.",
+    "genericErrorNotice": "යම් දෝෂයක් සිදු විය. කරුණාකර නැවත උත්සාහ කරන්න.",
   };
 
   static const Map<String, String> ta = {
@@ -1050,6 +1063,13 @@ class AppTranslations {
     "clientRecordUpdatedSuccess":
         "பயனாளி பதிவு புதுப்பிக்கப்பட்டு தணிக்கை பதிவு செய்யப்பட்டது.",
     "failedWithError": "தோல்வி: {error}",
+    "recordRejected": "பதிவு நிராகரிக்கப்பட்டது",
+    "fixAndResubmit": "சரிசெய்து மீண்டும் சமர்ப்பிக்கவும்",
+    "themeSystem": "கணினி",
+    "themeLight": "வெளிச்சம்",
+    "themeDark": "இருள்",
+    "householdNotFound": "வீடு கிடைக்கவில்லை.",
+    "genericErrorNotice": "ஏதோ தவறு நடந்துவிட்டது. மீண்டும் முயற்சிக்கவும்.",
   };
 
   static Map<String, String> get(String lang) {

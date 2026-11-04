@@ -39,7 +39,7 @@ export class AccountService {
     private readonly prisma: PrismaService,
     private readonly credentialService: CredentialService,
     private readonly scopeService: ScopeService,
-  ) {}
+  ) { }
 
   /**
    * Creates a single account with generated credentials.
@@ -82,7 +82,7 @@ export class AccountService {
         const gnId = resolvedTerritory.gnId || teamGnId || undefined;
         let profile: any;
         for (let retry = 0; retry < 5; retry++) {
-          const userCode = await this.generateUniqueUserCode(tx);
+          const userCode = this.credentialService.generateUserCode();
           try {
             profile = await tx.profile.create({
               data: {
@@ -105,15 +105,24 @@ export class AccountService {
             break;
           } catch (err: any) {
             const isUserCodeConflict =
-              err?.code === 'P2002' &&
-              (err?.meta?.target?.includes('userCode') ||
-                err?.meta?.target?.includes('user_code') ||
-                JSON.stringify(err?.meta || '').includes('userCode'));
+              err?.code === 'P2002' ||
+              (typeof err?.message === 'string' &&
+                (err.message.includes('user_code') ||
+                  err.message.includes('userCode') ||
+                  err.message.includes('Unique constraint')));
             if (isUserCodeConflict && retry < 4) {
               continue;
             }
             throw err;
           }
+        }
+
+        // Keep teams.leader_id in sync when creating a CDC secretary (team leader)
+        if (dto.role === UserRole.cdc_secretary && resolvedTerritory.teamId) {
+          await tx.team.update({
+            where: { id: resolvedTerritory.teamId },
+            data: { leaderId: profile.id },
+          });
         }
 
         await tx.accountAudit.create({
@@ -227,7 +236,7 @@ export class AccountService {
           const m = hashedMembers[i];
           let profile: any;
           for (let retry = 0; retry < 5; retry++) {
-            const userCode = await this.generateUniqueUserCode(tx);
+            const userCode = this.credentialService.generateUserCode();
             try {
               profile = await tx.profile.create({
                 data: {
@@ -250,10 +259,11 @@ export class AccountService {
               break;
             } catch (err: any) {
               const isUserCodeConflict =
-                err?.code === 'P2002' &&
-                (err?.meta?.target?.includes('userCode') ||
-                  err?.meta?.target?.includes('user_code') ||
-                  JSON.stringify(err?.meta || '').includes('userCode'));
+                err?.code === 'P2002' ||
+                (typeof err?.message === 'string' &&
+                  (err.message.includes('user_code') ||
+                    err.message.includes('userCode') ||
+                    err.message.includes('Unique constraint')));
               if (isUserCodeConflict && retry < 4) {
                 continue;
               }
@@ -374,6 +384,14 @@ export class AccountService {
           where: { profileId: targetUserId },
         });
 
+        // Clear leader_id on the team if this deactivated user was the recorded leader
+        if (target.role === UserRole.cdc_secretary && target.teamId) {
+          await tx.team.updateMany({
+            where: { id: target.teamId, leaderId: targetUserId },
+            data: { leaderId: null },
+          });
+        }
+
         await tx.accountAudit.create({
           data: {
             actorId: adminScope.userId,
@@ -465,6 +483,19 @@ export class AccountService {
             deactivatedBy: null,
           },
         });
+
+        // Restore leader_id if reactivating a CDC secretary and the team has no current leader
+        if (target.role === UserRole.cdc_secretary && target.teamId) {
+          const team = await tx.team.findUnique({
+            where: { id: target.teamId },
+          });
+          if (team && !team.leaderId) {
+            await tx.team.update({
+              where: { id: target.teamId },
+              data: { leaderId: targetUserId },
+            });
+          }
+        }
 
         await tx.accountAudit.create({
           data: {
@@ -968,19 +999,40 @@ export class AccountService {
       });
     }
 
+    // Bug 4: Fail closed everywhere. If creator is non-national, require their area scope.
+    if (creator.role === UserRole.cdc_secretary) {
+      if (!creator.teamId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_TEAM',
+          message: 'CDC Secretary must have an assigned team to create accounts',
+        });
+      }
+    } else if (creator.role === UserRole.sda) {
+      if (!creator.dsId || !creator.districtId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DS',
+          message:
+            'SDA must have an assigned DS division and district to create accounts',
+        });
+      }
+    } else if (creator.role === UserRole.dc) {
+      if (!creator.districtId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DISTRICT',
+          message: 'DC must have an assigned district to create accounts',
+        });
+      }
+    }
+
     const effectiveTeamId =
       targetTeamId ||
       (targetRole === UserRole.team_member
         ? creator.teamId || undefined
         : undefined);
 
-    // Immediate role scope constraints
+    // Immediate role scope constraints (Fail closed: verify caller territory before validating completeness)
     if (creator.role === UserRole.cdc_secretary) {
-      if (
-        effectiveTeamId &&
-        creator.teamId &&
-        effectiveTeamId !== creator.teamId
-      ) {
+      if (effectiveTeamId && effectiveTeamId !== creator.teamId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_TEAM',
           message: 'CDC Secretary can only create members for their own team',
@@ -1012,33 +1064,60 @@ export class AccountService {
         });
       }
     } else if (creator.role === UserRole.dc) {
-      if (
-        targetDistrictId &&
-        creator.districtId &&
-        targetDistrictId !== creator.districtId
-      ) {
+      if (targetDistrictId && targetDistrictId !== creator.districtId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_DISTRICT',
           message: 'DC can only create accounts within their assigned district',
         });
       }
     } else if (creator.role === UserRole.sda) {
-      if (
-        targetDistrictId &&
-        creator.districtId &&
-        targetDistrictId !== creator.districtId
-      ) {
+      if (targetDistrictId && targetDistrictId !== creator.districtId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_DISTRICT',
           message:
             'SDA can only create accounts within their assigned district',
         });
       }
-      if (targetDsId && creator.dsId && targetDsId !== creator.dsId) {
+      if (targetDsId && targetDsId !== creator.dsId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_DS',
           message:
             'SDA can only create accounts within their assigned DS division',
+        });
+      }
+    }
+
+    // Bug 3: Require the right area per role at creation
+    if (targetRole === UserRole.team_member) {
+      if (!effectiveTeamId) {
+        throw new BadRequestException({
+          code: 'TEAM_REQUIRED',
+          message: 'Team assignment is required for team members',
+        });
+      }
+    } else if (targetRole === UserRole.cdc_secretary) {
+      if (!effectiveTeamId) {
+        throw new BadRequestException({
+          code: 'TEAM_REQUIRED',
+          message:
+            'Team assignment is required for CDC secretary (team leader)',
+        });
+      }
+    } else if (targetRole === UserRole.sda) {
+      const effectiveDsId = targetDsId || creator.dsId;
+      const effectiveDistrictId = targetDistrictId || creator.districtId;
+      if (!effectiveDsId || !effectiveDistrictId) {
+        throw new BadRequestException({
+          code: 'DS_REQUIRED',
+          message: 'DS division and district assignment are required for SDA',
+        });
+      }
+    } else if (targetRole === UserRole.dc) {
+      const effectiveDistrictId = targetDistrictId || creator.districtId;
+      if (!effectiveDistrictId) {
+        throw new BadRequestException({
+          code: 'DISTRICT_REQUIRED',
+          message: 'District assignment is required for DC',
         });
       }
     }
@@ -1062,9 +1141,27 @@ export class AccountService {
         });
       }
 
+      // Check one-leader-per-team rule (Bug 3)
+      if (targetRole === UserRole.cdc_secretary) {
+        if (team.leaderId) {
+          const activeLeader = await this.prisma.profile.findFirst({
+            where: { id: team.leaderId, isActive: true },
+          });
+          if (activeLeader) {
+            throw new ConflictException({
+              code: 'TEAM_ALREADY_HAS_LEADER',
+              message: 'Team already has an active leader assigned',
+            });
+          }
+        }
+      }
+
       // Check creator territory against team's territory
-      if (creator.role === UserRole.dc && creator.districtId) {
-        if (team.gn.ds.districtId !== creator.districtId) {
+      if (creator.role === UserRole.dc) {
+        if (
+          !creator.districtId ||
+          team.gn.ds.districtId !== creator.districtId
+        ) {
           throw new ForbiddenException({
             code: 'OUT_OF_SCOPE_DISTRICT',
             message:
@@ -1075,7 +1172,7 @@ export class AccountService {
 
       if (creator.role === UserRole.sda) {
         if (
-          creator.districtId &&
+          !creator.districtId ||
           team.gn.ds.districtId !== creator.districtId
         ) {
           throw new ForbiddenException({
@@ -1084,7 +1181,7 @@ export class AccountService {
               'SDA cannot create accounts for a team outside their assigned district',
           });
         }
-        if (creator.dsId && team.gn.dsId !== creator.dsId) {
+        if (!creator.dsId || team.gn.dsId !== creator.dsId) {
           throw new ForbiddenException({
             code: 'OUT_OF_SCOPE_DS',
             message:
@@ -1093,8 +1190,8 @@ export class AccountService {
         }
       }
 
-      if (creator.role === UserRole.cdc_secretary && creator.teamId) {
-        if (team.id !== creator.teamId) {
+      if (creator.role === UserRole.cdc_secretary) {
+        if (!creator.teamId || team.id !== creator.teamId) {
           throw new ForbiddenException({
             code: 'OUT_OF_SCOPE_TEAM',
             message: 'CDC Secretary can only create members for their own team',
@@ -1147,8 +1244,8 @@ export class AccountService {
         });
       }
 
-      if (creator.role === UserRole.dc && creator.districtId) {
-        if (gn.ds.districtId !== creator.districtId) {
+      if (creator.role === UserRole.dc) {
+        if (!creator.districtId || gn.ds.districtId !== creator.districtId) {
           throw new ForbiddenException({
             code: 'OUT_OF_SCOPE_DISTRICT',
             message:
@@ -1158,13 +1255,13 @@ export class AccountService {
       }
 
       if (creator.role === UserRole.sda) {
-        if (creator.districtId && gn.ds.districtId !== creator.districtId) {
+        if (!creator.districtId || gn.ds.districtId !== creator.districtId) {
           throw new ForbiddenException({
             code: 'OUT_OF_SCOPE_DISTRICT',
             message: 'SDA cannot create accounts outside their district',
           });
         }
-        if (creator.dsId && gn.dsId !== creator.dsId) {
+        if (!creator.dsId || gn.dsId !== creator.dsId) {
           throw new ForbiddenException({
             code: 'OUT_OF_SCOPE_DS',
             message:
@@ -1210,8 +1307,8 @@ export class AccountService {
         });
       }
 
-      if (creator.role === UserRole.dc && creator.districtId) {
-        if (ds.districtId !== creator.districtId) {
+      if (creator.role === UserRole.dc) {
+        if (!creator.districtId || ds.districtId !== creator.districtId) {
           throw new ForbiddenException({
             code: 'OUT_OF_SCOPE_DISTRICT',
             message:
@@ -1221,13 +1318,13 @@ export class AccountService {
       }
 
       if (creator.role === UserRole.sda) {
-        if (creator.districtId && ds.districtId !== creator.districtId) {
+        if (!creator.districtId || ds.districtId !== creator.districtId) {
           throw new ForbiddenException({
             code: 'OUT_OF_SCOPE_DISTRICT',
             message: 'SDA cannot create accounts outside their district',
           });
         }
-        if (creator.dsId && ds.id !== creator.dsId) {
+        if (!creator.dsId || ds.id !== creator.dsId) {
           throw new ForbiddenException({
             code: 'OUT_OF_SCOPE_DS',
             message: 'SDA cannot create accounts outside their DS division',
@@ -1254,8 +1351,7 @@ export class AccountService {
     if (targetDistrictId) {
       if (
         creator.role === UserRole.dc &&
-        creator.districtId &&
-        targetDistrictId !== creator.districtId
+        (!creator.districtId || targetDistrictId !== creator.districtId)
       ) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_DISTRICT',
@@ -1264,8 +1360,7 @@ export class AccountService {
       }
       if (
         creator.role === UserRole.sda &&
-        creator.districtId &&
-        targetDistrictId !== creator.districtId
+        (!creator.districtId || targetDistrictId !== creator.districtId)
       ) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_DISTRICT',
@@ -1291,6 +1386,10 @@ export class AccountService {
 
   /**
    * Atomically locks the team row and checks member capacity (Decision C8).
+   * Note / Decision (Bug 5): `max_members` specifically limits the count of active
+   * field enumerators/agents (`team_member`, Level 5) assigned to the team.
+   * The Level 4 team leader (`cdc_secretary`) is the team coordinator/supervisor and does not
+   * count against enumerator capacity (e.g. a team limit of 10 permits 10 field agents).
    * Throws ConflictException with detailed slot count if exceeded.
    */
   private async assertTeamCapacity(
@@ -1315,6 +1414,7 @@ export class AccountService {
     const activeCount = await tx.profile.count({
       where: {
         teamId,
+        role: UserRole.team_member,
         isActive: true,
       },
     });
@@ -1339,19 +1439,6 @@ export class AccountService {
   private async generateUniqueUserCode(
     tx: Prisma.TransactionClient,
   ): Promise<string> {
-    for (let attempts = 0; attempts < 10; attempts++) {
-      const code = this.credentialService.generateUserCode();
-      const existing = await tx.profile.findUnique({
-        where: { userCode: code },
-        select: { id: true },
-      });
-      if (!existing) {
-        return code;
-      }
-    }
-    throw new ConflictException({
-      code: 'USER_CODE_GENERATION_FAILED',
-      message: 'Failed to generate unique user code after multiple attempts',
-    });
+    return this.credentialService.generateUserCode();
   }
 }

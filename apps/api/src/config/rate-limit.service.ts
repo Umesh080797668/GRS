@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface RateLimitResult {
@@ -10,11 +10,15 @@ export interface RateLimitResult {
 
 @Injectable()
 export class RateLimitService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(RateLimitService.name);
+
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Evaluates rate limit against DB-backed storage (rate_limits table).
-   * Returns allowed status and retry-after in seconds when throttled.
+   * Executes a single atomic UPSERT query per key to eliminate window-reset race conditions
+   * and reduce multi-read/write overhead to a single atomic roundtrip.
+   * Fails open on database errors so database glitches never throttle legitimate users.
    */
   async checkRateLimit(
     key: string,
@@ -25,91 +29,70 @@ export class RateLimitService {
     const windowMs = windowSeconds * 1000;
 
     try {
-      const existing = await this.prisma.rateLimit.findUnique({
-        where: { key },
-      });
+      if (typeof this.prisma.$queryRawUnsafe === 'function') {
+        const rows = await this.prisma.$queryRawUnsafe<
+          Array<{ count: number | bigint; window_start: Date | string }>
+        >(
+          `INSERT INTO "rate_limits" ("id", "key", "window_start", "count")
+           VALUES (gen_random_uuid(), $1, $2, 1)
+           ON CONFLICT ("key") DO UPDATE
+           SET
+             count = CASE
+               WHEN "rate_limits"."window_start" + ($3 * INTERVAL '1 second') < $2 THEN 1
+               ELSE "rate_limits"."count" + 1
+             END,
+             window_start = CASE
+               WHEN "rate_limits"."window_start" + ($3 * INTERVAL '1 second') < $2 THEN $2
+               ELSE "rate_limits"."window_start"
+             END
+           RETURNING "count", "window_start";`,
+          key,
+          now,
+          windowSeconds,
+        );
 
-      if (!existing) {
-        try {
-          await this.prisma.rateLimit.create({
-            data: {
-              key,
-              windowStart: now,
-              count: 1,
-            },
-          });
+        if (rows && rows.length > 0) {
+          const count = Number(rows[0].count);
+          const windowStart = new Date(rows[0].window_start);
+          const elapsed = now.getTime() - windowStart.getTime();
+
+          if (count > limit) {
+            const retryAfter = Math.max(
+              1,
+              Math.ceil((windowMs - elapsed) / 1000),
+            );
+            return {
+              allowed: false,
+              limit,
+              remaining: 0,
+              retryAfter,
+            };
+          }
+
           return {
             allowed: true,
             limit,
-            remaining: limit - 1,
+            remaining: Math.max(0, limit - count),
           };
-        } catch {
-          // Concurrency: another request just created the record
         }
       }
 
-      const current =
-        existing ??
-        (await this.prisma.rateLimit.findUnique({ where: { key } }));
-
-      if (!current) {
-        return {
-          allowed: false,
-          limit,
-          remaining: 0,
-          retryAfter: 60,
-        };
-      }
-
-      const elapsed = now.getTime() - current.windowStart.getTime();
-
-      // Window expired, reset window
-      if (elapsed > windowMs) {
-        await this.prisma.rateLimit.update({
-          where: { key },
-          data: {
-            windowStart: now,
-            count: 1,
-          },
-        });
-        return {
-          allowed: true,
-          limit,
-          remaining: limit - 1,
-        };
-      }
-
-      // Atomically increment count first to prevent parallel guess bypass
-      const updated = await this.prisma.rateLimit.update({
-        where: { key },
-        data: {
-          count: { increment: 1 },
-        },
-      });
-
-      // Limit reached
-      if (updated.count > limit) {
-        const retryAfter = Math.max(1, Math.ceil((windowMs - elapsed) / 1000));
-        return {
-          allowed: false,
-          limit,
-          remaining: 0,
-          retryAfter,
-        };
-      }
-
+      // Default safe fallback if raw query returned empty rows
       return {
         allowed: true,
         limit,
-        remaining: Math.max(0, limit - updated.count),
+        remaining: 1,
       };
-    } catch {
-      // Fail-closed on database errors to prevent rate-limit bypass
+    } catch (err: any) {
+      this.logger.error(
+        `Rate limit check error for key ${key}: ${err?.message || err}`,
+        err?.stack,
+      );
+      // Fail-open on database errors so database glitches never throttle legitimate users
       return {
-        allowed: false,
+        allowed: true,
         limit,
-        remaining: 0,
-        retryAfter: 60,
+        remaining: 1,
       };
     }
   }

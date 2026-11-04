@@ -242,7 +242,7 @@ export default function HousesPage() {
   // Unassign house from team
   async function handleUnassign(house: any) {
     if (!house.teamId) return;
-    if (!confirm(`Unassign house #${house.houseNo} from team?`)) return;
+    if (!confirm(t('houses.confirm_unassign').replace('{houseNo}', house.houseNo))) return;
     setErrorBanner(null);
     setSuccessBanner(null);
     try {
@@ -256,7 +256,7 @@ export default function HousesPage() {
 
   // Finish house
   async function handleFinish(house: any) {
-    if (!confirm(`Mark house #${house.houseNo} as finished?`)) return;
+    if (!confirm(t('houses.confirm_finish').replace('{houseNo}', house.houseNo))) return;
     setErrorBanner(null);
     setSuccessBanner(null);
     try {
@@ -270,7 +270,7 @@ export default function HousesPage() {
 
   // Reopen house
   async function handleReopen(house: any) {
-    if (!confirm(`Reopen finished house #${house.houseNo}? This will mark it as in progress for further surveys.`)) return;
+    if (!confirm(t('houses.confirm_reopen').replace('{houseNo}', house.houseNo))) return;
     setErrorBanner(null);
     setSuccessBanner(null);
     try {

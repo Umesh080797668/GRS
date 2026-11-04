@@ -7,8 +7,11 @@ import {
   Max,
   Matches,
   IsUrl,
+  IsArray,
+  IsEnum,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 
 export const SEMVER_REGEX = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/;
 
@@ -35,7 +38,7 @@ export class UpdateConfigDto {
   @IsBoolean()
   agent_can_edit_synced?: boolean;
 
-  @ApiPropertyOptional({ example: 15 })
+  @ApiPropertyOptional({ example: 120 })
   @IsOptional()
   @IsInt()
   @Min(0, { message: 'sync_jitter_max_s cannot be negative' })
@@ -55,8 +58,8 @@ export class UpdateConfigDto {
   @IsOptional()
   @IsString()
   @IsUrl(
-    { require_protocol: true, protocols: ['http', 'https'] },
-    { message: 'apk_download_url must be a valid http or https URL' },
+    { require_protocol: true, protocols: ['https'] },
+    { message: 'apk_download_url must be a valid https URL' },
   )
   apk_download_url?: string;
 
@@ -78,6 +81,11 @@ export class UpdateConfigDto {
       'Roles permitted to perform direct web data entry (Decision C19)',
   })
   @IsOptional()
+  @IsArray()
+  @IsEnum(UserRole, {
+    each: true,
+    message: 'Each role in web_entry_roles must be a valid UserRole',
+  })
   web_entry_roles?: string[];
 
   // CamelCase equivalents for convenience
@@ -109,7 +117,10 @@ export class UpdateConfigDto {
 
   @IsOptional()
   @IsString()
-  @IsUrl({ require_protocol: true, protocols: ['http', 'https'] })
+  @IsUrl(
+    { require_protocol: true, protocols: ['https'] },
+    { message: 'apkDownloadUrl must be a valid https URL' },
+  )
   apkDownloadUrl?: string;
 
   @IsOptional()
@@ -123,5 +134,10 @@ export class UpdateConfigDto {
   webDataEntryEnabled?: boolean;
 
   @IsOptional()
+  @IsArray()
+  @IsEnum(UserRole, {
+    each: true,
+    message: 'Each role in webEntryRoles must be a valid UserRole',
+  })
   webEntryRoles?: string[];
 }

@@ -134,6 +134,7 @@ class AppDatabase {
   final QueryExecutor _executor;
   final String _cipherKey;
   String? _cipherVersion;
+  int? _cachedSchemaVersion;
 
   /// Returns the encryption key used to open this database.
   String get cipherKey => _cipherKey;
@@ -267,17 +268,22 @@ class AppDatabase {
       // Fresh database: create all tables at target schema version
       await _createSchema(version: targetSchemaVersion);
       await _executor.runCustom('PRAGMA user_version = $targetSchemaVersion;');
+      _cachedSchemaVersion = targetSchemaVersion;
     } else {
-      // Check if households table needs migration to v2 (missing 'notes' column)
-      final cols = await _executor.runSelect(
-        'PRAGMA table_info(households);',
-        [],
-      );
+      // Check if households table needs stepwise migration to target schema
+      final cols =
+          await _executor.runSelect('PRAGMA table_info(households);', []);
       final hasNotesCol = cols.any((c) => c['name'] == 'notes');
-      if (!hasNotesCol && targetSchemaVersion >= 2) {
-        await runDefaultMigration(_executor, 1, targetSchemaVersion);
+      final currentVer = hasNotesCol ? 2 : 1;
+
+      // Stepwise onUpgrade chain: run each migration step sequentially from currentVer to targetSchemaVersion
+      if (currentVer < targetSchemaVersion) {
+        for (int v = currentVer; v < targetSchemaVersion; v++) {
+          await _runUpgradeStep(_executor, v, v + 1);
+        }
       }
       await _executor.runCustom('PRAGMA user_version = $targetSchemaVersion;');
+      _cachedSchemaVersion = targetSchemaVersion;
     }
   }
 
@@ -369,21 +375,46 @@ class AppDatabase {
     ''');
   }
 
+  static Future<void> _runUpgradeStep(
+    QueryExecutor executor,
+    int fromVersion,
+    int toVersion,
+  ) async {
+    if (fromVersion == 1 && toVersion == 2) {
+      // Stepwise 1 -> 2: Add optional 'notes' column to households table if missing
+      final cols = await executor.runSelect(
+        'PRAGMA table_info(households);',
+        [],
+      );
+      final hasNotesCol = cols.any((c) => c['name'] == 'notes');
+      if (!hasNotesCol) {
+        await executor.runCustom(
+          'ALTER TABLE households ADD COLUMN notes TEXT;',
+        );
+      }
+    }
+  }
+
   static Future<void> runDefaultMigration(
     QueryExecutor executor,
     int fromVersion,
     int toVersion,
   ) async {
-    if (fromVersion < 2 && toVersion >= 2) {
-      // Version 2 adds optional 'notes' column to households table
-      await executor.runCustom('ALTER TABLE households ADD COLUMN notes TEXT;');
+    for (int v = fromVersion; v < toVersion; v++) {
+      await _runUpgradeStep(executor, v, v + 1);
     }
   }
 
   Future<int> getSchemaVersion() async {
+    if (_cachedSchemaVersion != null) return _cachedSchemaVersion!;
     final rows = await _executor.runSelect('PRAGMA user_version;', []);
-    if (rows.isEmpty) return 1;
-    return rows.first.values.first as int;
+    if (rows.isEmpty) {
+      _cachedSchemaVersion = 1;
+      return 1;
+    }
+    final ver = rows.first.values.first as int;
+    _cachedSchemaVersion = ver;
+    return ver;
   }
 
   // --- HOUSEHOLDS CRUD ---
@@ -393,7 +424,7 @@ class AppDatabase {
     String? status,
     String? notes,
   }) async {
-    final version = await getSchemaVersion();
+    final version = _cachedSchemaVersion ?? await getSchemaVersion();
     final hasNotes = version >= 2;
     final effectiveStatus = status ?? h.visitStatus ?? 'not_started';
 

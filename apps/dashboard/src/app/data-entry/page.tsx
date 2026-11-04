@@ -298,23 +298,23 @@ export default function DataEntryPage() {
     setSubmitSuccess(null);
 
     if (!selectedGn) {
-      setSubmitError('Please select a GN Division.');
+      setSubmitError(t('entry.error.select_gn'));
       return;
     }
     if (!houseNo.trim()) {
-      setSubmitError('House number is required.');
+      setSubmitError(t('entry.error.house_no_required'));
       return;
     }
     if (!headName.trim()) {
-      setSubmitError('Head of household name is required.');
+      setSubmitError(t('entry.error.head_name_required'));
       return;
     }
     if (!clientName.trim()) {
-      setSubmitError('Individual survey name is required.');
+      setSubmitError(t('entry.error.client_name_required'));
       return;
     }
     if (!consentGiven) {
-      setSubmitError('Individual consent is mandatory per Data Protection Act (Invariant B2).');
+      setSubmitError(t('entry.error.consent_required'));
       return;
     }
 
@@ -407,7 +407,7 @@ export default function DataEntryPage() {
       setInfoProvidedByOther('');
       setConsentGiven(false);
     } catch (err: any) {
-      setSubmitError(err.message || 'Failed to submit online entry.');
+      setSubmitError(err.messageKey ? t(err.messageKey) : (err.message || t('entry.error.submit_failed')));
     } finally {
       setSubmitting(false);
     }

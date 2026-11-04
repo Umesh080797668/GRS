@@ -36,7 +36,7 @@ const KEY_MAPPINGS: Record<string, string> = {
 
 @Controller('v1/config')
 export class AppConfigController {
-  constructor(private readonly configService: AppConfigService) {}
+  constructor(private readonly configService: AppConfigService) { }
 
   @Get()
   async getConfig() {
@@ -51,6 +51,29 @@ export class AppConfigController {
       throw new BadRequestException({
         code: 'INVALID_CONFIG_PAYLOAD',
         message: 'Config update body cannot be empty',
+      });
+    }
+
+    // Check min_supported_version <= latest_version
+    const currentConfig = await this.configService.getConfig();
+    const targetMin =
+      body.min_supported_version ??
+      (body as any).minSupportedVersion ??
+      currentConfig.minSupportedVersion;
+    const targetLatest =
+      body.latest_version ??
+      (body as any).latestVersion ??
+      currentConfig.latestVersion;
+
+    if (
+      targetMin &&
+      targetLatest &&
+      this.configService.compareSemver(String(targetMin), String(targetLatest)) >
+      0
+    ) {
+      throw new BadRequestException({
+        code: 'INVALID_CONFIG_VALUE',
+        message: 'min_supported_version cannot exceed latest_version',
       });
     }
 
@@ -102,11 +125,11 @@ export class AppConfigController {
       } else if (canonicalKey === 'apk_download_url') {
         if (
           typeof rawValue !== 'string' ||
-          (!rawValue.startsWith('http://') && !rawValue.startsWith('https://'))
+          !rawValue.startsWith('https://')
         ) {
           throw new BadRequestException({
             code: 'INVALID_CONFIG_VALUE',
-            message: 'apk_download_url must be a valid http or https URL',
+            message: 'apk_download_url must be a valid https URL',
           });
         }
       } else if (
@@ -120,13 +143,16 @@ export class AppConfigController {
           });
         }
       } else if (canonicalKey === 'web_entry_roles') {
+        const validRoles = Object.values(UserRole) as string[];
         if (
           !Array.isArray(rawValue) ||
-          !rawValue.every((r) => typeof r === 'string')
+          !rawValue.every(
+            (r) => typeof r === 'string' && validRoles.includes(r),
+          )
         ) {
           throw new BadRequestException({
             code: 'INVALID_CONFIG_VALUE',
-            message: 'web_entry_roles must be an array of role strings',
+            message: `web_entry_roles must be an array of valid role strings: ${validRoles.join(', ')}`,
           });
         }
       }

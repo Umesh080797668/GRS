@@ -33,7 +33,7 @@ class _MyRecordsScreenState extends ConsumerState<MyRecordsScreen> {
       appBar: AppBar(title: GrsRiseIn(child: Text(l10n.get('myRecords')))),
       body: dbAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Error: $err')),
+        error: (err, _) => Center(child: Text(l10n.get('genericErrorNotice'))),
         data: (db) {
           SyncStatus? filterStatus;
           if (_selectedFilter != 'all') {
@@ -297,14 +297,19 @@ class _MyRecordsScreenState extends ConsumerState<MyRecordsScreen> {
     String houseId,
     String? reason,
   ) {
+    final l10n = GrsL10n.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.error_rounded, color: GrsColors.syncRejected, size: 20),
-            SizedBox(width: 8),
-            Text('Record Rejected'),
+            const Icon(
+              Icons.error_rounded,
+              color: GrsColors.syncRejected,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(l10n.get('recordRejected')),
           ],
         ),
         content: Text(
@@ -313,7 +318,7 @@ class _MyRecordsScreenState extends ConsumerState<MyRecordsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
+            child: Text(l10n.get('cancel')),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -321,7 +326,7 @@ class _MyRecordsScreenState extends ConsumerState<MyRecordsScreen> {
               await context.push('/houses/$houseId/client/$clientId');
               ref.read(recordsRevisionProvider.notifier).increment();
             },
-            child: const Text('Fix & Resubmit'),
+            child: Text(l10n.get('fixAndResubmit')),
           ),
         ],
       ),

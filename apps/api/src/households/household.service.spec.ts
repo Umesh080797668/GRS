@@ -214,8 +214,8 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       };
       const p = run();
       lockQueue = p.then(
-        () => {},
-        () => {},
+        () => { },
+        () => { },
       );
       return p;
     }),
@@ -664,10 +664,13 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       ][0] as any;
       const where = lastCallArgs.where;
 
-      expect(where.gnId).toBe(mockGnId);
-      expect(where.OR).toBeDefined();
+      const targetWhere = where.AND
+        ? where.AND.find((c: any) => c.OR !== undefined)
+        : where;
+      expect(where.AND ? where.AND[0].gnId : where.gnId).toBe(mockGnId);
+      expect(targetWhere.OR).toBeDefined();
 
-      const leaderCondition = where.OR.find(
+      const leaderCondition = targetWhere.OR.find(
         (cond: any) =>
           cond.AND &&
           cond.AND.some((c: any) => c.houseLeaderName !== undefined),
@@ -704,7 +707,10 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       ][0] as any;
       const where = lastCallArgs.where;
 
-      const leaderCondition = where.OR.find(
+      const targetWhere = where.AND
+        ? where.AND.find((c: any) => c.OR !== undefined)
+        : where;
+      const leaderCondition = targetWhere.OR.find(
         (cond: any) =>
           cond.AND &&
           cond.AND.some((c: any) => c.houseLeaderName !== undefined),

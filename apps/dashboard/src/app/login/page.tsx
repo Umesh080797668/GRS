@@ -30,7 +30,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identifier.trim() || !password) {
-      setError('Please provide both User ID/Email and Password.');
+      setError(t('auth.error.credentials_required'));
       return;
     }
 
@@ -42,20 +42,16 @@ export default function LoginPage() {
     } catch (err: any) {
       if (err instanceof ApiError) {
         if (err.status === 426 || err.code === 'UPGRADE_REQUIRED') {
-          setError('Application version is outdated. Please refresh your browser (HTTP 426).');
+          setError(t('auth.error.upgrade_required'));
         } else if (err.status === 429 || err.code === 'RATE_LIMITED') {
-          setError('Too many failed attempts. Please wait before retrying.');
-        } else if (err.messageKey === 'errors.auth.account_locked') {
-          setError('Account temporarily locked due to too many failed attempts. Try again later.');
-        } else if (err.messageKey === 'errors.auth.deactivated') {
-          setError('Your account has been deactivated. Please contact your supervisor or administrator.');
-        } else if (err.messageKey === 'errors.auth.initial_password_expired') {
-          setError('Your initial temporary password has expired. Please contact an administrator to reissue.');
+          setError(t('auth.error.rate_limited'));
+        } else if (err.messageKey) {
+          setError(t(err.messageKey));
         } else {
-          setError(err.message || 'Invalid User ID, email, or password. Please verify credentials.');
+          setError(err.message || t('auth.error.invalid_credentials'));
         }
       } else {
-        setError(err.message || 'Authentication failed. Please verify credentials.');
+        setError(err.message || t('auth.error.auth_failed'));
       }
     } finally {
       setLoading(false);
@@ -70,9 +66,9 @@ export default function LoginPage() {
     try {
       await api.requestPasswordReset(forgotEmail.trim());
       setForgotStep('confirm');
-      setForgotSuccess(`If an account is associated with ${forgotEmail}, a 6-digit verification code has been dispatched.`);
+      setForgotSuccess(t('auth.success.code_sent'));
     } catch (err: any) {
-      setForgotError(err.message || 'Failed to request password reset code.');
+      setForgotError(err.messageKey ? t(err.messageKey) : (err.message || t('auth.error.reset_request_failed')));
     } finally {
       setForgotLoading(false);
     }
@@ -81,15 +77,15 @@ export default function LoginPage() {
   const handleConfirmReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetCode.trim() || !resetNewPassword) {
-      setForgotError('Please enter the 6-digit OTP code and new password.');
+      setForgotError(t('auth.error.otp_required'));
       return;
     }
     if (resetNewPassword !== resetConfirmPassword) {
-      setForgotError('New passwords do not match.');
+      setForgotError(t('auth.error.password_mismatch'));
       return;
     }
     if (resetNewPassword.length < 8) {
-      setForgotError('Password must be at least 8 characters long.');
+      setForgotError(t('auth.error.password_length'));
       return;
     }
 
@@ -98,13 +94,13 @@ export default function LoginPage() {
     try {
       await api.confirmPasswordReset(forgotEmail.trim(), resetCode.trim(), resetNewPassword.trim());
       setShowForgotModal(false);
-      setSuccess('Password has been successfully reset. Please sign in with your new password.');
+      setSuccess(t('auth.success.password_reset'));
       setForgotStep('request');
       setResetCode('');
       setResetNewPassword('');
       setResetConfirmPassword('');
     } catch (err: any) {
-      setForgotError(err.message || 'Failed to reset password. Please verify OTP code.');
+      setForgotError(err.messageKey ? t(err.messageKey) : (err.message || t('auth.error.reset_failed')));
     } finally {
       setForgotLoading(false);
     }

@@ -27,22 +27,22 @@ export default function FirstSignInPage() {
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setError('All fields are required.');
+      setError(t('auth.error.all_fields_required'));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('New passwords do not match.');
+      setError(t('auth.error.password_mismatch'));
       return;
     }
 
     if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters in length.');
+      setError(t('auth.error.password_length'));
       return;
     }
 
     if (newPassword === currentPassword) {
-      setError('New password must differ from your current temporary password.');
+      setError(t('auth.error.password_same_as_current'));
       return;
     }
 
@@ -51,10 +51,10 @@ export default function FirstSignInPage() {
     try {
       await api.changePassword(currentPassword, newPassword);
       refreshUser();
-      setSuccess('Password updated successfully! You can now add an optional recovery email or skip to continue.');
+      setSuccess(t('auth.success.password_updated'));
       setStep('email_input');
     } catch (err: any) {
-      setError(err.message || 'Failed to update initial password.');
+      setError(err.messageKey ? t(err.messageKey) : (err.message || t('auth.error.reset_failed')));
     } finally {
       setLoading(false);
     }
@@ -68,10 +68,10 @@ export default function FirstSignInPage() {
     setLoading(true);
     try {
       await api.addPendingEmail(email.trim());
-      setSuccess(`A 6-digit verification code has been dispatched to ${email}.`);
+      setSuccess(t('auth.success.email_code_sent'));
       setStep('email_verify');
     } catch (err: any) {
-      setError(err.message || 'Failed to dispatch verification code.');
+      setError(err.messageKey ? t(err.messageKey) : (err.message || t('auth.error.email_code_failed')));
     } finally {
       setLoading(false);
     }
@@ -87,7 +87,7 @@ export default function FirstSignInPage() {
       refreshUser();
       router.replace('/progress');
     } catch (err: any) {
-      setError(err.message || 'Invalid or expired OTP code.');
+      setError(err.messageKey ? t(err.messageKey) : (err.message || t('auth.error.otp_invalid_expired')));
     } finally {
       setLoading(false);
     }
@@ -239,7 +239,7 @@ export default function FirstSignInPage() {
               {loading ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  <span>Updating Password...</span>
+                  <span>{t('auth.updating_password')}</span>
                 </>
               ) : (
                 <span>{t('auth.change_password')}</span>

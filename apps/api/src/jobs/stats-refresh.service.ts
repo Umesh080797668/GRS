@@ -16,7 +16,7 @@ export interface DriftReport {
 export class StatsRefreshService {
   private readonly logger = new Logger(StatsRefreshService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Refreshes team_stats for all dirty teams (or all teams if forceAll),
@@ -43,8 +43,8 @@ export class StatsRefreshService {
       );
       refreshedTeams = Number(
         (rows[0] as any)?.refresh_dirty_team_stats ??
-          (rows[0] as any)?.count ??
-          0,
+        (rows[0] as any)?.count ??
+        0,
       );
     } catch {
       await this.prisma.$executeRawUnsafe(
@@ -251,5 +251,21 @@ export class StatsRefreshService {
     }
 
     return report;
+  }
+
+  /**
+   * Executes public.purge_expired_data() stored procedure (simulating pg_cron grs_data_purge_job).
+   * Purges expired refresh tokens, old rate limits, expired email codes, and old import staging/batches.
+   */
+  async purgeExpiredData(): Promise<any> {
+    try {
+      const rows = await this.prisma.$queryRawUnsafe<any[]>(
+        `SELECT public.purge_expired_data() AS result;`,
+      );
+      return rows?.[0]?.result ?? null;
+    } catch {
+      await this.prisma.$executeRawUnsafe(`SELECT public.purge_expired_data();`);
+      return null;
+    }
   }
 }

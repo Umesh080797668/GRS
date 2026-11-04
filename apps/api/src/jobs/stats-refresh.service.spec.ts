@@ -56,6 +56,13 @@ describe('Real PostgreSQL StatsRefreshService & 10k Push Roll-up (M1.14)', () =>
         prisma.$executeRawUnsafe(`SELECT public.refresh_dirty_team_stats();`),
       ).resolves.not.toThrow();
     }, 45000);
+
+    it('executes public.purge_expired_data() stored procedure directly on Supabase (04_cron.sql)', async () => {
+      // Direct execution of the pg_cron purge function
+      await expect(
+        prisma.$executeRawUnsafe(`SELECT public.purge_expired_data();`),
+      ).resolves.not.toThrow();
+    }, 45000);
   });
 
   describe('10,000 Synthetic Push Roll-up & Zero Drift Verification (Section 12.3)', () => {

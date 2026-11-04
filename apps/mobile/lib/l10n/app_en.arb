@@ -280,7 +280,7 @@
   "@consentTitle": {},
   "consentCheckboxLabel": "I confirm that informed consent has been obtained from the beneficiary.",
   "@consentCheckboxLabel": {},
-  "consentRequiredError": "You must obtain consent before recording beneficiary data.",
+  "consentRequiredError": "Cannot save without informed consent.",
   "@consentRequiredError": {},
   "checkForUpdates": "Check for Updates",
   "@checkForUpdates": {},
@@ -709,5 +709,19 @@
         "type": "String"
       }
     }
-  }
+  },
+  "recordRejected": "Record Rejected",
+  "@recordRejected": {},
+  "fixAndResubmit": "Fix & Resubmit",
+  "@fixAndResubmit": {},
+  "themeSystem": "System",
+  "@themeSystem": {},
+  "themeLight": "Light",
+  "@themeLight": {},
+  "themeDark": "Dark",
+  "@themeDark": {},
+  "householdNotFound": "Household not found.",
+  "@householdNotFound": {},
+  "genericErrorNotice": "Something went wrong. Please try again.",
+  "@genericErrorNotice": {}
 }

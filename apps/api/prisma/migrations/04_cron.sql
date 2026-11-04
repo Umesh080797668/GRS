@@ -110,7 +110,71 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Schedule pg_cron 5-minute recurring refresh job
+-- Stored procedure to purge expired / stale records across high-churn tables
+-- Enforces retention policies per table to avoid hitting Supabase 500 MB limits
+CREATE OR REPLACE FUNCTION public.purge_expired_data()
+RETURNS jsonb AS $$
+DECLARE
+  deleted_tokens integer;
+  deleted_limits integer;
+  deleted_codes integer;
+  deleted_staging integer;
+  deleted_batches integer;
+BEGIN
+  -- 1. Purge expired and revoked refresh tokens older than 7 days
+  WITH deleted AS (
+    DELETE FROM "refresh_tokens"
+    WHERE "expires_at" < CURRENT_TIMESTAMP - INTERVAL '7 days'
+       OR ("revoked_at" IS NOT NULL AND "revoked_at" < CURRENT_TIMESTAMP - INTERVAL '7 days')
+    RETURNING id
+  )
+  SELECT COUNT(*) INTO deleted_tokens FROM deleted;
+
+  -- 2. Purge rate limit windows older than 1 day
+  WITH deleted AS (
+    DELETE FROM "rate_limits"
+    WHERE "window_start" < CURRENT_TIMESTAMP - INTERVAL '1 day'
+    RETURNING id
+  )
+  SELECT COUNT(*) INTO deleted_limits FROM deleted;
+
+  -- 3. Purge expired email verification codes older than 1 day
+  WITH deleted AS (
+    DELETE FROM "email_codes"
+    WHERE "expires_at" < CURRENT_TIMESTAMP - INTERVAL '1 day'
+    RETURNING id
+  )
+  SELECT COUNT(*) INTO deleted_codes FROM deleted;
+
+  -- 4. Purge committed/stale import staging rows older than 7 days
+  WITH deleted AS (
+    DELETE FROM "import_staging"
+    WHERE "created_at" < CURRENT_TIMESTAMP - INTERVAL '7 days'
+    RETURNING id
+  )
+  SELECT COUNT(*) INTO deleted_staging FROM deleted;
+
+  -- 5. Purge expired or uncommitted preview import batches older than retention
+  WITH deleted AS (
+    DELETE FROM "import_batches"
+    WHERE ("status" = 'expired' AND "imported_at" < CURRENT_TIMESTAMP - INTERVAL '7 days')
+       OR ("status" = 'previewed' AND "imported_at" < CURRENT_TIMESTAMP - INTERVAL '2 days')
+    RETURNING id
+  )
+  SELECT COUNT(*) INTO deleted_batches FROM deleted;
+
+  RETURN jsonb_build_object(
+    'deleted_tokens', deleted_tokens,
+    'deleted_limits', deleted_limits,
+    'deleted_codes', deleted_codes,
+    'deleted_staging', deleted_staging,
+    'deleted_batches', deleted_batches,
+    'purged_at', CURRENT_TIMESTAMP
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Schedule pg_cron recurring refresh and purge jobs
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
@@ -120,6 +184,14 @@ BEGIN
       NULL;
     END;
     PERFORM cron.schedule('grs_stats_refresh_job', '*/5 * * * *', 'SELECT public.refresh_dirty_team_stats();');
+
+    BEGIN
+      PERFORM cron.unschedule('grs_data_purge_job');
+    EXCEPTION WHEN OTHERS THEN
+      NULL;
+    END;
+    -- Schedule daily database purge at 03:00 UTC
+    PERFORM cron.schedule('grs_data_purge_job', '0 3 * * *', 'SELECT public.purge_expired_data();');
   END IF;
 EXCEPTION WHEN OTHERS THEN
   -- Gracefully ignore if running in restricted environments

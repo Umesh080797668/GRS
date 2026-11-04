@@ -23,7 +23,8 @@ class HouseDetailScreen extends ConsumerWidget {
     return dbAsync.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (err, _) => Scaffold(body: Center(child: Text('Error: $err'))),
+      error: (err, _) =>
+          Scaffold(body: Center(child: Text(l10n.get('genericErrorNotice')))),
       data: (db) {
         return FutureBuilder<Map<String, dynamic>?>(
           key: ValueKey('h_${houseId}_$revision'),
@@ -33,7 +34,7 @@ class HouseDetailScreen extends ConsumerWidget {
             if (house == null) {
               return Scaffold(
                 appBar: AppBar(title: Text(l10n.get('houseDetailTitle'))),
-                body: const Center(child: Text('Household not found.')),
+                body: Center(child: Text(l10n.get('householdNotFound'))),
               );
             }
 

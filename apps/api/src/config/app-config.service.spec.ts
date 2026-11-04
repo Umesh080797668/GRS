@@ -55,6 +55,32 @@ describe('AppConfigService & VersionGateGuard & RateLimiter (M1.8)', () => {
         return Promise.resolve(null);
       }),
     },
+    $queryRawUnsafe: jest
+      .fn()
+      .mockImplementation((sql: string, ...params: any[]) => {
+        if (typeof sql === 'string' && sql.includes('rate_limits')) {
+          const [key, now, windowSeconds] = params;
+          const windowMs = windowSeconds * 1000;
+          let record = inMemoryRateLimits[key];
+          if (!record) {
+            record = { key, window_start: now, count: 1 };
+            inMemoryRateLimits[key] = record;
+          } else {
+            const elapsed =
+              new Date(now).getTime() - new Date(record.window_start).getTime();
+            if (elapsed > windowMs) {
+              record.count = 1;
+              record.window_start = now;
+            } else {
+              record.count += 1;
+            }
+          }
+          return Promise.resolve([
+            { count: record.count, window_start: record.window_start },
+          ]);
+        }
+        return Promise.resolve([]);
+      }),
   };
 
   beforeEach(async () => {
@@ -246,10 +272,32 @@ describe('AppConfigService & VersionGateGuard & RateLimiter (M1.8)', () => {
       ).rejects.toThrow();
     });
 
-    it('rejects invalid apk_download_url', async () => {
+    it('rejects invalid apk_download_url or non-https apk_download_url', async () => {
       await expect(
         controller.updateConfig({
           apk_download_url: 'javascript:alert(1)',
+        }),
+      ).rejects.toThrow();
+
+      await expect(
+        controller.updateConfig({
+          apk_download_url: 'http://insecure.example.com/app.apk',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('rejects min_supported_version exceeding latest_version', async () => {
+      await expect(
+        controller.updateConfig({
+          min_supported_version: '2.0.0', // latest is 1.2.0
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('rejects invalid web_entry_roles strings', async () => {
+      await expect(
+        controller.updateConfig({
+          web_entry_roles: ['super_admin', 'hacker_role'] as any,
         }),
       ).rejects.toThrow();
     });

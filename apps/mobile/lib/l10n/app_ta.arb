@@ -709,5 +709,19 @@
         "type": "String"
       }
     }
-  }
+  },
+  "recordRejected": "பதிவு நிராகரிக்கப்பட்டது",
+  "@recordRejected": {},
+  "fixAndResubmit": "சரிசெய்து மீண்டும் சமர்ப்பிக்கவும்",
+  "@fixAndResubmit": {},
+  "themeSystem": "கணினி",
+  "@themeSystem": {},
+  "themeLight": "வெளிச்சம்",
+  "@themeLight": {},
+  "themeDark": "இருள்",
+  "@themeDark": {},
+  "householdNotFound": "வீடு கிடைக்கவில்லை.",
+  "@householdNotFound": {},
+  "genericErrorNotice": "ஏதோ தவறு நடந்துவிட்டது. மீண்டும் முயற்சிக்கவும்.",
+  "@genericErrorNotice": {}
 }

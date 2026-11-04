@@ -269,7 +269,7 @@ export default function UsersPage() {
   };
 
   const handleDeactivate = async (id: string) => {
-    if (!confirm('Are you sure you want to deactivate this account?')) return;
+    if (!confirm(t('users.confirm_deactivate'))) return;
     setError(null);
     setSuccessMessage(null);
     try {
@@ -294,7 +294,7 @@ export default function UsersPage() {
   };
 
   const handleResetPassword = async (id: string) => {
-    if (!confirm('Reset password for this user? A temporary password will be generated.')) return;
+    if (!confirm(t('users.confirm_reset_pwd'))) return;
     setError(null);
     setSuccessMessage(null);
     try {

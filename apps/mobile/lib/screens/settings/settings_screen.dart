@@ -306,21 +306,21 @@ class SettingsScreen extends ConsumerWidget {
             index: 5,
             child: GrsCard(
               child: SegmentedButton<ThemeMode>(
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: ThemeMode.system,
-                    icon: Icon(Icons.brightness_auto_rounded, size: 16),
-                    label: Text('System'),
+                    icon: const Icon(Icons.brightness_auto_rounded, size: 16),
+                    label: Text(l10n.get('themeSystem')),
                   ),
                   ButtonSegment(
                     value: ThemeMode.light,
-                    icon: Icon(Icons.light_mode_rounded, size: 16),
-                    label: Text('Light'),
+                    icon: const Icon(Icons.light_mode_rounded, size: 16),
+                    label: Text(l10n.get('themeLight')),
                   ),
                   ButtonSegment(
                     value: ThemeMode.dark,
-                    icon: Icon(Icons.dark_mode_rounded, size: 16),
-                    label: Text('Dark'),
+                    icon: const Icon(Icons.dark_mode_rounded, size: 16),
+                    label: Text(l10n.get('themeDark')),
                   ),
                 ],
                 selected: {currentTheme},

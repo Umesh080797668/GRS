@@ -17,7 +17,7 @@ export interface AppConfig {
 
 @Injectable()
 export class AppConfigService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Returns current application configuration including sync pacing and version gates.
@@ -32,7 +32,7 @@ export class AppConfigService {
       'agent_can_edit_synced',
       false,
     );
-    const syncJitterSetting = await this.getSetting('sync_jitter_max_s', 15);
+    const syncJitterSetting = await this.getSetting('sync_jitter_max_s', 120);
     const syncBatchSetting = await this.getSetting('sync_batch_max', 50);
     const apkUrlSetting = await this.getSetting(
       'apk_download_url',

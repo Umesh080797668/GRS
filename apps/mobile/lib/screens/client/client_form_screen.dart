@@ -166,9 +166,10 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   Future<bool> _saveRecord({required SyncStatus status}) async {
     if (status != SyncStatus.draft) {
       if (!_isConsentConfirmed) {
+        final l10n = GrsL10n.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cannot save without informed consent.'),
+          SnackBar(
+            content: Text(l10n.get('consentRequiredError')),
           ),
         );
         return false;

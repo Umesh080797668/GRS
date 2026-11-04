@@ -113,7 +113,13 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
       });
     });
 
-    it('ANDs multiple conditions preserving individual ORs', () => {
+    it('ANDs multiple conditions preserving individual ORs and flat keys', () => {
+      const flat1 = { teamId: 'team-1' };
+      const flat2 = { role: 'team_member' };
+      expect(scopeService.combineConditions(flat1, flat2)).toEqual({
+        AND: [flat1, flat2],
+      });
+
       const scopeCond = {
         deletedAt: null,
         OR: [{ districtId: 'colombo' }, { collectedBy: 'user-1' }],
@@ -157,8 +163,9 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
 
       expect(mockPrisma.profile.findMany).toHaveBeenCalledTimes(1);
       const callArg = mockPrisma.profile.findMany.mock.calls[0][0];
-      expect(callArg.where.teamId).toBe(secretary.teamId);
-      expect(callArg.where.OR).toBeDefined();
+      expect(callArg.where.AND).toBeDefined();
+      expect(callArg.where.AND).toContainEqual({ teamId: secretary.teamId });
+      expect(callArg.where.AND.some((c: any) => c.OR !== undefined)).toBe(true);
     });
 
     it('team_member: sees only own account regardless of query filters', async () => {
@@ -166,8 +173,9 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
       await accountService.findAccounts(member, { search: 'Test' });
 
       const callArg = mockPrisma.profile.findMany.mock.calls[0][0];
-      expect(callArg.where.id).toBe(member.userId);
-      expect(callArg.where.OR).toBeDefined();
+      expect(callArg.where.AND).toBeDefined();
+      expect(callArg.where.AND).toContainEqual({ id: member.userId });
+      expect(callArg.where.AND.some((c: any) => c.OR !== undefined)).toBe(true);
     });
 
     it('dc: strictly bound to districtId scope', async () => {
@@ -176,8 +184,7 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
 
       const callArg = mockPrisma.profile.findMany.mock.calls[0][0];
       expect(callArg.where).toEqual({
-        districtId: dc.districtId,
-        role: UserRole.team_member,
+        AND: [{ districtId: dc.districtId }, { role: UserRole.team_member }],
       });
     });
 
@@ -187,8 +194,7 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
 
       const callArg = mockPrisma.profile.findMany.mock.calls[0][0];
       expect(callArg.where).toEqual({
-        dsId: sda.dsId,
-        role: UserRole.team_member,
+        AND: [{ dsId: sda.dsId }, { role: UserRole.team_member }],
       });
     });
 
@@ -290,9 +296,12 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
       await clientService.getClients(member, { search: 'Test' });
 
       const callArg = mockPrisma.client.findMany.mock.calls[0][0];
-      expect(callArg.where.collectedBy).toBe(member.userId);
-      expect(callArg.where.deletedAt).toBeNull();
-      expect(callArg.where.OR).toBeDefined();
+      expect(callArg.where.AND).toBeDefined();
+      expect(callArg.where.AND).toContainEqual({
+        collectedBy: member.userId,
+        deletedAt: null,
+      });
+      expect(callArg.where.AND.some((c: any) => c.OR !== undefined)).toBe(true);
     });
   });
 
@@ -320,9 +329,12 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
       await householdService.getHouseholds(secretary, { search: 'H123' });
 
       const callArg = mockPrisma.household.findMany.mock.calls[0][0];
-      expect(callArg.where.gnId).toBe(secretary.gnId);
-      expect(callArg.where.deletedAt).toBeNull();
-      expect(callArg.where.OR).toBeDefined();
+      expect(callArg.where.AND).toBeDefined();
+      expect(callArg.where.AND).toContainEqual({
+        gnId: secretary.gnId,
+        deletedAt: null,
+      });
+      expect(callArg.where.AND.some((c: any) => c.OR !== undefined)).toBe(true);
     });
 
     it('dc: search preserves district OR scope inside AND', async () => {
@@ -386,6 +398,101 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
         message: 'Invalid UUID format in parameter or query',
         error: 'Bad Request',
       });
+    });
+
+    it('PrismaClientExceptionFilter catches Prisma P2002 unique constraint error and returns 409 Conflict', () => {
+      const filter = new PrismaClientExceptionFilter();
+      let statusCalledWith = 0;
+      let jsonCalledWith: any = null;
+
+      const mockResponse = {
+        status: (s: number) => {
+          statusCalledWith = s;
+          return {
+            json: (payload: any) => {
+              jsonCalledWith = payload;
+            },
+          };
+        },
+      };
+
+      const mockHost: any = {
+        switchToHttp: () => ({
+          getResponse: () => mockResponse,
+        }),
+      };
+
+      filter.catch(
+        { code: 'P2002', meta: { target: ['user_code'] } },
+        mockHost,
+      );
+
+      expect(statusCalledWith).toBe(409);
+      expect(jsonCalledWith).toEqual({
+        statusCode: 409,
+        message: 'Unique constraint violation on user_code',
+        error: 'Conflict',
+      });
+    });
+
+    it('PrismaClientExceptionFilter logs and reports non-HTTP unhandled errors as 500 to Sentry', () => {
+      const filter = new PrismaClientExceptionFilter();
+      let statusCalledWith = 0;
+      let jsonCalledWith: any = null;
+
+      const mockResponse = {
+        status: (s: number) => {
+          statusCalledWith = s;
+          return {
+            json: (payload: any) => {
+              jsonCalledWith = payload;
+            },
+          };
+        },
+      };
+
+      const mockHost: any = {
+        switchToHttp: () => ({
+          getResponse: () => mockResponse,
+        }),
+      };
+
+      const unhandledErr = new Error('Database connection unexpectedly severed');
+      filter.catch(unhandledErr, mockHost);
+
+      expect(statusCalledWith).toBe(500);
+      expect(jsonCalledWith).toEqual({
+        statusCode: 500,
+        message: 'Internal server error',
+      });
+    });
+
+    it('PrismaClientExceptionFilter does NOT map generic DB errors containing "Inconsistent column data" to 400', () => {
+      const filter = new PrismaClientExceptionFilter();
+      let statusCalledWith = 0;
+
+      const mockResponse = {
+        status: (s: number) => {
+          statusCalledWith = s;
+          return {
+            json: () => {},
+          };
+        },
+      };
+
+      const mockHost: any = {
+        switchToHttp: () => ({
+          getResponse: () => mockResponse,
+        }),
+      };
+
+      // Error without code P2023
+      filter.catch(
+        new Error('General internal DB warning: Inconsistent column data on table X'),
+        mockHost,
+      );
+
+      expect(statusCalledWith).toBe(500);
     });
   });
 });

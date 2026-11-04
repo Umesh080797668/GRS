@@ -13,7 +13,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { Gender, InfoProvidedBy } from '@prisma/client';
 
 export class CreateClientDto {
@@ -27,6 +27,7 @@ export class CreateClientDto {
   @MaxLength(120)
   name: string;
 
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(120)
@@ -131,6 +132,7 @@ export class UpdateClientDto {
   @MaxLength(120)
   name?: string;
 
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(120)
@@ -252,6 +254,7 @@ export class ListClientsDto {
   @IsOptional()
   cursor?: string;
 
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)

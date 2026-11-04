@@ -16,18 +16,7 @@ export class ScopeService {
     if (valid.length === 0) return {};
     if (valid.length === 1) return valid[0];
 
-    const hasMultipleOrs = valid.filter((c) => c.OR !== undefined).length > 1;
-    const hasAnd = valid.some((c) => c.AND !== undefined);
-
-    if (hasMultipleOrs || hasAnd) {
-      return { AND: valid };
-    }
-
-    const merged: Record<string, any> = {};
-    for (const c of valid) {
-      Object.assign(merged, c);
-    }
-    return merged;
+    return { AND: valid };
   }
 
   /**
