@@ -18,6 +18,7 @@ import {
   AlertCircle,
   CheckCircle,
   Loader2,
+  X
 } from 'lucide-react';
 
 // Role creation hierarchy aligned strictly with backend CREATION_MATRIX (§6.1)
@@ -226,7 +227,6 @@ export default function UsersPage() {
       fetchAccounts(undefined, true);
       setSuccessMessage(`Successfully generated ${allCreds.length} accounts in batch ${createdBatchIds.join(', ')}.`);
     } catch (err: any) {
-      // Invariant: Keep and show partial credentials even on partial chunk failure
       if (allCreds.length > 0) {
         setShowBulkModal(false);
         setLatestCredentials(allCreds);
@@ -314,87 +314,152 @@ export default function UsersPage() {
 
   return (
     <Shell>
-      {/* Page Title & Action Buttons */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+      {/* Title & Action Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '1.5rem',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
         <div>
-          <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', margin: 0 }}>
+          <h1
+            style={{
+              fontSize: '22px',
+              fontWeight: 700,
+              color: 'var(--slate-900)',
+              letterSpacing: '-0.02em',
+              margin: 0,
+            }}
+          >
             {t('users.title')}
-          </h2>
-          <p style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--slate-500)', marginTop: '4px' }}>
             Administrative account lifecycle management, printable credential slips, and role provisioning.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={() => setShowReissueModal(true)} className="btn-secondary">
-            <KeyRound size={16} />
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => setShowReissueModal(true)} className="btn-secondary">
+            <KeyRound size={15} />
             <span>Reissue Batch</span>
           </button>
 
-          <button onClick={handleOpenSingleModal} className="btn-secondary">
-            <UserPlus size={16} />
+          <button type="button" onClick={handleOpenSingleModal} className="btn-secondary">
+            <UserPlus size={15} />
             <span>{t('users.create_single')}</span>
           </button>
 
-          <button onClick={handleOpenBulkModal} className="btn-primary">
-            <Layers size={16} />
+          <button type="button" onClick={handleOpenBulkModal} className="btn-primary">
+            <Layers size={15} />
             <span>{t('users.create_bulk')}</span>
           </button>
         </div>
       </div>
 
       {error && (
-        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', color: '#dc2626', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <AlertCircle size={18} />
+        <div
+          style={{
+            background: 'var(--danger-bg)',
+            border: '1px solid var(--danger-border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 16px',
+            color: 'var(--danger-text)',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '13.5px',
+          }}
+        >
+          <AlertCircle size={18} style={{ flexShrink: 0 }} />
           <span>{error}</span>
         </div>
       )}
 
       {successMessage && (
-        <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px', padding: '12px 16px', color: '#059669', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <CheckCircle size={18} />
+        <div
+          style={{
+            background: 'var(--success-bg)',
+            border: '1px solid var(--success-border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 16px',
+            color: 'var(--success-text)',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '13.5px',
+          }}
+        >
+          <CheckCircle size={18} style={{ flexShrink: 0 }} />
           <span>{successMessage}</span>
         </div>
       )}
 
-      {/* Filters & Search */}
-      <div className="glass-panel" style={{ padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* Filters & Search Toolbar */}
+      <div
+        className="panel"
+        style={{
+          padding: '0.875rem 1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          gap: '12px',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}
+      >
         <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
-          <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+          <Search
+            size={16}
+            color="var(--slate-400)"
+            style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)' }}
+          />
           <input
             type="text"
             className="input-field"
             placeholder="Search by User Code, Name, or Phone..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ paddingLeft: '36px' }}
+            style={{ paddingLeft: '34px' }}
           />
         </div>
 
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          className="input-field"
-          style={{ width: '180px' }}
-        >
-          {user?.role === 'cdc_secretary' ? (
-            <option value="team_member">Team Members (Assigned)</option>
-          ) : (
-            <>
-              <option value="">All Roles</option>
-              <option value="team_member">Team Member</option>
-              <option value="cdc_secretary">CDC Secretary</option>
-              <option value="sda">SDA (Divisional)</option>
-              <option value="dc">DC (District)</option>
-              <option value="cg">CG (Central)</option>
-              <option value="admin">Administrator</option>
-            </>
-          )}
-        </select>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="select-field"
+            style={{ width: '180px' }}
+          >
+            {user?.role === 'cdc_secretary' ? (
+              <option value="team_member">Team Members (Assigned)</option>
+            ) : (
+              <>
+                <option value="">All Roles</option>
+                <option value="team_member">Team Member</option>
+                <option value="cdc_secretary">CDC Secretary</option>
+                <option value="sda">SDA (Divisional)</option>
+                <option value="dc">DC (District)</option>
+                <option value="cg">CG (Central)</option>
+                <option value="admin">Administrator</option>
+              </>
+            )}
+          </select>
 
-        <button onClick={() => fetchAccounts(undefined, true)} className="btn-secondary" style={{ padding: '0.625rem 0.875rem' }}>
-          <RefreshCw size={15} />
-        </button>
+          <button
+            type="button"
+            onClick={() => fetchAccounts(undefined, true)}
+            className="btn-secondary"
+            title="Refresh users"
+            style={{ padding: '0.55rem 0.75rem' }}
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {/* Accounts Table */}
@@ -414,7 +479,7 @@ export default function UsersPage() {
           <tbody>
             {accounts.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', color: '#94a3b8', padding: '2.5rem' }}>
+                <td colSpan={7} style={{ textAlign: 'center', color: 'var(--slate-400)', padding: '2.5rem' }}>
                   {loading ? 'Loading user accounts...' : 'No accounts matching criteria.'}
                 </td>
               </tr>
@@ -423,16 +488,18 @@ export default function UsersPage() {
                 const isActive = acc.is_active ?? acc.isActive ?? true;
                 return (
                   <tr key={acc.id}>
-                    <td style={{ fontWeight: 700, fontFamily: 'monospace', color: '#1e3a8a' }}>
+                    <td style={{ fontWeight: 600, fontFamily: 'monospace', color: 'var(--primary)' }}>
                       {acc.user_code || acc.userCode}
                     </td>
-                    <td style={{ fontWeight: 600 }}>{acc.full_name || acc.fullName || '-'}</td>
+                    <td style={{ fontWeight: 600, color: 'var(--slate-900)' }}>
+                      {acc.full_name || acc.fullName || '—'}
+                    </td>
                     <td>
-                      <span className="badge badge-info" style={{ textTransform: 'uppercase' }}>
+                      <span className="badge badge-neutral" style={{ textTransform: 'uppercase' }}>
                         {acc.role}
                       </span>
                     </td>
-                    <td>{acc.phone_e164 || acc.phone || '-'}</td>
+                    <td>{acc.phone_e164 || acc.phone || '—'}</td>
                     <td>
                       {isActive ? (
                         <span className="badge badge-success">{t('users.active')}</span>
@@ -440,7 +507,7 @@ export default function UsersPage() {
                         <span className="badge badge-danger">{t('users.deactivated')}</span>
                       )}
                     </td>
-                    <td style={{ fontSize: '12px', color: '#64748b' }}>
+                    <td style={{ fontSize: '12px', color: 'var(--slate-500)' }}>
                       {formatDate(acc.created_at || acc.createdAt)}
                     </td>
                     <td style={{ textAlign: 'right' }}>
@@ -448,10 +515,12 @@ export default function UsersPage() {
                       {(user?.role === 'super_admin' || (user?.role === 'cdc_secretary' && acc.role === 'team_member')) && (
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                           <button
+                            type="button"
                             onClick={() => handleResetPassword(acc.id)}
                             title={t('users.reset_pwd')}
+                            aria-label={t('users.reset_pwd')}
                             className="btn-secondary"
-                            style={{ padding: '4px 8px', fontSize: '11px' }}
+                            style={{ padding: '5px 8px', fontSize: '11px' }}
                           >
                             <KeyRound size={13} />
                           </button>
@@ -459,19 +528,23 @@ export default function UsersPage() {
                           {acc.id !== user?.id && (
                             isActive ? (
                               <button
+                                type="button"
                                 onClick={() => handleDeactivate(acc.id)}
                                 title={t('users.deactivate')}
+                                aria-label={t('users.deactivate')}
                                 className="btn-danger"
-                                style={{ padding: '4px 8px', fontSize: '11px' }}
+                                style={{ padding: '5px 8px', fontSize: '11px' }}
                               >
                                 <UserX size={13} />
                               </button>
                             ) : (
                               <button
+                                type="button"
                                 onClick={() => handleReactivate(acc.id)}
                                 title={t('users.reactivate')}
+                                aria-label={t('users.reactivate')}
                                 className="btn-secondary"
-                                style={{ padding: '4px 8px', fontSize: '11px', color: '#059669' }}
+                                style={{ padding: '5px 8px', fontSize: '11px', color: 'var(--success)' }}
                               >
                                 <UserCheck size={13} />
                               </button>
@@ -492,6 +565,7 @@ export default function UsersPage() {
       {hasMore && (
         <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
           <button
+            type="button"
             onClick={() => fetchAccounts(nextCursor || undefined)}
             disabled={loading}
             className="btn-secondary"
@@ -503,70 +577,81 @@ export default function UsersPage() {
 
       {/* Single Account Modal */}
       {showSingleModal && (
-        <div className="modal-backdrop">
-          <div className="modal-content">
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>{t('users.create_single')}</h3>
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                {t('users.create_single')}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowSingleModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
             </div>
-            <form onSubmit={handleCreateSingle} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                  User Code (Optional, leave blank to auto-generate)
-                </label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. AGT-101"
-                  value={formData.userCode}
-                  onChange={(e) => setFormData({ ...formData, userCode: e.target.value })}
-                />
+            <form onSubmit={handleCreateSingle}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label className="form-label">
+                    User Code (Optional, leave blank to auto-generate)
+                  </label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. AGT-101"
+                    value={formData.userCode}
+                    onChange={(e) => setFormData({ ...formData, userCode: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    {t('users.name')} *
+                  </label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Kamal Perera"
+                    value={formData.fullName}
+                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    {t('users.role')} *
+                  </label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    className="select-field"
+                  >
+                    {allowedSingleRoles.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label">
+                    {t('users.phone')}
+                  </label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="+94771234567"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  />
+                </div>
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                  {t('users.name')}
-                </label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="Kamal Perera"
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                  {t('users.role')}
-                </label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="input-field"
-                >
-                  {allowedSingleRoles.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                  {t('users.phone')}
-                </label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="+94771234567"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem' }}>
+              <div className="modal-footer">
                 <button type="button" onClick={() => setShowSingleModal(false)} className="btn-secondary">
                   Cancel
                 </button>
@@ -581,74 +666,87 @@ export default function UsersPage() {
 
       {/* Bulk Accounts Modal (M5.2 Chunked) */}
       {showBulkModal && (
-        <div className="modal-backdrop">
-          <div className="modal-content">
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>{t('users.create_bulk')}</h3>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>
-                Requests above 100 are automatically chunked in-browser into safe batches.
-              </p>
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                  {t('users.create_bulk')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '3px 0 0 0' }}>
+                  Requests above 100 are automatically chunked in-browser into safe batches.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
             </div>
-            <form onSubmit={handleCreateBulk} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                  Role for Generated Batch
-                </label>
-                <select
-                  value={bulkData.role}
-                  onChange={(e) => setBulkData({ ...bulkData, role: e.target.value })}
-                  className="input-field"
-                >
-                  {allowedBulkRoles.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {user?.role === 'cdc_secretary' ? (
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '10px 14px', borderRadius: '8px', fontSize: '12px', color: '#475569' }}>
-                  <span>Assigned Field Team: <strong>Your Field Team (Pre-assigned)</strong></span>
+            <form onSubmit={handleCreateBulk}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label className="form-label">
+                    Role for Generated Batch *
+                  </label>
+                  <select
+                    value={bulkData.role}
+                    onChange={(e) => setBulkData({ ...bulkData, role: e.target.value })}
+                    className="select-field"
+                  >
+                    {allowedBulkRoles.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              ) : (
-                bulkData.role === 'team_member' && teams.length > 0 && (
-                  <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                      Assign to Team (Optional)
-                    </label>
-                    <select
-                      value={bulkData.teamId}
-                      onChange={(e) => setBulkData({ ...bulkData, teamId: e.target.value })}
-                      className="input-field"
-                    >
-                      <option value="">No team pre-assignment</option>
-                      {teams.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          Team {t.teamNo} (Max: {t.maxMembers})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )
-              )}
 
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                  Total Number of Accounts to Generate (Max 100 per request)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  className="input-field"
-                  value={bulkData.count}
-                  onChange={(e) => setBulkData({ ...bulkData, count: Math.min(100, Math.max(1, parseInt(e.target.value) || 1)) })}
-                  required
-                />
+                {user?.role === 'cdc_secretary' ? (
+                  <div style={{ background: 'var(--slate-50)', border: '1px solid var(--border-subtle)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', color: 'var(--slate-600)' }}>
+                    <span>Assigned Field Team: <strong>Your Field Team (Pre-assigned)</strong></span>
+                  </div>
+                ) : (
+                  bulkData.role === 'team_member' && teams.length > 0 && (
+                    <div>
+                      <label className="form-label">
+                        Assign to Team (Optional)
+                      </label>
+                      <select
+                        value={bulkData.teamId}
+                        onChange={(e) => setBulkData({ ...bulkData, teamId: e.target.value })}
+                        className="select-field"
+                      >
+                        <option value="">No team pre-assignment</option>
+                        {teams.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            Team {t.teamNo} (Max: {t.maxMembers})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )
+                )}
+
+                <div>
+                  <label className="form-label">
+                    Total Number of Accounts to Generate (Max 100 per request) *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    className="input-field"
+                    value={bulkData.count}
+                    onChange={(e) => setBulkData({ ...bulkData, count: Math.min(100, Math.max(1, parseInt(e.target.value) || 1)) })}
+                    required
+                  />
+                </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem' }}>
+              <div className="modal-footer">
                 <button type="button" onClick={() => setShowBulkModal(false)} className="btn-secondary">
                   Cancel
                 </button>
@@ -663,30 +761,43 @@ export default function UsersPage() {
 
       {/* Batch Reissue Modal */}
       {showReissueModal && (
-        <div className="modal-backdrop">
-          <div className="modal-content">
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Reissue Batch Credentials</h3>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>
-                Regenerate temporary credentials for users in a creation batch who have not yet changed passwords.
-              </p>
-            </div>
-            <form onSubmit={handleReissueBatch} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                  Batch UUID
-                </label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. 12345678-1234-1234-1234-123456789abc"
-                  value={reissueBatchId}
-                  onChange={(e) => setReissueBatchId(e.target.value)}
-                  required
-                />
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                  Reissue Batch Credentials
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '3px 0 0 0' }}>
+                  Regenerate temporary credentials for users in a creation batch who have not yet changed passwords.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowReissueModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleReissueBatch}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label className="form-label">
+                    Batch UUID *
+                  </label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. 12345678-1234-1234-1234-123456789abc"
+                    value={reissueBatchId}
+                    onChange={(e) => setReissueBatchId(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem' }}>
+              <div className="modal-footer">
                 <button type="button" onClick={() => setShowReissueModal(false)} className="btn-secondary">
                   Cancel
                 </button>

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import LanguageSwitch from '../../components/LanguageSwitch';
 import { api } from '../../lib/api';
 import { KeyRound, Mail, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 
@@ -102,21 +103,34 @@ export default function FirstSignInPage() {
     <div
       style={{
         minHeight: '100vh',
-        background: 'radial-gradient(ellipse at top, #1e3a8a 0%, #090e1a 70%)',
+        background: 'var(--bg-page)',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '1.5rem',
+        position: 'relative',
       }}
     >
       <div
-        className="glass-panel"
         style={{
-          maxWidth: '460px',
+          position: 'absolute',
+          top: '1.25rem',
+          right: '1.5rem',
+        }}
+      >
+        <LanguageSwitch variant="light" />
+      </div>
+
+      <div
+        style={{
+          maxWidth: '440px',
           width: '100%',
-          padding: '2.5rem',
-          borderRadius: '16px',
-          boxShadow: '0 20px 40px -15px rgba(0,0,0,0.4)',
+          background: '#ffffff',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--shadow-md)',
+          padding: '2.25rem',
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
@@ -125,20 +139,21 @@ export default function FirstSignInPage() {
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '56px',
-              height: '56px',
-              borderRadius: '14px',
-              background: step === 'password' ? '#fef3c7' : '#ecfdf5',
-              color: step === 'password' ? '#d97706' : '#059669',
+              width: '48px',
+              height: '48px',
+              borderRadius: 'var(--radius-md)',
+              background: step === 'password' ? 'var(--warning-bg)' : 'var(--primary-subtle)',
+              color: step === 'password' ? 'var(--warning-text)' : 'var(--primary)',
+              border: `1px solid ${step === 'password' ? 'var(--warning-border)' : 'var(--primary-subtle-hover)'}`,
               marginBottom: '1rem',
             }}
           >
-            {step === 'password' ? <KeyRound size={28} /> : <Mail size={28} />}
+            {step === 'password' ? <KeyRound size={24} /> : <Mail size={24} />}
           </div>
-          <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--slate-900)', margin: 0, letterSpacing: '-0.01em' }}>
             {step === 'password' ? t('auth.first_sign_in_title') : t('auth.add_recovery_email')}
           </h2>
-          <p style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
+          <p style={{ fontSize: '12.5px', color: 'var(--slate-500)', marginTop: '4px', lineHeight: 1.45 }}>
             {step === 'password' ? t('auth.first_sign_in_desc') : t('auth.add_recovery_desc')}
           </p>
         </div>
@@ -146,19 +161,19 @@ export default function FirstSignInPage() {
         {error && (
           <div
             style={{
-              background: '#fef2f2',
-              border: '1px solid #fecaca',
-              borderRadius: '8px',
+              background: 'var(--danger-bg)',
+              border: '1px solid var(--danger-border)',
+              borderRadius: 'var(--radius-sm)',
               padding: '10px 14px',
-              color: '#dc2626',
-              fontSize: '13px',
+              color: 'var(--danger-text)',
+              fontSize: '12.5px',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
               marginBottom: '1.25rem',
             }}
           >
-            <AlertCircle size={16} />
+            <AlertCircle size={16} style={{ flexShrink: 0 }} />
             <span>{error}</span>
           </div>
         )}
@@ -166,28 +181,28 @@ export default function FirstSignInPage() {
         {success && (
           <div
             style={{
-              background: '#ecfdf5',
-              border: '1px solid #a7f3d0',
-              borderRadius: '8px',
+              background: 'var(--success-bg)',
+              border: '1px solid var(--success-border)',
+              borderRadius: 'var(--radius-sm)',
               padding: '10px 14px',
-              color: '#059669',
-              fontSize: '13px',
+              color: 'var(--success-text)',
+              fontSize: '12.5px',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
               marginBottom: '1.25rem',
             }}
           >
-            <CheckCircle size={16} />
+            <CheckCircle size={16} style={{ flexShrink: 0 }} />
             <span>{success}</span>
           </div>
         )}
 
         {step === 'password' && (
-          <form onSubmit={handlePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <form onSubmit={handlePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
-                {t('auth.current_password')}
+              <label className="form-label">
+                {t('auth.current_password')} *
               </label>
               <input
                 type="password"
@@ -200,8 +215,8 @@ export default function FirstSignInPage() {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
-                {t('auth.new_password')}
+              <label className="form-label">
+                {t('auth.new_password')} *
               </label>
               <input
                 type="password"
@@ -211,14 +226,14 @@ export default function FirstSignInPage() {
                 placeholder="••••••••"
                 required
               />
-              <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
+              <span className="form-hint">
                 {t('auth.password_requirements')}
               </span>
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
-                {t('auth.confirm_password')}
+              <label className="form-label">
+                {t('auth.confirm_password')} *
               </label>
               <input
                 type="password"
@@ -234,7 +249,7 @@ export default function FirstSignInPage() {
               type="submit"
               disabled={loading}
               className="btn-primary"
-              style={{ width: '100%', padding: '0.75rem', marginTop: '0.5rem' }}
+              style={{ width: '100%', padding: '0.65rem', marginTop: '0.5rem', fontSize: '14px' }}
             >
               {loading ? (
                 <>
@@ -249,10 +264,10 @@ export default function FirstSignInPage() {
         )}
 
         {step === 'email_input' && (
-          <form onSubmit={handleSendEmailCode} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <form onSubmit={handleSendEmailCode} style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
-                Official Email Address
+              <label className="form-label">
+                Official Email Address *
               </label>
               <input
                 type="email"
@@ -264,12 +279,12 @@ export default function FirstSignInPage() {
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '0.5rem' }}>
               <button
                 type="button"
                 onClick={handleSkip}
                 className="btn-secondary"
-                style={{ flex: 1, padding: '0.75rem' }}
+                style={{ flex: 1, padding: '0.65rem' }}
               >
                 {t('auth.skip_for_now')}
               </button>
@@ -277,7 +292,7 @@ export default function FirstSignInPage() {
                 type="submit"
                 disabled={loading}
                 className="btn-primary"
-                style={{ flex: 1, padding: '0.75rem' }}
+                style={{ flex: 1, padding: '0.65rem' }}
               >
                 {loading ? <Loader2 size={16} className="animate-spin" /> : t('auth.send_code')}
               </button>
@@ -286,10 +301,10 @@ export default function FirstSignInPage() {
         )}
 
         {step === 'email_verify' && (
-          <form onSubmit={handleVerifyEmailCode} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <form onSubmit={handleVerifyEmailCode} style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
-                {t('auth.otp_code')}
+              <label className="form-label">
+                {t('auth.otp_code')} *
               </label>
               <input
                 type="text"
@@ -302,12 +317,12 @@ export default function FirstSignInPage() {
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '0.5rem' }}>
               <button
                 type="button"
                 onClick={handleSkip}
                 className="btn-secondary"
-                style={{ flex: 1, padding: '0.75rem' }}
+                style={{ flex: 1, padding: '0.65rem' }}
               >
                 {t('auth.skip_for_now')}
               </button>
@@ -315,7 +330,7 @@ export default function FirstSignInPage() {
                 type="submit"
                 disabled={loading}
                 className="btn-primary"
-                style={{ flex: 1, padding: '0.75rem' }}
+                style={{ flex: 1, padding: '0.65rem' }}
               >
                 {loading ? <Loader2 size={16} className="animate-spin" /> : t('auth.verify_email_btn')}
               </button>

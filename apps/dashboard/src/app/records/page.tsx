@@ -7,7 +7,6 @@ import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import {
-  FileText,
   Search,
   Edit3,
   Eye,
@@ -18,7 +17,7 @@ import {
   ChevronLeft,
   X,
   UserCheck,
-  ShieldAlert,
+  ShieldAlert
 } from 'lucide-react';
 
 export default function RecordsPage() {
@@ -169,7 +168,7 @@ export default function RecordsPage() {
   function handlePrevPage() {
     if (cursorHistory.length === 0) return;
     const history = [...cursorHistory];
-    history.pop(); // remove current
+    history.pop();
     const prevCursor = history.length > 0 ? history[history.length - 1] : undefined;
     setCursorHistory(history);
     loadRecords(prevCursor);
@@ -231,389 +230,482 @@ export default function RecordsPage() {
 
   return (
     <Shell activePath="/records">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-              <FileText className="w-7 h-7 text-emerald-400" />
-              {t('records.title')}
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Inspect enumerator survey submissions and execute supervisor audit corrections with mandatory reason logging.
-            </p>
+      {/* Title & Info Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '1.5rem',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
+        <div>
+          <h1
+            style={{
+              fontSize: '22px',
+              fontWeight: 700,
+              color: 'var(--slate-900)',
+              letterSpacing: '-0.02em',
+              margin: 0,
+            }}
+          >
+            {t('records.title')}
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--slate-500)', marginTop: '4px' }}>
+            Inspect enumerator survey submissions and execute supervisor audit corrections with mandatory reason logging.
+          </p>
+        </div>
+
+        <div className="badge badge-neutral" style={{ fontSize: '13px', padding: '6px 12px' }}>
+          Total Registered: <strong style={{ color: 'var(--primary)', marginLeft: '4px' }}>{totalCount.toLocaleString()}</strong>
+        </div>
+      </div>
+
+      {/* Success Notification */}
+      {successBanner && (
+        <div
+          style={{
+            background: 'var(--success-bg)',
+            border: '1px solid var(--success-border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 16px',
+            color: 'var(--success-text)',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+            fontSize: '13.5px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckCircle size={18} />
+            <span>{successBanner}</span>
           </div>
-          <div className="badge badge-info">
-            Total Records: {totalCount}
+          <button
+            type="button"
+            onClick={() => setSuccessBanner(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--success-text)' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Search & Multi-Filter Card */}
+      <div className="panel" style={{ padding: '1.25rem', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+            <Search
+              size={15}
+              color="var(--slate-400)"
+              style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)' }}
+            />
+            <input
+              type="text"
+              className="input-field"
+              placeholder={t('records.search')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ paddingLeft: '34px' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <select
+              className="select-field"
+              style={{ width: 'auto', minWidth: '150px' }}
+              value={filterBeneficiary}
+              onChange={(e) => setFilterBeneficiary(e.target.value)}
+            >
+              <option value="all">All Beneficiaries</option>
+              <option value="aswesuma">Aswesuma</option>
+              <option value="samurdhi">Samurdhi</option>
+              <option value="epf">EPF/ETF</option>
+              <option value="special_needs">Special Needs</option>
+            </select>
+
+            <select
+              className="select-field"
+              style={{ width: 'auto', minWidth: '120px' }}
+              value={filterGender}
+              onChange={(e) => setFilterGender(e.target.value)}
+            >
+              <option value="all">All Genders</option>
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+            </select>
+
+            <select
+              className="select-field"
+              style={{ width: 'auto', minWidth: '130px' }}
+              value={filterLanguage}
+              onChange={(e) => setFilterLanguage(e.target.value)}
+            >
+              <option value="all">All Languages</option>
+              <option value="si">Sinhala</option>
+              <option value="ta">Tamil</option>
+              <option value="en">English</option>
+            </select>
           </div>
         </div>
 
-        {/* Success Banner */}
-        {successBanner && (
-          <div className="card border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-300 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-emerald-400" />
-              <span>{successBanner}</span>
-            </div>
-            <button onClick={() => setSuccessBanner(null)} className="text-slate-400 hover:text-white">
-              <X className="w-4 h-4" />
+        {/* Geographic Cascade Dropdowns */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '10px',
+            paddingTop: '0.75rem',
+            borderTop: '1px solid var(--slate-100)',
+          }}
+        >
+          <select
+            className="select-field"
+            value={selectedDistrict}
+            onChange={(e) => handleDistrictChange(e.target.value)}
+            disabled={user?.role === 'cdc_secretary'}
+          >
+            <option value="">{user?.role === 'cdc_secretary' ? 'Assigned District' : 'All Districts'}</option>
+            {districts.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.nameEn || d.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="select-field"
+            value={selectedDs}
+            onChange={(e) => handleDsChange(e.target.value)}
+            disabled={!selectedDistrict || dsDivisions.length === 0 || user?.role === 'cdc_secretary'}
+          >
+            <option value="">{user?.role === 'cdc_secretary' ? 'Assigned DS Division' : 'All DS Divisions'}</option>
+            {dsDivisions.map((ds) => (
+              <option key={ds.id} value={ds.id}>
+                {ds.nameEn || ds.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="select-field"
+            value={selectedGn}
+            onChange={(e) => setSelectedGn(e.target.value)}
+            disabled={!selectedDs || gnDivisions.length === 0 || user?.role === 'cdc_secretary'}
+          >
+            <option value="">{user?.role === 'cdc_secretary' ? 'Assigned GN Division' : 'All GN Divisions'}</option>
+            {gnDivisions.map((gn) => (
+              <option key={gn.id} value={gn.id}>
+                {gn.nameEn || gn.name} ({gn.gnCode || gn.gnNumber})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Survey Records Table */}
+      <div className="panel" style={{ overflow: 'hidden' }}>
+        {loading ? (
+          <div style={{ padding: '3rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', color: 'var(--slate-500)' }}>
+            <Loader2 size={24} className="animate-spin" style={{ color: 'var(--primary)' }} />
+            <span style={{ fontSize: '13.5px' }}>Loading survey records...</span>
+          </div>
+        ) : error ? (
+          <div style={{ padding: '2.5rem 1.5rem', textAlign: 'center', color: 'var(--danger-text)' }}>
+            <AlertCircle size={24} style={{ margin: '0 auto 8px auto' }} />
+            <p style={{ fontSize: '13.5px' }}>{error}</p>
+          </div>
+        ) : records.length === 0 ? (
+          <div style={{ padding: '3rem 1.5rem', textAlign: 'center', color: 'var(--slate-400)' }}>
+            <p style={{ fontSize: '13.5px' }}>No survey records found matching your filters.</p>
+          </div>
+        ) : (
+          <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>House / Serial</th>
+                  <th>Surveyed Individual</th>
+                  <th>Demographics</th>
+                  <th>Contact</th>
+                  <th>Welfare Status</th>
+                  <th>Collector</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <div style={{ fontWeight: 600, color: 'var(--slate-900)', fontFamily: 'monospace' }}>
+                        #{r.household?.houseNo || 'N/A'}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--slate-400)', marginTop: '1px' }}>
+                        Serial: {r.household?.serialNo || '—'}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 600, color: 'var(--slate-900)' }}>{r.name}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--slate-500)', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {r.address || r.household?.address || 'No address registered'}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="tabular-nums" style={{ fontSize: '12.5px', color: 'var(--slate-700)' }}>
+                        {r.age} yrs • {r.gender}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="tabular-nums" style={{ fontSize: '12.5px', color: 'var(--slate-700)', fontFamily: 'monospace' }}>
+                        {r.phoneE164 || r.phoneRaw || '—'}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+                        {r.isAswesuma && <span className="badge badge-info" style={{ fontSize: '9px', padding: '1px 4px' }}>Aswesuma</span>}
+                        {r.isSamurdhi && <span className="badge badge-info" style={{ fontSize: '9px', padding: '1px 4px' }}>Samurdhi</span>}
+                        {r.isEpf && <span className="badge badge-success" style={{ fontSize: '9px', padding: '1px 4px' }}>EPF</span>}
+                        {r.hasSpecialNeeds && (
+                          <span className="badge badge-warning" style={{ fontSize: '9px', padding: '1px 4px' }}>Special</span>
+                        )}
+                        {!r.isAswesuma && !r.isSamurdhi && !r.isEpf && !r.hasSpecialNeeds && (
+                          <span style={{ color: 'var(--slate-400)', fontSize: '12px' }}>—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '12.5px', color: 'var(--slate-700)' }}>
+                        {r.collector?.fullName || r.collector?.userCode || 'System'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRecord(r)}
+                          className="btn-secondary"
+                          style={{ padding: '5px 8px', fontSize: '11px' }}
+                          title="Inspect Record Details"
+                          aria-label="Inspect Record Details"
+                        >
+                          <Eye size={13} />
+                        </button>
+                        {canEditRecords && (
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(r)}
+                            className="btn-secondary"
+                            style={{ padding: '5px 8px', fontSize: '11px', color: 'var(--warning-text)' }}
+                            title={t('records.edit_record')}
+                            aria-label={t('records.edit_record')}
+                          >
+                            <Edit3 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Keyset Pagination Controls */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.875rem 1.25rem',
+            borderTop: '1px solid var(--border-subtle)',
+            background: 'var(--slate-50)',
+          }}
+        >
+          <span style={{ fontSize: '12px', color: 'var(--slate-500)' }}>
+            Showing {records.length} records
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={handlePrevPage}
+              disabled={cursorHistory.length === 0 || loading}
+              className="btn-secondary"
+              style={{ padding: '4px 10px', fontSize: '12px' }}
+            >
+              <ChevronLeft size={14} />
+              <span>Previous</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleNextPage}
+              disabled={!nextCursor || loading}
+              className="btn-secondary"
+              style={{ padding: '4px 10px', fontSize: '12px' }}
+            >
+              <span>Next</span>
+              <ChevronRight size={14} />
             </button>
           </div>
-        )}
-
-        {/* Search & Filter Toolbar */}
-        <div className="card p-4 space-y-3">
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-              <input
-                type="text"
-                className="input pl-9"
-                placeholder={t('records.search')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                className="input w-auto text-xs py-1.5 px-3"
-                value={filterBeneficiary}
-                onChange={(e) => setFilterBeneficiary(e.target.value)}
-              >
-                <option value="all">All Beneficiaries</option>
-                <option value="aswesuma">Aswesuma</option>
-                <option value="samurdhi">Samurdhi</option>
-                <option value="epf">EPF/ETF</option>
-                <option value="special_needs">Special Needs</option>
-              </select>
-
-              <select
-                className="input w-auto text-xs py-1.5 px-3"
-                value={filterGender}
-                onChange={(e) => setFilterGender(e.target.value)}
-              >
-                <option value="all">All Genders</option>
-                <option value="M">Male</option>
-                <option value="F">Female</option>
-              </select>
-
-              <select
-                className="input w-auto text-xs py-1.5 px-3"
-                value={filterLanguage}
-                onChange={(e) => setFilterLanguage(e.target.value)}
-              >
-                <option value="all">All Languages</option>
-                <option value="si">Sinhala</option>
-                <option value="ta">Tamil</option>
-                <option value="en">English</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Area Filters */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-800">
-            <select
-              className="input text-xs py-1.5 px-3"
-              value={selectedDistrict}
-              onChange={(e) => handleDistrictChange(e.target.value)}
-              disabled={user?.role === 'cdc_secretary'}
-            >
-              <option value="">{user?.role === 'cdc_secretary' ? 'Assigned District' : 'All Districts'}</option>
-              {districts.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.nameEn || d.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="input text-xs py-1.5 px-3"
-              value={selectedDs}
-              onChange={(e) => handleDsChange(e.target.value)}
-              disabled={!selectedDistrict || dsDivisions.length === 0 || user?.role === 'cdc_secretary'}
-            >
-              <option value="">{user?.role === 'cdc_secretary' ? 'Assigned DS Division' : 'All DS Divisions'}</option>
-              {dsDivisions.map((ds) => (
-                <option key={ds.id} value={ds.id}>
-                  {ds.nameEn || ds.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="input text-xs py-1.5 px-3"
-              value={selectedGn}
-              onChange={(e) => setSelectedGn(e.target.value)}
-              disabled={!selectedDs || gnDivisions.length === 0 || user?.role === 'cdc_secretary'}
-            >
-              <option value="">{user?.role === 'cdc_secretary' ? 'Assigned GN Division' : 'All GN Divisions'}</option>
-              {gnDivisions.map((gn) => (
-                <option key={gn.id} value={gn.id}>
-                  {gn.nameEn || gn.name} ({gn.gnCode || gn.gnNumber})
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
+      </div>
 
-        {/* Records Table */}
-        <div className="card overflow-hidden">
-          {loading ? (
-            <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-3">
-              <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
-              <span>Loading survey records...</span>
-            </div>
-          ) : error ? (
-            <div className="p-8 text-center text-red-400">
-              <AlertCircle className="w-6 h-6 mx-auto mb-2" />
-              <p>{error}</p>
-            </div>
-          ) : records.length === 0 ? (
-            <div className="p-12 text-center text-slate-400">
-              <p>No survey records found matching your filters.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-900/80 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-800">
-                  <tr>
-                    <th className="p-3">House / Serial</th>
-                    <th className="p-3">Surveyed Individual</th>
-                    <th className="p-3">Demographics</th>
-                    <th className="p-3">Contact</th>
-                    <th className="p-3">Welfare Status</th>
-                    <th className="p-3">Collector</th>
-                    <th className="p-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {records.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-800/40 transition">
-                      <td className="p-3">
-                        <div className="font-semibold text-white font-mono">
-                          #{r.household?.houseNo || 'N/A'}
-                        </div>
-                        <div className="text-xs text-slate-400">
-                          Serial: {r.household?.serialNo || '-'}
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <div className="font-medium text-slate-100">{r.name}</div>
-                        <div className="text-xs text-slate-400 truncate max-w-xs">
-                          {r.address || r.household?.address || 'No address registered'}
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <span className="text-xs font-mono text-slate-300">
-                          {r.age} yrs • {r.gender}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <div className="text-xs text-slate-300 font-mono">
-                          {r.phoneE164 || r.phoneRaw || '-'}
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <div className="flex flex-wrap gap-1">
-                          {r.isAswesuma && <span className="badge badge-info text-[10px]">Aswesuma</span>}
-                          {r.isSamurdhi && <span className="badge badge-info text-[10px]">Samurdhi</span>}
-                          {r.isEpf && <span className="badge badge-success text-[10px]">EPF</span>}
-                          {r.hasSpecialNeeds && (
-                            <span className="badge badge-warning text-[10px]">Special</span>
-                          )}
-                          {!r.isAswesuma && !r.isSamurdhi && !r.isEpf && !r.hasSpecialNeeds && (
-                            <span className="text-slate-600 text-xs">-</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <div className="text-xs text-slate-300">
-                          {r.collector?.fullName || r.collector?.userCode || 'System'}
-                        </div>
-                      </td>
-                      <td className="p-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => setSelectedRecord(r)}
-                            className="btn btn-secondary p-1.5 text-xs"
-                            title="Inspect Record"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                          {canEditRecords && (
-                            <button
-                              onClick={() => openEditModal(r)}
-                              className="btn btn-secondary p-1.5 text-xs text-amber-400 hover:text-amber-300"
-                              title={t('records.edit_record')}
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Keyset Pagination Controls */}
-          <div className="flex items-center justify-between p-4 border-t border-slate-800 bg-slate-900/50">
-            <span className="text-xs text-slate-400">
-              Showing {records.length} records
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handlePrevPage}
-                disabled={cursorHistory.length === 0 || loading}
-                className="btn btn-secondary text-xs flex items-center gap-1"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" /> Previous
-              </button>
-              <button
-                onClick={handleNextPage}
-                disabled={!nextCursor || loading}
-                className="btn btn-secondary text-xs flex items-center gap-1"
-              >
-                Next <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* View Detail Modal */}
-        {selectedRecord && (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="card max-w-lg w-full p-6 space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <UserCheck className="w-5 h-5 text-emerald-400" />
+      {/* Record Inspection Modal */}
+      {selectedRecord && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <UserCheck size={18} style={{ color: 'var(--primary)' }} />
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
                   Survey Record Details
-                </h2>
-                <button
-                  onClick={() => setSelectedRecord(null)}
-                  className="text-slate-400 hover:text-white"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                </h3>
               </div>
+              <button
+                type="button"
+                onClick={() => setSelectedRecord(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
 
-              <div className="space-y-3 text-sm">
-                <div className="grid grid-cols-2 gap-3 bg-slate-900/50 p-3 rounded-lg border border-slate-800">
-                  <div>
-                    <span className="text-xs text-slate-400 block">Full Name</span>
-                    <strong className="text-slate-100">{selectedRecord.name}</strong>
-                  </div>
-                  <div>
-                    <span className="text-xs text-slate-400 block">Age & Gender</span>
-                    <span className="text-slate-200">
-                      {selectedRecord.age} years • {selectedRecord.gender}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-slate-400 block">House Number</span>
-                    <span className="text-slate-200">
-                      #{selectedRecord.household?.houseNo || 'N/A'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-slate-400 block">Phone</span>
-                    <span className="text-slate-200 font-mono">
-                      {selectedRecord.phoneE164 || selectedRecord.phoneRaw || '-'}
-                    </span>
-                  </div>
-                </div>
-
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '13px' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '12px',
+                  background: 'var(--slate-50)',
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-subtle)',
+                }}
+              >
                 <div>
-                  <span className="text-xs text-slate-400 block">Address</span>
-                  <p className="text-slate-300">
-                    {selectedRecord.address || selectedRecord.household?.address || 'Not specified'}
-                  </p>
+                  <span style={{ fontSize: '11px', color: 'var(--slate-500)', display: 'block' }}>Full Name</span>
+                  <strong style={{ color: 'var(--slate-900)' }}>{selectedRecord.name}</strong>
                 </div>
-
                 <div>
-                  <span className="text-xs text-slate-400 block mb-1">Education & Career</span>
-                  <div className="text-xs space-y-1 text-slate-300 bg-slate-900/40 p-2.5 rounded border border-slate-800">
-                    <div>Highest Education: <strong>{selectedRecord.highestEducation || 'None'}</strong></div>
-                    <div>Vocational Qual: <strong>{selectedRecord.highestVocational || 'None'}</strong></div>
-                    <div>Interested Stream: <strong>{selectedRecord.interestedVocationalStream || 'None'}</strong></div>
-                    <div>Interested Job: <strong>{selectedRecord.interestedJob || 'None'}</strong></div>
-                  </div>
+                  <span style={{ fontSize: '11px', color: 'var(--slate-500)', display: 'block' }}>Age & Gender</span>
+                  <span style={{ color: 'var(--slate-800)' }}>
+                    {selectedRecord.age} years • {selectedRecord.gender}
+                  </span>
                 </div>
-
                 <div>
-                  <span className="text-xs text-slate-400 block mb-1">Audit Metadata</span>
-                  <div className="text-xs text-slate-400 space-y-0.5">
-                    <div>Created At: {formatDate(selectedRecord.createdAt)}</div>
-                    <div>Last Updated: {formatDate(selectedRecord.updatedAt)}</div>
-                    <div>Collector: {selectedRecord.collector?.fullName || selectedRecord.collector?.userCode || 'System'}</div>
-                  </div>
+                  <span style={{ fontSize: '11px', color: 'var(--slate-500)', display: 'block' }}>House Number</span>
+                  <span style={{ color: 'var(--slate-800)', fontFamily: 'monospace' }}>
+                    #{selectedRecord.household?.houseNo || 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--slate-500)', display: 'block' }}>Phone Number</span>
+                  <span style={{ color: 'var(--slate-800)', fontFamily: 'monospace' }}>
+                    {selectedRecord.phoneE164 || selectedRecord.phoneRaw || '—'}
+                  </span>
                 </div>
               </div>
 
-              <div className="pt-2 flex justify-end gap-2 border-t border-slate-800">
-                <button
-                  onClick={() => {
-                    const rec = selectedRecord;
-                    setSelectedRecord(null);
-                    openEditModal(rec);
-                  }}
-                  className="btn btn-primary text-xs flex items-center gap-1.5"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  Supervisor Correction
-                </button>
-                <button
-                  onClick={() => setSelectedRecord(null)}
-                  className="btn btn-secondary text-xs"
-                >
-                  Close
-                </button>
+              <div>
+                <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', display: 'block', marginBottom: '2px' }}>Registered Address</span>
+                <p style={{ color: 'var(--slate-800)', margin: 0 }}>
+                  {selectedRecord.address || selectedRecord.household?.address || 'Not specified'}
+                </p>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', display: 'block', marginBottom: '4px' }}>Education & Career</span>
+                <div style={{ background: 'var(--slate-50)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
+                  <div>Highest Education: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.highestEducation || 'None'}</strong></div>
+                  <div>Vocational Qual: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.highestVocational || 'None'}</strong></div>
+                  <div>Interested Stream: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.interestedVocationalStream || 'None'}</strong></div>
+                  <div>Interested Job: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.interestedJob || 'None'}</strong></div>
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', display: 'block', marginBottom: '2px' }}>Audit Metadata</span>
+                <div style={{ fontSize: '11.5px', color: 'var(--slate-500)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <div>Created: {formatDate(selectedRecord.createdAt)}</div>
+                  <div>Last Updated: {formatDate(selectedRecord.updatedAt)}</div>
+                  <div>Collector: {selectedRecord.collector?.fullName || selectedRecord.collector?.userCode || 'System'}</div>
+                </div>
               </div>
             </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                onClick={() => {
+                  const rec = selectedRecord;
+                  setSelectedRecord(null);
+                  openEditModal(rec);
+                }}
+                className="btn-primary"
+                style={{ fontSize: '12.5px' }}
+              >
+                <Edit3 size={13} />
+                <span>Supervisor Correction</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedRecord(null)}
+                className="btn-secondary"
+                style={{ fontSize: '12.5px' }}
+              >
+                Close
+              </button>
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Supervisor Edit Modal with Mandatory Audit Reason */}
-        {editingRecord && (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="card max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <ShieldAlert className="w-5 h-5 text-amber-400" />
+      {/* Supervisor Edit Modal with Mandatory Audit Reason */}
+      {editingRecord && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '560px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldAlert size={18} style={{ color: 'var(--warning)' }} />
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
                   {t('records.edit_record')}
-                </h2>
-                <button
-                  onClick={() => setEditingRecord(null)}
-                  className="text-slate-400 hover:text-white"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                </h3>
               </div>
+              <button
+                type="button"
+                onClick={() => setEditingRecord(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
 
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {auditError && (
-                <div className="card border-red-500/40 bg-red-500/10 p-3 text-xs text-red-300 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                <div style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12px', color: 'var(--danger-text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <AlertCircle size={15} style={{ flexShrink: 0 }} />
                   <span>{auditError}</span>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                <div className="md:col-span-2">
-                  <label className="text-xs text-slate-400 block mb-1">Full Name *</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="form-label">Full Name *</label>
                   <input
                     type="text"
-                    className="input"
+                    className="input-field"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Age *</label>
+                  <label className="form-label">Age *</label>
                   <input
                     type="number"
-                    className="input"
+                    className="input-field"
                     min={1}
                     max={120}
                     value={editAge}
@@ -621,9 +713,9 @@ export default function RecordsPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Gender *</label>
+                  <label className="form-label">Gender *</label>
                   <select
-                    className="input"
+                    className="select-field"
                     value={editGender}
                     onChange={(e) => setEditGender(e.target.value)}
                   >
@@ -632,114 +724,114 @@ export default function RecordsPage() {
                     <option value="other">Other</option>
                   </select>
                 </div>
-                <div className="md:col-span-2">
-                  <label className="text-xs text-slate-400 block mb-1">Address</label>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="form-label">Address</label>
                   <input
                     type="text"
-                    className="input"
+                    className="input-field"
                     value={editAddress}
                     onChange={(e) => setEditAddress(e.target.value)}
                   />
                 </div>
-                <div className="md:col-span-2">
-                  <label className="text-xs text-slate-400 block mb-1">Phone Number</label>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="form-label">Phone Number</label>
                   <input
                     type="text"
-                    className="input"
+                    className="input-field"
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
                   />
                 </div>
 
-                <div className="md:col-span-2 space-y-2 pt-2 border-t border-slate-800">
-                  <span className="text-xs text-slate-400 block">Welfare & Social Indicators</span>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                <div style={{ gridColumn: 'span 2', paddingTop: '0.5rem', borderTop: '1px solid var(--slate-100)' }}>
+                  <span className="form-label">Welfare & Social Indicators</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12.5px', marginTop: '4px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                       <input
                         type="checkbox"
                         checked={editIsEpf}
                         onChange={(e) => setEditIsEpf(e.target.checked)}
                       />
-                      EPF/ETF Contributor
+                      <span>EPF/ETF Contributor</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                       <input
                         type="checkbox"
                         checked={editIsAswesuma}
                         onChange={(e) => setEditIsAswesuma(e.target.checked)}
                       />
-                      Aswesuma Beneficiary
+                      <span>Aswesuma Beneficiary</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                       <input
                         type="checkbox"
                         checked={editIsSamurdhi}
                         onChange={(e) => setEditIsSamurdhi(e.target.checked)}
                       />
-                      Samurdhi Beneficiary
+                      <span>Samurdhi Beneficiary</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                       <input
                         type="checkbox"
                         checked={editHasSpecialNeeds}
                         onChange={(e) => setEditHasSpecialNeeds(e.target.checked)}
                       />
-                      Has Special Needs
+                      <span>Has Special Needs</span>
                     </label>
                   </div>
                 </div>
 
                 {/* Mandatory Audit Reason Input (Decision C2 / Invariant §8) */}
-                <div className="md:col-span-2 pt-2 border-t border-slate-800">
-                  <label className="text-xs font-semibold text-amber-400 block mb-1 flex items-center gap-1">
-                    <ShieldAlert className="w-3.5 h-3.5" />
-                    {t('records.audit_reason')} *
+                <div style={{ gridColumn: 'span 2', paddingTop: '0.75rem', borderTop: '1px solid var(--slate-100)' }}>
+                  <label className="form-label" style={{ color: 'var(--warning-text)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <ShieldAlert size={14} />
+                    <span>{t('records.audit_reason')} *</span>
                   </label>
                   <textarea
                     rows={3}
-                    className="input text-xs"
+                    className="input-field"
                     placeholder="Enter reason for modifying this survey record (e.g. Corrected spelling per verified national ID)"
                     value={auditReason}
                     onChange={(e) => setAuditReason(e.target.value)}
                   />
-                  <span className="text-[11px] text-slate-500 mt-1 block">
+                  <span style={{ fontSize: '11px', color: 'var(--slate-400)', marginTop: '4px', display: 'block' }}>
                     This reason is permanently recorded in the immutable audit log under your user identity.
                   </span>
                 </div>
               </div>
+            </div>
 
-              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setEditingRecord(null)}
-                  className="btn btn-secondary text-xs"
-                  disabled={savingAudit}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveAudit}
-                  disabled={savingAudit}
-                  className="btn btn-primary text-xs flex items-center gap-1.5"
-                >
-                  {savingAudit ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      {t('records.save_audit')}
-                    </>
-                  )}
-                </button>
-              </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                onClick={() => setEditingRecord(null)}
+                className="btn-secondary"
+                disabled={savingAudit}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAudit}
+                disabled={savingAudit}
+                className="btn-primary"
+              >
+                {savingAudit ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle size={15} />
+                    <span>{t('records.save_audit')}</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </Shell>
   );
 }

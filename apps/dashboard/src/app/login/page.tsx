@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import LanguageSwitch from '../../components/LanguageSwitch';
 import { api, ApiError } from '../../lib/api';
-import { ShieldCheck, Lock, User, AlertCircle, CheckCircle, Loader2, Mail } from 'lucide-react';
+import { ShieldCheck, Lock, User, AlertCircle, CheckCircle, Loader2, Mail, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
@@ -110,52 +110,71 @@ export default function LoginPage() {
     <div
       style={{
         minHeight: '100vh',
-        background: 'radial-gradient(ellipse at top, #1e3a8a 0%, #090e1a 70%)',
+        background: 'var(--bg-page)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '1.5rem',
+        position: 'relative',
       }}
     >
-      {/* Top Bar Switcher */}
-      <div style={{ position: 'absolute', top: '1.5rem', right: '1.5rem' }}>
-        <LanguageSwitch />
+      {/* Top Header Bar for Language Selection */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '1.25rem',
+          right: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+        }}
+      >
+        <LanguageSwitch variant="light" />
       </div>
 
       <div
-        className="glass-panel"
         style={{
-          maxWidth: '440px',
+          maxWidth: '420px',
           width: '100%',
-          padding: '2.5rem',
-          boxShadow: '0 20px 40px -15px rgba(0,0,0,0.4)',
-          borderRadius: '16px',
+          background: '#ffffff',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--shadow-md)',
+          padding: '2.25rem',
         }}
       >
         {/* Emblem / Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
           <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '56px',
-              height: '56px',
-              borderRadius: '14px',
-              background: 'linear-gradient(135deg, #1e3a8a, #2563eb)',
-              color: '#ffffff',
-              boxShadow: '0 8px 16px rgba(37, 99, 235, 0.3)',
+              width: '48px',
+              height: '48px',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--primary-subtle)',
+              color: 'var(--primary)',
+              border: '1px solid var(--primary-subtle-hover)',
               marginBottom: '1rem',
             }}
           >
-            <ShieldCheck size={32} color="#f59e0b" />
+            <ShieldCheck size={26} />
           </div>
 
-          <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', margin: 0 }}>
+          <h2
+            style={{
+              fontSize: '18px',
+              fontWeight: 700,
+              color: 'var(--slate-900)',
+              letterSpacing: '-0.02em',
+              margin: 0,
+            }}
+          >
             {t('app.title')}
           </h2>
-          <p style={{ fontSize: '13px', color: '#64748b', marginTop: '6px' }}>
+          <p style={{ fontSize: '12.5px', color: 'var(--slate-500)', marginTop: '4px' }}>
             {t('app.subtitle')}
           </p>
         </div>
@@ -164,12 +183,12 @@ export default function LoginPage() {
         {error && (
           <div
             style={{
-              background: '#fef2f2',
-              border: '1px solid #fecaca',
-              borderRadius: '8px',
+              background: 'var(--danger-bg)',
+              border: '1px solid var(--danger-border)',
+              borderRadius: 'var(--radius-sm)',
               padding: '10px 14px',
-              color: '#dc2626',
-              fontSize: '13px',
+              color: 'var(--danger-text)',
+              fontSize: '12.5px',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
@@ -185,12 +204,12 @@ export default function LoginPage() {
         {success && (
           <div
             style={{
-              background: '#ecfdf5',
-              border: '1px solid #a7f3d0',
-              borderRadius: '8px',
+              background: 'var(--success-bg)',
+              border: '1px solid var(--success-border)',
+              borderRadius: 'var(--radius-sm)',
               padding: '10px 14px',
-              color: '#059669',
-              fontSize: '13px',
+              color: 'var(--success-text)',
+              fontSize: '12.5px',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
@@ -202,16 +221,16 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+            <label className="form-label">
               {t('auth.identifier')}
             </label>
             <div style={{ position: 'relative' }}>
               <User
                 size={16}
-                color="#94a3b8"
-                style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}
+                color="var(--slate-400)"
+                style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)' }}
               />
               <input
                 type="text"
@@ -219,15 +238,15 @@ export default function LoginPage() {
                 placeholder="e.g. AGT-001 or admin@grs.gov.lk"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                style={{ paddingLeft: '38px' }}
+                style={{ paddingLeft: '36px' }}
                 required
               />
             </div>
           </div>
 
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+              <label className="form-label" style={{ marginBottom: 0 }}>
                 {t('auth.password')}
               </label>
               <button
@@ -240,8 +259,8 @@ export default function LoginPage() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#2563eb',
-                  fontSize: '11px',
+                  color: 'var(--primary)',
+                  fontSize: '11.5px',
                   fontWeight: 600,
                   cursor: 'pointer',
                   padding: 0,
@@ -253,8 +272,8 @@ export default function LoginPage() {
             <div style={{ position: 'relative' }}>
               <Lock
                 size={16}
-                color="#94a3b8"
-                style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}
+                color="var(--slate-400)"
+                style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)' }}
               />
               <input
                 type="password"
@@ -262,7 +281,7 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                style={{ paddingLeft: '38px' }}
+                style={{ paddingLeft: '36px' }}
                 required
               />
             </div>
@@ -272,7 +291,7 @@ export default function LoginPage() {
             type="submit"
             disabled={loading}
             className="btn-primary"
-            style={{ width: '100%', padding: '0.75rem', marginTop: '0.5rem' }}
+            style={{ width: '100%', padding: '0.65rem', marginTop: '0.5rem', fontSize: '14px' }}
           >
             {loading ? (
               <>
@@ -285,56 +304,60 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div style={{ textAlign: 'center', marginTop: '1.75rem', borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
-          <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>
-            Official government system. Unauthorized access strictly prohibited.
+        <div style={{ textAlign: 'center', marginTop: '1.5rem', borderTop: '1px solid var(--slate-100)', paddingTop: '1rem' }}>
+          <p style={{ fontSize: '11px', color: 'var(--slate-400)', margin: 0, lineHeight: 1.4 }}>
+            Official government enumeration system. Unauthorized access strictly prohibited.
           </p>
         </div>
       </div>
 
       {/* Forgot Password Modal */}
       {showForgotModal && (
-        <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '440px' }}>
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>{t('auth.forgot_password_title')}</h3>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>
-                {t('auth.forgot_password_desc')}
-              </p>
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                  {t('auth.forgot_password_title')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '3px 0 0 0' }}>
+                  {t('auth.forgot_password_desc')}
+                </p>
+              </div>
             </div>
 
             {forgotError && (
-              <div style={{ margin: '1rem 1.5rem 0', background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 14px', borderRadius: '8px', fontSize: '12px', color: '#dc2626' }}>
+              <div style={{ margin: '1rem 1.5rem 0', background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12px', color: 'var(--danger-text)' }}>
                 {forgotError}
               </div>
             )}
 
             {forgotSuccess && (
-              <div style={{ margin: '1rem 1.5rem 0', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '10px 14px', borderRadius: '8px', fontSize: '12px', color: '#065f46' }}>
+              <div style={{ margin: '1rem 1.5rem 0', background: 'var(--success-bg)', border: '1px solid var(--success-border)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12px', color: 'var(--success-text)' }}>
                 {forgotSuccess}
               </div>
             )}
 
             {forgotStep === 'request' ? (
-              <form onSubmit={handleRequestReset} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <form onSubmit={handleRequestReset} style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                  <label className="form-label">
                     Registered Email Address *
                   </label>
                   <div style={{ position: 'relative' }}>
-                    <Mail size={16} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                    <Mail size={16} color="var(--slate-400)" style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)' }} />
                     <input
                       type="email"
                       className="input-field"
                       placeholder="e.g. user@grs.gov.lk"
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
-                      style={{ paddingLeft: '38px' }}
+                      style={{ paddingLeft: '36px' }}
                       required
                     />
                   </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '0.25rem' }}>
                   <button type="button" onClick={() => setShowForgotModal(false)} className="btn-secondary">
                     Cancel
                   </button>
@@ -344,9 +367,9 @@ export default function LoginPage() {
                 </div>
               </form>
             ) : (
-              <form onSubmit={handleConfirmReset} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <form onSubmit={handleConfirmReset} style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                  <label className="form-label">
                     {t('auth.otp_code')} *
                   </label>
                   <input
@@ -360,7 +383,7 @@ export default function LoginPage() {
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                  <label className="form-label">
                     {t('auth.new_password')} *
                   </label>
                   <input
@@ -373,7 +396,7 @@ export default function LoginPage() {
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                  <label className="form-label">
                     {t('auth.confirm_password')} *
                   </label>
                   <input
@@ -385,9 +408,10 @@ export default function LoginPage() {
                     required
                   />
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '0.25rem' }}>
                   <button type="button" onClick={() => setForgotStep('request')} className="btn-secondary">
-                    Back
+                    <ArrowLeft size={14} />
+                    <span>Back</span>
                   </button>
                   <button type="submit" disabled={forgotLoading} className="btn-primary">
                     {forgotLoading ? <Loader2 size={16} className="animate-spin" /> : t('auth.reset_password_btn')}

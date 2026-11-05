@@ -33,38 +33,30 @@ export default function PrintableSlipsModal({
   };
 
   return (
-    <div className="modal-backdrop no-print">
-      <div className="modal-content" style={{ maxWidth: '720px' }}>
+    <div className="modal-backdrop no-print" role="dialog" aria-modal="true">
+      <div className="modal-content" style={{ maxWidth: '700px' }}>
         {/* Modal Header */}
-        <div
-          style={{
-            padding: '1.25rem 1.5rem',
-            borderBottom: '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
+        <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div
               style={{
                 width: '36px',
                 height: '36px',
-                borderRadius: '8px',
-                background: '#fef3c7',
-                color: '#d97706',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--primary-subtle)',
+                color: 'var(--primary)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Key size={20} />
+              <Key size={18} />
             </div>
             <div>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: '#0f172a' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
                 {t('users.print_credentials')}
               </h3>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
+              <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
                 {credentials.length} account credential slip(s) generated.
               </p>
             </div>
@@ -72,31 +64,37 @@ export default function PrintableSlipsModal({
 
           <button
             onClick={onClose}
+            aria-label="Close dialog"
             style={{
               background: 'transparent',
               border: 'none',
               cursor: 'pointer',
-              color: '#94a3b8',
+              color: 'var(--slate-400)',
               padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 'var(--radius-xs)',
             }}
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        {/* Security Warning Notice */}
+        {/* Security Notice */}
         <div style={{ padding: '1rem 1.5rem 0.5rem 1.5rem' }}>
           <div
             style={{
-              background: '#fffbeb',
-              border: '1px solid #fde68a',
-              borderRadius: '8px',
+              background: 'var(--warning-bg)',
+              border: '1px solid var(--warning-border)',
+              borderRadius: 'var(--radius-sm)',
               padding: '10px 14px',
-              fontSize: '12px',
-              color: '#92400e',
+              fontSize: '12.5px',
+              color: 'var(--warning-text)',
               display: 'flex',
               alignItems: 'flex-start',
               gap: '8px',
+              lineHeight: 1.45,
             }}
           >
             <ShieldAlert size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
@@ -105,48 +103,50 @@ export default function PrintableSlipsModal({
         </div>
 
         {/* Slips Preview List */}
-        <div style={{ padding: '1rem 1.5rem', maxHeight: '50vh', overflowY: 'auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+        <div style={{ padding: '0.75rem 1.5rem 1.5rem 1.5rem', maxHeight: '52vh', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {credentials.map((c, i) => (
               <div
                 key={i}
                 className="print-slip"
                 style={{
-                  border: '1px dashed #cbd5e1',
-                  borderRadius: '8px',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
                   padding: '12px 16px',
-                  background: '#f8fafc',
+                  background: 'var(--slate-50)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
+                  gap: '1rem',
                   pageBreakInside: 'avoid',
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--slate-500)', textTransform: 'uppercase', fontWeight: 600 }}>
                     {c.fullName || 'Official Field Operative'}
                   </div>
-                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
-                    User Code: <span style={{ fontFamily: 'monospace' }}>{c.userCode}</span>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--slate-900)', marginTop: '2px' }}>
+                    User Code: <span style={{ fontFamily: 'monospace', color: 'var(--primary)' }}>{c.userCode}</span>
                   </div>
-                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                    Role: <span style={{ textTransform: 'uppercase', fontWeight: 600 }}>{c.role}</span>
+                  <div style={{ fontSize: '11px', color: 'var(--slate-500)', marginTop: '2px' }}>
+                    Role: <span style={{ textTransform: 'uppercase', fontWeight: 600, color: 'var(--slate-700)' }}>{c.role}</span>
                   </div>
                 </div>
 
                 <div
                   style={{
                     background: '#ffffff',
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid var(--border-subtle)',
                     padding: '8px 12px',
-                    borderRadius: '6px',
+                    borderRadius: 'var(--radius-sm)',
                     textAlign: 'right',
+                    flexShrink: 0,
                   }}
                 >
-                  <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>
+                  <div style={{ fontSize: '10px', color: 'var(--slate-500)', textTransform: 'uppercase', fontWeight: 700 }}>
                     Initial Password
                   </div>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#2563eb', fontFamily: 'monospace' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--primary)', fontFamily: 'monospace' }}>
                     {c.initialPassword || '••••••••'}
                   </div>
                 </div>
@@ -155,30 +155,19 @@ export default function PrintableSlipsModal({
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div
-          style={{
-            padding: '1rem 1.5rem',
-            borderTop: '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            background: '#f8fafc',
-            borderBottomLeftRadius: '16px',
-            borderBottomRightRadius: '16px',
-          }}
-        >
-          <button onClick={handleDownloadCsv} className="btn-secondary">
-            <Download size={16} />
+        {/* Modal Footer */}
+        <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+          <button type="button" onClick={handleDownloadCsv} className="btn-secondary">
+            <Download size={15} />
             <span>Download Injection-Safe CSV</span>
           </button>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={handlePrint} className="btn-primary">
-              <Printer size={16} />
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button type="button" onClick={handlePrint} className="btn-primary">
+              <Printer size={15} />
               <span>Print Credential Slips</span>
             </button>
-            <button onClick={onClose} className="btn-secondary">
+            <button type="button" onClick={onClose} className="btn-secondary">
               Done
             </button>
           </div>

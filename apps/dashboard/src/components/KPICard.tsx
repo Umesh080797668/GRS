@@ -6,7 +6,7 @@ interface KPICardProps {
   title: string;
   value: string | number;
   subtitle?: string;
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   progressPercent?: number;
   colorScheme?: 'blue' | 'emerald' | 'amber' | 'purple' | 'rose';
 }
@@ -23,38 +23,33 @@ export default function KPICard({
     switch (colorScheme) {
       case 'emerald':
         return {
-          bg: '#ecfdf5',
-          border: 'rgba(16, 185, 129, 0.25)',
           iconColor: '#059669',
-          progressColor: '#10b981',
+          progressColor: '#059669',
+          accentBorder: '#10b981',
         };
       case 'amber':
         return {
-          bg: '#fffbeb',
-          border: 'rgba(245, 158, 11, 0.25)',
           iconColor: '#d97706',
-          progressColor: '#f59e0b',
+          progressColor: '#d97706',
+          accentBorder: '#f59e0b',
         };
       case 'purple':
         return {
-          bg: '#f5f3ff',
-          border: 'rgba(139, 92, 246, 0.25)',
           iconColor: '#7c3aed',
-          progressColor: '#8b5cf6',
+          progressColor: '#7c3aed',
+          accentBorder: '#8b5cf6',
         };
       case 'rose':
         return {
-          bg: '#fff1f2',
-          border: 'rgba(244, 63, 94, 0.25)',
-          iconColor: '#e11d48',
-          progressColor: '#f43f5e',
+          iconColor: '#dc2626',
+          progressColor: '#dc2626',
+          accentBorder: '#ef4444',
         };
       default:
         return {
-          bg: '#eff6ff',
-          border: 'rgba(59, 130, 246, 0.25)',
-          iconColor: '#2563eb',
-          progressColor: '#3b82f6',
+          iconColor: '#004d40',
+          progressColor: '#004d40',
+          accentBorder: '#004d40',
         };
     }
   };
@@ -63,61 +58,72 @@ export default function KPICard({
 
   return (
     <div
-      className="glass-panel"
       style={{
-        padding: '1.25rem',
+        background: '#ffffff',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 'var(--radius-md)',
+        padding: '1.125rem 1.25rem',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        borderRadius: '12px',
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-        cursor: 'default',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-2px)';
-        e.currentTarget.style.boxShadow = '0 10px 20px -5px rgba(0, 0, 0, 0.08)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+        boxShadow: 'var(--shadow-xs)',
+        position: 'relative',
+        minHeight: '110px',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
-        <div>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+          <span
+            style={{
+              fontSize: '13px',
+              fontWeight: 500,
+              color: 'var(--slate-500)',
+              lineHeight: 1.3,
+            }}
+          >
             {title}
           </span>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', marginTop: '4px', letterSpacing: '-0.02em' }}>
-            {value}
-          </div>
+          {icon && (
+            <div
+              style={{
+                color: theme.iconColor,
+                opacity: 0.85,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {icon}
+            </div>
+          )}
         </div>
+
         <div
+          className="tabular-nums"
           style={{
-            padding: '10px',
-            borderRadius: '10px',
-            background: theme.bg,
-            color: theme.iconColor,
-            border: `1px solid ${theme.border}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            fontSize: '28px',
+            fontWeight: 700,
+            color: 'var(--slate-900)',
+            marginTop: '0.4rem',
+            letterSpacing: '-0.02em',
+            lineHeight: 1.15,
           }}
         >
-          {icon}
+          {value}
         </div>
       </div>
 
       {(subtitle || progressPercent !== undefined) && (
-        <div style={{ marginTop: '1rem' }}>
+        <div style={{ marginTop: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid var(--slate-100)' }}>
           {progressPercent !== undefined && (
             <div
               style={{
                 width: '100%',
-                height: '6px',
-                background: '#e2e8f0',
-                borderRadius: '9999px',
+                height: '4px',
+                background: 'var(--slate-100)',
+                borderRadius: 'var(--radius-full)',
                 overflow: 'hidden',
-                marginBottom: '6px',
+                marginBottom: '0.35rem',
               }}
             >
               <div
@@ -125,14 +131,14 @@ export default function KPICard({
                   width: `${Math.min(Math.max(progressPercent, 0), 100)}%`,
                   height: '100%',
                   background: theme.progressColor,
-                  borderRadius: '9999px',
-                  transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                  borderRadius: 'var(--radius-full)',
+                  transition: 'width 0.3s ease',
                 }}
               />
             </div>
           )}
           {subtitle && (
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+            <span style={{ fontSize: '12px', color: 'var(--slate-500)', fontWeight: 400 }}>
               {subtitle}
             </span>
           )}

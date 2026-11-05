@@ -16,6 +16,11 @@ import {
   Home,
   User,
   Sparkles,
+  Search,
+  MapPin,
+  HeartHandshake,
+  Compass,
+  FileCheck,
 } from 'lucide-react';
 
 export default function DataEntryPage() {
@@ -164,7 +169,7 @@ export default function DataEntryPage() {
         cursor: reset ? undefined : (houseCursor || undefined),
       });
       const list = Array.isArray(res) ? res : res?.households || res?.items || [];
-      setExistingHouseholds((prev) => reset ? list : [...prev, ...list]);
+      setExistingHouseholds((prev) => (reset ? list : [...prev, ...list]));
       setHouseCursor(res?.nextCursor || null);
       setHasMoreHouses(Boolean(res?.nextCursor));
     } catch (err) {
@@ -418,66 +423,88 @@ export default function DataEntryPage() {
 
   return (
     <Shell activePath="/data-entry">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-              <PenTool className="w-7 h-7 text-emerald-400" />
-              {t('entry.title')}
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Direct administrative web entry for paper census forms DD/S/001 & DD/S/002.
-            </p>
+      <div className="space-y-6 max-w-6xl mx-auto pb-12">
+        {/* Page Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-xs">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-teal-50 text-teal-800 border border-teal-200/60 rounded-xl flex-shrink-0">
+              <PenTool className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200/50">
+                  Administrative Field Entry
+                </span>
+                <span className="text-xs text-slate-400">•</span>
+                <span className="text-xs text-slate-500 font-mono">DD/S/001 & DD/S/002</span>
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                {t('entry.title')}
+              </h1>
+              <p className="text-sm text-slate-500 mt-1">
+                Manual paper census entry fallback for official enumerator forms DD/S/001 (Household) and DD/S/002 (Individual).
+              </p>
+            </div>
           </div>
+
           {user?.role === 'super_admin' && (
-            <button
-              onClick={toggleWebEntryRole}
-              disabled={togglingConfig}
-              className={`btn text-xs flex items-center gap-2 ${webEntryEnabled ? 'btn-secondary text-amber-400' : 'btn-primary'
-                }`}
-            >
-              {togglingConfig ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : webEntryEnabled ? (
-                <>
-                  <Lock className="w-3.5 h-3.5" /> Enforce C19 Gate (Disable Web Entry)
-                </>
-              ) : (
-                <>
-                  <Unlock className="w-3.5 h-3.5" /> Override Decision C19 (Enable Entry)
-                </>
-              )}
-            </button>
+            <div className="flex-shrink-0">
+              <button
+                onClick={toggleWebEntryRole}
+                disabled={togglingConfig}
+                className={`btn text-xs font-semibold px-3.5 py-2 flex items-center gap-2 ${webEntryEnabled
+                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300'
+                  : 'btn-primary'
+                  }`}
+              >
+                {togglingConfig ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : webEntryEnabled ? (
+                  <>
+                    <Lock className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Enforce C19 Gate (Disable Web Entry)</span>
+                  </>
+                ) : (
+                  <>
+                    <Unlock className="w-3.5 h-3.5 text-white" />
+                    <span>Override Decision C19 (Enable Entry)</span>
+                  </>
+                )}
+              </button>
+            </div>
           )}
         </div>
 
-        {/* Loading state */}
+        {/* Loading authorization state */}
         {loadingConfig && (
-          <div className="card p-8 flex items-center justify-center gap-3 text-slate-400">
-            <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
-            <span>Verifying role authorization...</span>
+          <div className="panel p-10 flex flex-col items-center justify-center gap-3 text-slate-500 text-center">
+            <Loader2 className="w-6 h-6 animate-spin text-teal-700" />
+            <div className="text-sm font-medium text-slate-700">Verifying role authorization & census protocol...</div>
+            <div className="text-xs text-slate-400">Querying platform policy configuration</div>
           </div>
         )}
 
-        {/* Decision C19 Policy Gate (Disabled by default for super_admin) */}
+        {/* Decision C19 Policy Gate Advisory Card (when disabled) */}
         {!loadingConfig && !webEntryEnabled && (
-          <div className="card border-amber-500/30 bg-amber-500/10 p-6 space-y-4">
+          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-6 shadow-xs">
             <div className="flex items-start gap-4">
-              <div className="p-3 bg-amber-500/20 rounded-xl text-amber-400 flex-shrink-0">
+              <div className="p-3 bg-amber-100 text-amber-800 rounded-xl flex-shrink-0 border border-amber-200">
                 <ShieldAlert className="w-6 h-6" />
               </div>
-              <div className="space-y-2">
-                <h2 className="text-base font-semibold text-white">
-                  Decision C19: Web Direct Data Entry Restricted
-                </h2>
-                <p className="text-sm text-slate-300">
+              <div className="space-y-3 flex-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-base font-bold text-amber-900">
+                    Decision C19: Web Direct Data Entry Restricted
+                  </h2>
+                  <span className="badge badge-warning text-xs font-semibold">
+                    Policy Protected
+                  </span>
+                </div>
+                <p className="text-sm text-amber-950 font-medium">
                   {t('entry.web_roles_off')}
                 </p>
-                <p className="text-xs text-slate-400">
-                  To protect field census data integrity and avoid bypass of territorial assignment locks,
-                  central Level 00 administrators are disallowed from entering field surveys directly from the web dashboard.
-                  All census records are intended to originate from authorized field tablet teams.
+                <p className="text-xs text-amber-800/90 leading-relaxed">
+                  To protect field census data integrity and avoid bypassing territorial assignment locks, central Level 00 administrators are restricted from entering survey records directly via web dashboard by default. Primary enumeration is mandated to originate from assigned field tablets with cryptographic timestamping.
                 </p>
                 {user?.role === 'super_admin' && (
                   <div className="pt-2">
@@ -487,7 +514,7 @@ export default function DataEntryPage() {
                       className="btn btn-primary text-xs flex items-center gap-2"
                     >
                       <Unlock className="w-3.5 h-3.5" />
-                      Grant Super Admin Override (Toggle Web Entry)
+                      Grant Super Admin Override (Enable Web Entry)
                     </button>
                   </div>
                 )}
@@ -499,30 +526,46 @@ export default function DataEntryPage() {
         {/* Direct Data Entry Form (Active when enabled) */}
         {!loadingConfig && webEntryEnabled && (
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Status alerts */}
             {submitError && (
-              <div className="card border-red-500/40 bg-red-500/10 p-4 text-sm text-red-300 flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                <span>{submitError}</span>
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 flex items-start gap-3 shadow-xs">
+                <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <strong className="block font-semibold">Submission Failed</strong>
+                  <span>{submitError}</span>
+                </div>
               </div>
             )}
 
             {submitSuccess && (
-              <div className="card border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-300 flex items-center gap-3">
-                <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-                <span>{submitSuccess}</span>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 flex items-start gap-3 shadow-xs">
+                <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <strong className="block font-semibold">Record Logged Successfully</strong>
+                  <span>{submitSuccess}</span>
+                </div>
               </div>
             )}
 
             {/* Section 1: Household Information (DD/S/001) */}
-            <div className="card p-6 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <Home className="w-5 h-5 text-emerald-400" />
-                  <h2 className="text-base font-bold text-white">
-                    Section 1: Household Roster (DD/S/001)
-                  </h2>
+            <div className="panel overflow-hidden">
+              <div className="p-5 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center font-bold">
+                    <Home className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900">
+                      Section 1: Household Roster (DD/S/001)
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      Physical dwelling unit, geographic hierarchy, and welfare indicators
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs bg-slate-900/80 p-1 rounded-lg border border-slate-800 self-start sm:self-auto">
+
+                {/* Mode Switcher */}
+                <div className="inline-flex rounded-lg bg-slate-200/70 p-1 border border-slate-200 self-start sm:self-auto">
                   <button
                     type="button"
                     onClick={() => {
@@ -538,9 +581,9 @@ export default function DataEntryPage() {
                       setIsSamurdhi(false);
                       setHasSpecialNeeds(false);
                     }}
-                    className={`px-3 py-1 rounded font-medium transition-colors ${householdMode === 'new'
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                      : 'text-slate-400 hover:text-white'
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${householdMode === 'new'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
                       }`}
                   >
                     + Register New Household
@@ -548,9 +591,9 @@ export default function DataEntryPage() {
                   <button
                     type="button"
                     onClick={() => setHouseholdMode('existing')}
-                    className={`px-3 py-1 rounded font-medium transition-colors ${householdMode === 'existing'
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                      : 'text-slate-400 hover:text-white'
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${householdMode === 'existing'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
                       }`}
                   >
                     Attach to Existing House ({existingHouseholds.length})
@@ -558,441 +601,561 @@ export default function DataEntryPage() {
                 </div>
               </div>
 
-              {householdMode === 'existing' && (
-                <div className="bg-slate-900/60 p-4 rounded-lg border border-slate-800 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <label className="text-xs text-slate-300 block font-semibold">
-                      Select Existing Household to Attach Survey Entry *
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Filter house # or name..."
-                        value={houseSearch}
-                        onChange={(e) => {
-                          setHouseSearch(e.target.value);
-                          if (selectedGn) loadHouseholdsForGn(selectedGn, true, e.target.value);
-                        }}
-                        className="input text-xs py-1 px-2.5 max-w-xs"
-                      />
+              <div className="p-6 space-y-6">
+                {/* Existing Household Selector Bar */}
+                {householdMode === 'existing' && (
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-slate-800 block">
+                          Select Existing Household to Attach Survey Entry *
+                        </label>
+                        <p className="text-[11px] text-slate-500">
+                          Adding multiple members to the same household unit under form DD/S/002
+                        </p>
+                      </div>
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder="Filter house # or name..."
+                          value={houseSearch}
+                          onChange={(e) => {
+                            setHouseSearch(e.target.value);
+                            if (selectedGn) loadHouseholdsForGn(selectedGn, true, e.target.value);
+                          }}
+                          className="input-field text-xs pl-8 pr-3 py-1.5 max-w-xs"
+                        />
+                      </div>
                     </div>
+
+                    {existingHouseholds.length === 0 ? (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                        {loadingHouses
+                          ? 'Searching households in division...'
+                          : 'No registered households found in this GN division. Register a new household or adjust search query.'}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <select
+                          className="select-field text-sm font-medium"
+                          value={selectedHouseholdId}
+                          onChange={(e) => handleSelectExistingHousehold(e.target.value)}
+                          required
+                        >
+                          <option value="">
+                            -- Choose Household in {gnDivisions.find((g) => g.id === selectedGn)?.nameEn || 'selected GN'} --
+                          </option>
+                          {existingHouseholds.map((h) => (
+                            <option key={h.id} value={h.id}>
+                              House #{h.houseNo} — {h.houseLeaderName} {h.villageName ? `(${h.villageName})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {hasMoreHouses && (
+                          <div className="flex justify-end pt-1">
+                            <button
+                              type="button"
+                              onClick={() => loadHouseholdsForGn(selectedGn, false, houseSearch)}
+                              disabled={loadingHouses}
+                              className="btn btn-secondary text-xs py-1 px-3"
+                            >
+                              {loadingHouses ? (
+                                <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                              ) : null}
+                              Load More Households
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {existingHouseholds.length === 0 ? (
-                    <p className="text-xs text-amber-400">
-                      {loadingHouses ? 'Searching households...' : 'No registered households found. You can register a new household or adjust the search filter.'}
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
+                )}
+
+                {/* Geographic Cascade Dropdowns */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <MapPin className="w-4 h-4 text-teal-700" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Administrative Territorial Boundaries
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                        District <span className="text-rose-600">*</span>
+                      </label>
                       <select
-                        className="input text-sm"
-                        value={selectedHouseholdId}
-                        onChange={(e) => handleSelectExistingHousehold(e.target.value)}
-                        required
+                        className="select-field text-sm"
+                        value={selectedDistrict}
+                        onChange={(e) => handleDistrictChange(e.target.value)}
+                        disabled={user?.role === 'cdc_secretary'}
                       >
-                        <option value="">-- Choose Household in {gnDivisions.find((g) => g.id === selectedGn)?.nameEn || 'GN'} --</option>
-                        {existingHouseholds.map((h) => (
-                          <option key={h.id} value={h.id}>
-                            House #{h.houseNo} — {h.houseLeaderName} {h.villageName ? `(${h.villageName})` : ''}
+                        {districts.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.nameEn}
                           </option>
                         ))}
                       </select>
-                      {hasMoreHouses && (
-                        <div className="flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => loadHouseholdsForGn(selectedGn, false, houseSearch)}
-                            disabled={loadingHouses}
-                            className="btn btn-secondary text-xs py-1 px-3"
-                          >
-                            {loadingHouses ? 'Loading...' : 'Load More Households'}
-                          </button>
-                        </div>
-                      )}
                     </div>
-                  )}
-                </div>
-              )}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">District *</label>
-                  <select
-                    className="input text-sm"
-                    value={selectedDistrict}
-                    onChange={(e) => handleDistrictChange(e.target.value)}
-                    disabled={user?.role === 'cdc_secretary'}
-                  >
-                    {districts.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.nameEn}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                        DS Division <span className="text-rose-600">*</span>
+                      </label>
+                      <select
+                        className="select-field text-sm"
+                        value={selectedDs}
+                        onChange={(e) => handleDsChange(e.target.value)}
+                        disabled={user?.role === 'cdc_secretary'}
+                      >
+                        {dsDivisions.map((ds) => (
+                          <option key={ds.id} value={ds.id}>
+                            {ds.nameEn}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">DS Division *</label>
-                  <select
-                    className="input text-sm"
-                    value={selectedDs}
-                    onChange={(e) => handleDsChange(e.target.value)}
-                    disabled={user?.role === 'cdc_secretary'}
-                  >
-                    {dsDivisions.map((ds) => (
-                      <option key={ds.id} value={ds.id}>
-                        {ds.nameEn}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">GN Division *</label>
-                  <select
-                    className="input text-sm"
-                    value={selectedGn}
-                    onChange={(e) => handleGnChange(e.target.value)}
-                    disabled={user?.role === 'cdc_secretary'}
-                  >
-                    {gnDivisions.map((gn) => (
-                      <option key={gn.id} value={gn.id}>
-                        {gn.nameEn} ({gn.gnCode})
-                      </option>
-                    ))}
-                  </select>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                        GN Division <span className="text-rose-600">*</span>
+                      </label>
+                      <select
+                        className="select-field text-sm"
+                        value={selectedGn}
+                        onChange={(e) => handleGnChange(e.target.value)}
+                        disabled={user?.role === 'cdc_secretary'}
+                      >
+                        {gnDivisions.map((gn) => (
+                          <option key={gn.id} value={gn.id}>
+                            {gn.nameEn} ({gn.gnCode})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">House Number (DD/S/001 #1) *</label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="e.g. 102/B or 45"
-                    value={houseNo}
-                    disabled={householdMode === 'existing'}
-                    onChange={(e) => setHouseNo(e.target.value)}
-                    required
-                  />
+                {/* Physical Household Unit Fields */}
+                <div className="pt-2 border-t border-slate-100">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                        House Number (DD/S/001 #1) <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="input-field"
+                        placeholder="e.g. 102/B or 45"
+                        value={houseNo}
+                        disabled={householdMode === 'existing'}
+                        onChange={(e) => setHouseNo(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                        Head of Household Name <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="input-field"
+                        placeholder="e.g. Sunil Perera"
+                        value={headName}
+                        disabled={householdMode === 'existing'}
+                        onChange={(e) => setHeadName(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                        Village / Street / Locality
+                      </label>
+                      <input
+                        type="text"
+                        className="input-field"
+                        placeholder="e.g. Pallekele North"
+                        value={villageName}
+                        disabled={householdMode === 'existing'}
+                        onChange={(e) => setVillageName(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="md:col-span-3">
+                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                        Complete Postal Address
+                      </label>
+                      <input
+                        type="text"
+                        className="input-field"
+                        placeholder="e.g. No. 102/B, Kandy Road, Pallekele"
+                        value={address}
+                        disabled={householdMode === 'existing'}
+                        onChange={(e) => setAddress(e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Head of Household Name *</label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="e.g. Sunil Perera"
-                    value={headName}
-                    disabled={householdMode === 'existing'}
-                    onChange={(e) => setHeadName(e.target.value)}
-                    required
-                  />
-                </div>
+                {/* Household Welfare Indicators */}
+                <div className="pt-4 border-t border-slate-100">
+                  <div className="flex items-center gap-2 mb-3">
+                    <HeartHandshake className="w-4 h-4 text-teal-700" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Welfare & Social Security Coverage
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+                    <label className="flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-all has-[:checked]:border-teal-600 has-[:checked]:bg-teal-50/50 has-[:checked]:text-teal-900 font-medium">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded text-teal-700 accent-teal-700 cursor-pointer"
+                        checked={isSamurdhi}
+                        disabled={householdMode === 'existing'}
+                        onChange={(e) => setIsSamurdhi(e.target.checked)}
+                      />
+                      <span>Samurdhi Beneficiary</span>
+                    </label>
 
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Village / Street</label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="e.g. Pallekele North"
-                    value={villageName}
-                    disabled={householdMode === 'existing'}
-                    onChange={(e) => setVillageName(e.target.value)}
-                  />
-                </div>
+                    <label className="flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-all has-[:checked]:border-teal-600 has-[:checked]:bg-teal-50/50 has-[:checked]:text-teal-900 font-medium">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded text-teal-700 accent-teal-700 cursor-pointer"
+                        checked={isAswesuma}
+                        disabled={householdMode === 'existing'}
+                        onChange={(e) => setIsAswesuma(e.target.checked)}
+                      />
+                      <span>Aswesuma Beneficiary</span>
+                    </label>
 
-                <div className="md:col-span-3">
-                  <label className="text-xs text-slate-400 block mb-1">Complete Address</label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="e.g. No. 102/B, Kandy Road, Pallekele"
-                    value={address}
-                    disabled={householdMode === 'existing'}
-                    onChange={(e) => setAddress(e.target.value)}
-                  />
-                </div>
-              </div>
+                    <label className="flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-all has-[:checked]:border-teal-600 has-[:checked]:bg-teal-50/50 has-[:checked]:text-teal-900 font-medium">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded text-teal-700 accent-teal-700 cursor-pointer"
+                        checked={isEpf}
+                        disabled={householdMode === 'existing'}
+                        onChange={(e) => setIsEpf(e.target.checked)}
+                      />
+                      <span>EPF Contributor</span>
+                    </label>
 
-              <div className="pt-2 border-t border-slate-800">
-                <span className="text-xs text-slate-400 block mb-2">Household Welfare Indicators</span>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
-                  <label className="flex items-center gap-2 cursor-pointer text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={isSamurdhi}
-                      disabled={householdMode === 'existing'}
-                      onChange={(e) => setIsSamurdhi(e.target.checked)}
-                    />
-                    Samurdhi Beneficiary
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={isAswesuma}
-                      disabled={householdMode === 'existing'}
-                      onChange={(e) => setIsAswesuma(e.target.checked)}
-                    />
-                    Aswesuma Beneficiary
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={isEpf}
-                      disabled={householdMode === 'existing'}
-                      onChange={(e) => setIsEpf(e.target.checked)}
-                    />
-                    EPF Contributor
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={isEtf}
-                      disabled={householdMode === 'existing'}
-                      onChange={(e) => setIsEtf(e.target.checked)}
-                    />
-                    ETF Contributor
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={hasSpecialNeeds}
-                      disabled={householdMode === 'existing'}
-                      onChange={(e) => setHasSpecialNeeds(e.target.checked)}
-                    />
-                    Special Needs in House
-                  </label>
+                    <label className="flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-all has-[:checked]:border-teal-600 has-[:checked]:bg-teal-50/50 has-[:checked]:text-teal-900 font-medium">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded text-teal-700 accent-teal-700 cursor-pointer"
+                        checked={isEtf}
+                        disabled={householdMode === 'existing'}
+                        onChange={(e) => setIsEtf(e.target.checked)}
+                      />
+                      <span>ETF Contributor</span>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-all has-[:checked]:border-teal-600 has-[:checked]:bg-teal-50/50 has-[:checked]:text-teal-900 font-medium col-span-2 md:col-span-1">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded text-teal-700 accent-teal-700 cursor-pointer"
+                        checked={hasSpecialNeeds}
+                        disabled={householdMode === 'existing'}
+                        onChange={(e) => setHasSpecialNeeds(e.target.checked)}
+                      />
+                      <span>Special Needs Member</span>
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Section 2: Individual Survey Details (DD/S/002) */}
-            <div className="card p-6 space-y-4">
-              <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-                <User className="w-5 h-5 text-emerald-400" />
-                <h2 className="text-base font-bold text-white">
-                  Section 2: Individual Survey Data (DD/S/002)
-                </h2>
+            <div className="panel overflow-hidden">
+              <div className="p-5 border-b border-slate-200 bg-slate-50/50 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center font-bold">
+                  <User className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">
+                    Section 2: Individual Survey Data (DD/S/002)
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Citizen demographic profiling, vocational qualifications, and career aspirations
+                  </p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2">
-                  <label className="text-xs text-slate-400 block mb-1">Full Name of Individual *</label>
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="e.g. Kasun Chamara Perera"
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Age *</label>
-                  <input
-                    type="number"
-                    className="input"
-                    min={1}
-                    max={120}
-                    value={clientAge}
-                    onChange={(e) => setClientAge(parseInt(e.target.value, 10) || 18)}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Gender *</label>
-                  <select
-                    className="input text-sm"
-                    value={clientGender}
-                    onChange={(e) => setClientGender(e.target.value as any)}
-                  >
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Phone Number</label>
-                  <input
-                    type="tel"
-                    className="input"
-                    placeholder="e.g. 0771234567"
-                    value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">WhatsApp Number</label>
-                  <input
-                    type="tel"
-                    className="input"
-                    placeholder="e.g. 0771234567"
-                    value={clientWhatsapp}
-                    onChange={(e) => setClientWhatsapp(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Highest Education Level *</label>
-                  <select
-                    className="input text-sm"
-                    value={highestEducation}
-                    onChange={(e) => setHighestEducation(e.target.value)}
-                  >
-                    {lookups.education.length > 0 ? (
-                      lookups.education.map((item) => (
-                        <option key={item.code} value={item.code}>
-                          {getLookupLabel(item)}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="EDU_OL_PASSED">G.C.E. O/L passed</option>
-                    )}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Vocational Qualification</label>
-                  <select
-                    className="input text-sm"
-                    value={highestVocational}
-                    onChange={(e) => setHighestVocational(e.target.value)}
-                  >
-                    {lookups.vocational_qualification.length > 0 ? (
-                      lookups.vocational_qualification.map((item) => (
-                        <option key={item.code} value={item.code}>
-                          {getLookupLabel(item)}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="VOC_NONE">None</option>
-                    )}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Interested Vocational Stream</label>
-                  <select
-                    className="input text-sm"
-                    value={interestedStream}
-                    onChange={(e) => setInterestedStream(e.target.value)}
-                  >
-                    {lookups.vocational_stream.length > 0 ? (
-                      lookups.vocational_stream.map((item) => (
-                        <option key={item.code} value={item.code}>
-                          {getLookupLabel(item)}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="STREAM_IT_COMPUTING">IT & Computing</option>
-                    )}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Information Provided By *</label>
-                  <select
-                    className="input text-sm"
-                    value={infoProvidedBy}
-                    onChange={(e) => setInfoProvidedBy(e.target.value as any)}
-                  >
-                    <option value="self">Self (Surveyed Individual)</option>
-                    <option value="mother">Mother</option>
-                    <option value="father">Father</option>
-                    <option value="sister">Sister</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-
-                {infoProvidedBy === 'other' && (
-                  <div>
-                    <label className="text-xs text-slate-400 block mb-1">Provided By (Other Details) *</label>
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                      Full Name of Individual <span className="text-rose-600">*</span>
+                    </label>
                     <input
                       type="text"
-                      className="input"
-                      placeholder="Specify relation or person"
-                      value={infoProvidedByOther}
-                      onChange={(e) => setInfoProvidedByOther(e.target.value)}
+                      className="input-field"
+                      placeholder="e.g. Kasun Chamara Perera"
+                      value={clientName}
+                      onChange={(e) => setClientName(e.target.value)}
                       required
                     />
                   </div>
-                )}
-              </div>
 
-              {/* Future Aspirations (DD/S/002 #13) */}
-              <div className="pt-2 border-t border-slate-800">
-                <span className="text-xs text-slate-400 block mb-2 font-medium">
-                  Future Aspirations / Hopes (DD/S/002 #13) — Select all that apply
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-xs">
-                  {[
-                    { id: 'higher_education', label: 'Higher Education' },
-                    { id: 'vocational_education', label: 'Vocational Training' },
-                    { id: 'entrepreneur', label: 'Entrepreneurship' },
-                    { id: 'local_job', label: 'Local Job' },
-                    { id: 'foreign_job', label: 'Foreign Job' },
-                  ].map((hope) => (
-                    <label key={hope.id} className="flex items-center gap-2 cursor-pointer text-slate-300 bg-slate-900/40 p-2 rounded border border-slate-800 hover:border-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={futureHopes.includes(hope.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFutureHopes([...futureHopes, hope.id]);
-                          } else {
-                            setFutureHopes(futureHopes.filter((h) => h !== hope.id));
-                          }
-                        }}
-                      />
-                      {hope.label}
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                      Age <span className="text-rose-600">*</span>
                     </label>
-                  ))}
+                    <input
+                      type="number"
+                      className="input-field"
+                      min={1}
+                      max={120}
+                      value={clientAge}
+                      onChange={(e) => setClientAge(parseInt(e.target.value, 10) || 18)}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                      Gender <span className="text-rose-600">*</span>
+                    </label>
+                    <select
+                      className="select-field text-sm"
+                      value={clientGender}
+                      onChange={(e) => setClientGender(e.target.value as any)}
+                    >
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      className="input-field"
+                      placeholder="e.g. 0771234567"
+                      value={clientPhone}
+                      onChange={(e) => setClientPhone(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                      WhatsApp Number
+                    </label>
+                    <input
+                      type="tel"
+                      className="input-field"
+                      placeholder="e.g. 0771234567"
+                      value={clientWhatsapp}
+                      onChange={(e) => setClientWhatsapp(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                      Highest Education Level <span className="text-rose-600">*</span>
+                    </label>
+                    <select
+                      className="select-field text-sm"
+                      value={highestEducation}
+                      onChange={(e) => setHighestEducation(e.target.value)}
+                    >
+                      {lookups.education.length > 0 ? (
+                        lookups.education.map((item) => (
+                          <option key={item.code} value={item.code}>
+                            {getLookupLabel(item)}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="EDU_OL_PASSED">G.C.E. O/L passed</option>
+                      )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                      Vocational Qualification
+                    </label>
+                    <select
+                      className="select-field text-sm"
+                      value={highestVocational}
+                      onChange={(e) => setHighestVocational(e.target.value)}
+                    >
+                      {lookups.vocational_qualification.length > 0 ? (
+                        lookups.vocational_qualification.map((item) => (
+                          <option key={item.code} value={item.code}>
+                            {getLookupLabel(item)}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="VOC_NONE">None</option>
+                      )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                      Interested Vocational Stream
+                    </label>
+                    <select
+                      className="select-field text-sm"
+                      value={interestedStream}
+                      onChange={(e) => setInterestedStream(e.target.value)}
+                    >
+                      {lookups.vocational_stream.length > 0 ? (
+                        lookups.vocational_stream.map((item) => (
+                          <option key={item.code} value={item.code}>
+                            {getLookupLabel(item)}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="STREAM_IT_COMPUTING">IT & Computing</option>
+                      )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                      Information Provided By <span className="text-rose-600">*</span>
+                    </label>
+                    <select
+                      className="select-field text-sm"
+                      value={infoProvidedBy}
+                      onChange={(e) => setInfoProvidedBy(e.target.value as any)}
+                    >
+                      <option value="self">Self (Surveyed Individual)</option>
+                      <option value="mother">Mother</option>
+                      <option value="father">Father</option>
+                      <option value="sister">Sister</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  {infoProvidedBy === 'other' && (
+                    <div className="md:col-span-2">
+                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                        Provided By (Specify Relationship) <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="input-field"
+                        placeholder="e.g. Grandparent, Guardian, Neighbor"
+                        value={infoProvidedByOther}
+                        onChange={(e) => setInfoProvidedByOther(e.target.value)}
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Future Aspirations (DD/S/002 #13) */}
+                <div className="pt-4 border-t border-slate-100">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Compass className="w-4 h-4 text-teal-700" />
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                        Future Aspirations & Career Hopes (DD/S/002 #13)
+                      </span>
+                      <span className="text-xs text-slate-400 block font-normal">
+                        Select all pathways identified during enumeration
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-xs">
+                    {[
+                      { id: 'higher_education', label: 'Higher Education' },
+                      { id: 'vocational_education', label: 'Vocational Training' },
+                      { id: 'entrepreneur', label: 'Entrepreneurship' },
+                      { id: 'local_job', label: 'Local Job' },
+                      { id: 'foreign_job', label: 'Foreign Job' },
+                    ].map((hope) => {
+                      const isSelected = futureHopes.includes(hope.id);
+                      return (
+                        <label
+                          key={hope.id}
+                          className={`flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${isSelected
+                            ? 'border-teal-600 bg-teal-50/60 text-teal-900 font-semibold shadow-xs'
+                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                            }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 rounded text-teal-700 accent-teal-700 cursor-pointer"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFutureHopes([...futureHopes, hope.id]);
+                              } else {
+                                setFutureHopes(futureHopes.filter((h) => h !== hope.id));
+                              }
+                            }}
+                          />
+                          <span>{hope.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Invariant B2: Mandatory Consent Gate */}
+                <div className="pt-4 border-t border-slate-100">
+                  <label className="flex items-start gap-3.5 p-4 rounded-xl border border-teal-200 bg-teal-50/40 hover:bg-teal-50/70 transition-colors cursor-pointer shadow-xs">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 mt-1 rounded text-teal-700 accent-teal-700 cursor-pointer flex-shrink-0"
+                      checked={consentGiven}
+                      onChange={(e) => setConsentGiven(e.target.checked)}
+                      required
+                    />
+                    <div className="text-xs text-slate-700 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <strong className="text-slate-900 text-sm font-bold flex items-center gap-1.5">
+                          <FileCheck className="w-4 h-4 text-teal-700" />
+                          Explicit Citizen Consent Received (Statutory Requirement — Invariant B2)
+                        </strong>
+                        <span className="badge badge-success text-[10px] font-mono">
+                          {consentVersion}
+                        </span>
+                      </div>
+                      <p className="text-slate-600 leading-relaxed">
+                        The surveyed citizen has granted explicit, voluntary consent for this profile data to be indexed and processed for national vocational career matching and skill development opportunities under the National Skills Census 2026.
+                      </p>
+                    </div>
+                  </label>
                 </div>
               </div>
 
-              {/* Invariant B2: Mandatory Consent Gate */}
-              <div className="pt-4 border-t border-slate-800">
-                <label className="flex items-start gap-3 cursor-pointer p-3 bg-slate-900/60 rounded-lg border border-slate-800 hover:border-slate-700">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    checked={consentGiven}
-                    onChange={(e) => setConsentGiven(e.target.checked)}
-                    required
-                  />
-                  <div className="text-xs text-slate-300">
-                    <strong className="text-white block mb-0.5">
-                      Explicit Consent Received (Statutory Requirement — Invariant B2)
-                    </strong>
-                    The surveyed individual has given explicit voluntary consent for this skill profile data
-                    to be collected and analyzed for national vocational placement under the National Skills Census 2026.
-                  </div>
-                </label>
+              {/* Form Submission Footer */}
+              <div className="p-5 border-t border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <div className="text-xs text-slate-500">
+                  All submissions are immutably signed with operator identity and territorial hierarchy.
+                </div>
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="btn btn-primary px-6 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 shadow-sm w-full sm:w-auto"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Submitting Survey Record...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        <span>Submit Survey Record</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
-
-            {/* Submit Button */}
-            <div className="flex justify-end gap-3">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="btn btn-primary flex items-center gap-2"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Submitting Survey Record...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    Submit Survey Record
-                  </>
-                )}
-              </button>
             </div>
           </form>
         )}

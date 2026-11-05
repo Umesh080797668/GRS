@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   BarChart3,
@@ -15,6 +15,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Home,
+  Menu,
+  X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -34,12 +36,18 @@ export interface ShellProps {
 
 export function Shell({ children, activePath }: ShellProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const routerPath = usePathname();
   const pathname = activePath || routerPath;
 
   const router = useRouter();
   const { user, logout } = useAuth();
   const { t } = useLanguage();
+
+  // Close mobile drawer on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   const navItems: NavItem[] = [
     {
@@ -58,7 +66,7 @@ export function Shell({ children, activePath }: ShellProps) {
       key: 'nav.areas',
       href: '/areas',
       icon: <MapPin size={18} />,
-      roles: ['super_admin', 'admin'], // Level 00 only (district, team and CSV mutations)
+      roles: ['super_admin', 'admin'], // Level 00 only
     },
     {
       key: 'nav.houses',
@@ -97,7 +105,7 @@ export function Shell({ children, activePath }: ShellProps) {
   ];
 
   // Role guard: redirect if navigating to a restricted page
-  React.useEffect(() => {
+  useEffect(() => {
     if (!user?.role) return;
     const currentItem = navItems.find((item) => pathname === item.href);
     if (currentItem && currentItem.roles && !currentItem.roles.includes(user.role)) {
@@ -112,35 +120,51 @@ export function Shell({ children, activePath }: ShellProps) {
   const allowedNavItems = navItems.filter((item) => {
     if (!item.roles) return true;
     if (!user?.role) return false;
-    // Allow super admin to see data entry if on that page or for C19 configuration
     if (user.role === 'super_admin' && item.href === '/data-entry') {
       return true;
     }
     return item.roles.includes(user.role);
   });
 
-  const getRoleBadgeColor = (role?: string) => {
+  const getRoleBadgeStyle = (role?: string) => {
     switch (role) {
-      case 'super_admin': return '#7c3aed';
-      case 'admin': return '#2563eb';
-      case 'cg': return '#059669';
-      case 'dc': return '#d97706';
-      case 'sda': return '#0284c7';
-      default: return '#64748b';
+      case 'super_admin':
+        return { bg: '#ede9fe', color: '#6d28d9', border: '#ddd6fe' };
+      case 'admin':
+        return { bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd' };
+      case 'cg':
+        return { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' };
+      case 'dc':
+        return { bg: '#fef3c7', color: '#b45309', border: '#fde68a' };
+      case 'sda':
+        return { bg: '#f0f9ff', color: '#0284c7', border: '#e0f2fe' };
+      default:
+        return { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' };
     }
   };
 
+  const roleStyle = getRoleBadgeStyle(user?.role);
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-      {/* Sidebar */}
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-page)' }}>
+      {/* Mobile Drawer Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="mobile-overlay"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar (Desktop + Mobile Drawer) */}
       <aside
         style={{
-          width: collapsed ? '72px' : '260px',
-          background: 'linear-gradient(180deg, #090e1a 0%, #0f172a 100%)',
+          width: collapsed ? '68px' : '256px',
+          background: 'var(--slate-900)',
           color: '#ffffff',
           display: 'flex',
           flexDirection: 'column',
-          transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s ease',
           borderRight: '1px solid rgba(255, 255, 255, 0.08)',
           position: 'sticky',
           top: 0,
@@ -148,109 +172,195 @@ export function Shell({ children, activePath }: ShellProps) {
           zIndex: 50,
           flexShrink: 0,
         }}
+        className={mobileMenuOpen ? 'sidebar-mobile-open' : 'sidebar-desktop'}
       >
         {/* Brand Header */}
         <div
           style={{
-            padding: collapsed ? '1.25rem 0.5rem' : '1.25rem 1.5rem',
+            padding: collapsed ? '1.125rem 0.5rem' : '1.125rem 1.25rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: collapsed ? 'center' : 'space-between',
             borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            height: 'var(--header-height)',
           }}
         >
-          {!collapsed && (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span
-                  style={{
-                    background: '#f59e0b',
-                    color: '#000000',
-                    fontWeight: 800,
-                    fontSize: '11px',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                  }}
-                >
-                  GRS
-                </span>
-                <span style={{ fontWeight: 700, fontSize: '15px', letterSpacing: '-0.01em' }}>
+          {!collapsed ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  background: 'var(--primary)',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '11px',
+                  letterSpacing: '0.05em',
+                  padding: '4px 7px',
+                  borderRadius: 'var(--radius-xs)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                }}
+              >
+                GRS
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontWeight: 700, fontSize: '14px', letterSpacing: '-0.01em', color: '#ffffff' }}>
                   Web Dashboard
                 </span>
-              </div>
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
-                Skills Campaign 2026
+                <span style={{ fontSize: '11px', color: 'var(--slate-400)' }}>
+                  Skills Campaign 2026
+                </span>
               </div>
             </div>
-          )}
-          {collapsed && (
+          ) : (
             <span
               style={{
-                background: '#f59e0b',
-                color: '#000',
+                background: 'var(--primary)',
+                color: '#ffffff',
                 fontWeight: 800,
-                fontSize: '12px',
+                fontSize: '11px',
                 padding: '4px 6px',
-                borderRadius: '4px',
+                borderRadius: 'var(--radius-xs)',
               }}
             >
               GRS
             </span>
           )}
+
+          {/* Close button for mobile drawer */}
+          <button
+            className="mobile-close-btn"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close Navigation"
+            style={{
+              display: 'none',
+              background: 'transparent',
+              border: 'none',
+              color: '#94a3b8',
+              cursor: 'pointer',
+              padding: '4px',
+            }}
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {/* Navigation Items */}
-        <nav style={{ flex: 1, padding: '1rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto' }}>
+        <nav
+          style={{
+            flex: 1,
+            padding: '1rem 0.625rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+            overflowY: 'auto',
+          }}
+          aria-label="Sidebar Navigation"
+        >
           {allowedNavItems.map((item) => {
-            const isActive = pathname === item.href || (item.href.includes('#') && pathname === '/progress');
+            const isActive =
+              pathname === item.href || (item.href.includes('#') && pathname === '/progress');
             return (
               <button
                 key={item.key}
-                onClick={() => router.push(item.href)}
+                type="button"
+                onClick={() => {
+                  router.push(item.href);
+                  setMobileMenuOpen(false);
+                }}
                 title={collapsed ? t(item.key) : undefined}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '12px',
-                  padding: collapsed ? '10px 0' : '10px 14px',
+                  padding: collapsed ? '10px 0' : '9px 12px',
                   justifyContent: collapsed ? 'center' : 'flex-start',
                   width: '100%',
-                  borderRadius: '8px',
+                  borderRadius: 'var(--radius-sm)',
                   border: 'none',
-                  background: isActive ? 'linear-gradient(135deg, #1e3a8a, #2563eb)' : 'transparent',
-                  color: isActive ? '#ffffff' : '#cbd5e1',
+                  background: isActive ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+                  color: isActive ? '#ffffff' : 'var(--slate-300)',
                   fontWeight: isActive ? 600 : 500,
-                  fontSize: '13px',
+                  fontSize: '13.5px',
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease',
+                  transition: 'background-color 0.15s ease, color 0.15s ease',
                   textAlign: 'left',
-                  boxShadow: isActive ? '0 2px 8px rgba(37, 99, 235, 0.35)' : 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.color = '#ffffff';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = 'var(--slate-300)';
+                  }
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: isActive ? '#f59e0b' : '#94a3b8' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: isActive ? '#34d399' : 'var(--slate-400)',
+                    flexShrink: 0,
+                  }}
+                >
                   {item.icon}
                 </div>
-                {!collapsed && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t(item.key)}</span>}
+                {!collapsed && (
+                  <span
+                    style={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {t(item.key)}
+                  </span>
+                )}
               </button>
             );
           })}
         </nav>
 
-        {/* Collapse toggle button */}
-        <div style={{ padding: '0.75rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', justifyContent: 'center' }}>
+        {/* Desktop Collapse Toggle */}
+        <div
+          style={{
+            padding: '0.75rem',
+            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+          className="desktop-collapse-container"
+        >
           <button
+            type="button"
             onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             style={{
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: 'none',
-              borderRadius: '6px',
-              color: '#94a3b8',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--slate-400)',
               padding: '6px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               width: '100%',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+              e.currentTarget.style.color = '#ffffff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+              e.currentTarget.style.color = 'var(--slate-400)';
             }}
           >
             {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
@@ -260,79 +370,186 @@ export function Shell({ children, activePath }: ShellProps) {
 
       {/* Main Content Area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        {/* Civic Top Bar */}
+        {/* Top Header */}
         <header
-          className="civic-gradient"
+          className="civic-topbar"
           style={{
-            padding: '0.75rem 1.5rem',
+            padding: '0 1.5rem',
+            height: 'var(--header-height)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             position: 'sticky',
             top: 0,
             zIndex: 40,
+            background: '#ffffff',
+            borderBottom: '1px solid var(--border-subtle)',
           }}
         >
-          <div>
-            <h1 style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '-0.01em', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ color: '#f59e0b' }}>🇱🇰</span>
-              {t('app.title')}
-            </h1>
-            <p style={{ fontSize: '11px', color: '#cbd5e1', margin: '2px 0 0 0', opacity: 0.9 }}>
-              {t('app.subtitle')}
-            </p>
+          {/* Left: Mobile hamburger & breadcrumbs */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              type="button"
+              className="mobile-hamburger-btn"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open Navigation"
+              style={{
+                display: 'none',
+                background: 'transparent',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '6px',
+                cursor: 'pointer',
+                color: 'var(--slate-700)',
+              }}
+            >
+              <Menu size={18} />
+            </button>
+
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    color: 'var(--primary)',
+                    background: 'var(--primary-subtle)',
+                    padding: '1px 6px',
+                    borderRadius: 'var(--radius-xs)',
+                  }}
+                >
+                  Gov.lk
+                </span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--slate-900)' }}>
+                  {t('app.title')}
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <LanguageSwitch />
+          {/* Right: Language switch, user profile, logout */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+            <LanguageSwitch variant="light" />
 
             {user && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  paddingLeft: '0.75rem',
+                  borderLeft: '1px solid var(--border-subtle)',
+                }}
+              >
                 <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 600 }}>{user.fullName || user.userCode}</span>
+                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--slate-900)', lineHeight: 1.2 }}>
+                    {user.fullName || user.userCode}
+                  </span>
                   <span
                     style={{
                       fontSize: '10px',
                       fontWeight: 700,
                       textTransform: 'uppercase',
                       padding: '1px 6px',
-                      borderRadius: '4px',
-                      background: getRoleBadgeColor(user.role),
-                      color: '#ffffff',
-                      marginTop: '2px',
+                      borderRadius: 'var(--radius-xs)',
+                      background: roleStyle.bg,
+                      color: roleStyle.color,
+                      border: `1px solid ${roleStyle.border}`,
+                      marginTop: '3px',
+                      letterSpacing: '0.03em',
                     }}
                   >
                     {user.role}
                   </span>
                 </div>
+
                 <button
+                  type="button"
                   onClick={logout}
                   title={t('auth.logout')}
+                  aria-label={t('auth.logout')}
                   style={{
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    borderRadius: '8px',
-                    color: '#ffffff',
-                    padding: '8px',
+                    background: 'var(--slate-100)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--slate-600)',
+                    padding: '7px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#fee2e2';
+                    e.currentTarget.style.color = '#dc2626';
+                    e.currentTarget.style.borderColor = '#fecaca';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'var(--slate-100)';
+                    e.currentTarget.style.color = 'var(--slate-600)';
+                    e.currentTarget.style.borderColor = 'var(--border-subtle)';
                   }}
                 >
-                  <LogOut size={16} />
+                  <LogOut size={15} />
                 </button>
               </div>
             )}
           </div>
         </header>
 
-        {/* Page Container */}
-        <main style={{ flex: 1, padding: '1.5rem', maxWidth: '1440px', width: '100%', margin: '0 auto' }}>
+        {/* Page Canvas Container */}
+        <main
+          style={{
+            flex: 1,
+            padding: 'clamp(1rem, 2.5vw, 1.75rem)',
+            maxWidth: '1440px',
+            width: '100%',
+            margin: '0 auto',
+          }}
+        >
           {children}
         </main>
       </div>
+
+      <style jsx global>{`
+        @media (max-width: 1024px) {
+          .desktop-collapse-container {
+            display: none !important;
+          }
+
+          .mobile-hamburger-btn {
+            display: inline-flex !important;
+          }
+
+          .sidebar-desktop {
+            position: fixed !important;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            transform: translateX(-100%);
+            width: 260px !important;
+            z-index: 60 !important;
+          }
+
+          .sidebar-mobile-open {
+            position: fixed !important;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            transform: translateX(0) !important;
+            width: 260px !important;
+            z-index: 60 !important;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3) !important;
+          }
+
+          .mobile-close-btn {
+            display: inline-flex !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

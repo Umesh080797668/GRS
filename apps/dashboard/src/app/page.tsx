@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
+import { Loader2 } from 'lucide-react';
 
 export default function RootPage() {
   const { user, isLoading } = useAuth();
@@ -29,17 +30,29 @@ export default function RootPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#090e1a',
-        color: '#94a3b8',
-        fontSize: '14px',
-        fontWeight: 500,
+        background: 'var(--bg-page)',
+        color: 'var(--slate-600)',
       }}
     >
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ color: '#f59e0b', fontSize: '24px', fontWeight: 800, marginBottom: '8px' }}>
+      <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div
+          style={{
+            background: 'var(--primary)',
+            color: '#ffffff',
+            fontSize: '14px',
+            fontWeight: 800,
+            padding: '6px 12px',
+            borderRadius: 'var(--radius-xs)',
+            letterSpacing: '0.05em',
+            marginBottom: '1rem',
+          }}
+        >
           GRS
         </div>
-        <div>Loading Door-to-Door Skills Campaign Dashboard...</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', fontWeight: 500 }}>
+          <Loader2 size={16} className="animate-spin" style={{ color: 'var(--primary)' }} />
+          <span>Loading Door-to-Door Skills Campaign Dashboard...</span>
+        </div>
       </div>
     </div>
   );

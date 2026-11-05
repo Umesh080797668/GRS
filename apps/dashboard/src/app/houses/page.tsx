@@ -6,7 +6,6 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import {
-  Home,
   Plus,
   Settings,
   CheckCircle,
@@ -16,6 +15,8 @@ import {
   Square,
   ArrowRight,
   RotateCcw,
+  X,
+  Search
 } from 'lucide-react';
 
 export default function HousesPage() {
@@ -333,7 +334,6 @@ export default function HousesPage() {
       });
       setShowGnModal(false);
       setSuccessBanner(t('houses.gn_updated'));
-      // Update local GN list
       setGnDivisions((prev) =>
         prev.map((g) =>
           g.id === selectedGn
@@ -362,375 +362,556 @@ export default function HousesPage() {
 
   return (
     <Shell activePath="/houses">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      {/* Title & Top Action Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '1.5rem',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
+        <div>
+          <h1
+            style={{
+              fontSize: '22px',
+              fontWeight: 700,
+              color: 'var(--slate-900)',
+              letterSpacing: '-0.02em',
+              margin: 0,
+            }}
+          >
+            {t('houses.title')}
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--slate-500)', marginTop: '4px' }}>
+            Field household assignment, unassignment, survey completion marking, and GN office contact setup.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setShowGnModal(true)}
+            className="btn-secondary"
+          >
+            <Settings size={15} style={{ color: 'var(--warning)' }} />
+            <span>{t('houses.gn_setup')}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="btn-primary"
+          >
+            <Plus size={15} />
+            <span>{t('houses.add_house')}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Alerts */}
+      {errorBanner && (
+        <div
+          style={{
+            background: 'var(--danger-bg)',
+            border: '1px solid var(--danger-border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 16px',
+            color: 'var(--danger-text)',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '13.5px',
+          }}
+        >
+          <AlertCircle size={18} style={{ flexShrink: 0 }} />
+          <span>{errorBanner}</span>
+        </div>
+      )}
+
+      {successBanner && (
+        <div
+          style={{
+            background: 'var(--success-bg)',
+            border: '1px solid var(--success-border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 16px',
+            color: 'var(--success-text)',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '13.5px',
+          }}
+        >
+          <CheckCircle size={18} style={{ flexShrink: 0 }} />
+          <span>{successBanner}</span>
+        </div>
+      )}
+
+      {/* Geographic Scope & GN Details Card */}
+      <div className="panel" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '1rem',
+            marginBottom: '1rem',
+          }}
+        >
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-              <Home className="w-7 h-7 text-emerald-400" />
-              {t('houses.title')}
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Field household assignment, unassignment, survey completion marking, and GN office contact setup.
-            </p>
+            <label className="form-label">District</label>
+            <select
+              className="select-field"
+              value={selectedDistrict}
+              onChange={(e) => handleDistrictChange(e.target.value)}
+              disabled={user?.role === 'cdc_secretary'}
+            >
+              {districts.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.nameEn || d.name}
+                </option>
+              ))}
+            </select>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setShowGnModal(true)}
-              className="btn btn-secondary text-sm flex items-center gap-2"
+
+          <div>
+            <label className="form-label">DS Division</label>
+            <select
+              className="select-field"
+              value={selectedDs}
+              onChange={(e) => handleDsChange(e.target.value)}
+              disabled={user?.role === 'cdc_secretary'}
             >
-              <Settings className="w-4 h-4 text-amber-400" />
-              {t('houses.gn_setup')}
-            </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="btn btn-primary text-sm flex items-center gap-2"
+              {dsDivisions.map((ds) => (
+                <option key={ds.id} value={ds.id}>
+                  {ds.nameEn || ds.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="form-label">GN Division</label>
+            <select
+              className="select-field"
+              value={selectedGn}
+              onChange={(e) => loadGnData(e.target.value)}
+              disabled={user?.role === 'cdc_secretary'}
             >
-              <Plus className="w-4 h-4" />
-              {t('houses.add_house')}
-            </button>
+              {gnDivisions.map((gn) => (
+                <option key={gn.id} value={gn.id}>
+                  {gn.nameEn || gn.name} ({gn.gnCode || gn.gnNumber})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* Alerts */}
-        {errorBanner && (
-          <div className="card border-red-500/40 bg-red-500/10 p-4 text-sm text-red-300 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-            <span>{errorBanner}</span>
+        {/* GN Info Summary */}
+        {selectedGn && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingTop: '0.75rem',
+              borderTop: '1px solid var(--slate-100)',
+              fontSize: '12.5px',
+              color: 'var(--slate-500)',
+              flexWrap: 'wrap',
+              gap: '8px',
+            }}
+          >
+            <div>
+              Secretary Contact:{' '}
+              <strong style={{ color: 'var(--slate-800)', fontWeight: 600 }}>
+                {gnSecretaryName || 'Not configured'} {gnSecretaryContact ? `(${gnSecretaryContact})` : ''}
+              </strong>
+            </div>
+            <div>
+              Active Field Teams:{' '}
+              <strong style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                {teams.length} teams
+              </strong>
+            </div>
           </div>
         )}
+      </div>
 
-        {successBanner && (
-          <div className="card border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-300 flex items-center gap-3">
-            <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-            <span>{successBanner}</span>
-          </div>
-        )}
-
-        {/* Geographic Selector & GN Details Bar */}
-        <div className="card p-5 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">District</label>
-              <select
-                className="input text-sm"
-                value={selectedDistrict}
-                onChange={(e) => handleDistrictChange(e.target.value)}
-                disabled={user?.role === 'cdc_secretary'}
-              >
-                {districts.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.nameEn}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">DS Division</label>
-              <select
-                className="input text-sm"
-                value={selectedDs}
-                onChange={(e) => handleDsChange(e.target.value)}
-                disabled={user?.role === 'cdc_secretary'}
-              >
-                {dsDivisions.map((ds) => (
-                  <option key={ds.id} value={ds.id}>
-                    {ds.nameEn}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">GN Division</label>
-              <select
-                className="input text-sm"
-                value={selectedGn}
-                onChange={(e) => loadGnData(e.target.value)}
-                disabled={user?.role === 'cdc_secretary'}
-              >
-                {gnDivisions.map((gn) => (
-                  <option key={gn.id} value={gn.id}>
-                    {gn.nameEn} ({gn.gnCode || gn.gnNumber})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* GN Info Summary */}
-          {selectedGn && (
-            <div className="flex flex-wrap items-center justify-between text-xs text-slate-400 pt-3 border-t border-slate-800 gap-2">
-              <div>
-                Secretary Contact:{' '}
-                <span className="text-slate-200 font-medium">
-                  {gnSecretaryName || 'Not configured'} {gnSecretaryContact ? `(${gnSecretaryContact})` : ''}
-                </span>
-              </div>
-              <div>
-                Active Field Teams:{' '}
-                <span className="text-emerald-400 font-bold">{teams.length} teams</span>
-              </div>
-            </div>
+      {/* Batch Assignment Action Bar */}
+      <div
+        className="panel"
+        style={{
+          padding: '0.875rem 1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          background: 'var(--slate-50)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--slate-800)' }}>
+            Selected: <span style={{ color: 'var(--primary)' }}>{selectedHouseIds.length}</span> houses
+          </span>
+          <button
+            type="button"
+            onClick={handleSelectAllUnassigned}
+            className="btn-secondary"
+            style={{ padding: '4px 10px', fontSize: '12px' }}
+          >
+            Select All Unassigned
+          </button>
+          {selectedHouseIds.length > 0 && (
+            <button
+              type="button"
+              onClick={handleClearSelection}
+              className="btn-ghost"
+              style={{ padding: '4px 10px', fontSize: '12px' }}
+            >
+              Clear Selection
+            </button>
+          )}
+          {selectedHouseIds.length > 200 && (
+            <span
+              className="badge badge-warning"
+              style={{ fontSize: '11px', padding: '3px 8px' }}
+            >
+              ⚠️ {selectedHouseIds.length} houses selected (will be chunked in {Math.ceil(selectedHouseIds.length / 200)} batches)
+            </span>
           )}
         </div>
 
-        {/* Assignment Action Bar */}
-        <div className="card p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-slate-900/40">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs font-semibold text-slate-300">
-              Selected: <span className="text-emerald-400">{selectedHouseIds.length}</span> houses
-            </span>
-            <button
-              onClick={handleSelectAllUnassigned}
-              className="btn btn-secondary text-xs py-1 px-2.5"
-            >
-              Select All Unassigned
-            </button>
-            {selectedHouseIds.length > 0 && (
-              <button
-                onClick={handleClearSelection}
-                className="btn btn-secondary text-xs py-1 px-2.5 text-slate-400"
-              >
-                Clear Selection
-              </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: 'auto' }}>
+          <select
+            className="select-field"
+            style={{ width: 'auto', minWidth: '220px', padding: '0.45rem 0.75rem', fontSize: '12.5px' }}
+            value={targetTeamId}
+            onChange={(e) => setTargetTeamId(e.target.value)}
+            disabled={teams.length === 0 || user?.role === 'cdc_secretary'}
+          >
+            {teams.length === 0 ? (
+              <option value="">No teams available in GN</option>
+            ) : (
+              teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  Team {t.teamNo} ({t.activeMembers ?? t.memberLimit ?? 0}/{t.maxMembers} members)
+                </option>
+              ))
             )}
-            {selectedHouseIds.length > 200 && (
-              <span className="text-[11px] text-amber-300 bg-amber-950/60 border border-amber-800/80 px-2.5 py-0.5 rounded-full font-medium">
-                ⚠️ {selectedHouseIds.length} houses selected (exceeds single-batch limit of 200; will be assigned in {Math.ceil(selectedHouseIds.length / 200)} batches)
-              </span>
+          </select>
+          <button
+            type="button"
+            onClick={handleAssignSelected}
+            disabled={assigning || selectedHouseIds.length === 0 || !targetTeamId}
+            className="btn-primary"
+            style={{ padding: '0.45rem 1rem', fontSize: '12.5px' }}
+          >
+            {assigning ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <ArrowRight size={14} />
             )}
+            <span>{t('houses.assign_btn')}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Household Table with Status Filters */}
+      <div className="panel" style={{ overflow: 'hidden' }}>
+        <div
+          style={{
+            padding: '1rem 1.25rem',
+            borderBottom: '1px solid var(--border-subtle)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
+          <div style={{ position: 'relative', width: '280px' }}>
+            <Search
+              size={15}
+              color="var(--slate-400)"
+              style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }}
+            />
+            <input
+              type="text"
+              placeholder="Search house # or name..."
+              value={houseSearch}
+              onChange={(e) => {
+                setHouseSearch(e.target.value);
+                fetchHouseholds(selectedGn, true);
+              }}
+              className="input-field"
+              style={{ paddingLeft: '32px', padding: '0.45rem 0.75rem 0.45rem 32px', fontSize: '12.5px' }}
+            />
           </div>
 
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <select
-              className="input text-xs py-1.5 px-3 max-w-xs"
-              value={targetTeamId}
-              onChange={(e) => setTargetTeamId(e.target.value)}
-              disabled={teams.length === 0 || user?.role === 'cdc_secretary'}
-            >
-              {teams.length === 0 ? (
-                <option value="">No teams available in GN</option>
-              ) : (
-                teams.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    Team {t.teamNo} ({t.activeMembers ?? t.memberLimit ?? 0}/{t.maxMembers} members)
-                  </option>
-                ))
-              )}
-            </select>
+          {/* Status Tabs */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              background: 'var(--slate-100)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '3px',
+              gap: '2px',
+            }}
+          >
             <button
-              onClick={handleAssignSelected}
-              disabled={assigning || selectedHouseIds.length === 0 || !targetTeamId}
-              className="btn btn-primary text-xs py-1.5 px-4 flex items-center gap-1.5"
+              type="button"
+              onClick={() => setStatusFilter('all')}
+              style={{
+                padding: '4px 10px',
+                fontSize: '12px',
+                fontWeight: statusFilter === 'all' ? 600 : 500,
+                borderRadius: 'var(--radius-xs)',
+                border: 'none',
+                cursor: 'pointer',
+                background: statusFilter === 'all' ? '#ffffff' : 'transparent',
+                color: statusFilter === 'all' ? 'var(--slate-900)' : 'var(--slate-600)',
+                boxShadow: statusFilter === 'all' ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
+              }}
             >
-              {assigning ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <ArrowRight className="w-3.5 h-3.5" />
-              )}
-              {t('houses.assign_btn')}
+              All ({households.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('unassigned')}
+              style={{
+                padding: '4px 10px',
+                fontSize: '12px',
+                fontWeight: statusFilter === 'unassigned' ? 600 : 500,
+                borderRadius: 'var(--radius-xs)',
+                border: 'none',
+                cursor: 'pointer',
+                background: statusFilter === 'unassigned' ? '#ffffff' : 'transparent',
+                color: statusFilter === 'unassigned' ? 'var(--slate-900)' : 'var(--slate-600)',
+                boxShadow: statusFilter === 'unassigned' ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
+              }}
+            >
+              {t('houses.unassigned')} ({households.filter((h) => !h.teamId).length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('assigned')}
+              style={{
+                padding: '4px 10px',
+                fontSize: '12px',
+                fontWeight: statusFilter === 'assigned' ? 600 : 500,
+                borderRadius: 'var(--radius-xs)',
+                border: 'none',
+                cursor: 'pointer',
+                background: statusFilter === 'assigned' ? '#ffffff' : 'transparent',
+                color: statusFilter === 'assigned' ? 'var(--slate-900)' : 'var(--slate-600)',
+                boxShadow: statusFilter === 'assigned' ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
+              }}
+            >
+              Assigned ({households.filter((h) => h.teamId).length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('finished')}
+              style={{
+                padding: '4px 10px',
+                fontSize: '12px',
+                fontWeight: statusFilter === 'finished' ? 600 : 500,
+                borderRadius: 'var(--radius-xs)',
+                border: 'none',
+                cursor: 'pointer',
+                background: statusFilter === 'finished' ? '#ffffff' : 'transparent',
+                color: statusFilter === 'finished' ? 'var(--slate-900)' : 'var(--slate-600)',
+                boxShadow: statusFilter === 'finished' ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
+              }}
+            >
+              {t('houses.finished')} ({households.filter((h) => h.isFinished).length})
             </button>
           </div>
         </div>
 
-        {/* Household Table with Status Filters */}
-        <div className="card overflow-hidden">
-          <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Search house # or name..."
-                value={houseSearch}
-                onChange={(e) => {
-                  setHouseSearch(e.target.value);
-                  fetchHouseholds(selectedGn, true);
-                }}
-                className="input text-xs py-1.5 px-3 max-w-xs"
-              />
-            </div>
-            <div className="flex items-center gap-1.5 text-xs bg-slate-900/80 p-1 rounded-lg border border-slate-800">
-              <button
-                onClick={() => setStatusFilter('all')}
-                className={`px-2.5 py-1 rounded ${statusFilter === 'all' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400'}`}
-              >
-                All ({households.length})
-              </button>
-              <button
-                onClick={() => setStatusFilter('unassigned')}
-                className={`px-2.5 py-1 rounded ${statusFilter === 'unassigned' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400'}`}
-              >
-                {t('houses.unassigned')} ({households.filter((h) => !h.teamId).length})
-              </button>
-              <button
-                onClick={() => setStatusFilter('assigned')}
-                className={`px-2.5 py-1 rounded ${statusFilter === 'assigned' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400'}`}
-              >
-                Assigned ({households.filter((h) => h.teamId).length})
-              </button>
-              <button
-                onClick={() => setStatusFilter('finished')}
-                className={`px-2.5 py-1 rounded ${statusFilter === 'finished' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400'}`}
-              >
-                {t('houses.finished')} ({households.filter((h) => h.isFinished).length})
-              </button>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-900/80 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-800">
+        {/* Table Content */}
+        <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th style={{ width: '40px', textAlign: 'center' }}>
+                  <span className="sr-only">Select</span>
+                </th>
+                <th>{t('houses.house_no')}</th>
+                <th>{t('houses.head_name')}</th>
+                <th>{t('houses.village_name')}</th>
+                <th>{t('houses.team_assigned')}</th>
+                <th>{t('houses.status')}</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayedHouseholds.length === 0 ? (
                 <tr>
-                  <th className="p-3 w-10 text-center">
-                    <span className="sr-only">Select</span>
-                  </th>
-                  <th className="p-3">{t('houses.house_no')}</th>
-                  <th className="p-3">{t('houses.head_name')}</th>
-                  <th className="p-3">{t('houses.village_name')}</th>
-                  <th className="p-3">{t('houses.team_assigned')}</th>
-                  <th className="p-3">{t('houses.status')}</th>
-                  <th className="p-3 text-right">Actions</th>
+                  <td colSpan={7} style={{ textAlign: 'center', color: 'var(--slate-400)', padding: '2.5rem' }}>
+                    {loading ? 'Loading households...' : 'No households matching criteria.'}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {displayedHouseholds.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-400">
-                      {loading ? 'Loading households...' : 'No households matching criteria.'}
-                    </td>
-                  </tr>
-                ) : (
-                  displayedHouseholds.map((h) => {
-                    const isSelected = selectedHouseIds.includes(h.id);
-                    const isAssigned = Boolean(h.teamId);
-                    const isFinished = Boolean(h.isFinished);
-                    const assignedTeam = teams.find((t) => t.id === h.teamId);
+              ) : (
+                displayedHouseholds.map((h) => {
+                  const isSelected = selectedHouseIds.includes(h.id);
+                  const isAssigned = Boolean(h.teamId);
+                  const isFinished = Boolean(h.isFinished);
+                  const assignedTeam = teams.find((t) => t.id === h.teamId);
 
-                    return (
-                      <tr key={h.id} className="hover:bg-slate-800/40 transition">
-                        <td className="p-3 text-center">
-                          {!isAssigned ? (
+                  return (
+                    <tr key={h.id}>
+                      <td style={{ textAlign: 'center' }}>
+                        {!isAssigned ? (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSelectHouse(h.id)}
+                            aria-label={`Select house ${h.houseNo}`}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: isSelected ? 'var(--primary)' : 'var(--slate-400)',
+                              display: 'inline-flex',
+                            }}
+                          >
+                            {isSelected ? (
+                              <CheckSquare size={16} />
+                            ) : (
+                              <Square size={16} />
+                            )}
+                          </button>
+                        ) : (
+                          <span style={{ color: 'var(--slate-300)' }}>—</span>
+                        )}
+                      </td>
+                      <td style={{ fontWeight: 600, fontFamily: 'monospace', color: 'var(--slate-900)' }}>
+                        #{h.houseNo}
+                      </td>
+                      <td style={{ fontWeight: 600, color: 'var(--slate-900)' }}>
+                        {h.houseLeaderName}
+                      </td>
+                      <td style={{ fontSize: '12.5px', color: 'var(--slate-500)' }}>
+                        {h.villageName || h.address || '—'}
+                      </td>
+                      <td>
+                        {isAssigned ? (
+                          <span className="badge badge-info">
+                            Team {assignedTeam ? assignedTeam.teamNo : h.teamId.slice(0, 8)}
+                          </span>
+                        ) : (
+                          <span className="badge badge-warning">
+                            {t('houses.unassigned')}
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        {isFinished ? (
+                          <span className="badge badge-success">
+                            {t('houses.finished')}
+                          </span>
+                        ) : isAssigned ? (
+                          <span className="badge badge-info">
+                            {t('houses.in_progress')}
+                          </span>
+                        ) : (
+                          <span className="badge badge-neutral">
+                            Ready
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                          {isAssigned && !isFinished && (
                             <button
                               type="button"
-                              onClick={() => handleToggleSelectHouse(h.id)}
-                              className="text-slate-400 hover:text-emerald-400"
+                              onClick={() => handleFinish(h)}
+                              className="btn-secondary"
+                              style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--success)' }}
+                              title={t('houses.finish_house')}
                             >
-                              {isSelected ? (
-                                <CheckSquare className="w-4 h-4 text-emerald-400" />
-                              ) : (
-                                <Square className="w-4 h-4" />
-                              )}
+                              {t('houses.finish_house')}
                             </button>
-                          ) : (
-                            <span className="text-slate-600">—</span>
                           )}
-                        </td>
-                        <td className="p-3 font-mono font-bold text-white">
-                          #{h.houseNo}
-                        </td>
-                        <td className="p-3 font-medium text-slate-200">
-                          {h.houseLeaderName}
-                        </td>
-                        <td className="p-3 text-xs text-slate-400">
-                          {h.villageName || h.address || '—'}
-                        </td>
-                        <td className="p-3">
-                          {isAssigned ? (
-                            <span className="badge badge-info text-xs">
-                              Team {assignedTeam ? assignedTeam.teamNo : h.teamId.slice(0, 8)}
-                            </span>
-                          ) : (
-                            <span className="badge badge-warning text-xs">
-                              {t('houses.unassigned')}
-                            </span>
+                          {isAssigned && isFinished && (
+                            <button
+                              type="button"
+                              onClick={() => handleReopen(h)}
+                              className="btn-secondary"
+                              style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--warning)' }}
+                              title={t('houses.reopen_house')}
+                            >
+                              <RotateCcw size={12} />
+                              <span>{t('houses.reopen_house')}</span>
+                            </button>
                           )}
-                        </td>
-                        <td className="p-3">
-                          {isFinished ? (
-                            <span className="badge badge-success text-xs">
-                              {t('houses.finished')}
-                            </span>
-                          ) : isAssigned ? (
-                            <span className="badge badge-info text-xs">
-                              {t('houses.in_progress')}
-                            </span>
-                          ) : (
-                            <span className="badge text-xs bg-slate-800 text-slate-400">
-                              Ready
-                            </span>
+                          {isAssigned && (
+                            <button
+                              type="button"
+                              onClick={() => handleUnassign(h)}
+                              className="btn-danger"
+                              style={{ padding: '4px 8px', fontSize: '11px' }}
+                              title={t('houses.unassign')}
+                            >
+                              {t('houses.unassign')}
+                            </button>
                           )}
-                        </td>
-                        <td className="p-3 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {isAssigned && !isFinished && (
-                              <button
-                                onClick={() => handleFinish(h)}
-                                className="btn btn-secondary text-xs py-1 px-2 text-emerald-400 hover:text-emerald-300"
-                                title={t('houses.finish_house')}
-                              >
-                                {t('houses.finish_house')}
-                              </button>
-                            )}
-                            {isAssigned && isFinished && (
-                              <button
-                                onClick={() => handleReopen(h)}
-                                className="btn btn-secondary text-xs py-1 px-2 text-amber-400 hover:text-amber-300 flex items-center gap-1"
-                                title={t('houses.reopen_house')}
-                              >
-                                <RotateCcw className="w-3.5 h-3.5" />
-                                {t('houses.reopen_house')}
-                              </button>
-                            )}
-                            {isAssigned && (
-                              <button
-                                onClick={() => handleUnassign(h)}
-                                className="btn btn-secondary text-xs py-1 px-2 text-red-400 hover:text-red-300"
-                                title={t('houses.unassign')}
-                              >
-                                {t('houses.unassign')}
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {nextCursor && (
-            <div className="p-4 border-t border-slate-800 text-center">
-              <button
-                onClick={() => fetchHouseholds(selectedGn, false, nextCursor)}
-                disabled={loading}
-                className="btn btn-secondary text-xs py-1.5 px-4"
-              >
-                {loading ? 'Loading...' : 'Load More Households'}
-              </button>
-            </div>
-          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
 
-        {/* Add Household Modal */}
-        {showAddModal && (
-          <div className="modal-backdrop">
-            <div className="modal-content card max-w-lg p-6 space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Home className="w-5 h-5 text-emerald-400" />
-                  {t('houses.add_house')}
-                </h3>
-              </div>
-              <form onSubmit={handleAddHousehold} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
+        {nextCursor && (
+          <div style={{ padding: '1rem', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
+            <button
+              type="button"
+              onClick={() => fetchHouseholds(selectedGn, false, nextCursor)}
+              disabled={loading}
+              className="btn-secondary"
+            >
+              {loading ? 'Loading...' : 'Load More Households'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Add Household Modal */}
+      {showAddModal && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                {t('houses.add_house')}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleAddHousehold}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
-                    <label className="text-xs text-slate-400 block mb-1">House Number *</label>
+                    <label className="form-label">House Number *</label>
                     <input
                       type="text"
-                      className="input"
+                      className="input-field"
                       placeholder="e.g. 102/B"
                       value={newHouseNo}
                       onChange={(e) => setNewHouseNo(e.target.value)}
@@ -738,10 +919,10 @@ export default function HousesPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-slate-400 block mb-1">Head of Household *</label>
+                    <label className="form-label">Head of Household *</label>
                     <input
                       type="text"
-                      className="input"
+                      className="input-field"
                       placeholder="e.g. K. Perera"
                       value={newHeadName}
                       onChange={(e) => setNewHeadName(e.target.value)}
@@ -751,10 +932,10 @@ export default function HousesPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Village / Street</label>
+                  <label className="form-label">Village / Street</label>
                   <input
                     type="text"
-                    className="input"
+                    className="input-field"
                     placeholder="e.g. Pallekele"
                     value={newVillageName}
                     onChange={(e) => setNewVillageName(e.target.value)}
@@ -762,68 +943,79 @@ export default function HousesPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Full Postal Address</label>
+                  <label className="form-label">Full Postal Address</label>
                   <input
                     type="text"
-                    className="input"
+                    className="input-field"
                     placeholder="e.g. No. 102/B, Temple Road"
                     value={newAddress}
                     onChange={(e) => setNewAddress(e.target.value)}
                   />
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-2">
-                  <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
-                    <input type="checkbox" checked={newIsSamurdhi} onChange={(e) => setNewIsSamurdhi(e.target.checked)} />
-                    Samurdhi
-                  </label>
-                  <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
-                    <input type="checkbox" checked={newIsAswesuma} onChange={(e) => setNewIsAswesuma(e.target.checked)} />
-                    Aswesuma
-                  </label>
-                  <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
-                    <input type="checkbox" checked={newIsEpf} onChange={(e) => setNewIsEpf(e.target.checked)} />
-                    EPF
-                  </label>
-                  <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
-                    <input type="checkbox" checked={newIsEtf} onChange={(e) => setNewIsEtf(e.target.checked)} />
-                    ETF
-                  </label>
-                  <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
-                    <input type="checkbox" checked={newHasSpecialNeeds} onChange={(e) => setNewHasSpecialNeeds(e.target.checked)} />
-                    Special Needs
-                  </label>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-4 border-t border-slate-800">
-                  <button type="button" onClick={() => setShowAddModal(false)} className="btn btn-secondary text-xs">
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={actionLoading} className="btn btn-primary text-xs">
-                    {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Register House'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* GN Setup Modal */}
-        {showGnModal && (
-          <div className="modal-backdrop">
-            <div className="modal-content card max-w-lg p-6 space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Settings className="w-5 h-5 text-amber-400" />
-                  {t('houses.gn_setup')}
-                </h3>
-              </div>
-              <form onSubmit={handleUpdateGnSetup} className="space-y-4">
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">CDC / GN Secretary Full Name</label>
+                  <label className="form-label">Social Welfare & Identifiers</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', fontSize: '13px', marginTop: '4px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={newIsSamurdhi} onChange={(e) => setNewIsSamurdhi(e.target.checked)} />
+                      <span>Samurdhi</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={newIsAswesuma} onChange={(e) => setNewIsAswesuma(e.target.checked)} />
+                      <span>Aswesuma</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={newIsEpf} onChange={(e) => setNewIsEpf(e.target.checked)} />
+                      <span>EPF</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={newIsEtf} onChange={(e) => setNewIsEtf(e.target.checked)} />
+                      <span>ETF</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={newHasSpecialNeeds} onChange={(e) => setNewHasSpecialNeeds(e.target.checked)} />
+                      <span>Special Needs</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={actionLoading} className="btn-primary">
+                  {actionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Register House'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* GN Setup Modal */}
+      {showGnModal && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                {t('houses.gn_setup')}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowGnModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateGnSetup}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label className="form-label">CDC / GN Secretary Full Name</label>
                   <input
                     type="text"
-                    className="input"
+                    className="input-field"
                     placeholder="e.g. W.M. Jayawardena"
                     value={gnSecretaryName}
                     onChange={(e) => setGnSecretaryName(e.target.value)}
@@ -831,10 +1023,10 @@ export default function HousesPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Secretary Contact Phone</label>
+                  <label className="form-label">Secretary Contact Phone</label>
                   <input
                     type="text"
-                    className="input"
+                    className="input-field"
                     placeholder="e.g. +94771234567"
                     value={gnSecretaryContact}
                     onChange={(e) => setGnSecretaryContact(e.target.value)}
@@ -842,29 +1034,29 @@ export default function HousesPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Secretary Email</label>
+                  <label className="form-label">Secretary Email</label>
                   <input
                     type="email"
-                    className="input"
+                    className="input-field"
                     placeholder="e.g. secretary.gn101@grs.gov.lk"
                     value={gnSecretaryEmail}
                     onChange={(e) => setGnSecretaryEmail(e.target.value)}
                   />
                 </div>
+              </div>
 
-                <div className="flex justify-end gap-2 pt-4 border-t border-slate-800">
-                  <button type="button" onClick={() => setShowGnModal(false)} className="btn btn-secondary text-xs">
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={actionLoading} className="btn btn-primary text-xs">
-                    {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save Setup'}
-                  </button>
-                </div>
-              </form>
-            </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowGnModal(false)} className="btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={actionLoading} className="btn-primary">
+                  {actionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Save Setup'}
+                </button>
+              </div>
+            </form>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </Shell>
   );
 }

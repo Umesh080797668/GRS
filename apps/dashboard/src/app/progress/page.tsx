@@ -15,7 +15,11 @@ import {
   Users,
   Activity,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  Layers,
+  HeartHandshake,
+  ShieldAlert,
+  Accessibility,
 } from 'lucide-react';
 
 export default function ProgressPage() {
@@ -148,13 +152,33 @@ export default function ProgressPage() {
   return (
     <Shell>
       {/* Top Header / Actions */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '1.5rem',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
         <div>
-          <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', margin: 0 }}>
+          <h1
+            style={{
+              fontSize: '22px',
+              fontWeight: 700,
+              color: 'var(--slate-900)',
+              letterSpacing: '-0.02em',
+              margin: 0,
+            }}
+          >
             {t('progress.title')}
-          </h2>
-          <p style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
-            {t('progress.refreshed_at')}: <strong>{formatDate(refreshedAt)}</strong>
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--slate-500)', marginTop: '4px' }}>
+            {t('progress.refreshed_at')}:{' '}
+            <strong style={{ color: 'var(--slate-700)', fontWeight: 600 }}>
+              {formatDate(refreshedAt)}
+            </strong>
           </p>
         </div>
 
@@ -163,26 +187,54 @@ export default function ProgressPage() {
           disabled={refreshing}
           className="btn-secondary"
         >
-          <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
+          <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
           <span>{t('progress.refresh_btn')}</span>
         </button>
       </div>
 
       {error && (
-        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', color: '#dc2626', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <AlertTriangle size={18} />
+        <div
+          style={{
+            background: 'var(--danger-bg)',
+            border: '1px solid var(--danger-border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 16px',
+            color: 'var(--danger-text)',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '13.5px',
+          }}
+        >
+          <AlertTriangle size={18} style={{ flexShrink: 0 }} />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Area Scope Selector */}
-      <div className="glass-panel" style={{ padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
-          Select Scope:
+      {/* Scope Selector Bar */}
+      <div
+        style={{
+          background: '#ffffff',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-md)',
+          padding: '1rem 1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          gap: '12px',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          boxShadow: 'var(--shadow-xs)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--slate-700)' }}>
+          <Layers size={15} style={{ color: 'var(--primary)' }} />
+          <span>Select Scope:</span>
         </div>
+
         <select
-          className="input-field"
-          style={{ width: '180px' }}
+          className="select-field"
+          style={{ width: 'auto', minWidth: '180px', flex: '1 1 180px' }}
           value={selectedDistrict}
           onChange={(e) => handleDistrictChange(e.target.value)}
           disabled={user?.role === 'cdc_secretary'}
@@ -196,8 +248,8 @@ export default function ProgressPage() {
         </select>
 
         <select
-          className="input-field"
-          style={{ width: '180px' }}
+          className="select-field"
+          style={{ width: 'auto', minWidth: '180px', flex: '1 1 180px' }}
           value={selectedDs}
           onChange={(e) => handleDsChange(e.target.value)}
           disabled={!selectedDistrict || dsDivisions.length === 0 || user?.role === 'cdc_secretary'}
@@ -211,8 +263,8 @@ export default function ProgressPage() {
         </select>
 
         <select
-          className="input-field"
-          style={{ width: '180px' }}
+          className="select-field"
+          style={{ width: 'auto', minWidth: '180px', flex: '1 1 180px' }}
           value={selectedGn}
           onChange={(e) => setSelectedGn(e.target.value)}
           disabled={!selectedDs || gnDivisions.length === 0 || user?.role === 'cdc_secretary'}
@@ -226,81 +278,95 @@ export default function ProgressPage() {
         </select>
       </div>
 
-      {/* Sync Health Alert Banner (M5.7) */}
-      <div id="sync-health" style={{ marginBottom: '1.75rem' }}>
+      {/* Sync Health Banner (M5.7) */}
+      <div id="sync-health" style={{ marginBottom: '1.5rem' }}>
         {dirtyTeamsCount > 0 ? (
           <div
             style={{
-              background: '#fffbeb',
-              border: '1px solid #fde68a',
-              borderRadius: '12px',
-              padding: '16px 20px',
+              background: 'var(--warning-bg)',
+              border: '1px solid var(--warning-border)',
+              borderRadius: 'var(--radius-md)',
+              padding: '14px 18px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              boxShadow: 'var(--shadow-sm)',
+              gap: '1rem',
+              flexWrap: 'wrap',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div style={{ background: '#fef3c7', padding: '10px', borderRadius: '10px', color: '#d97706' }}>
-                <Activity size={24} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{
+                  background: '#fef3c7',
+                  padding: '8px',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--warning-text)',
+                  display: 'flex',
+                }}
+              >
+                <Activity size={20} />
               </div>
               <div>
-                <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#92400e', margin: 0 }}>
-                  {t('sync_health.dirty_teams')}: <span style={{ color: '#b45309' }}>{dirtyTeamsCount} Teams</span>
+                <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--warning-text)', margin: 0 }}>
+                  {t('sync_health.dirty_teams')}: {dirtyTeamsCount} Teams Pending Recomputation
                 </h4>
-                <p style={{ fontSize: '12px', color: '#a16207', margin: '4px 0 0 0' }}>
-                  Team progress statistics are pending recomputation in the current background cycle (stats_dirty_at). Rolled-up metrics will update automatically within 5 minutes.
+                <p style={{ fontSize: '12px', color: 'var(--warning-text)', margin: '2px 0 0 0', opacity: 0.9 }}>
+                  Field enumerations are pending rollup in the current background cycle (stats_dirty_at). Numbers refresh automatically within 5 minutes.
                 </p>
               </div>
             </div>
-            <span className="badge badge-warning" style={{ fontSize: '12px', padding: '6px 12px' }}>
-              Stats Recalculating
+            <span className="badge badge-warning">
+              Recalculating
             </span>
           </div>
         ) : (
           <div
             style={{
-              background: '#ecfdf5',
-              border: '1px solid #a7f3d0',
-              borderRadius: '12px',
-              padding: '14px 20px',
+              background: 'var(--success-bg)',
+              border: '1px solid var(--success-border)',
+              borderRadius: 'var(--radius-md)',
+              padding: '10px 16px',
               display: 'flex',
               alignItems: 'center',
-              gap: '12px',
+              gap: '10px',
             }}
           >
-            <div style={{ color: '#059669' }}>
-              <CheckCircle size={20} />
-            </div>
-            <div style={{ fontSize: '13px', color: '#065f46', fontWeight: 600 }}>
+            <CheckCircle size={17} style={{ color: 'var(--success)' }} />
+            <span style={{ fontSize: '13px', color: 'var(--success-text)', fontWeight: 600 }}>
               {t('sync_health.all_clean')}
-            </div>
+            </span>
           </div>
         )}
       </div>
 
-      {/* KPI Cards Grid (M5.6) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+      {/* Primary KPI Grid (M5.6) */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '1rem',
+          marginBottom: '1.5rem',
+        }}
+      >
         <KPICard
           title={t('progress.houses_assigned')}
           value={summary.housesAssigned.toLocaleString()}
           subtitle="Target campaign households"
-          icon={<Home size={22} />}
+          icon={<Home size={20} />}
           colorScheme="blue"
         />
         <KPICard
           title={t('progress.houses_started')}
           value={summary.housesStarted.toLocaleString()}
           subtitle="In-progress enumerations"
-          icon={<Clock size={22} />}
+          icon={<Clock size={20} />}
           colorScheme="amber"
         />
         <KPICard
           title={t('progress.houses_done')}
           value={summary.housesDone.toLocaleString()}
           subtitle="Fully finalized surveys"
-          icon={<CheckCircle size={22} />}
+          icon={<CheckCircle size={20} />}
           colorScheme="emerald"
         />
         <KPICard
@@ -308,76 +374,103 @@ export default function ProgressPage() {
           value={`${Number(summary.completionRate || 0).toFixed(1)}%`}
           subtitle="Completed vs Assigned ratio"
           progressPercent={Number(summary.completionRate || 0)}
-          icon={<TrendingUp size={22} />}
-          colorScheme="purple"
+          icon={<TrendingUp size={20} />}
+          colorScheme="blue"
         />
         <KPICard
           title={t('progress.clients_surveyed')}
           value={summary.clientsCount.toLocaleString()}
           subtitle="Total citizens registered"
-          icon={<Users size={22} />}
-          colorScheme="blue"
+          icon={<Users size={20} />}
+          colorScheme="emerald"
         />
       </div>
 
-      {/* Beneficiary Breakdown Indicators */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-        <div className="glass-panel" style={{ padding: '1rem', borderRadius: '10px' }}>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
-            {t('progress.epf_etf')}
+      {/* Welfare & Beneficiary Breakdown Indicators */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+          gap: '1rem',
+          marginBottom: '1.75rem',
+        }}
+      >
+        <div className="panel" style={{ padding: '1rem 1.125rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '12px', color: 'var(--slate-500)', fontWeight: 500 }}>
+              {t('progress.epf_etf')}
+            </span>
+            <ShieldAlert size={16} style={{ color: 'var(--primary)', opacity: 0.8 }} />
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#1e3a8a', marginTop: '4px' }}>
+          <div className="tabular-nums" style={{ fontSize: '22px', fontWeight: 700, color: 'var(--slate-900)', marginTop: '6px' }}>
             {((summary.epfCount || 0) + (summary.etfCount || 0)).toLocaleString()}
           </div>
         </div>
-        <div className="glass-panel" style={{ padding: '1rem', borderRadius: '10px' }}>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
-            {t('progress.aswesuma')}
+
+        <div className="panel" style={{ padding: '1rem 1.125rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '12px', color: 'var(--slate-500)', fontWeight: 500 }}>
+              {t('progress.aswesuma')}
+            </span>
+            <HeartHandshake size={16} style={{ color: 'var(--success)', opacity: 0.8 }} />
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#059669', marginTop: '4px' }}>
+          <div className="tabular-nums" style={{ fontSize: '22px', fontWeight: 700, color: 'var(--slate-900)', marginTop: '6px' }}>
             {(summary.aswesumaCount || 0).toLocaleString()}
           </div>
         </div>
-        <div className="glass-panel" style={{ padding: '1rem', borderRadius: '10px' }}>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
-            {t('progress.samurdhi')}
+
+        <div className="panel" style={{ padding: '1rem 1.125rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '12px', color: 'var(--slate-500)', fontWeight: 500 }}>
+              {t('progress.samurdhi')}
+            </span>
+            <HeartHandshake size={16} style={{ color: 'var(--warning)', opacity: 0.8 }} />
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#d97706', marginTop: '4px' }}>
+          <div className="tabular-nums" style={{ fontSize: '22px', fontWeight: 700, color: 'var(--slate-900)', marginTop: '6px' }}>
             {(summary.samurdhiCount || 0).toLocaleString()}
           </div>
         </div>
-        <div className="glass-panel" style={{ padding: '1rem', borderRadius: '10px' }}>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
-            {t('progress.special_needs')}
+
+        <div className="panel" style={{ padding: '1rem 1.125rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '12px', color: 'var(--slate-500)', fontWeight: 500 }}>
+              {t('progress.special_needs')}
+            </span>
+            <Accessibility size={16} style={{ color: '#7c3aed', opacity: 0.8 }} />
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#7c3aed', marginTop: '4px' }}>
+          <div className="tabular-nums" style={{ fontSize: '22px', fontWeight: 700, color: 'var(--slate-900)', marginTop: '6px' }}>
             {(summary.specialNeedsCount || 0).toLocaleString()}
           </div>
         </div>
       </div>
 
       {/* Regional Progress Breakdown Table (M5.6) */}
-      <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '14px' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '1rem' }}>
-          {t('progress.breakdown_title')}
-        </h3>
+      <div className="panel" style={{ padding: '1.25rem 1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--slate-900)', margin: 0 }}>
+            {t('progress.breakdown_title')}
+          </h2>
+          <span style={{ fontSize: '12px', color: 'var(--slate-500)' }}>
+            {breakdown.length} region(s) reported
+          </span>
+        </div>
 
         <div className="table-container">
           <table className="data-table">
             <thead>
               <tr>
                 <th>Administrative Area / Sub-Division</th>
-                <th>Assigned Houses</th>
-                <th>Started</th>
-                <th>Completed</th>
-                <th>Completion Rate</th>
-                <th>Surveyed Persons</th>
+                <th className="numeric">Assigned Houses</th>
+                <th className="numeric">Started</th>
+                <th className="numeric">Completed</th>
+                <th style={{ minWidth: '150px' }}>Completion Rate</th>
+                <th className="numeric">Surveyed Persons</th>
               </tr>
             </thead>
             <tbody>
               {breakdown.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>
+                  <td colSpan={6} style={{ textAlign: 'center', color: 'var(--slate-400)', padding: '2.5rem 1rem' }}>
                     {loading ? 'Loading live metrics from database...' : 'No regional breakdown metrics recorded yet.'}
                   </td>
                 </tr>
@@ -386,26 +479,50 @@ export default function ProgressPage() {
                   const rate = Number(row.completionRate || 0);
                   return (
                     <tr key={idx}>
-                      <td style={{ fontWeight: 600, color: '#0f172a' }}>
+                      <td style={{ fontWeight: 600, color: 'var(--slate-900)' }}>
                         {row.name}
-                        {row.nameSi && <span style={{ fontSize: '11px', color: '#64748b', marginLeft: '6px' }}>({row.nameSi})</span>}
+                        {row.nameSi && (
+                          <span style={{ fontSize: '12px', color: 'var(--slate-500)', marginLeft: '6px', fontWeight: 400 }}>
+                            ({row.nameSi})
+                          </span>
+                        )}
                       </td>
-                      <td>{(row.housesAssigned || 0).toLocaleString()}</td>
-                      <td>{(row.housesStarted || 0).toLocaleString()}</td>
-                      <td>
+                      <td className="numeric">{(row.housesAssigned || 0).toLocaleString()}</td>
+                      <td className="numeric">{(row.housesStarted || 0).toLocaleString()}</td>
+                      <td className="numeric">
                         <span className="badge badge-success">
                           {(row.housesDone || 0).toLocaleString()}
                         </span>
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ width: '80px', height: '6px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                            <div style={{ width: `${Math.min(rate, 100)}%`, height: '100%', background: '#2563eb' }} />
+                          <div
+                            style={{
+                              flex: 1,
+                              maxWidth: '90px',
+                              height: '5px',
+                              background: 'var(--slate-100)',
+                              borderRadius: 'var(--radius-full)',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: `${Math.min(rate, 100)}%`,
+                                height: '100%',
+                                background: rate >= 100 ? 'var(--success)' : 'var(--primary)',
+                                borderRadius: 'var(--radius-full)',
+                              }}
+                            />
                           </div>
-                          <span style={{ fontSize: '12px', fontWeight: 600 }}>{rate.toFixed(1)}%</span>
+                          <span className="tabular-nums" style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--slate-700)' }}>
+                            {rate.toFixed(1)}%
+                          </span>
                         </div>
                       </td>
-                      <td style={{ fontWeight: 600 }}>{(row.clientsCount || 0).toLocaleString()}</td>
+                      <td className="numeric" style={{ fontWeight: 600 }}>
+                        {(row.clientsCount || 0).toLocaleString()}
+                      </td>
                     </tr>
                   );
                 })

@@ -15,6 +15,8 @@ import {
   Loader2,
   Settings,
   AlertCircle,
+  X,
+  Plus,
 } from 'lucide-react';
 
 export default function AreasPage() {
@@ -287,26 +289,43 @@ export default function AreasPage() {
 
   return (
     <Shell activePath="/areas">
-      {/* Title & Actions */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+      {/* Title & Actions Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '1.5rem',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
         <div>
-          <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', margin: 0 }}>
+          <h1
+            style={{
+              fontSize: '22px',
+              fontWeight: 700,
+              color: 'var(--slate-900)',
+              letterSpacing: '-0.02em',
+              margin: 0,
+            }}
+          >
             {t('areas.title')}
-          </h2>
-          <p style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--slate-500)', marginTop: '4px' }}>
             Administrative boundaries, team allocations, capacity limits, and system releases (Level 00).
           </p>
         </div>
 
         {isSuperAdmin && (
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <button onClick={handleOpenConfigModal} className="btn-secondary">
-              <Settings size={16} />
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button type="button" onClick={handleOpenConfigModal} className="btn-secondary">
+              <Settings size={15} />
               <span>{t('areas.system_config')}</span>
             </button>
 
-            <button onClick={() => setShowPilotImport(true)} className="btn-primary">
-              <Upload size={16} />
+            <button type="button" onClick={() => setShowPilotImport(true)} className="btn-primary">
+              <Upload size={15} />
               <span>{t('areas.import_pilot')}</span>
             </button>
           </div>
@@ -314,105 +333,188 @@ export default function AreasPage() {
       </div>
 
       {errorBanner && (
-        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', color: '#dc2626', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <AlertCircle size={18} />
+        <div
+          style={{
+            background: 'var(--danger-bg)',
+            border: '1px solid var(--danger-border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 16px',
+            color: 'var(--danger-text)',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '13.5px',
+          }}
+        >
+          <AlertCircle size={18} style={{ flexShrink: 0 }} />
           <span>{errorBanner}</span>
         </div>
       )}
 
       {successBanner && (
-        <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px', padding: '12px 16px', color: '#059669', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <CheckCircle size={18} />
+        <div
+          style={{
+            background: 'var(--success-bg)',
+            border: '1px solid var(--success-border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 16px',
+            color: 'var(--success-text)',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '13.5px',
+          }}
+        >
+          <CheckCircle size={18} style={{ flexShrink: 0 }} />
           <span>{successBanner}</span>
         </div>
       )}
 
       {/* 4-Column Geographic Hierarchy View (M5.3) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
-        {/* Districts */}
-        <div className="glass-panel" style={{ padding: '1.25rem', borderRadius: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
-            <MapPin size={18} color="#2563eb" />
-            <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>{t('areas.districts')} ({districts.length})</h3>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gap: '1.125rem',
+          marginBottom: '2rem',
+        }}
+      >
+        {/* Column 1: Districts */}
+        <div className="panel" style={{ padding: '1.125rem', display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingBottom: '0.75rem',
+              borderBottom: '1px solid var(--slate-100)',
+              marginBottom: '0.75rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <MapPin size={17} style={{ color: 'var(--primary)' }} />
+              <h3 style={{ fontSize: '14px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                {t('areas.districts')}
+              </h3>
+            </div>
+            <span className="badge badge-neutral">{districts.length}</span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '450px', overflowY: 'auto' }}>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '480px', overflowY: 'auto' }}>
             {districts.map((d) => {
               const isSelected = selectedDistrictId === d.id;
               return (
                 <button
                   key={d.id}
+                  type="button"
                   onClick={() => handleDistrictChange(d.id)}
                   style={{
-                    padding: '10px 14px',
-                    borderRadius: '8px',
+                    padding: '9px 12px',
+                    borderRadius: 'var(--radius-sm)',
                     border: '1px solid',
-                    borderColor: isSelected ? '#3b82f6' : '#e2e8f0',
-                    background: isSelected ? '#eff6ff' : '#ffffff',
-                    color: isSelected ? '#1e40af' : '#0f172a',
-                    fontWeight: isSelected ? 700 : 500,
+                    borderColor: isSelected ? 'var(--primary)' : 'transparent',
+                    background: isSelected ? 'var(--primary-subtle)' : 'transparent',
+                    color: isSelected ? 'var(--primary-text)' : 'var(--slate-700)',
+                    fontWeight: isSelected ? 600 : 500,
                     textAlign: 'left',
                     cursor: 'pointer',
                     fontSize: '13px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    transition: 'all 0.12s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected) e.currentTarget.style.background = 'var(--slate-100)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected) e.currentTarget.style.background = 'transparent';
                   }}
                 >
                   <span>{d.nameEn || d.name}</span>
-                  {isSelected && <CheckCircle size={14} color="#2563eb" />}
+                  {isSelected && <CheckCircle size={14} style={{ color: 'var(--primary)' }} />}
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* DS Divisions */}
-        <div className="glass-panel" style={{ padding: '1.25rem', borderRadius: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        {/* Column 2: DS Divisions */}
+        <div className="panel" style={{ padding: '1.125rem', display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingBottom: '0.75rem',
+              borderBottom: '1px solid var(--slate-100)',
+              marginBottom: '0.75rem',
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Layers size={18} color="#059669" />
-              <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>{t('areas.ds_divisions')} ({dsDivisions.length})</h3>
+              <Layers size={17} style={{ color: 'var(--success)' }} />
+              <h3 style={{ fontSize: '14px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                {t('areas.ds_divisions')}
+              </h3>
             </div>
-            {isSuperAdmin && (
-              <button
-                onClick={() => setShowDsModal(true)}
-                disabled={!selectedDistrictId}
-                className="btn-secondary"
-                style={{ padding: '4px 8px', fontSize: '11px' }}
-                title="Add DS Division"
-              >
-                + Add DS
-              </button>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span className="badge badge-neutral">{dsDivisions.length}</span>
+              {isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setShowDsModal(true)}
+                  disabled={!selectedDistrictId}
+                  className="btn-secondary"
+                  style={{ padding: '2px 7px', fontSize: '11px', height: '24px' }}
+                  title="Add DS Division"
+                >
+                  <Plus size={12} />
+                  <span>DS</span>
+                </button>
+              )}
+            </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '450px', overflowY: 'auto' }}>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '480px', overflowY: 'auto' }}>
             {dsDivisions.length === 0 ? (
-              <div style={{ color: '#94a3b8', fontSize: '13px', padding: '1rem', textAlign: 'center' }}>No DS Divisions</div>
+              <div style={{ color: 'var(--slate-400)', fontSize: '13px', padding: '1.5rem', textAlign: 'center' }}>
+                No DS Divisions
+              </div>
             ) : (
               dsDivisions.map((ds) => {
                 const isSelected = selectedDsId === ds.id;
                 return (
                   <button
                     key={ds.id}
+                    type="button"
                     onClick={() => handleDsChange(ds.id)}
                     style={{
-                      padding: '10px 14px',
-                      borderRadius: '8px',
+                      padding: '9px 12px',
+                      borderRadius: 'var(--radius-sm)',
                       border: '1px solid',
-                      borderColor: isSelected ? '#10b981' : '#e2e8f0',
-                      background: isSelected ? '#ecfdf5' : '#ffffff',
-                      color: isSelected ? '#065f46' : '#0f172a',
-                      fontWeight: isSelected ? 700 : 500,
+                      borderColor: isSelected ? 'var(--success-border)' : 'transparent',
+                      background: isSelected ? 'var(--success-bg)' : 'transparent',
+                      color: isSelected ? 'var(--success-text)' : 'var(--slate-700)',
+                      fontWeight: isSelected ? 600 : 500,
                       textAlign: 'left',
                       cursor: 'pointer',
                       fontSize: '13px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      transition: 'all 0.12s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) e.currentTarget.style.background = 'var(--slate-100)';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) e.currentTarget.style.background = 'transparent';
                     }}
                   >
                     <span>{ds.nameEn || ds.name}</span>
-                    {isSelected && <CheckCircle size={14} color="#059669" />}
+                    {isSelected && <CheckCircle size={14} style={{ color: 'var(--success)' }} />}
                   </button>
                 );
               })
@@ -420,56 +522,87 @@ export default function AreasPage() {
           </div>
         </div>
 
-        {/* GN Divisions */}
-        <div className="glass-panel" style={{ padding: '1.25rem', borderRadius: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        {/* Column 3: GN Divisions */}
+        <div className="panel" style={{ padding: '1.125rem', display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingBottom: '0.75rem',
+              borderBottom: '1px solid var(--slate-100)',
+              marginBottom: '0.75rem',
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <MapPin size={18} color="#d97706" />
-              <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>{t('areas.gn_divisions')} ({gnDivisions.length})</h3>
+              <MapPin size={17} style={{ color: 'var(--warning)' }} />
+              <h3 style={{ fontSize: '14px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                {t('areas.gn_divisions')}
+              </h3>
             </div>
-            {isSuperAdmin && (
-              <button
-                onClick={() => setShowGnModal(true)}
-                disabled={!selectedDsId}
-                className="btn-secondary"
-                style={{ padding: '4px 8px', fontSize: '11px' }}
-                title="Add GN Division"
-              >
-                + Add GN
-              </button>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span className="badge badge-neutral">{gnDivisions.length}</span>
+              {isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setShowGnModal(true)}
+                  disabled={!selectedDsId}
+                  className="btn-secondary"
+                  style={{ padding: '2px 7px', fontSize: '11px', height: '24px' }}
+                  title="Add GN Division"
+                >
+                  <Plus size={12} />
+                  <span>GN</span>
+                </button>
+              )}
+            </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '450px', overflowY: 'auto' }}>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '480px', overflowY: 'auto' }}>
             {gnDivisions.length === 0 ? (
-              <div style={{ color: '#94a3b8', fontSize: '13px', padding: '1rem', textAlign: 'center' }}>No GN Divisions</div>
+              <div style={{ color: 'var(--slate-400)', fontSize: '13px', padding: '1.5rem', textAlign: 'center' }}>
+                No GN Divisions
+              </div>
             ) : (
               gnDivisions.map((gn) => {
                 const isSelected = selectedGnId === gn.id;
                 return (
                   <button
                     key={gn.id}
+                    type="button"
                     onClick={() => handleGnChange(gn.id)}
                     style={{
-                      padding: '10px 14px',
-                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-sm)',
                       border: '1px solid',
-                      borderColor: isSelected ? '#f59e0b' : '#e2e8f0',
-                      background: isSelected ? '#fffbeb' : '#ffffff',
-                      color: isSelected ? '#92400e' : '#0f172a',
-                      fontWeight: isSelected ? 700 : 500,
+                      borderColor: isSelected ? 'var(--warning-border)' : 'transparent',
+                      background: isSelected ? 'var(--warning-bg)' : 'transparent',
+                      color: isSelected ? 'var(--warning-text)' : 'var(--slate-700)',
+                      fontWeight: isSelected ? 600 : 500,
                       textAlign: 'left',
                       cursor: 'pointer',
                       fontSize: '13px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      transition: 'all 0.12s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) e.currentTarget.style.background = 'var(--slate-100)';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) e.currentTarget.style.background = 'transparent';
                     }}
                   >
                     <div>
-                      <div>{gn.nameEn || gn.name}</div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>GN No: {gn.gnNumber || gn.code || '-'}</div>
+                      <div style={{ color: isSelected ? 'var(--warning-text)' : 'var(--slate-900)' }}>
+                        {gn.nameEn || gn.name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--slate-500)', marginTop: '1px' }}>
+                        GN No: {gn.gnNumber || gn.code || '—'}
+                      </div>
                     </div>
-                    {isSelected && <CheckCircle size={14} color="#d97706" />}
+                    {isSelected && <CheckCircle size={14} style={{ color: 'var(--warning)' }} />}
                   </button>
                 );
               })
@@ -477,28 +610,47 @@ export default function AreasPage() {
           </div>
         </div>
 
-        {/* Field Teams with Limits (M5.3) */}
-        <div className="glass-panel" style={{ padding: '1.25rem', borderRadius: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        {/* Column 4: Field Teams with Limits (M5.3) */}
+        <div className="panel" style={{ padding: '1.125rem', display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingBottom: '0.75rem',
+              borderBottom: '1px solid var(--slate-100)',
+              marginBottom: '0.75rem',
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Users size={18} color="#7c3aed" />
-              <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>{t('areas.teams')} ({teams.length})</h3>
+              <Users size={17} style={{ color: '#7c3aed' }} />
+              <h3 style={{ fontSize: '14px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                {t('areas.teams')}
+              </h3>
             </div>
-            {isSuperAdmin && (
-              <button
-                onClick={() => setShowTeamModal(true)}
-                disabled={!selectedGnId}
-                className="btn-secondary"
-                style={{ padding: '4px 8px', fontSize: '11px' }}
-                title="Add Field Team"
-              >
-                + Add Team
-              </button>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span className="badge badge-neutral">{teams.length}</span>
+              {isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setShowTeamModal(true)}
+                  disabled={!selectedGnId}
+                  className="btn-secondary"
+                  style={{ padding: '2px 7px', fontSize: '11px', height: '24px' }}
+                  title="Add Field Team"
+                >
+                  <Plus size={12} />
+                  <span>Team</span>
+                </button>
+              )}
+            </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '450px', overflowY: 'auto' }}>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '480px', overflowY: 'auto' }}>
             {teams.length === 0 ? (
-              <div style={{ color: '#94a3b8', fontSize: '13px', padding: '1rem', textAlign: 'center' }}>No Teams in this GN</div>
+              <div style={{ color: 'var(--slate-400)', fontSize: '13px', padding: '1.5rem', textAlign: 'center' }}>
+                No Teams in this GN
+              </div>
             ) : (
               teams.map((tm) => {
                 const active = tm.activeMembers || tm.active_members || 0;
@@ -508,35 +660,45 @@ export default function AreasPage() {
                   <div
                     key={tm.id}
                     style={{
-                      padding: '12px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid #e2e8f0',
-                      background: '#ffffff',
+                      padding: '10px 12px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-subtle)',
+                      background: 'var(--slate-50)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      gap: '8px',
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '14px', color: '#0f172a' }}>
-                        {tm.name || tm.teamCode}
+                      <div style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--slate-900)' }}>
+                        {tm.name || tm.teamCode || `Team ${tm.teamNo}`}
                       </div>
-                      <div style={{ fontSize: '12px', color: isFull ? '#dc2626' : '#059669', marginTop: '2px', fontWeight: 600 }}>
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          color: isFull ? 'var(--danger-text)' : 'var(--success-text)',
+                          marginTop: '2px',
+                          fontWeight: 500,
+                        }}
+                      >
                         Capacity: {active} / {limit} Members
                       </div>
                     </div>
 
                     {isSuperAdmin && (
                       <button
+                        type="button"
                         onClick={() => {
                           setEditingTeam(tm);
                           setNewTeamLimit(limit);
                         }}
                         className="btn-secondary"
-                        style={{ padding: '6px 10px', fontSize: '11px' }}
+                        style={{ padding: '5px 8px', fontSize: '11px' }}
+                        title="Edit team capacity limit"
                       >
                         <Edit2 size={12} />
-                        <span>Edit Limit</span>
+                        <span>Limit</span>
                       </button>
                     )}
                   </div>
@@ -549,15 +711,27 @@ export default function AreasPage() {
 
       {/* Pilot Area CSV Import Modal */}
       {showPilotImport && (
-        <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '640px' }}>
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>{t('areas.import_pilot')}</h3>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>
-                Required headers: district,ds_division,gn_division,gn_number,initial_teams
-              </p>
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '620px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                  {t('areas.import_pilot')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '3px 0 0 0' }}>
+                  Required headers: district,ds_division,gn_division,gn_number,initial_teams
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPilotImport(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
             </div>
-            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <textarea
                 className="input-field"
                 rows={6}
@@ -567,19 +741,19 @@ export default function AreasPage() {
               />
 
               {importResult && (
-                <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '10px 14px', borderRadius: '8px', fontSize: '12px', color: '#065f46' }}>
+                <div style={{ background: 'var(--success-bg)', border: '1px solid var(--success-border)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', color: 'var(--success-text)' }}>
                   Successfully processed pilot area hierarchy!
                 </div>
               )}
+            </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button onClick={() => setShowPilotImport(false)} className="btn-secondary">
-                  Close
-                </button>
-                <button onClick={handleImportPilotCsv} disabled={importing} className="btn-primary">
-                  {importing ? <Loader2 size={16} className="animate-spin" /> : 'Run Pilot Import'}
-                </button>
-              </div>
+            <div className="modal-footer">
+              <button type="button" onClick={() => setShowPilotImport(false)} className="btn-secondary">
+                Close
+              </button>
+              <button type="button" onClick={handleImportPilotCsv} disabled={importing} className="btn-primary">
+                {importing ? <Loader2 size={16} className="animate-spin" /> : 'Run Pilot Import'}
+              </button>
             </div>
           </div>
         </div>
@@ -587,18 +761,30 @@ export default function AreasPage() {
 
       {/* Edit Team Limit Modal */}
       {editingTeam && (
-        <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '400px' }}>
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Edit Member Limit</h3>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
-                Team: {editingTeam.name || editingTeam.teamCode}
-              </p>
-            </div>
-            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>
-                  Max Active Members
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                  Edit Member Capacity
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
+                  Team: {editingTeam.name || editingTeam.teamCode || `Team ${editingTeam.teamNo}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingTeam(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label className="form-label">
+                  Max Active Members *
                 </label>
                 <input
                   type="number"
@@ -609,73 +795,88 @@ export default function AreasPage() {
                   onChange={(e) => setNewTeamLimit(parseInt(e.target.value) || 1)}
                 />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button onClick={() => setEditingTeam(null)} className="btn-secondary">
-                  Cancel
-                </button>
-                <button onClick={handleSaveTeamLimit} className="btn-primary">
-                  Save Limit
-                </button>
-              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button type="button" onClick={() => setEditingTeam(null)} className="btn-secondary">
+                Cancel
+              </button>
+              <button type="button" onClick={handleSaveTeamLimit} className="btn-primary">
+                Save Capacity
+              </button>
             </div>
           </div>
         </div>
       )}
+
       {/* Create DS Division Modal */}
       {showDsModal && (
-        <div className="modal-backdrop">
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
           <div className="modal-content" style={{ maxWidth: '480px' }}>
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Create DS Division</h3>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
-                District: {districts.find((d) => d.id === selectedDistrictId)?.nameEn || selectedDistrictId}
-              </p>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                  Create DS Division
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
+                  District: {districts.find((d) => d.id === selectedDistrictId)?.nameEn || selectedDistrictId}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDsModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
             </div>
-            <form onSubmit={handleCreateDs} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>English Name *</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. Kandy Four Gravets"
-                  value={dsNameEn}
-                  onChange={(e) => setDsNameEn(e.target.value)}
-                  required
-                />
+            <form onSubmit={handleCreateDs}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label className="form-label">English Name *</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. Kandy Four Gravets"
+                    value={dsNameEn}
+                    onChange={(e) => setDsNameEn(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Sinhala Name *</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. මහනුවර කඩවත් සතර"
+                    value={dsNameSi}
+                    onChange={(e) => setDsNameSi(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Tamil Name *</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. கண்டி கடவத் சதர"
+                    value={dsNameTa}
+                    onChange={(e) => setDsNameTa(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label">SDO Officer Name (Optional)</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. A.B. Senanayake"
+                    value={dsSdoName}
+                    onChange={(e) => setDsSdoName(e.target.value)}
+                  />
+                </div>
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Sinhala Name *</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. මහනුවර කඩවත් සතර"
-                  value={dsNameSi}
-                  onChange={(e) => setDsNameSi(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Tamil Name *</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. கண்டி கடவத் சதர"
-                  value={dsNameTa}
-                  onChange={(e) => setDsNameTa(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>SDO Officer Name (Optional)</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. A.B. Senanayake"
-                  value={dsSdoName}
-                  onChange={(e) => setDsSdoName(e.target.value)}
-                />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+              <div className="modal-footer">
                 <button type="button" onClick={() => setShowDsModal(false)} className="btn-secondary">
                   Cancel
                 </button>
@@ -690,68 +891,81 @@ export default function AreasPage() {
 
       {/* Create GN Division Modal */}
       {showGnModal && (
-        <div className="modal-backdrop">
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
           <div className="modal-content" style={{ maxWidth: '480px' }}>
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Create GN Division</h3>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
-                DS Division: {dsDivisions.find((ds) => ds.id === selectedDsId)?.nameEn || selectedDsId}
-              </p>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                  Create GN Division
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
+                  DS Division: {dsDivisions.find((ds) => ds.id === selectedDsId)?.nameEn || selectedDsId}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowGnModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
             </div>
-            <form onSubmit={handleCreateGn} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>GN Number / Code *</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. 101/A"
-                  value={gnNumber}
-                  onChange={(e) => setGnNumber(e.target.value)}
-                  required
-                />
+            <form onSubmit={handleCreateGn}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label className="form-label">GN Number / Code *</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. 101/A"
+                    value={gnNumber}
+                    onChange={(e) => setGnNumber(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label">GN Division Name *</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. Pallekele East"
+                    value={gnName}
+                    onChange={(e) => setGnName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Secretary Name (Optional)</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. K.M. Disanayake"
+                    value={gnSecName}
+                    onChange={(e) => setGnSecName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Secretary Phone (Optional)</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. +94771234567"
+                    value={gnSecContact}
+                    onChange={(e) => setGnSecContact(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Secretary Email (Optional)</label>
+                  <input
+                    type="email"
+                    className="input-field"
+                    placeholder="e.g. sec.gn101@grs.gov.lk"
+                    value={gnSecEmail}
+                    onChange={(e) => setGnSecEmail(e.target.value)}
+                  />
+                </div>
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>GN Division Name *</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. Pallekele East"
-                  value={gnName}
-                  onChange={(e) => setGnName(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Secretary Name (Optional)</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. K.M. Disanayake"
-                  value={gnSecName}
-                  onChange={(e) => setGnSecName(e.target.value)}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Secretary Phone (Optional)</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. +94771234567"
-                  value={gnSecContact}
-                  onChange={(e) => setGnSecContact(e.target.value)}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Secretary Email (Optional)</label>
-                <input
-                  type="email"
-                  className="input-field"
-                  placeholder="e.g. sec.gn101@grs.gov.lk"
-                  value={gnSecEmail}
-                  onChange={(e) => setGnSecEmail(e.target.value)}
-                />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+              <div className="modal-footer">
                 <button type="button" onClick={() => setShowGnModal(false)} className="btn-secondary">
                   Cancel
                 </button>
@@ -766,40 +980,53 @@ export default function AreasPage() {
 
       {/* Create Team Modal */}
       {showTeamModal && (
-        <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '400px' }}>
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Create Field Team</h3>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
-                GN: {gnDivisions.find((g) => g.id === selectedGnId)?.nameEn || selectedGnId}
-              </p>
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                  Create Field Team
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
+                  GN: {gnDivisions.find((g) => g.id === selectedGnId)?.nameEn || selectedGnId}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTeamModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
             </div>
-            <form onSubmit={handleCreateTeam} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Team Number *</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="999"
-                  className="input-field"
-                  value={teamNo}
-                  onChange={(e) => setTeamNo(parseInt(e.target.value) || 1)}
-                  required
-                />
+            <form onSubmit={handleCreateTeam}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label className="form-label">Team Number *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="999"
+                    className="input-field"
+                    value={teamNo}
+                    onChange={(e) => setTeamNo(parseInt(e.target.value) || 1)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Member Capacity Limit *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    className="input-field"
+                    value={teamMaxMembers}
+                    onChange={(e) => setTeamMaxMembers(parseInt(e.target.value) || 10)}
+                    required
+                  />
+                </div>
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Member Capacity Limit *</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  className="input-field"
-                  value={teamMaxMembers}
-                  onChange={(e) => setTeamMaxMembers(parseInt(e.target.value) || 10)}
-                  required
-                />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
+              <div className="modal-footer">
                 <button type="button" onClick={() => setShowTeamModal(false)} className="btn-secondary">
                   Cancel
                 </button>
@@ -814,72 +1041,87 @@ export default function AreasPage() {
 
       {/* System Config & Releases Modal */}
       {showConfigModal && (
-        <div className="modal-backdrop">
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
           <div className="modal-content" style={{ maxWidth: '520px' }}>
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>System Configuration & Releases</h3>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
-                Publish minimum app versions (HTTP 426 enforcement) and adjust synchronization parameters.
-              </p>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                  System Configuration & Releases
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
+                  Publish minimum app versions (HTTP 426 enforcement) and adjust synchronization parameters.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowConfigModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
             </div>
-            <form onSubmit={handleSaveConfig} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                  Minimum App Version (Enforces Upgrade Required on Older Apps)
-                </label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. 1.0.0"
-                  value={configMinVersion}
-                  onChange={(e) => setConfigMinVersion(e.target.value)}
-                  required
-                />
-              </div>
+            <form onSubmit={handleSaveConfig}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label className="form-label">
+                    Minimum App Version (Enforces Upgrade Required on Older Apps) *
+                  </label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. 1.0.0"
+                    value={configMinVersion}
+                    onChange={(e) => setConfigMinVersion(e.target.value)}
+                    required
+                  />
+                </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                  Client Sync Jitter Window (Seconds)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="300"
-                  className="input-field"
-                  value={configJitter}
-                  onChange={(e) => setConfigJitter(parseInt(e.target.value) || 0)}
-                  required
-                />
-              </div>
+                <div>
+                  <label className="form-label">
+                    Client Sync Jitter Window (Seconds) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="300"
+                    className="input-field"
+                    value={configJitter}
+                    onChange={(e) => setConfigJitter(parseInt(e.target.value) || 0)}
+                    required
+                  />
+                </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>
-                  Roles Authorized for Direct Web Entry (Decision C19)
-                </label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px' }}>
-                  {['super_admin', 'admin', 'dc', 'sda', 'cdc_secretary'].map((r) => (
-                    <label key={r} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={configWebRoles.includes(r)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setConfigWebRoles([...configWebRoles, r]);
-                          } else {
-                            setConfigWebRoles(configWebRoles.filter((item) => item !== r));
-                          }
-                        }}
-                      />
-                      <span style={{ textTransform: 'capitalize' }}>{r.replace('_', ' ')}</span>
-                      {r === 'super_admin' && (
-                        <span style={{ fontSize: '11px', color: '#94a3b8' }}>(Disabled by default per C19)</span>
-                      )}
-                    </label>
-                  ))}
+                <div>
+                  <label className="form-label">
+                    Roles Authorized for Direct Web Entry (Decision C19)
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', marginTop: '4px' }}>
+                    {['super_admin', 'admin', 'dc', 'sda', 'cdc_secretary'].map((r) => (
+                      <label key={r} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={configWebRoles.includes(r)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setConfigWebRoles([...configWebRoles, r]);
+                            } else {
+                              setConfigWebRoles(configWebRoles.filter((item) => item !== r));
+                            }
+                          }}
+                        />
+                        <span style={{ textTransform: 'capitalize', color: 'var(--slate-700)' }}>
+                          {r.replace('_', ' ')}
+                        </span>
+                        {r === 'super_admin' && (
+                          <span style={{ fontSize: '11px', color: 'var(--slate-400)' }}>(Disabled by default per C19)</span>
+                        )}
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem' }}>
+              <div className="modal-footer">
                 <button type="button" onClick={() => setShowConfigModal(false)} className="btn-secondary">
                   Cancel
                 </button>
