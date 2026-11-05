@@ -10,6 +10,7 @@ export interface AppConfig {
   apkDownloadUrl: string;
   initialPasswordTtlDays: number;
   webEntryRoles: string[];
+  consentVersion: string;
   features: {
     webDataEntry: boolean;
   };
@@ -17,7 +18,7 @@ export interface AppConfig {
 
 @Injectable()
 export class AppConfigService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Returns current application configuration including sync pacing and version gates.
@@ -55,6 +56,10 @@ export class AppConfigService {
     const webEntryRoles = Array.isArray(webRolesSetting)
       ? webRolesSetting
       : ['cdc_secretary', 'sda', 'dc', 'admin'];
+    const consentVerSetting = await this.getSetting(
+      'consent_version',
+      'consent.v0',
+    );
 
     return {
       minSupportedVersion: String(minVerSetting),
@@ -65,11 +70,20 @@ export class AppConfigService {
       apkDownloadUrl: String(apkUrlSetting),
       initialPasswordTtlDays: Number(ttlDaysSetting),
       webEntryRoles,
+      consentVersion: String(consentVerSetting),
       features: {
         webDataEntry:
           Boolean(webEntrySetting) || webEntryRoles.includes('super_admin'),
       },
     };
+  }
+
+  /**
+   * Returns current consent version string setting.
+   */
+  async getConsentVersion(): Promise<string> {
+    const val = await this.getSetting('consent_version', 'consent.v0');
+    return String(val);
   }
 
   /**

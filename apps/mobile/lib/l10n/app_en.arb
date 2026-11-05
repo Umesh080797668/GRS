@@ -164,6 +164,8 @@
   "@downloadingArea": {},
   "downloadFailed": "Failed to download area data. Please check network and try again.",
   "@downloadFailed": {},
+  "areaDataLoadedSuccess": "Area data loaded successfully.",
+  "@areaDataLoadedSuccess": {},
   "searchHouseHint": "Search by House No. or Leader name",
   "@searchHouseHint": {},
   "filterAll": "All Houses",

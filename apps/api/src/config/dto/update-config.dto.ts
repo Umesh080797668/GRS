@@ -88,7 +88,15 @@ export class UpdateConfigDto {
   })
   web_entry_roles?: string[];
 
+  @ApiPropertyOptional({ example: 'consent.v0' })
+  @IsOptional()
+  @IsString()
+  consent_version?: string;
+
   // CamelCase equivalents for convenience
+  @IsOptional()
+  @IsString()
+  consentVersion?: string;
   @IsOptional()
   @IsString()
   @Matches(SEMVER_REGEX)

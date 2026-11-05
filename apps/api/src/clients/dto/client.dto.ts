@@ -120,9 +120,9 @@ export class CreateClientDto {
   consentAt?: string;
 
   @IsString()
-  @IsOptional()
+  @IsNotEmpty({ message: 'consentVersion is required' })
   @MaxLength(20)
-  consentVersion?: string;
+  consentVersion: string;
 }
 
 export class UpdateClientDto {

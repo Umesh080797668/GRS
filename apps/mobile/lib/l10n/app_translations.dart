@@ -100,6 +100,7 @@ class AppTranslations {
     "downloadingArea": "Downloading area data...",
     "downloadFailed":
         "Failed to download area data. Please check network and try again.",
+    "areaDataLoadedSuccess": "Area data loaded successfully.",
     "searchHouseHint": "Search by House No. or Leader name",
     "filterAll": "All Houses",
     "filterNotStarted": "Not Started",
@@ -450,6 +451,7 @@ class AppTranslations {
     "downloadingArea": "දත්ත බාගත වෙමින්...",
     "downloadFailed":
         "වසමේ දත්ත බාගත කිරීම අසාර්ථක විය. කරුණාකර ජාල සම්බන්ධතාවය පරීක්ෂා කර නැවත උත්සාහ කරන්න.",
+    "areaDataLoadedSuccess": "වසමේ දත්ත සාර්ථකව පූරණය විය.",
     "searchHouseHint": "නිවාස අංකය හෝ ප්‍රධානියාගේ නම සොයන්න",
     "filterAll": "සියලු නිවාස",
     "filterNotStarted": "ආරම්භ නොකළ",
@@ -812,6 +814,7 @@ class AppTranslations {
     "downloadingArea": "தரவு பதிவிறக்கப்படுகிறது...",
     "downloadFailed":
         "பிரிவுத் தரவை பதிவிறக்க முடியவில்லை. பிணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.",
+    "areaDataLoadedSuccess": "பிரிவுத் தரவு வெற்றிகரமாக ஏற்றப்பட்டது.",
     "searchHouseHint": "வீட்டு எண் அல்லது குடும்பத் தலைவர் பெயரால் தேடுக",
     "filterAll": "அனைத்து வீடுகள்",
     "filterNotStarted": "தொடங்கப்படவில்லை",

@@ -87,7 +87,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     } else if (state.isCompleted) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Area data loaded successfully.')),
+          SnackBar(content: Text(l10n.get('areaDataLoadedSuccess'))),
         );
         setState(() {});
       }

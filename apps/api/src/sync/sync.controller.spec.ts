@@ -3,6 +3,7 @@ import { SyncController } from './sync.controller';
 import { SyncService } from './sync.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LookupService } from '../lookups/lookup.service';
+import { AppConfigService } from '../config/app-config.service';
 import { UserRole } from '../common/scope/scope.types';
 import type { ScopeContext } from '../common/scope/scope.types';
 
@@ -85,6 +86,13 @@ describe('SyncController & SyncService (M2.7 Area Download)', () => {
       count: 10,
       categories: { gender: [{ code: 'M', labelEn: 'Male' }] },
     }),
+    getActiveLookupCodesByCategory: jest.fn().mockResolvedValue(new Map()),
+  };
+
+  const mockAppConfigService = {
+    getConsentVersion: jest.fn().mockResolvedValue('consent.v0'),
+    getConfig: jest.fn().mockResolvedValue({ consentVersion: 'consent.v0' }),
+    getSetting: jest.fn().mockResolvedValue('consent.v0'),
   };
 
   beforeEach(async () => {
@@ -95,6 +103,7 @@ describe('SyncController & SyncService (M2.7 Area Download)', () => {
         ScopeService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: LookupService, useValue: mockLookupService },
+        { provide: AppConfigService, useValue: mockAppConfigService },
       ],
     }).compile();
 

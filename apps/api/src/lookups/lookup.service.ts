@@ -13,7 +13,7 @@ export interface CategorizedLookups {
 export class LookupService implements OnModuleInit {
   private cachedVersion: string = '';
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async onModuleInit() {
     this.cachedVersion = this.computeStaticVersion(CANONICAL_LOOKUPS);
@@ -74,6 +74,43 @@ export class LookupService implements OnModuleInit {
       count: items.length,
       categories,
     };
+  }
+
+  /**
+   * Returns a map of category -> Set of active codes from lookup_values table (falling back to CANONICAL_LOOKUPS if empty).
+   */
+  async getActiveLookupCodesByCategory(): Promise<Map<string, Set<string>>> {
+    let items: { category: string; code: string }[];
+    try {
+      const dbItems = await this.prisma.lookupValue.findMany({
+        where: { isActive: true },
+        select: { category: true, code: true },
+      });
+      if (dbItems.length > 0) {
+        items = dbItems;
+      } else {
+        items = CANONICAL_LOOKUPS.filter((l) => l.isActive ?? true).map((l) => ({
+          category: l.category,
+          code: l.code,
+        }));
+      }
+    } catch {
+      items = CANONICAL_LOOKUPS.filter((l) => l.isActive ?? true).map((l) => ({
+        category: l.category,
+        code: l.code,
+      }));
+    }
+
+    const map = new Map<string, Set<string>>();
+    for (const item of items) {
+      let set = map.get(item.category);
+      if (!set) {
+        set = new Set<string>();
+        map.set(item.category, set);
+      }
+      set.add(item.code);
+    }
+    return map;
   }
 
   /**

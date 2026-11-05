@@ -3,6 +3,7 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { LookupService } from '../lookups/lookup.service';
 import { ScopeService } from '../common/scope/scope.service';
+import { AppConfigService } from '../config/app-config.service';
 import { GrsValidators } from '../common/validators/grs-validators';
 import { UserRole, type ScopeContext } from '../common/scope/scope.types';
 import {
@@ -30,7 +31,8 @@ export class SyncService {
     private readonly prisma: PrismaService,
     private readonly lookupService: LookupService,
     private readonly scopeService: ScopeService,
-  ) {}
+    private readonly configService: AppConfigService,
+  ) { }
 
   /**
    * Normalizes a person name according to Build Plan §9:
@@ -291,9 +293,9 @@ export class SyncService {
       where: parsedCursor.h
         ? buildKeysetFilter(householdFilter, 'updatedAt', parsedCursor.h)
         : {
-            ...householdFilter,
-            updatedAt: { gt: sinceDate },
-          },
+          ...householdFilter,
+          updatedAt: { gt: sinceDate },
+        },
       orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
       take: take + 1,
     };
@@ -316,19 +318,19 @@ export class SyncService {
     const unassignedQueryArgs: any =
       user.teamId && this.prisma.householdUnassignment
         ? {
-            where: buildKeysetFilter(
-              { teamId: user.teamId },
-              'unassignedAt',
-              parsedCursor.u,
-            ),
-            select: {
-              id: true,
-              householdId: true,
-              unassignedAt: true,
-            },
-            orderBy: [{ unassignedAt: 'asc' }, { id: 'asc' }],
-            take: take + 1,
-          }
+          where: buildKeysetFilter(
+            { teamId: user.teamId },
+            'unassignedAt',
+            parsedCursor.u,
+          ),
+          select: {
+            id: true,
+            householdId: true,
+            unassignedAt: true,
+          },
+          orderBy: [{ unassignedAt: 'asc' }, { id: 'asc' }],
+          take: take + 1,
+        }
         : null;
 
     const clientQueryArgs: any = {
@@ -726,6 +728,10 @@ export class SyncService {
     }> = [];
 
     // --- STEP 1: Code-level validation across all records ---
+    const activeLookups =
+      await this.lookupService.getActiveLookupCodesByCategory();
+    const currentConsentVersion = await this.configService.getConsentVersion();
+
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const validInfoProvidedBy = new Set([
@@ -822,6 +828,27 @@ export class SyncService {
         continue;
       }
 
+      const consentVersion = data.consent_version || data.consentVersion;
+      if (!consentVersion || String(consentVersion).trim().length === 0) {
+        results[i] = {
+          id: record.id,
+          status: 'rejected',
+          code: 'CONSENT_REQUIRED',
+          message: 'Consent version is required',
+        };
+        continue;
+      }
+
+      if (consentVersion !== currentConsentVersion) {
+        results[i] = {
+          id: record.id,
+          status: 'rejected',
+          code: 'CONSENT_REQUIRED',
+          message: `Consent version must match current setting (${currentConsentVersion})`,
+        };
+        continue;
+      }
+
       // Phone normalization (if provided)
       let phoneE164: string | null = null;
       const phoneRaw = data.phone_raw || data.phoneRaw || null;
@@ -890,6 +917,55 @@ export class SyncService {
         continue;
       }
 
+      // Validate lookup codes against active lookup_values
+      const highestEdu = data.highest_education || data.highestEducation;
+      if (highestEdu && !activeLookups.get('education')?.has(highestEdu)) {
+        results[i] = {
+          id: record.id,
+          status: 'rejected',
+          code: 'INVALID_LOOKUP',
+          message: `Invalid or inactive highest education code: ${highestEdu}`,
+        };
+        continue;
+      }
+
+      const highestVoc = data.highest_vocational || data.highestVocational;
+      if (
+        highestVoc &&
+        !activeLookups.get('vocational_qualification')?.has(highestVoc)
+      ) {
+        results[i] = {
+          id: record.id,
+          status: 'rejected',
+          code: 'INVALID_LOOKUP',
+          message: `Invalid or inactive highest vocational qualification code: ${highestVoc}`,
+        };
+        continue;
+      }
+
+      const stream =
+        data.interested_vocational_stream || data.interestedVocationalStream;
+      if (stream && !activeLookups.get('vocational_stream')?.has(stream)) {
+        results[i] = {
+          id: record.id,
+          status: 'rejected',
+          code: 'INVALID_LOOKUP',
+          message: `Invalid or inactive interested vocational stream code: ${stream}`,
+        };
+        continue;
+      }
+
+      const job = data.interested_job || data.interestedJob;
+      if (job && !activeLookups.get('job')?.has(job)) {
+        results[i] = {
+          id: record.id,
+          status: 'rejected',
+          code: 'INVALID_LOOKUP',
+          message: `Invalid or inactive interested job code: ${job}`,
+        };
+        continue;
+      }
+
       const nameNorm = SyncService.normalizeName(nameRes.value!);
       const consentAt =
         data.consent_at || data.consentAt
@@ -897,13 +973,13 @@ export class SyncService {
           : new Date();
       const clientUpdatedAt =
         record.client_updated_at ||
-        data.client_updated_at ||
-        data.clientUpdatedAt
+          data.client_updated_at ||
+          data.clientUpdatedAt
           ? new Date(
-              record.client_updated_at ||
-                data.client_updated_at ||
-                data.clientUpdatedAt,
-            )
+            record.client_updated_at ||
+            data.client_updated_at ||
+            data.clientUpdatedAt,
+          )
           : new Date();
 
       const normalized = {
@@ -937,8 +1013,7 @@ export class SyncService {
           data.info_provided_by_other || data.infoProvidedByOther || null,
         consentGiven: true,
         consentAt,
-        consentVersion:
-          data.consent_version || data.consentVersion || 'consent.v0',
+        consentVersion,
         clientUpdatedAt,
         contentHash: SyncService.computeContentHash({
           householdId,

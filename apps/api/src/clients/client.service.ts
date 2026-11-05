@@ -13,27 +13,10 @@ import {
   UpdateClientDto,
   ListClientsDto,
 } from './dto/client.dto';
-import { CANONICAL_LOOKUPS } from '../lookups/lookup.data';
+import { LookupService } from '../lookups/lookup.service';
+import { AppConfigService } from '../config/app-config.service';
 import { SyncService } from '../sync/sync.service';
 
-const VALID_EDUCATION_CODES = new Set(
-  CANONICAL_LOOKUPS.filter((l) => l.category === 'education').map(
-    (l) => l.code,
-  ),
-);
-const VALID_VOCATIONAL_CODES = new Set(
-  CANONICAL_LOOKUPS.filter(
-    (l) => l.category === 'vocational_qualification',
-  ).map((l) => l.code),
-);
-const VALID_STREAM_CODES = new Set(
-  CANONICAL_LOOKUPS.filter((l) => l.category === 'vocational_stream').map(
-    (l) => l.code,
-  ),
-);
-const VALID_JOB_CODES = new Set(
-  CANONICAL_LOOKUPS.filter((l) => l.category === 'job').map((l) => l.code),
-);
 const VALID_INFO_PROVIDED_BY = new Set([
   'self',
   'mother',
@@ -47,6 +30,8 @@ export class ClientService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: ScopeService,
+    private readonly lookupService: LookupService,
+    private readonly configService: AppConfigService,
   ) {}
 
   /**
@@ -305,6 +290,21 @@ export class ClientService {
       });
     }
 
+    if (!dto.consentVersion || dto.consentVersion.trim().length === 0) {
+      throw new BadRequestException({
+        code: 'CONSENT_REQUIRED',
+        message: 'Consent version is required',
+      });
+    }
+
+    const currentConsentVersion = await this.configService.getConsentVersion();
+    if (dto.consentVersion !== currentConsentVersion) {
+      throw new BadRequestException({
+        code: 'CONSENT_REQUIRED',
+        message: `Consent version must match current setting (${currentConsentVersion})`,
+      });
+    }
+
     // Name validation
     const nameVal = GrsValidators.validateName(dto.name);
     if (!nameVal.isValid) {
@@ -360,38 +360,46 @@ export class ClientService {
       whatsappE164 = wRes.value!;
     }
 
-    // Dropdown codes validation
+    // Dropdown codes validation against active lookup_values
+    const activeLookups =
+      await this.lookupService.getActiveLookupCodesByCategory();
+
     if (
       dto.highestEducation &&
-      !VALID_EDUCATION_CODES.has(dto.highestEducation)
+      !activeLookups.get('education')?.has(dto.highestEducation)
     ) {
       throw new BadRequestException({
-        code: 'INVALID_LOOKUP_CODE',
-        message: `Invalid highest education code: ${dto.highestEducation}`,
+        code: 'INVALID_LOOKUP',
+        message: `Invalid or inactive highest education code: ${dto.highestEducation}`,
       });
     }
     if (
       dto.highestVocational &&
-      !VALID_VOCATIONAL_CODES.has(dto.highestVocational)
+      !activeLookups.get('vocational_qualification')?.has(dto.highestVocational)
     ) {
       throw new BadRequestException({
-        code: 'INVALID_LOOKUP_CODE',
-        message: `Invalid highest vocational qualification code: ${dto.highestVocational}`,
+        code: 'INVALID_LOOKUP',
+        message: `Invalid or inactive highest vocational qualification code: ${dto.highestVocational}`,
       });
     }
     if (
       dto.interestedVocationalStream &&
-      !VALID_STREAM_CODES.has(dto.interestedVocationalStream)
+      !activeLookups
+        .get('vocational_stream')
+        ?.has(dto.interestedVocationalStream)
     ) {
       throw new BadRequestException({
-        code: 'INVALID_LOOKUP_CODE',
-        message: `Invalid interested vocational stream code: ${dto.interestedVocationalStream}`,
+        code: 'INVALID_LOOKUP',
+        message: `Invalid or inactive interested vocational stream code: ${dto.interestedVocationalStream}`,
       });
     }
-    if (dto.interestedJob && !VALID_JOB_CODES.has(dto.interestedJob)) {
+    if (
+      dto.interestedJob &&
+      !activeLookups.get('job')?.has(dto.interestedJob)
+    ) {
       throw new BadRequestException({
-        code: 'INVALID_LOOKUP_CODE',
-        message: `Invalid interested job code: ${dto.interestedJob}`,
+        code: 'INVALID_LOOKUP',
+        message: `Invalid or inactive interested job code: ${dto.interestedJob}`,
       });
     }
     if (dto.futureHopes && dto.futureHopes.length > 0) {
@@ -481,7 +489,7 @@ export class ClientService {
           infoProvidedByOther: dto.infoProvidedByOther?.trim() || null,
           consentGiven: true,
           consentAt: dto.consentAt ? new Date(dto.consentAt) : new Date(),
-          consentVersion: dto.consentVersion || 'consent.v0',
+          consentVersion: dto.consentVersion,
           collectedBy: caller.userId,
           collectedAt: new Date(),
           clientUpdatedAt: new Date(),
@@ -636,16 +644,19 @@ export class ClientService {
       }
     }
 
-    // Dropdown codes validation
+    // Dropdown codes validation against active lookup_values
+    const activeLookups =
+      await this.lookupService.getActiveLookupCodesByCategory();
+
     if (
       dto.highestEducation !== undefined &&
       dto.highestEducation !== null &&
       dto.highestEducation !== ''
     ) {
-      if (!VALID_EDUCATION_CODES.has(dto.highestEducation)) {
+      if (!activeLookups.get('education')?.has(dto.highestEducation)) {
         throw new BadRequestException({
-          code: 'INVALID_LOOKUP_CODE',
-          message: `Invalid highest education code: ${dto.highestEducation}`,
+          code: 'INVALID_LOOKUP',
+          message: `Invalid or inactive highest education code: ${dto.highestEducation}`,
         });
       }
     }
@@ -654,10 +665,14 @@ export class ClientService {
       dto.highestVocational !== null &&
       dto.highestVocational !== ''
     ) {
-      if (!VALID_VOCATIONAL_CODES.has(dto.highestVocational)) {
+      if (
+        !activeLookups
+          .get('vocational_qualification')
+          ?.has(dto.highestVocational)
+      ) {
         throw new BadRequestException({
-          code: 'INVALID_LOOKUP_CODE',
-          message: `Invalid highest vocational qualification code: ${dto.highestVocational}`,
+          code: 'INVALID_LOOKUP',
+          message: `Invalid or inactive highest vocational qualification code: ${dto.highestVocational}`,
         });
       }
     }
@@ -666,10 +681,14 @@ export class ClientService {
       dto.interestedVocationalStream !== null &&
       dto.interestedVocationalStream !== ''
     ) {
-      if (!VALID_STREAM_CODES.has(dto.interestedVocationalStream)) {
+      if (
+        !activeLookups
+          .get('vocational_stream')
+          ?.has(dto.interestedVocationalStream)
+      ) {
         throw new BadRequestException({
-          code: 'INVALID_LOOKUP_CODE',
-          message: `Invalid interested vocational stream code: ${dto.interestedVocationalStream}`,
+          code: 'INVALID_LOOKUP',
+          message: `Invalid or inactive interested vocational stream code: ${dto.interestedVocationalStream}`,
         });
       }
     }
@@ -678,10 +697,10 @@ export class ClientService {
       dto.interestedJob !== null &&
       dto.interestedJob !== ''
     ) {
-      if (!VALID_JOB_CODES.has(dto.interestedJob)) {
+      if (!activeLookups.get('job')?.has(dto.interestedJob)) {
         throw new BadRequestException({
-          code: 'INVALID_LOOKUP_CODE',
-          message: `Invalid interested job code: ${dto.interestedJob}`,
+          code: 'INVALID_LOOKUP',
+          message: `Invalid or inactive interested job code: ${dto.interestedJob}`,
         });
       }
     }

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LookupService } from './lookup.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { CANONICAL_LOOKUPS } from './lookup.data';
+import { CANONICAL_LOOKUPS, IS_CANONICAL_SEED_DEMO } from './lookup.data';
 
 describe('LookupService (M1.6)', () => {
   let service: LookupService;
@@ -78,12 +78,13 @@ describe('LookupService (M1.6)', () => {
     expect(secondCall.version).toBe(versionRes.version);
   });
 
-  it('contains zero TODO_OWNER placeholder rows in canonical dataset', async () => {
+  it('contains zero TODO_OWNER placeholder rows in canonical dataset and marks seed as demo', async () => {
     const allCodes = CANONICAL_LOOKUPS.map((i) => i.code);
     expect(allCodes).not.toContain('TODO_OWNER_VOC_1');
     expect(allCodes).not.toContain('TODO_OWNER_STREAM_1');
     expect(allCodes).not.toContain('TODO_OWNER_JOB_1');
     expect(allCodes.some((code) => code.startsWith('TODO_OWNER'))).toBe(false);
+    expect(IS_CANONICAL_SEED_DEMO).toBe(true);
   });
 
   it('filters by category when query parameter is provided', async () => {

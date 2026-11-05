@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SyncService } from './sync.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LookupService } from '../lookups/lookup.service';
+import { AppConfigService } from '../config/app-config.service';
+import { CANONICAL_LOOKUPS } from '../lookups/lookup.data';
 import { ScopeService } from '../common/scope/scope.service';
 import { UserRole } from '../common/scope/scope.types';
 import type { ScopeContext } from '../common/scope/scope.types';
@@ -61,6 +63,31 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
         }),
     };
 
+    const mockActiveLookups = new Map<string, Set<string>>();
+    for (const item of CANONICAL_LOOKUPS) {
+      if (item.isActive ?? true) {
+        let set = mockActiveLookups.get(item.category);
+        if (!set) {
+          set = new Set<string>();
+          mockActiveLookups.set(item.category, set);
+        }
+        set.add(item.code);
+      }
+    }
+
+    const mockLookupService = {
+      getCategorizedLookups: jest.fn(),
+      getActiveLookupCodesByCategory: jest
+        .fn()
+        .mockResolvedValue(mockActiveLookups),
+    };
+
+    const mockAppConfigService = {
+      getConsentVersion: jest.fn().mockResolvedValue('consent.v0'),
+      getConfig: jest.fn().mockResolvedValue({ consentVersion: 'consent.v0' }),
+      getSetting: jest.fn().mockResolvedValue('consent.v0'),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SyncService,
@@ -68,7 +95,11 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
         { provide: PrismaService, useValue: mockPrisma },
         {
           provide: LookupService,
-          useValue: { getCategorizedLookups: jest.fn() },
+          useValue: mockLookupService,
+        },
+        {
+          provide: AppConfigService,
+          useValue: mockAppConfigService,
         },
       ],
     }).compile();
@@ -137,6 +168,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
             future_hopes: ['local_job'],
             info_provided_by: 'self',
             consent_given: true,
+            consent_version: 'consent.v0',
           },
         },
         // 2. Invalid record (no consent) -> rejected
@@ -162,6 +194,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
             gender: 'M',
             info_provided_by: 'self',
             consent_given: true,
+            consent_version: 'consent.v0',
           },
         },
         // 4. Existing confirmed record (base_version >= 1) edited by Level 5 -> locked
@@ -175,6 +208,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
             gender: 'M',
             info_provided_by: 'self',
             consent_given: true,
+            consent_version: 'consent.v0',
           },
         },
       ],
@@ -218,6 +252,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
           future_hopes: ['local_job'],
           info_provided_by: 'self',
           consent_given: true,
+          consent_version: 'consent.v0',
         },
       });
     }
@@ -275,6 +310,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
             age: 30,
             gender: 'M',
             consent_given: true,
+            consent_version: 'consent.v0',
           },
         },
         // Duplicate in same batch
@@ -287,6 +323,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
             age: 30,
             gender: 'M',
             consent_given: true,
+            consent_version: 'consent.v0',
           },
         },
         {
@@ -298,6 +335,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
             age: 35,
             gender: 'M',
             consent_given: true,
+            consent_version: 'consent.v0',
           },
         },
       ],
@@ -352,6 +390,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
             age: 40,
             gender: 'F',
             consent_given: true,
+            consent_version: 'consent.v0',
           },
         },
       ],
@@ -399,6 +438,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
             age: 28,
             gender: 'M',
             consent_given: true,
+            consent_version: 'consent.v0',
           },
         },
       ],
@@ -448,6 +488,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
             age: 33,
             gender: 'F',
             consent_given: true,
+            consent_version: 'consent.v0',
           },
         },
       ],
@@ -469,6 +510,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
       future_hopes: ['local_job'],
       info_provided_by: 'self',
       consent_given: true,
+      consent_version: 'consent.v0',
     };
 
     const contentHash = SyncService.computeContentHash({
@@ -511,6 +553,145 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     expect(res.results[0].server_version).toBe(3);
     // When all items in batch are identical retries, raw SQL query is skipped
     expect(mockPrisma.$queryRawUnsafe).not.toHaveBeenCalled();
+  });
+
+  describe('Lookup codes & Consent Version validation in /sync/push', () => {
+    it('rejects records with missing or mismatched consent_version (CONSENT_REQUIRED)', async () => {
+      mockPrisma.household.findMany.mockResolvedValueOnce([
+        {
+          id: validHouseholdId,
+          gnId: caller.gnId,
+          teamId: caller.teamId,
+          districtId: caller.districtId,
+          dsId: caller.dsId,
+          deletedAt: null,
+        },
+      ]);
+
+      const dto: SyncPushDto = {
+        device_id: 'test-consent-ver',
+        app_version: '2.0.0',
+        schema_version: 2,
+        records: [
+          // Missing consent_version
+          {
+            id: 'c1000000-0000-0000-0000-000000000001',
+            base_version: 0,
+            data: {
+              household_id: validHouseholdId,
+              name: 'Missing Consent Version',
+              age: 26,
+              gender: 'M',
+              consent_given: true,
+            },
+          },
+          // Mismatched consent_version
+          {
+            id: 'c2000000-0000-0000-0000-000000000002',
+            base_version: 0,
+            data: {
+              household_id: validHouseholdId,
+              name: 'Wrong Consent Version',
+              age: 27,
+              gender: 'F',
+              consent_given: true,
+              consent_version: 'consent.v999',
+            },
+          },
+        ],
+      };
+
+      const res = await service.pushRecords(caller, dto);
+      expect(res.results.length).toBe(2);
+      expect(res.results[0].status).toBe('rejected');
+      expect(res.results[0].code).toBe('CONSENT_REQUIRED');
+      expect(res.results[1].status).toBe('rejected');
+      expect(res.results[1].code).toBe('CONSENT_REQUIRED');
+    });
+
+    it('rejects records with unknown or inactive lookup codes (INVALID_LOOKUP)', async () => {
+      mockPrisma.household.findMany.mockResolvedValueOnce([
+        {
+          id: validHouseholdId,
+          gnId: caller.gnId,
+          teamId: caller.teamId,
+          districtId: caller.districtId,
+          dsId: caller.dsId,
+          deletedAt: null,
+        },
+      ]);
+
+      const dto: SyncPushDto = {
+        device_id: 'test-invalid-lookups',
+        app_version: '2.0.0',
+        schema_version: 2,
+        records: [
+          {
+            id: 'fa000000-0000-0000-0000-000000000001',
+            base_version: 0,
+            data: {
+              household_id: validHouseholdId,
+              name: 'Invalid Education',
+              age: 30,
+              gender: 'M',
+              consent_given: true,
+              consent_version: 'consent.v0',
+              highest_education: 'UNKNOWN_EDU_123',
+            },
+          },
+          {
+            id: 'fa000000-0000-0000-0000-000000000002',
+            base_version: 0,
+            data: {
+              household_id: validHouseholdId,
+              name: 'Invalid Vocational',
+              age: 30,
+              gender: 'M',
+              consent_given: true,
+              consent_version: 'consent.v0',
+              highest_vocational: 'UNKNOWN_VOC_XYZ',
+            },
+          },
+          {
+            id: 'fa000000-0000-0000-0000-000000000003',
+            base_version: 0,
+            data: {
+              household_id: validHouseholdId,
+              name: 'Invalid Stream',
+              age: 30,
+              gender: 'M',
+              consent_given: true,
+              consent_version: 'consent.v0',
+              interested_vocational_stream: 'STREAM_FAKE',
+            },
+          },
+          {
+            id: 'fa000000-0000-0000-0000-000000000004',
+            base_version: 0,
+            data: {
+              household_id: validHouseholdId,
+              name: 'Invalid Job',
+              age: 30,
+              gender: 'M',
+              consent_given: true,
+              consent_version: 'consent.v0',
+              interested_job: 'JOB_ASTRONAUT',
+            },
+          },
+        ],
+      };
+
+      const res = await service.pushRecords(caller, dto);
+      expect(res.results.length).toBe(4);
+      expect(res.results[0].status).toBe('rejected');
+      expect(res.results[0].code).toBe('INVALID_LOOKUP');
+      expect(res.results[1].status).toBe('rejected');
+      expect(res.results[1].code).toBe('INVALID_LOOKUP');
+      expect(res.results[2].status).toBe('rejected');
+      expect(res.results[2].code).toBe('INVALID_LOOKUP');
+      expect(res.results[3].status).toBe('rejected');
+      expect(res.results[3].code).toBe('INVALID_LOOKUP');
+    });
   });
 
   it('Incremental Changes: GET /v1/sync/changes returns updated and deleted households', async () => {

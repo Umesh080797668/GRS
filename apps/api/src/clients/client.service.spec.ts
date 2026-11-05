@@ -6,6 +6,9 @@ import { ClientService } from './client.service';
 import { ListClientsDto } from './dto/client.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScopeService } from '../common/scope/scope.service';
+import { LookupService } from '../lookups/lookup.service';
+import { AppConfigService } from '../config/app-config.service';
+import { CANONICAL_LOOKUPS } from '../lookups/lookup.data';
 import { UserRole, ScopeContext } from '../common/scope/scope.types';
 
 describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () => {
@@ -109,6 +112,30 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
     }),
   };
 
+  const mockActiveLookups = new Map<string, Set<string>>();
+  for (const item of CANONICAL_LOOKUPS) {
+    if (item.isActive ?? true) {
+      let set = mockActiveLookups.get(item.category);
+      if (!set) {
+        set = new Set<string>();
+        mockActiveLookups.set(item.category, set);
+      }
+      set.add(item.code);
+    }
+  }
+
+  const mockLookupService = {
+    getActiveLookupCodesByCategory: jest
+      .fn()
+      .mockResolvedValue(mockActiveLookups),
+  };
+
+  const mockAppConfigService = {
+    getConsentVersion: jest.fn().mockResolvedValue('consent.v0'),
+    getConfig: jest.fn().mockResolvedValue({ consentVersion: 'consent.v0' }),
+    getSetting: jest.fn().mockResolvedValue('consent.v0'),
+  };
+
   beforeEach(async () => {
     mockClients = [];
     mockAuditLogs = [];
@@ -119,6 +146,8 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
         ClientService,
         { provide: PrismaService, useValue: mockPrisma },
         ScopeService,
+        { provide: LookupService, useValue: mockLookupService },
+        { provide: AppConfigService, useValue: mockAppConfigService },
       ],
     }).compile();
 
@@ -283,6 +312,79 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('rejects createClient if consentVersion is missing or mismatched', async () => {
+      // Missing consentVersion
+      await expect(
+        service.createClient(cdcSecretaryScope, {
+          householdId: 'h-1',
+          name: 'Person No Consent Version',
+          age: 25,
+          gender: 'M',
+          consentGiven: true,
+          infoProvidedBy: 'self' as any,
+          hasSpecialNeeds: false,
+        } as any),
+      ).rejects.toMatchObject({
+        response: { code: 'CONSENT_REQUIRED' },
+      });
+
+      // Mismatched consentVersion
+      await expect(
+        service.createClient(cdcSecretaryScope, {
+          householdId: 'h-1',
+          name: 'Person Wrong Consent Version',
+          age: 25,
+          gender: 'M',
+          consentGiven: true,
+          consentVersion: 'consent.v999',
+          infoProvidedBy: 'self' as any,
+          hasSpecialNeeds: false,
+        } as any),
+      ).rejects.toMatchObject({
+        response: { code: 'CONSENT_REQUIRED' },
+      });
+    });
+
+    it('rejects createClient if lookup code is unknown or inactive (INVALID_LOOKUP)', async () => {
+      await expect(
+        service.createClient(cdcSecretaryScope, {
+          householdId: 'h-1',
+          name: 'Person Invalid Lookup',
+          age: 25,
+          gender: 'M',
+          consentGiven: true,
+          consentVersion: 'consent.v0',
+          highestEducation: 'INVALID_EDU_CODE',
+          infoProvidedBy: 'self' as any,
+          hasSpecialNeeds: false,
+        } as any),
+      ).rejects.toMatchObject({
+        response: { code: 'INVALID_LOOKUP' },
+      });
+    });
+
+    it('rejects updateClient if lookup code is unknown or inactive (INVALID_LOOKUP)', async () => {
+      mockClients.push({
+        id: 'client-to-edit',
+        householdId: 'h-1',
+        name: 'Existing Client',
+        age: 30,
+        gender: 'M',
+        teamId: mockTeamId,
+        serverVersion: 1,
+        collectedBy: 'user-member-1',
+        deletedAt: null,
+      });
+
+      await expect(
+        service.updateClient(cdcSecretaryScope, 'client-to-edit', {
+          highestEducation: 'NON_EXISTENT_EDU',
+        } as any),
+      ).rejects.toMatchObject({
+        response: { code: 'INVALID_LOOKUP' },
+      });
+    });
+
     it('creates client with deterministic contentHash and returns existing on retry (idempotent)', async () => {
       const dto = {
         householdId: 'h-1',
@@ -290,6 +392,7 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
         age: 28,
         gender: 'F',
         consentGiven: true,
+        consentVersion: 'consent.v0',
         infoProvidedBy: 'self' as any,
         hasSpecialNeeds: false,
       };

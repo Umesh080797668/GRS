@@ -164,6 +164,8 @@
   "@downloadingArea": {},
   "downloadFailed": "பிரிவுத் தரவை பதிவிறக்க முடியவில்லை. பிணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.",
   "@downloadFailed": {},
+  "areaDataLoadedSuccess": "பிரிவுத் தரவு வெற்றிகரமாக ஏற்றப்பட்டது.",
+  "@areaDataLoadedSuccess": {},
   "searchHouseHint": "வீட்டு எண் அல்லது குடும்பத் தலைவர் பெயரால் தேடுக",
   "@searchHouseHint": {},
   "filterAll": "அனைத்து வீடுகள்",

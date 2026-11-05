@@ -8,6 +8,13 @@ export interface LookupItem {
   isActive?: boolean;
 }
 
+/**
+ * Flag marking that the vocational qualification, stream, and job lists in the canonical seed
+ * are agent-invented baseline demo lists with unreviewed translations, awaiting replacement
+ * with official lists from the project owner before the pilot.
+ */
+export const IS_CANONICAL_SEED_DEMO = true;
+
 export const CANONICAL_LOOKUPS: LookupItem[] = [
   // 1. Education Ladder (Appendix F Draft)
   {
@@ -83,7 +90,7 @@ export const CANONICAL_LOOKUPS: LookupItem[] = [
     labelTa: 'முதுகலை பட்டம்',
   },
 
-  // 2. Highest Vocational Qualification (Baseline per B1)
+  // 2. Highest Vocational Qualification (Demo Seed - To be replaced by owner before pilot)
   {
     category: 'vocational_qualification',
     code: 'VOC_NONE',
@@ -157,7 +164,7 @@ export const CANONICAL_LOOKUPS: LookupItem[] = [
     labelTa: 'ஏனைய தொழிற்கல்வி தகைமை',
   },
 
-  // 3. Interested Vocational Stream (Baseline per B1)
+  // 3. Interested Vocational Stream (Demo Seed - To be replaced by owner before pilot)
   {
     category: 'vocational_stream',
     code: 'STREAM_IT_COMPUTING',
@@ -239,7 +246,7 @@ export const CANONICAL_LOOKUPS: LookupItem[] = [
     labelTa: 'ஏனைய துறை',
   },
 
-  // 4. Interested Job (Baseline per B1)
+  // 4. Interested Job (Demo Seed - To be replaced by owner before pilot)
   {
     category: 'job',
     code: 'JOB_SOFTWARE_DEV',

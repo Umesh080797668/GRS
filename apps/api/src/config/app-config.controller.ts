@@ -32,11 +32,13 @@ const KEY_MAPPINGS: Record<string, string> = {
   webDataEntryEnabled: 'web_data_entry_enabled',
   web_entry_roles: 'web_entry_roles',
   webEntryRoles: 'web_entry_roles',
+  consent_version: 'consent_version',
+  consentVersion: 'consent_version',
 };
 
 @Controller('v1/config')
 export class AppConfigController {
-  constructor(private readonly configService: AppConfigService) { }
+  constructor(private readonly configService: AppConfigService) {}
 
   @Get()
   async getConfig() {
@@ -68,8 +70,10 @@ export class AppConfigController {
     if (
       targetMin &&
       targetLatest &&
-      this.configService.compareSemver(String(targetMin), String(targetLatest)) >
-      0
+      this.configService.compareSemver(
+        String(targetMin),
+        String(targetLatest),
+      ) > 0
     ) {
       throw new BadRequestException({
         code: 'INVALID_CONFIG_VALUE',
@@ -123,10 +127,7 @@ export class AppConfigController {
           });
         }
       } else if (canonicalKey === 'apk_download_url') {
-        if (
-          typeof rawValue !== 'string' ||
-          !rawValue.startsWith('https://')
-        ) {
+        if (typeof rawValue !== 'string' || !rawValue.startsWith('https://')) {
           throw new BadRequestException({
             code: 'INVALID_CONFIG_VALUE',
             message: 'apk_download_url must be a valid https URL',
@@ -153,6 +154,13 @@ export class AppConfigController {
           throw new BadRequestException({
             code: 'INVALID_CONFIG_VALUE',
             message: `web_entry_roles must be an array of valid role strings: ${validRoles.join(', ')}`,
+          });
+        }
+      } else if (canonicalKey === 'consent_version') {
+        if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
+          throw new BadRequestException({
+            code: 'INVALID_CONFIG_VALUE',
+            message: 'consent_version must be a non-empty string',
           });
         }
       }

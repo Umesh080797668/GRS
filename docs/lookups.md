@@ -2,7 +2,11 @@
 
 This file documents standard lookup codes and multi-lingual labels (`si`, `ta`, `en`) used across the mobile app, web dashboard, reports, and database tables.
 
-> **Note for Project Owner (B1):** The vocational qualification, vocational stream, and job lists below contain `TODO_OWNER` stand-ins until official lists are provided. The Education ladder is based on Appendix F (marked DRAFT).
+> **Note for Project Owner (B1) — DEMO SEED NOTICE:**
+> Zero `TODO_OWNER` placeholders remain in the active canonical dataset (all placeholder tests pass with zero `TODO_OWNER` rows).
+> However, the vocational qualification, vocational stream, and job lists below are **agent-invented baseline demo lists** with unreviewed Sinhala and Tamil labels.
+> **Action required before pilot:** Replace these demo lists with your official project owner lists before the pilot starts. Once survey data is collected, these lookup codes become permanent keys and changing them later will require database migrations.
+> Until replaced, this seed dataset is explicitly marked as **DEMO SEED**. The Education ladder is based on Appendix F (marked DRAFT).
 
 ---
 
@@ -22,54 +26,54 @@ This file documents standard lookup codes and multi-lingual labels (`si`, `ta`, 
 
 ---
 
-## 2. Highest Vocational Qualification (`category = 'vocational_qualification'`) — *Awaiting B1*
+## 2. Highest Vocational Qualification (`category = 'vocational_qualification'`) — *Demo Seed (Awaiting B1)*
 
 | Code | Sort | Label (English) | Label (Sinhala) | Label (Tamil) | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `VOC_NONE` | 10 | None | නැත | இல்லை | Baseline |
-| `VOC_NVQ_1` | 20 | NVQ Level 1 | NVQ මට්ටම 1 | NVQ மட்டம் 1 | Baseline |
-| `VOC_NVQ_2` | 30 | NVQ Level 2 | NVQ මට්ටම 2 | NVQ மட்டம் 2 | Baseline |
-| `VOC_NVQ_3` | 40 | NVQ Level 3 | NVQ මට්ටම 3 | NVQ மட்டம் 3 | Baseline |
-| `VOC_NVQ_4` | 50 | NVQ Level 4 | NVQ මට්ටම 4 | NVQ மட்டம் 4 | Baseline |
-| `VOC_NVQ_5` | 60 | NVQ Level 5 (Diploma) | NVQ මට්ටම 5 (ඩිප්ලෝමා) | NVQ மட்டம் 5 (டிப்ளோமா) | Baseline |
-| `VOC_NVQ_6` | 70 | NVQ Level 6 (Higher Diploma) | NVQ මට්ටම 6 (උසස් ඩිප්ලෝමා) | NVQ மட்டம் 6 (உயர் டிப்ளோமா) | Baseline |
-| `VOC_NVQ_7` | 80 | NVQ Level 7 (Degree) | NVQ මට්ටම 7 (උපාධි) | NVQ மட்டம் 7 (பட்டம்) | Baseline |
-| `VOC_OTHER` | 90 | Other Vocational Qualification | වෙනත් වෘත්තීය සුදුසුකම් | ஏனைய தொழிற்கல்வி தகைமை | Baseline |
+| `VOC_NONE` | 10 | None | නැත | இல்லை | Demo Seed |
+| `VOC_NVQ_1` | 20 | NVQ Level 1 | NVQ මට්ටම 1 | NVQ மட்டம் 1 | Demo Seed |
+| `VOC_NVQ_2` | 30 | NVQ Level 2 | NVQ මට්ටම 2 | NVQ மட்டம் 2 | Demo Seed |
+| `VOC_NVQ_3` | 40 | NVQ Level 3 | NVQ මට්ටම 3 | NVQ மட்டம் 3 | Demo Seed |
+| `VOC_NVQ_4` | 50 | NVQ Level 4 | NVQ මට්ටම 4 | NVQ மட்டம் 4 | Demo Seed |
+| `VOC_NVQ_5` | 60 | NVQ Level 5 (Diploma) | NVQ මට්ටම 5 (ඩිප්ලෝමා) | NVQ மட்டம் 5 (டிப்ளோமா) | Demo Seed |
+| `VOC_NVQ_6` | 70 | NVQ Level 6 (Higher Diploma) | NVQ මට්ටම 6 (උසස් ඩිප්ලෝමා) | NVQ மட்டம் 6 (உயர் டிப்ளோமா) | Demo Seed |
+| `VOC_NVQ_7` | 80 | NVQ Level 7 (Degree) | NVQ මට්ටම 7 (උපාධි) | NVQ மட்டம் 7 (பட்டம்) | Demo Seed |
+| `VOC_OTHER` | 90 | Other Vocational Qualification | වෙනත් වෘත්තීය සුදුසුකම් | ஏனைய தொழிற்கல்வி தகைமை | Demo Seed |
 
 ---
 
-## 3. Interested Vocational Stream (`category = 'vocational_stream'`) — *Awaiting B1*
+## 3. Interested Vocational Stream (`category = 'vocational_stream'`) — *Demo Seed (Awaiting B1)*
 
 | Code | Sort | Label (English) | Label (Sinhala) | Label (Tamil) | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `STREAM_IT_COMPUTING` | 10 | Information Technology & Computing | තොරතුරු තාක්ෂණය සහ පරිගණක | தகவல் தொழில்நுட்பம் & கணிப்பொறி | Baseline |
-| `STREAM_ELECTRICAL_ELECTRONIC` | 20 | Electrical, Electronics & Telecommunications | විදුලි, ඉලෙක්ට්‍රොනික හා විදුලි සංදේශ | மின், மின்னணு மற்றும் தொலைத்தொடர்பு | Baseline |
-| `STREAM_MECHANICAL_AUTOMOBILE` | 30 | Automobile & Mechanical Engineering | මෝටර් රථ හා යාන්ත්‍රික ඉංජිනේරු | மோட்டார் மற்றும் இயந்திரவியல் | Baseline |
-| `STREAM_BUILDING_CONSTRUCTION` | 40 | Construction & Woodwork | ගොඩනැගිලි ඉදිකිරීම් සහ වඩු කාර්මික | கட்டிட நிர்மாணம் மற்றும் தச்சு | Baseline |
-| `STREAM_HOSPITALITY_TOURISM` | 50 | Tourism & Hospitality | සංචාරක සහ ආගන්තුක සත්කාර | சுற்றுலா மற்றும் விருந்தோம்பல் | Baseline |
-| `STREAM_BEAUTY_HAIR` | 60 | Beauty Culture & Hair Dressing | රූපලාවණ්‍ය සහ කොණ්ඩා සැකසුම් | அழகுக்கலை மற்றும் சிகையலங்காரம் | Baseline |
-| `STREAM_AGRICULTURE_FOOD` | 70 | Agriculture & Food Technology | කෘෂිකාර්මික හා ආහාර තාක්ෂණය | விவசாயம் மற்றும் உணவு தொழில்நுட்பம் | Baseline |
-| `STREAM_APPAREL_GARMENT` | 80 | Textile & Garment Manufacturing | ඇඟලුම් හා රෙදිපිළි | ஆடை மற்றும் ஜவுளி | Baseline |
-| `STREAM_HEALTHCARE_CARE` | 90 | Healthcare & Nursing Support | සෞඛ්‍ය සහ උපස්ථාන සේවා | சுகாதார மற்றும் பராமரிப்பு சேவைகள் | Baseline |
-| `STREAM_OTHER` | 100 | Other Stream | වෙනත් ක්ෂේත්‍රයක් | ஏனைய துறை | Baseline |
+| `STREAM_IT_COMPUTING` | 10 | Information Technology & Computing | තොරතුරු තාක්ෂණය සහ පරිගණක | தகவல் தொழில்நுட்பம் & கணிப்பொறி | Demo Seed |
+| `STREAM_ELECTRICAL_ELECTRONIC` | 20 | Electrical, Electronics & Telecommunications | විදුලි, ඉලෙක්ට්‍රොනික හා විදුලි සංදේශ | மின், மின்னணு மற்றும் தொலைத்தொடர்பு | Demo Seed |
+| `STREAM_MECHANICAL_AUTOMOBILE` | 30 | Automobile & Mechanical Engineering | මෝටර් රථ හා යාන්ත්‍රික ඉංජිනේරු | மோட்டார் மற்றும் இயந்திரவியல் | Demo Seed |
+| `STREAM_BUILDING_CONSTRUCTION` | 40 | Construction & Woodwork | ගොඩනැගිලි ඉදිකිරීම් සහ වඩු කාර්මික | கட்டிட நிர்மாணம் மற்றும் தச்சு | Demo Seed |
+| `STREAM_HOSPITALITY_TOURISM` | 50 | Tourism & Hospitality | සංචාරක සහ ආගන්තුක සත්කාර | சுற்றுலா மற்றும் விருந்தோம்பல் | Demo Seed |
+| `STREAM_BEAUTY_HAIR` | 60 | Beauty Culture & Hair Dressing | රූපලාවණ්‍ය සහ කොණ්ඩා සැකසුම් | அழகுக்கலை மற்றும் சிகையலங்காரம் | Demo Seed |
+| `STREAM_AGRICULTURE_FOOD` | 70 | Agriculture & Food Technology | කෘෂිකාර්මික හා ආහාර තාක්ෂණය | விவசாயம் மற்றும் உணவு தொழில்நுட்பம் | Demo Seed |
+| `STREAM_APPAREL_GARMENT` | 80 | Textile & Garment Manufacturing | ඇඟලුම් හා රෙදිපිළි | ஆடை மற்றும் ஜவுளி | Demo Seed |
+| `STREAM_HEALTHCARE_CARE` | 90 | Healthcare & Nursing Support | සෞඛ්‍ය සහ උපස්ථාන සේවා | சுகாதார மற்றும் பராமரிப்பு சேவைகள் | Demo Seed |
+| `STREAM_OTHER` | 100 | Other Stream | වෙනත් ක්ෂේත්‍රයක් | ஏனைய துறை | Demo Seed |
 
 ---
 
-## 4. Interested Job (`category = 'job'`) — *Awaiting B1*
+## 4. Interested Job (`category = 'job'`) — *Demo Seed (Awaiting B1)*
 
 | Code | Sort | Label (English) | Label (Sinhala) | Label (Tamil) | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `JOB_SOFTWARE_DEV` | 10 | Software Developer / IT Technician | මෘදුකාංග සංවර්ධක / තොරතුරු තාක්ෂණ ශිල්පී | மென்பொருள் உருவாக்குநர் / IT தொழில்நுட்ப வல்லுநர் | Baseline |
-| `JOB_ELECTRICIAN` | 20 | Electrician / Wireman | විදුලි කාර්මික | மின்சார தொழில்நுட்பவியலாளர் | Baseline |
-| `JOB_MECHANIC` | 30 | Auto Mechanic | මෝටර් රථ කාර්මික | மோட்டார் மெக்கானிக் | Baseline |
-| `JOB_PLUMBER` | 40 | Plumber | ජලනල කාර්මික | குழாய் பொருத்துனர் | Baseline |
-| `JOB_CARPENTER` | 50 | Carpenter / Mason | වඩු / පෙදරේරු කාර්මික | தச்சர் / கொத்தனார் | Baseline |
-| `JOB_CHEF_COOK` | 60 | Chef / Cook | ප්‍රධාන සූපවේදී / කෝකි | சமையல் கலைஞர் / சமையல்காரர் | Baseline |
-| `JOB_BEAUTICIAN` | 70 | Beautician / Hair Stylist | රූපලාවණ්‍ය ශිල්පී | அழகுக்கலைஞர் / முடி திருத்துனர் | Baseline |
-| `JOB_NURSE_CAREGIVER` | 80 | Nursing Assistant / Caregiver | හෙද සහායක / උපස්ථායක | தாதி உதவியாளர் / பராமரிப்பாளர் | Baseline |
-| `JOB_CLERICAL_ADMIN` | 90 | Office Clerk / Data Entry | කාර්යාල ලිපිකරු / දත්ත ඇතුලත් කිරීමේ ශිල්පී | அலுவலக எழுத்தர் / தரவு உள்ளீட்டாளர் | Baseline |
-| `JOB_SALES_MARKETING` | 100 | Sales & Marketing Representative | අලෙවි නියෝජිත | விற்பனை பிரதிநிதி | Baseline |
-| `JOB_OTHER` | 110 | Other Job | වෙනත් රැකියාවක් | ஏனைய தொழில் | Baseline |
+| `JOB_SOFTWARE_DEV` | 10 | Software Developer / IT Technician | මෘදුකාංග සංවර්ධක / තොරතුරු තාක්ෂණ ශිල්පී | மென்பொருள் உருவாக்குநர் / IT தொழில்நுட்ப வல்லுநர் | Demo Seed |
+| `JOB_ELECTRICIAN` | 20 | Electrician / Wireman | විදුලි කාර්මික | மின்சார தொழில்நுட்பவியலாளர் | Demo Seed |
+| `JOB_MECHANIC` | 30 | Auto Mechanic | මෝටර් රථ කාර්මික | மோட்டார் மெக்கானிக் | Demo Seed |
+| `JOB_PLUMBER` | 40 | Plumber | ජලනල කාර්මික | குழாய் பொருத்துனர் | Demo Seed |
+| `JOB_CARPENTER` | 50 | Carpenter / Mason | වඩු / පෙදරේරු කාර්මික | தச்சர் / கொத்தனார் | Demo Seed |
+| `JOB_CHEF_COOK` | 60 | Chef / Cook | ප්‍රධාන සූපවේදී / කෝකි | சமையல் கலைஞர் / சமையல்காரர் | Demo Seed |
+| `JOB_BEAUTICIAN` | 70 | Beautician / Hair Stylist | රූපලාවණ්‍ය ශිල්පී | அழகுக்கலைஞர் / முடி திருத்துனர் | Demo Seed |
+| `JOB_NURSE_CAREGIVER` | 80 | Nursing Assistant / Caregiver | හෙද සහායක / උපස්ථායක | தாதி உதவியாளர் / பராமரிப்பாளர் | Demo Seed |
+| `JOB_CLERICAL_ADMIN` | 90 | Office Clerk / Data Entry | කාර්යාල ලිපිකරු / දත්ත ඇතුලත් කිරීමේ ශිල්පී | அலுவலக எழுத்தர் / தரவு உள்ளீட்டாளர் | Demo Seed |
+| `JOB_SALES_MARKETING` | 100 | Sales & Marketing Representative | අලෙවි නියෝජිත | விற்பனை பிரதிநிதி | Demo Seed |
+| `JOB_OTHER` | 110 | Other Job | වෙනත් රැකියාවක් | ஏனைய தொழில் | Demo Seed |
 
 ---
 
