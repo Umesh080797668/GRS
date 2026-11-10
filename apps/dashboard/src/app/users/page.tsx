@@ -163,18 +163,24 @@ export default function UsersPage() {
       };
       const res = await api.createAccount(payload);
       setShowSingleModal(false);
+      const userObj = res?.user || res;
+      const userCode = userObj?.userCode || userObj?.user_code || '';
+      const role = userObj?.role || formData.role;
+      const fullName = userObj?.fullName || formData.fullName;
+      const initialPassword = userObj?.initialPassword || userObj?.initial_password || '';
+
       setLatestCredentials([
         {
-          userCode: res.userCode || res.user_code,
-          role: res.role || formData.role,
-          fullName: res.fullName || formData.fullName,
-          initialPassword: res.initialPassword || res.initial_password,
+          userCode,
+          role,
+          fullName,
+          initialPassword,
         },
       ]);
       setFormData({ fullName: '', role: 'team_member', phone: '', teamId: '' });
       fetchAccounts(undefined, true);
       api.getTeams().then(setTeams).catch(() => { });
-      setSuccessMessage(`Account ${res.userCode || res.user_code} created successfully.`);
+      setSuccessMessage(`Account ${userCode || 'User'} created successfully.`);
     } catch (err: any) {
       setError(`Error creating account: ${err.message}`);
     } finally {
@@ -325,14 +331,22 @@ export default function UsersPage() {
     setSuccessMessage(null);
     try {
       const res = await api.resetAccountPassword(id);
+      const acc = accounts.find((a) => a.id === id);
+      const userObj = res?.user || res;
+      const userCode = userObj?.userCode || userObj?.user_code || acc?.userCode || '';
+      const role = userObj?.role || acc?.role || '';
+      const fullName = userObj?.fullName || acc?.fullName || '';
+      const initialPassword = userObj?.initialPassword || userObj?.initial_password || '';
+
       setLatestCredentials([
         {
-          userCode: res.userCode || res.user_code,
-          role: res.role,
-          initialPassword: res.initialPassword || res.initial_password,
+          userCode,
+          role,
+          fullName,
+          initialPassword,
         },
       ]);
-      setSuccessMessage(`Temporary password generated for ${res.userCode || res.user_code}.`);
+      setSuccessMessage(`Temporary password generated for ${userCode}.`);
     } catch (err: any) {
       setError(`Failed to reset password: ${err.message}`);
     }
