@@ -71,10 +71,8 @@ export default function UsersPage() {
 
   // Form states
   const [formData, setFormData] = useState({
-    userCode: '',
     fullName: '',
     role: 'team_member',
-    email: '',
     phone: '',
     teamId: '',
   });
@@ -95,11 +93,10 @@ export default function UsersPage() {
     .filter((r) => ['team_member', 'cdc_secretary'].includes(r.value));
 
   const handleOpenSingleModal = () => {
+    const initialRole = allowedSingleRoles[0]?.value || 'team_member';
     setFormData({
-      userCode: '',
       fullName: '',
-      role: allowedSingleRoles[0]?.value || 'team_member',
-      email: '',
+      role: initialRole,
       phone: '',
       teamId: user?.role === 'cdc_secretary' ? (user.teamId || '') : '',
     });
@@ -107,9 +104,10 @@ export default function UsersPage() {
   };
 
   const handleOpenBulkModal = () => {
+    const initialRole = allowedBulkRoles[0]?.value || 'team_member';
     setBulkData({
-      role: allowedBulkRoles[0]?.value || 'team_member',
-      count: 10,
+      role: initialRole,
+      count: initialRole === 'cdc_secretary' ? 1 : 10,
       teamId: user?.role === 'cdc_secretary' ? (user.teamId || '') : '',
     });
     setShowBulkModal(true);
@@ -151,7 +149,13 @@ export default function UsersPage() {
     setError(null);
     setSuccessMessage(null);
     try {
-      const res = await api.createAccount(formData);
+      const payload: any = {
+        fullName: formData.fullName.trim(),
+        role: formData.role,
+        phoneE164: formData.phone.trim() || undefined,
+        teamId: formData.teamId || undefined,
+      };
+      const res = await api.createAccount(payload);
       setShowSingleModal(false);
       setLatestCredentials([
         {
@@ -161,8 +165,9 @@ export default function UsersPage() {
           initialPassword: res.initialPassword || res.initial_password,
         },
       ]);
-      setFormData({ userCode: '', fullName: '', role: 'team_member', email: '', phone: '', teamId: '' });
+      setFormData({ fullName: '', role: 'team_member', phone: '', teamId: '' });
       fetchAccounts(undefined, true);
+      api.getTeams().then(setTeams).catch(() => { });
       setSuccessMessage(`Account ${res.userCode || res.user_code} created successfully.`);
     } catch (err: any) {
       setError(`Error creating account: ${err.message}`);
@@ -177,9 +182,22 @@ export default function UsersPage() {
     setError(null);
     setSuccessMessage(null);
 
+    const targetTeamId = user?.role === 'cdc_secretary' ? user.teamId : bulkData.teamId;
+    if (!targetTeamId) {
+      setError('Team assignment is required.');
+      setActionLoading(false);
+      return;
+    }
+
+    if (bulkData.role === 'cdc_secretary' && Number(bulkData.count) !== 1) {
+      setError('A team can only have 1 CDC Secretary (team leader). Count must be 1.');
+      setActionLoading(false);
+      return;
+    }
+
     // Atomicity check across > 100: Enforce team member limit upfront before chunking
-    if (bulkData.role === 'team_member' && bulkData.teamId) {
-      const targetTeam = teams.find((t) => t.id === bulkData.teamId);
+    if (bulkData.role === 'team_member' && targetTeamId) {
+      const targetTeam = teams.find((t) => t.id === targetTeamId);
       if (targetTeam) {
         const activeInTeam = targetTeam.activeMembers ?? targetTeam.memberLimit ?? 0;
         const availableSlots = Math.max(0, targetTeam.maxMembers - activeInTeam);
@@ -203,7 +221,7 @@ export default function UsersPage() {
         const res = await api.createBulkAccounts({
           role: bulkData.role,
           count: chunk,
-          teamId: bulkData.teamId || undefined,
+          teamId: targetTeamId,
         });
 
         if (res.batchId) {
@@ -225,12 +243,14 @@ export default function UsersPage() {
       setShowBulkModal(false);
       setLatestCredentials(allCreds);
       fetchAccounts(undefined, true);
-      setSuccessMessage(`Successfully generated ${allCreds.length} accounts in batch ${createdBatchIds.join(', ')}.`);
+      api.getTeams().then(setTeams).catch(() => { });
+      setSuccessMessage(`Successfully generated ${allCreds.length} account(s) in batch ${createdBatchIds.join(', ')}.`);
     } catch (err: any) {
       if (allCreds.length > 0) {
         setShowBulkModal(false);
         setLatestCredentials(allCreds);
         fetchAccounts(undefined, true);
+        api.getTeams().then(setTeams).catch(() => { });
         setError(
           `Bulk creation partially completed: ${allCreds.length} accounts were generated. Subsequent chunk failed: ${err.message}.`
         );
@@ -595,19 +615,6 @@ export default function UsersPage() {
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
                   <label className="form-label">
-                    User Code (Optional, leave blank to auto-generate)
-                  </label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="e.g. AGT-101"
-                    value={formData.userCode}
-                    onChange={(e) => setFormData({ ...formData, userCode: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="form-label">
                     {t('users.name')} *
                   </label>
                   <input
@@ -626,7 +633,16 @@ export default function UsersPage() {
                   </label>
                   <select
                     value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    onChange={(e) => {
+                      const newRole = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
+                        role: newRole,
+                        teamId: newRole === 'cdc_secretary'
+                          ? (teams.find((t) => t.id === prev.teamId && !t.leaderId && !t.leader_id) ? prev.teamId : '')
+                          : prev.teamId,
+                      }));
+                    }}
                     className="select-field"
                   >
                     {allowedSingleRoles.map((r) => (
@@ -636,6 +652,43 @@ export default function UsersPage() {
                     ))}
                   </select>
                 </div>
+
+                {user?.role === 'cdc_secretary' ? (
+                  <div style={{ background: 'var(--slate-50)', border: '1px solid var(--border-subtle)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', color: 'var(--slate-600)' }}>
+                    <span>Assigned Field Team: <strong>Your Field Team (Pre-assigned)</strong></span>
+                  </div>
+                ) : (
+                  ['team_member', 'cdc_secretary'].includes(formData.role) && teams.length > 0 && (
+                    <div>
+                      <label className="form-label">
+                        Assign to Team {formData.role === 'cdc_secretary' ? '*' : '(Optional)'}
+                      </label>
+                      <select
+                        value={formData.teamId}
+                        onChange={(e) => setFormData({ ...formData, teamId: e.target.value })}
+                        className="select-field"
+                        required={formData.role === 'cdc_secretary'}
+                      >
+                        <option value="">
+                          {formData.role === 'cdc_secretary' ? 'Select a team without leader...' : 'No team assignment'}
+                        </option>
+                        {(formData.role === 'cdc_secretary'
+                          ? teams.filter((t) => !t.leaderId && !t.leader_id)
+                          : teams
+                        ).map((t) => (
+                          <option key={t.id} value={t.id}>
+                            Team {t.teamNo} (Max: {t.maxMembers}){t.leaderId ? ' - Has Leader' : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {formData.role === 'cdc_secretary' && teams.filter((t) => !t.leaderId && !t.leader_id).length === 0 && (
+                        <p style={{ fontSize: '11px', color: 'var(--danger, #ef4444)', margin: '4px 0 0 0' }}>
+                          All existing teams already have active leaders. Create a new team first in Areas management.
+                        </p>
+                      )}
+                    </div>
+                  )
+                )}
 
                 <div>
                   <label className="form-label">
@@ -693,7 +746,17 @@ export default function UsersPage() {
                   </label>
                   <select
                     value={bulkData.role}
-                    onChange={(e) => setBulkData({ ...bulkData, role: e.target.value })}
+                    onChange={(e) => {
+                      const newRole = e.target.value;
+                      setBulkData((prev) => ({
+                        ...prev,
+                        role: newRole,
+                        count: newRole === 'cdc_secretary' ? 1 : (prev.count === 1 ? 10 : prev.count),
+                        teamId: newRole === 'cdc_secretary'
+                          ? (teams.find((t) => t.id === prev.teamId && !t.leaderId && !t.leader_id) ? prev.teamId : '')
+                          : prev.teamId,
+                      }));
+                    }}
                     className="select-field"
                   >
                     {allowedBulkRoles.map((r) => (
@@ -709,40 +772,55 @@ export default function UsersPage() {
                     <span>Assigned Field Team: <strong>Your Field Team (Pre-assigned)</strong></span>
                   </div>
                 ) : (
-                  bulkData.role === 'team_member' && teams.length > 0 && (
+                  ['team_member', 'cdc_secretary'].includes(bulkData.role) && teams.length > 0 && (
                     <div>
                       <label className="form-label">
-                        Assign to Team (Optional)
+                        Assign to Team *
                       </label>
                       <select
                         value={bulkData.teamId}
                         onChange={(e) => setBulkData({ ...bulkData, teamId: e.target.value })}
                         className="select-field"
+                        required
                       >
-                        <option value="">No team pre-assignment</option>
-                        {teams.map((t) => (
+                        <option value="">Select a team...</option>
+                        {(bulkData.role === 'cdc_secretary'
+                          ? teams.filter((t) => !t.leaderId && !t.leader_id)
+                          : teams
+                        ).map((t) => (
                           <option key={t.id} value={t.id}>
-                            Team {t.teamNo} (Max: {t.maxMembers})
+                            Team {t.teamNo} (Max: {t.maxMembers}){t.leaderId ? ' - Has Leader' : ''}
                           </option>
                         ))}
                       </select>
+                      {bulkData.role === 'cdc_secretary' && teams.filter((t) => !t.leaderId && !t.leader_id).length === 0 && (
+                        <p style={{ fontSize: '11px', color: 'var(--danger, #ef4444)', margin: '4px 0 0 0' }}>
+                          All existing teams already have active leaders. Create a new team first in Areas management.
+                        </p>
+                      )}
                     </div>
                   )
                 )}
 
                 <div>
                   <label className="form-label">
-                    Total Number of Accounts to Generate (Max 100 per request) *
+                    Total Number of Accounts to Generate {bulkData.role === 'cdc_secretary' ? '(Locked to 1 for CDC Secretary)' : '(Max 100 per request)'} *
                   </label>
                   <input
                     type="number"
                     min="1"
-                    max="100"
+                    max={bulkData.role === 'cdc_secretary' ? 1 : 100}
                     className="input-field"
                     value={bulkData.count}
+                    disabled={bulkData.role === 'cdc_secretary'}
                     onChange={(e) => setBulkData({ ...bulkData, count: Math.min(100, Math.max(1, parseInt(e.target.value) || 1)) })}
                     required
                   />
+                  {bulkData.role === 'cdc_secretary' && (
+                    <p style={{ fontSize: '11.5px', color: 'var(--slate-500)', margin: '4px 0 0 0' }}>
+                      Each field team can have exactly one CDC Secretary (team leader).
+                    </p>
+                  )}
                 </div>
               </div>
 

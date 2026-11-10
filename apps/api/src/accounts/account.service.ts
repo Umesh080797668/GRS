@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CredentialService } from '../auth/credential.service';
 import { ScopeService } from '../common/scope/scope.service';
+import { GrsValidators } from '../common/validators/grs-validators';
 import {
   ScopeContext,
   UserRole,
@@ -62,6 +63,18 @@ export class AccountService {
       AccountService.INITIAL_PASSWORD_TTL_DAYS * 24 * 60 * 60 * 1000;
     const passwordExpiresAt = new Date(Date.now() + ttlMs);
 
+    let phoneE164: string | undefined = undefined;
+    if (dto.phoneE164 && dto.phoneE164.trim().length > 0) {
+      const pRes = GrsValidators.normalizePhone(dto.phoneE164);
+      if (!pRes.isValid) {
+        throw new BadRequestException({
+          code: 'INVALID_PHONE_NUMBER',
+          message: `Invalid phone number format: ${dto.phoneE164}`,
+        });
+      }
+      phoneE164 = pRes.value!;
+    }
+
     // Pre-generate credentials outside transaction to minimize lock holding time
     const { raw, display } = this.credentialService.generateInitialPassword();
     const passwordHash = await this.credentialService.hashInitialPassword(raw);
@@ -90,7 +103,7 @@ export class AccountService {
                 fullName: dto.fullName,
                 role: dto.role,
                 passwordHash,
-                phoneE164: dto.phoneE164,
+                phoneE164,
                 preferredLanguage: dto.preferredLanguage || 'si',
                 districtId: resolvedTerritory.districtId,
                 dsId: resolvedTerritory.dsId,
@@ -159,6 +172,29 @@ export class AccountService {
     creatorScope: ScopeContext,
     dto: CreateBulkAccountsDto,
   ): Promise<{ batchId: string; users: CreatedAccountResponse[] }> {
+    const count = dto.count;
+    if (count < 1 || count > 100) {
+      throw new BadRequestException({
+        code: 'INVALID_COUNT',
+        message: 'Bulk account creation must be between 1 and 100 accounts',
+      });
+    }
+
+    if (dto.role === UserRole.cdc_secretary && count !== 1) {
+      throw new BadRequestException({
+        code: 'INVALID_COUNT',
+        message:
+          'CDC secretary account creation must have a count of exactly 1',
+      });
+    }
+
+    if (dto.members && dto.members.length > count) {
+      throw new BadRequestException({
+        code: 'MEMBERS_EXCEED_COUNT',
+        message: `Members list length (${dto.members.length}) exceeds the requested count (${count})`,
+      });
+    }
+
     const resolvedTerritory = await this.assertCanCreate(
       creatorScope,
       dto.role,
@@ -168,24 +204,28 @@ export class AccountService {
       dto.teamId,
     );
 
-    const count = dto.count;
-    if (count < 1 || count > 100) {
-      throw new BadRequestException({
-        code: 'INVALID_COUNT',
-        message: 'Bulk account creation must be between 1 and 100 accounts',
-      });
-    }
-
     const ttlMs =
       AccountService.INITIAL_PASSWORD_TTL_DAYS * 24 * 60 * 60 * 1000;
     const passwordExpiresAt = new Date(Date.now() + ttlMs);
 
     // Pre-generate credentials outside transaction to minimize lock holding time
+    const roleLabel = this.formatRoleName(dto.role);
     const pregeneratedMembers = [];
     for (let i = 0; i < count; i++) {
       const memberInfo = dto.members && dto.members[i];
-      const fullName = memberInfo?.fullName || `Team Member ${i + 1}`;
-      const phoneE164 = memberInfo?.phoneE164;
+      const defaultName = `${roleLabel} ${i + 1}`;
+      const fullName = memberInfo?.fullName?.trim() || defaultName;
+      let phoneE164: string | undefined = undefined;
+      if (memberInfo?.phoneE164 && memberInfo.phoneE164.trim().length > 0) {
+        const pRes = GrsValidators.normalizePhone(memberInfo.phoneE164);
+        if (!pRes.isValid) {
+          throw new BadRequestException({
+            code: 'INVALID_PHONE_NUMBER',
+            message: `Invalid phone number for member ${i + 1}: ${memberInfo.phoneE164}`,
+          });
+        }
+        phoneE164 = pRes.value!;
+      }
       const preferredLanguage = memberInfo?.preferredLanguage || 'si';
       const { raw, display } = this.credentialService.generateInitialPassword();
       pregeneratedMembers.push({
@@ -289,6 +329,13 @@ export class AccountService {
             gnId: profile.gnId,
             initialPassword: m.displayPassword,
             passwordExpiresAt,
+          });
+        }
+
+        if (dto.role === UserRole.cdc_secretary && resolvedTerritory.teamId) {
+          await tx.team.update({
+            where: { id: resolvedTerritory.teamId },
+            data: { leaderId: results[0].id },
           });
         }
 
@@ -695,6 +742,22 @@ export class AccountService {
       newTeamDistrictId = newTeam.gn.ds.districtId;
     }
 
+    let normalizedPhoneE164: string | null | undefined = undefined;
+    if (dto.phoneE164 !== undefined) {
+      if (dto.phoneE164 && dto.phoneE164.trim().length > 0) {
+        const pRes = GrsValidators.normalizePhone(dto.phoneE164);
+        if (!pRes.isValid) {
+          throw new BadRequestException({
+            code: 'INVALID_PHONE_NUMBER',
+            message: `Invalid phone number format: ${dto.phoneE164}`,
+          });
+        }
+        normalizedPhoneE164 = pRes.value!;
+      } else {
+        normalizedPhoneE164 = null;
+      }
+    }
+
     return this.prisma.$transaction(
       async (tx) => {
         const willBeActive =
@@ -718,7 +781,10 @@ export class AccountService {
 
         const data: Prisma.ProfileUpdateInput = {
           fullName: dto.fullName ?? undefined,
-          phoneE164: dto.phoneE164 ?? undefined,
+          phoneE164:
+            normalizedPhoneE164 !== undefined
+              ? normalizedPhoneE164
+              : undefined,
           teamId: dto.teamId !== undefined ? dto.teamId : undefined,
           isActive: dto.isActive ?? undefined,
         };
@@ -1087,15 +1153,13 @@ export class AccountService {
       }
     }
 
-    // Bug 3: Require the right area per role at creation
-    if (targetRole === UserRole.team_member) {
-      if (!effectiveTeamId) {
-        throw new BadRequestException({
-          code: 'TEAM_REQUIRED',
-          message: 'Team assignment is required for team members',
-        });
-      }
-    } else if (targetRole === UserRole.cdc_secretary) {
+    // Bug 3: Require the right area per role at creation for scoped roles
+    // CDC Secretary always requires a team assignment (one leader per team).
+    // Super Admin / Admin can create unassigned team members in single creation when testing/pre-staging.
+    const isNationalCreator =
+      creator.role === UserRole.super_admin || creator.role === UserRole.admin;
+
+    if (targetRole === UserRole.cdc_secretary) {
       if (!effectiveTeamId) {
         throw new BadRequestException({
           code: 'TEAM_REQUIRED',
@@ -1103,7 +1167,14 @@ export class AccountService {
             'Team assignment is required for CDC secretary (team leader)',
         });
       }
-    } else if (targetRole === UserRole.sda) {
+    } else if (targetRole === UserRole.team_member) {
+      if (!effectiveTeamId && !isNationalCreator) {
+        throw new BadRequestException({
+          code: 'TEAM_REQUIRED',
+          message: 'Team assignment is required for team members',
+        });
+      }
+    } else if (targetRole === UserRole.sda && !isNationalCreator) {
       const effectiveDsId = targetDsId || creator.dsId;
       const effectiveDistrictId = targetDistrictId || creator.districtId;
       if (!effectiveDsId || !effectiveDistrictId) {
@@ -1112,7 +1183,7 @@ export class AccountService {
           message: 'DS division and district assignment are required for SDA',
         });
       }
-    } else if (targetRole === UserRole.dc) {
+    } else if (targetRole === UserRole.dc && !isNationalCreator) {
       const effectiveDistrictId = targetDistrictId || creator.districtId;
       if (!effectiveDistrictId) {
         throw new BadRequestException({
@@ -1434,6 +1505,27 @@ export class AccountService {
     }
 
     return team.gn_id;
+  }
+
+  private formatRoleName(role: UserRole): string {
+    switch (role) {
+      case UserRole.cdc_secretary:
+        return 'CDC Secretary';
+      case UserRole.team_member:
+        return 'Team Member';
+      case UserRole.sda:
+        return 'SDA';
+      case UserRole.dc:
+        return 'DC';
+      case UserRole.cg:
+        return 'CG';
+      case UserRole.admin:
+        return 'Admin';
+      case UserRole.super_admin:
+        return 'Super Admin';
+      default:
+        return 'User';
+    }
   }
 
   private async generateUniqueUserCode(
