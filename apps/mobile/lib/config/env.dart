@@ -10,30 +10,30 @@ class AppEnv {
   /// or dynamically at runtime via secure storage.
   static const String defaultApiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: '2.0.0',
+    defaultValue: '',
   );
 
   /// Supabase Tokyo project URL.
   static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: '2.0.0',
+    defaultValue: '',
   );
 
   /// Supabase public anonymous key (safe for client bundling per Invariant 5).
   static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: '2.0.0',
+    defaultValue: '',
   );
 
   /// Sentry error reporting DSN (PII scrubbed).
   static const String sentryDsn = String.fromEnvironment(
     'SENTRY_DSN',
-    defaultValue: '2.0.0',
+    defaultValue: '',
   );
 
   /// Client semantic application version sent in X-App-Version header
   static const String appVersion = String.fromEnvironment(
     'APP_VERSION',
-    defaultValue: '2.0.0',
+    defaultValue: '2.0.1',
   );
 }

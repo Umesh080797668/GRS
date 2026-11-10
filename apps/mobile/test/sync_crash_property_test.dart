@@ -24,7 +24,7 @@ class CrashSimulatorApiClient extends GrsApiClient {
 
   CrashSimulatorApiClient({this.dropRate = 0.3, Random? random})
     : random = random ?? Random(42),
-      super(baseUrl: 'https://test.grs.gov.lk', appVersion: '2.0.0');
+      super(baseUrl: 'https://test.grs.gov.lk', appVersion: '2.0.1');
 
   @override
   Future<SyncPushResponse> pushSync(SyncPushRequest req) async {

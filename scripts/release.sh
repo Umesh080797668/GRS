@@ -109,7 +109,7 @@ fi
 
 # 5. Update apps/mobile/lib/config/env.dart default appVersion
 if [ -f "$ENV_DART" ]; then
-  sed -i "s/defaultValue: '[0-9.]*'/defaultValue: '${NEW_VER}'/" "$ENV_DART"
+  sed -i "s/defaultValue: '[0-9]\+\.[0-9]\+\.[0-9]\+'/defaultValue: '${NEW_VER}'/" "$ENV_DART"
 fi
 
 # 6. Commit and Create Git Tag
