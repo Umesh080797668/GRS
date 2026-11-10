@@ -180,11 +180,11 @@ export class AccountService {
       });
     }
 
-    if (dto.role === UserRole.cdc_secretary && count !== 1) {
+    if (dto.role === UserRole.cdc_secretary && dto.teamId && count !== 1) {
       throw new BadRequestException({
         code: 'INVALID_COUNT',
         message:
-          'CDC secretary account creation must have a count of exactly 1',
+          'CDC secretary account creation for a specific team must have a count of exactly 1',
       });
     }
 
@@ -1154,13 +1154,12 @@ export class AccountService {
     }
 
     // Bug 3: Require the right area per role at creation for scoped roles
-    // CDC Secretary always requires a team assignment (one leader per team).
-    // Super Admin / Admin can create unassigned team members in single creation when testing/pre-staging.
+    // Super Admin / Admin (national creators) can create unassigned accounts when testing or pre-staging.
     const isNationalCreator =
       creator.role === UserRole.super_admin || creator.role === UserRole.admin;
 
     if (targetRole === UserRole.cdc_secretary) {
-      if (!effectiveTeamId) {
+      if (!effectiveTeamId && !isNationalCreator) {
         throw new BadRequestException({
           code: 'TEAM_REQUIRED',
           message:

@@ -101,16 +101,29 @@ describe('Account Creation & Bulk Generation for Level 4 CDC Admin & Team Member
   });
 
   describe('Bulk CDC Admin (Level 4 CDC Secretary) Creation', () => {
-    it('rejects bulk CDC Secretary creation without a teamId', async () => {
+    it('rejects bulk CDC Secretary creation without a teamId for non-national creator (SDA)', async () => {
       await expect(
-        service.createBulkAccounts(superAdminScope, {
+        service.createBulkAccounts(sdaScope, {
           role: UserRole.cdc_secretary,
           count: 1,
         }),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('rejects bulk CDC Secretary creation with count !== 1', async () => {
+    it('allows Super Admin to bulk create CDC Secretary accounts without a teamId (pre-staging)', async () => {
+      const result = await service.createBulkAccounts(superAdminScope, {
+        role: UserRole.cdc_secretary,
+        count: 5,
+      });
+
+      expect(result.batchId).toBe('batch-mock-id');
+      expect(result.users).toHaveLength(5);
+      expect(result.users[0].role).toBe(UserRole.cdc_secretary);
+      expect(result.users[0].fullName).toBe('CDC Secretary 1');
+      expect(result.users[0].teamId).toBeUndefined();
+    });
+
+    it('rejects bulk CDC Secretary creation with teamId and count !== 1', async () => {
       await expect(
         service.createBulkAccounts(superAdminScope, {
           role: UserRole.cdc_secretary,
@@ -175,6 +188,18 @@ describe('Account Creation & Bulk Generation for Level 4 CDC Admin & Team Member
   });
 
   describe('Single Account Creation', () => {
+    it('allows Super Admin to create a single CDC Secretary account without a teamId (pre-staging)', async () => {
+      const result = await service.createAccount(superAdminScope, {
+        fullName: 'Sunil CDC Secretary',
+        role: UserRole.cdc_secretary,
+      });
+
+      expect(result.user).toBeDefined();
+      expect(result.user.role).toBe(UserRole.cdc_secretary);
+      expect(result.user.fullName).toBe('Sunil CDC Secretary');
+      expect(result.user.teamId).toBeUndefined();
+    });
+
     it('allows Super Admin to create a single CDC Secretary account with teamId and updates team leader', async () => {
       const result = await service.createAccount(superAdminScope, {
         fullName: 'Sunil CDC Secretary',
@@ -192,9 +217,9 @@ describe('Account Creation & Bulk Generation for Level 4 CDC Admin & Team Member
       });
     });
 
-    it('rejects single CDC Secretary creation without a teamId', async () => {
+    it('rejects single CDC Secretary creation without a teamId when created by non-national creator (SDA)', async () => {
       await expect(
-        service.createAccount(superAdminScope, {
+        service.createAccount(sdaScope, {
           fullName: 'Sunil CDC Secretary',
           role: UserRole.cdc_secretary,
         }),

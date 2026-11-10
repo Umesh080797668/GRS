@@ -84,6 +84,7 @@ export default function UsersPage() {
   });
 
   const [actionLoading, setActionLoading] = useState(false);
+  const isSuperAdmin = user?.role === 'super_admin' || user?.role === 'admin';
 
   const allowedSingleRoles = (user?.role && CREATABLE_ROLES[user.role])
     ? CREATABLE_ROLES[user.role]
@@ -149,6 +150,11 @@ export default function UsersPage() {
     setError(null);
     setSuccessMessage(null);
     try {
+      if (formData.role === 'cdc_secretary' && !formData.teamId && !isSuperAdmin) {
+        setError('Team assignment is required for CDC secretary (team leader).');
+        setActionLoading(false);
+        return;
+      }
       const payload: any = {
         fullName: formData.fullName.trim(),
         role: formData.role,
@@ -182,14 +188,14 @@ export default function UsersPage() {
     setError(null);
     setSuccessMessage(null);
 
-    const targetTeamId = user?.role === 'cdc_secretary' ? user.teamId : bulkData.teamId;
-    if (!targetTeamId) {
+    const targetTeamId = user?.role === 'cdc_secretary' ? user.teamId : (bulkData.teamId || undefined);
+    if (!targetTeamId && !isSuperAdmin) {
       setError('Team assignment is required.');
       setActionLoading(false);
       return;
     }
 
-    if (bulkData.role === 'cdc_secretary' && Number(bulkData.count) !== 1) {
+    if (bulkData.role === 'cdc_secretary' && targetTeamId && Number(bulkData.count) !== 1) {
       setError('A team can only have 1 CDC Secretary (team leader). Count must be 1.');
       setActionLoading(false);
       return;
@@ -658,35 +664,53 @@ export default function UsersPage() {
                     <span>Assigned Field Team: <strong>Your Field Team (Pre-assigned)</strong></span>
                   </div>
                 ) : (
-                  ['team_member', 'cdc_secretary'].includes(formData.role) && teams.length > 0 && (
-                    <div>
-                      <label className="form-label">
-                        Assign to Team {formData.role === 'cdc_secretary' ? '*' : '(Optional)'}
-                      </label>
-                      <select
-                        value={formData.teamId}
-                        onChange={(e) => setFormData({ ...formData, teamId: e.target.value })}
-                        className="select-field"
-                        required={formData.role === 'cdc_secretary'}
-                      >
-                        <option value="">
-                          {formData.role === 'cdc_secretary' ? 'Select a team without leader...' : 'No team assignment'}
-                        </option>
-                        {(formData.role === 'cdc_secretary'
-                          ? teams.filter((t) => !t.leaderId && !t.leader_id)
-                          : teams
-                        ).map((t) => (
-                          <option key={t.id} value={t.id}>
-                            Team {t.teamNo} (Max: {t.maxMembers}){t.leaderId ? ' - Has Leader' : ''}
+                  ['team_member', 'cdc_secretary'].includes(formData.role) && (
+                    teams.length === 0 ? (
+                      isSuperAdmin ? (
+                        <div style={{ background: 'var(--slate-50)', border: '1px solid var(--border-subtle)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', color: 'var(--slate-600)' }}>
+                          <span>Assign to Team: <em>No field teams exist yet in the database. As Super Admin, this account will be created without team pre-assignment. You can assign them to a team later in Areas management.</em></span>
+                        </div>
+                      ) : (
+                        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', color: '#991b1b' }}>
+                          <span>No field teams available. You must create a team first in Areas management before creating accounts.</span>
+                        </div>
+                      )
+                    ) : (
+                      <div>
+                        <label className="form-label">
+                          Assign to Team {isSuperAdmin ? '(Optional for Super Admin)' : (formData.role === 'cdc_secretary' ? '*' : '(Optional)')}
+                        </label>
+                        <select
+                          value={formData.teamId}
+                          onChange={(e) => setFormData({ ...formData, teamId: e.target.value })}
+                          className="select-field"
+                          required={formData.role === 'cdc_secretary' && !isSuperAdmin}
+                        >
+                          <option value="">
+                            {isSuperAdmin
+                              ? 'No team assignment (assign later)'
+                              : formData.role === 'cdc_secretary'
+                                ? 'Select a team without leader...'
+                                : 'No team assignment'}
                           </option>
-                        ))}
-                      </select>
-                      {formData.role === 'cdc_secretary' && teams.filter((t) => !t.leaderId && !t.leader_id).length === 0 && (
-                        <p style={{ fontSize: '11px', color: 'var(--danger, #ef4444)', margin: '4px 0 0 0' }}>
-                          All existing teams already have active leaders. Create a new team first in Areas management.
-                        </p>
-                      )}
-                    </div>
+                          {(formData.role === 'cdc_secretary'
+                            ? teams.filter((t) => !t.leaderId && !t.leader_id)
+                            : teams
+                          ).map((t) => (
+                            <option key={t.id} value={t.id}>
+                              Team {t.teamNo} (Max: {t.maxMembers}){t.leaderId ? ' - Has Leader' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {formData.role === 'cdc_secretary' && teams.filter((t) => !t.leaderId && !t.leader_id).length === 0 && (
+                          <p style={{ fontSize: '11px', color: isSuperAdmin ? 'var(--amber-600)' : 'var(--danger, #ef4444)', margin: '4px 0 0 0' }}>
+                            {isSuperAdmin
+                              ? 'All existing teams already have active leaders. Account will be created without a team assignment.'
+                              : 'All existing teams already have active leaders. Create a new team first in Areas management.'}
+                          </p>
+                        )}
+                      </div>
+                    )
                   )
                 )}
 
@@ -772,51 +796,76 @@ export default function UsersPage() {
                     <span>Assigned Field Team: <strong>Your Field Team (Pre-assigned)</strong></span>
                   </div>
                 ) : (
-                  ['team_member', 'cdc_secretary'].includes(bulkData.role) && teams.length > 0 && (
-                    <div>
-                      <label className="form-label">
-                        Assign to Team *
-                      </label>
-                      <select
-                        value={bulkData.teamId}
-                        onChange={(e) => setBulkData({ ...bulkData, teamId: e.target.value })}
-                        className="select-field"
-                        required
-                      >
-                        <option value="">Select a team...</option>
-                        {(bulkData.role === 'cdc_secretary'
-                          ? teams.filter((t) => !t.leaderId && !t.leader_id)
-                          : teams
-                        ).map((t) => (
-                          <option key={t.id} value={t.id}>
-                            Team {t.teamNo} (Max: {t.maxMembers}){t.leaderId ? ' - Has Leader' : ''}
+                  ['team_member', 'cdc_secretary'].includes(bulkData.role) && (
+                    teams.length === 0 ? (
+                      isSuperAdmin ? (
+                        <div style={{ background: 'var(--slate-50)', border: '1px solid var(--border-subtle)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', color: 'var(--slate-600)' }}>
+                          <span>Assign to Team: <em>No field teams exist yet in the database. As Super Admin, accounts will be generated without a team pre-assignment.</em></span>
+                        </div>
+                      ) : (
+                        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', color: '#991b1b' }}>
+                          <span>No field teams available. You must create a team first in Areas management before generating accounts.</span>
+                        </div>
+                      )
+                    ) : (
+                      <div>
+                        <label className="form-label">
+                          Assign to Team {isSuperAdmin ? '(Optional for Super Admin)' : '*'}
+                        </label>
+                        <select
+                          value={bulkData.teamId}
+                          onChange={(e) => {
+                            const newTeamId = e.target.value;
+                            setBulkData((prev) => ({
+                              ...prev,
+                              teamId: newTeamId,
+                              count: prev.role === 'cdc_secretary' && newTeamId ? 1 : prev.count,
+                            }));
+                          }}
+                          className="select-field"
+                          required={!isSuperAdmin}
+                        >
+                          <option value="">
+                            {isSuperAdmin
+                              ? 'No team assignment (unassigned)'
+                              : 'Select a team...'}
                           </option>
-                        ))}
-                      </select>
-                      {bulkData.role === 'cdc_secretary' && teams.filter((t) => !t.leaderId && !t.leader_id).length === 0 && (
-                        <p style={{ fontSize: '11px', color: 'var(--danger, #ef4444)', margin: '4px 0 0 0' }}>
-                          All existing teams already have active leaders. Create a new team first in Areas management.
-                        </p>
-                      )}
-                    </div>
+                          {(bulkData.role === 'cdc_secretary'
+                            ? teams.filter((t) => !t.leaderId && !t.leader_id)
+                            : teams
+                          ).map((t) => (
+                            <option key={t.id} value={t.id}>
+                              Team {t.teamNo} (Max: {t.maxMembers}){t.leaderId ? ' - Has Leader' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {bulkData.role === 'cdc_secretary' && teams.filter((t) => !t.leaderId && !t.leader_id).length === 0 && (
+                          <p style={{ fontSize: '11px', color: isSuperAdmin ? 'var(--amber-600)' : 'var(--danger, #ef4444)', margin: '4px 0 0 0' }}>
+                            {isSuperAdmin
+                              ? 'All existing teams already have active leaders. Accounts will be generated without a team assignment.'
+                              : 'All existing teams already have active leaders. Create a new team first in Areas management.'}
+                          </p>
+                        )}
+                      </div>
+                    )
                   )
                 )}
 
                 <div>
                   <label className="form-label">
-                    Total Number of Accounts to Generate {bulkData.role === 'cdc_secretary' ? '(Locked to 1 for CDC Secretary)' : '(Max 100 per request)'} *
+                    Total Number of Accounts to Generate {bulkData.role === 'cdc_secretary' && bulkData.teamId ? '(Locked to 1 for Team Leader)' : '(Max 100 per request)'} *
                   </label>
                   <input
                     type="number"
                     min="1"
-                    max={bulkData.role === 'cdc_secretary' ? 1 : 100}
+                    max={bulkData.role === 'cdc_secretary' && bulkData.teamId ? 1 : 100}
                     className="input-field"
                     value={bulkData.count}
-                    disabled={bulkData.role === 'cdc_secretary'}
+                    disabled={bulkData.role === 'cdc_secretary' && !!bulkData.teamId}
                     onChange={(e) => setBulkData({ ...bulkData, count: Math.min(100, Math.max(1, parseInt(e.target.value) || 1)) })}
                     required
                   />
-                  {bulkData.role === 'cdc_secretary' && (
+                  {bulkData.role === 'cdc_secretary' && bulkData.teamId && (
                     <p style={{ fontSize: '11.5px', color: 'var(--slate-500)', margin: '4px 0 0 0' }}>
                       Each field team can have exactly one CDC Secretary (team leader).
                     </p>
