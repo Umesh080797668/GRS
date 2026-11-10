@@ -11,6 +11,7 @@ interface AuthContextType {
   login: (identifier: string, pwd: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => void;
+  switchArea: (gnId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -20,6 +21,7 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => { },
   logout: () => { },
   refreshUser: () => { },
+  switchArea: async () => { },
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -96,6 +98,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(stored);
   };
 
+  const switchArea = async (gnId: string) => {
+    const session = await api.switchArea(gnId);
+    setUser(session.user);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -105,6 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         refreshUser,
+        switchArea,
       }}
     >
       {children}

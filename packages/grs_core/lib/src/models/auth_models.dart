@@ -18,6 +18,44 @@ class LoginRequest {
   };
 }
 
+class ProfileAssignmentModel {
+  final String gnId;
+  final String? gnName;
+  final String? gnCode;
+  final String? teamId;
+  final String? teamNo;
+  final String? validFrom;
+
+  const ProfileAssignmentModel({
+    required this.gnId,
+    this.gnName,
+    this.gnCode,
+    this.teamId,
+    this.teamNo,
+    this.validFrom,
+  });
+
+  factory ProfileAssignmentModel.fromJson(Map<String, dynamic> json) =>
+      ProfileAssignmentModel(
+        gnId: json['gnId'] as String? ?? json['gn_id'] as String? ?? '',
+        gnName: json['gnName'] as String? ?? json['gn_name'] as String?,
+        gnCode: json['gnCode'] as String? ?? json['gn_code'] as String?,
+        teamId: json['teamId'] as String? ?? json['team_id'] as String?,
+        teamNo: json['teamNo'] as String? ?? json['team_no'] as String?,
+        validFrom:
+            json['validFrom'] as String? ?? json['valid_from'] as String?,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'gnId': gnId,
+    'gnName': gnName,
+    'gnCode': gnCode,
+    'teamId': teamId,
+    'teamNo': teamNo,
+    'validFrom': validFrom,
+  };
+}
+
 class ProfileModel {
   final String id;
   final String userCode;
@@ -33,6 +71,7 @@ class ProfileModel {
   final String? teamId;
   final bool isActive;
   final bool mustChangePassword;
+  final List<ProfileAssignmentModel>? assignments;
 
   const ProfileModel({
     required this.id,
@@ -49,6 +88,7 @@ class ProfileModel {
     this.teamId,
     required this.isActive,
     required this.mustChangePassword,
+    this.assignments,
   });
 
   factory ProfileModel.fromJson(Map<String, dynamic> json) => ProfileModel(
@@ -73,6 +113,14 @@ class ProfileModel {
         json['mustChangePassword'] as bool? ??
         json['must_change_password'] as bool? ??
         false,
+    assignments: json['assignments'] != null
+        ? (json['assignments'] as List<dynamic>)
+              .map(
+                (e) =>
+                    ProfileAssignmentModel.fromJson(e as Map<String, dynamic>),
+              )
+              .toList()
+        : null,
   );
 
   Map<String, dynamic> toJson() => {
@@ -90,6 +138,7 @@ class ProfileModel {
     'teamId': teamId,
     'isActive': isActive,
     'mustChangePassword': mustChangePassword,
+    'assignments': assignments?.map((e) => e.toJson()).toList(),
   };
 }
 

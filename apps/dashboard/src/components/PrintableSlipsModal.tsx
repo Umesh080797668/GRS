@@ -74,7 +74,181 @@ export default function PrintableSlipsModal({
   };
 
   const handlePrint = () => {
-    window.print();
+    try {
+      const printFrame = document.createElement('iframe');
+      printFrame.setAttribute('aria-hidden', 'true');
+      printFrame.style.position = 'fixed';
+      printFrame.style.right = '0';
+      printFrame.style.bottom = '0';
+      printFrame.style.width = '0';
+      printFrame.style.height = '0';
+      printFrame.style.border = '0';
+      printFrame.style.visibility = 'hidden';
+      document.body.appendChild(printFrame);
+
+      const doc = printFrame.contentWindow?.document;
+      if (doc) {
+        doc.open();
+        doc.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8" />
+              <title>GRS Credential Slips</title>
+              <style>
+                @page {
+                  size: A4 portrait;
+                  margin: 12mm 15mm;
+                }
+                * {
+                  box-sizing: border-box;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                body {
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                  margin: 0;
+                  padding: 0;
+                  color: #0f172a;
+                  background: #ffffff;
+                }
+                .slip {
+                  border: 2px dashed #475569;
+                  border-radius: 8px;
+                  padding: 16px 20px;
+                  margin-bottom: 20px;
+                  page-break-inside: avoid;
+                  break-inside: avoid;
+                  background: #ffffff;
+                }
+                .slip-header {
+                  border-bottom: 1px solid #cbd5e1;
+                  padding-bottom: 8px;
+                  margin-bottom: 12px;
+                }
+                .gov-title {
+                  font-size: 13pt;
+                  font-weight: 700;
+                  color: #0f172a;
+                }
+                .gov-sub {
+                  font-size: 9pt;
+                  color: #64748b;
+                  margin-top: 2px;
+                }
+                .slip-body {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: flex-start;
+                  gap: 16px;
+                }
+                .meta-col {
+                  flex: 1;
+                }
+                .full-name {
+                  font-size: 11pt;
+                  color: #334155;
+                  text-transform: uppercase;
+                  font-weight: 700;
+                }
+                .code-row {
+                  margin-top: 6px;
+                  font-size: 12pt;
+                  font-weight: 700;
+                  color: #0f172a;
+                }
+                .code-val {
+                  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                  color: #004d40;
+                  font-size: 13.5pt;
+                  letter-spacing: 0.05em;
+                }
+                .role-row {
+                  margin-top: 4px;
+                  font-size: 10pt;
+                  color: #64748b;
+                  text-transform: uppercase;
+                }
+                .pwd-box {
+                  border: 1.5px solid #cbd5e1;
+                  border-radius: 6px;
+                  padding: 10px 16px;
+                  text-align: right;
+                  background: #f8fafc;
+                  min-width: 190px;
+                  flex-shrink: 0;
+                }
+                .pwd-title {
+                  font-size: 8.5pt;
+                  color: #64748b;
+                  text-transform: uppercase;
+                  font-weight: 700;
+                  letter-spacing: 0.05em;
+                }
+                .pwd-val {
+                  font-size: 14pt;
+                  font-weight: 700;
+                  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                  color: #004d40;
+                  margin-top: 4px;
+                  letter-spacing: 0.05em;
+                }
+                .slip-footer {
+                  border-top: 1px dashed #cbd5e1;
+                  padding-top: 8px;
+                  margin-top: 12px;
+                  font-size: 8pt;
+                  color: #64748b;
+                  line-height: 1.35;
+                }
+              </style>
+            </head>
+            <body>
+              ${credentials
+            .map(
+              (c) => `
+                <div class="slip">
+                  <div class="slip-header">
+                    <div class="gov-title">GOV.LK — GRS Door-to-Door Skills Campaign 2026</div>
+                    <div class="gov-sub">Official Account Credential & Temporary Access Slip</div>
+                  </div>
+                  <div class="slip-body">
+                    <div class="meta-col">
+                      <div class="full-name">${c.fullName || 'Official Field Operative'}</div>
+                      <div class="code-row">User Code: <span class="code-val">${c.userCode || 'N/A'}</span></div>
+                      <div class="role-row">Role: <strong>${c.role}</strong></div>
+                    </div>
+                    <div class="pwd-box">
+                      <div class="pwd-title">Initial Password</div>
+                      <div class="pwd-val">${c.initialPassword || 'N/A'}</div>
+                    </div>
+                  </div>
+                  <div class="slip-footer">
+                    Important: This temporary password must be changed immediately upon first sign-in at the mobile app or web portal. Keep this slip secure.
+                  </div>
+                </div>
+              `,
+            )
+            .join('')}
+            </body>
+          </html>
+        `);
+        doc.close();
+        setTimeout(() => {
+          printFrame.contentWindow?.focus();
+          printFrame.contentWindow?.print();
+          setTimeout(() => {
+            if (document.body.contains(printFrame)) {
+              document.body.removeChild(printFrame);
+            }
+          }, 3000);
+        }, 250);
+      } else {
+        window.print();
+      }
+    } catch {
+      window.print();
+    }
   };
 
   return (
@@ -108,12 +282,12 @@ export default function PrintableSlipsModal({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {credentials.length > 1 && (
+            {credentials.length > 0 && (
               <button
                 type="button"
                 onClick={toggleAllPasswords}
                 className="btn-secondary"
-                style={{ fontSize: '11px', padding: '4px 8px', height: 'auto' }}
+                style={{ fontSize: '11px', padding: '5px 10px', height: 'auto', display: 'flex', alignItems: 'center', gap: '5px' }}
               >
                 {allRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
                 <span>{allRevealed ? 'Hide All' : 'Reveal All'}</span>
@@ -208,11 +382,11 @@ export default function PrintableSlipsModal({
                     {c.fullName || 'Official Field Operative'}
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
                     <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--slate-900)' }}>
                       User Code:{' '}
                       <span style={{ fontFamily: 'monospace', color: 'var(--primary)', letterSpacing: '0.04em' }}>
-                        {c.userCode || 'Generating...'}
+                        {c.userCode || 'N/A'}
                       </span>
                     </div>
 
@@ -220,29 +394,30 @@ export default function PrintableSlipsModal({
                       <button
                         type="button"
                         onClick={() => handleCopy(c.userCode, `code-${i}`)}
-                        title="Copy User Code"
+                        title="Copy User ID / Code"
                         className="no-print"
                         style={{
                           background: copiedField === `code-${i}` ? 'var(--success-bg)' : '#ffffff',
                           border: '1px solid var(--border-subtle)',
                           borderRadius: 'var(--radius-xs)',
-                          padding: '2px 7px',
+                          padding: '3px 8px',
                           cursor: 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '4px',
+                          gap: '5px',
                           fontSize: '11px',
                           color: copiedField === `code-${i}` ? 'var(--success)' : 'var(--slate-600)',
-                          fontWeight: 500,
+                          fontWeight: 600,
+                          transition: 'all 0.15s ease',
                         }}
                       >
                         {copiedField === `code-${i}` ? <Check size={12} /> : <Copy size={12} />}
-                        <span>{copiedField === `code-${i}` ? 'Copied' : 'Copy ID'}</span>
+                        <span>{copiedField === `code-${i}` ? 'ID Copied' : 'Copy ID'}</span>
                       </button>
                     )}
                   </div>
 
-                  <div style={{ fontSize: '11.5px', color: 'var(--slate-500)', marginTop: '3px' }}>
+                  <div style={{ fontSize: '11.5px', color: 'var(--slate-500)', marginTop: '4px' }}>
                     Role:{' '}
                     <span style={{ textTransform: 'uppercase', fontWeight: 600, color: 'var(--slate-700)' }}>
                       {c.role}
@@ -259,7 +434,7 @@ export default function PrintableSlipsModal({
                     borderRadius: 'var(--radius-sm)',
                     textAlign: 'right',
                     flexShrink: 0,
-                    minWidth: '170px',
+                    minWidth: '185px',
                   }}
                 >
                   <div style={{ fontSize: '10px', color: 'var(--slate-500)', textTransform: 'uppercase', fontWeight: 700 }}>
@@ -273,14 +448,16 @@ export default function PrintableSlipsModal({
                       style={{
                         fontSize: '14px',
                         fontWeight: 700,
-                        color: 'var(--primary)',
+                        color: c.initialPassword ? 'var(--primary)' : 'var(--slate-400)',
                         fontFamily: 'monospace',
                         letterSpacing: visiblePasswords[i] ? '0.04em' : '0.12em',
                       }}
                     >
-                      {visiblePasswords[i]
-                        ? (c.initialPassword || 'N/A')
-                        : (c.initialPassword ? '••••••••' : '••••••••')}
+                      {c.initialPassword
+                        ? visiblePasswords[i]
+                          ? c.initialPassword
+                          : '••••••••'
+                        : 'Not set'}
                     </span>
 
                     {/* Print password display (always raw plaintext) */}
@@ -298,14 +475,14 @@ export default function PrintableSlipsModal({
                     </span>
                   </div>
 
-                  {/* Password Action Buttons (Reveal / Hide & Copy) */}
+                  {/* Password Action Buttons (Reveal / Hide & Copy Password) */}
                   <div
                     className="no-print"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'flex-end',
-                      gap: '5px',
+                      gap: '6px',
                       marginTop: '6px',
                     }}
                   >
@@ -318,13 +495,14 @@ export default function PrintableSlipsModal({
                           background: '#ffffff',
                           border: '1px solid var(--border-subtle)',
                           borderRadius: 'var(--radius-xs)',
-                          padding: '3px 6px',
+                          padding: '3px 7px',
                           cursor: 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '3px',
+                          gap: '4px',
                           fontSize: '11px',
-                          color: 'var(--slate-600)',
+                          color: 'var(--slate-700)',
+                          fontWeight: 500,
                         }}
                       >
                         {visiblePasswords[i] ? <EyeOff size={12} /> : <Eye size={12} />}
@@ -336,22 +514,23 @@ export default function PrintableSlipsModal({
                       <button
                         type="button"
                         onClick={() => handleCopy(c.initialPassword || '', `pwd-${i}`)}
-                        title="Copy Password"
+                        title="Copy Initial Password"
                         style={{
                           background: copiedField === `pwd-${i}` ? 'var(--success-bg)' : '#ffffff',
                           border: '1px solid var(--border-subtle)',
                           borderRadius: 'var(--radius-xs)',
-                          padding: '3px 6px',
+                          padding: '3px 7px',
                           cursor: 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '3px',
+                          gap: '4px',
                           fontSize: '11px',
-                          color: copiedField === `pwd-${i}` ? 'var(--success)' : 'var(--slate-600)',
-                          fontWeight: 500,
+                          color: copiedField === `pwd-${i}` ? 'var(--success)' : 'var(--slate-700)',
+                          fontWeight: 600,
+                          transition: 'all 0.15s ease',
                         }}
                       >
-                        {copiedField === `pwd-${i}` ? <Check size={12} /> : <Copy size={12} />}
+                        {copiedField === `pwd-${i}` ? <Check size={12} /> : <Key size={12} />}
                         <span>{copiedField === `pwd-${i}` ? 'Copied' : 'Copy'}</span>
                       </button>
                     )}

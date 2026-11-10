@@ -138,6 +138,22 @@ export class AccountService {
           });
         }
 
+        // Record initial active GN assignment in profile_assignments table
+        if (
+          dto.role === UserRole.cdc_secretary &&
+          resolvedTerritory.gnId &&
+          tx.profileAssignment
+        ) {
+          await tx.profileAssignment.create({
+            data: {
+              profileId: profile.id,
+              gnId: resolvedTerritory.gnId,
+              teamId: resolvedTerritory.teamId,
+              validFrom: new Date(),
+            },
+          });
+        }
+
         await tx.accountAudit.create({
           data: {
             actorId: creatorScope.userId,
@@ -336,6 +352,22 @@ export class AccountService {
           await tx.team.update({
             where: { id: resolvedTerritory.teamId },
             data: { leaderId: results[0].id },
+          });
+        }
+
+        if (
+          dto.role === UserRole.cdc_secretary &&
+          resolvedTerritory.gnId &&
+          results.length > 0 &&
+          tx.profileAssignment
+        ) {
+          await tx.profileAssignment.create({
+            data: {
+              profileId: results[0].id,
+              gnId: resolvedTerritory.gnId,
+              teamId: resolvedTerritory.teamId,
+              validFrom: new Date(),
+            },
           });
         }
 
@@ -1211,7 +1243,7 @@ export class AccountService {
         });
       }
 
-      // Check one-leader-per-team rule (Bug 3)
+      // Check one-leader-per-team and one-secretary-per-GN rule (Decision C20)
       if (targetRole === UserRole.cdc_secretary) {
         if (team.leaderId) {
           const activeLeader = await this.prisma.profile.findFirst({
@@ -1223,6 +1255,20 @@ export class AccountService {
               message: 'Team already has an active leader assigned',
             });
           }
+        }
+
+        const activeGnAssignment =
+          this.prisma.profileAssignment
+            ? await this.prisma.profileAssignment.findFirst({
+              where: { gnId: team.gnId, validTo: null },
+              include: { profile: true },
+            })
+            : null;
+        if (activeGnAssignment && activeGnAssignment.profile?.isActive) {
+          throw new ConflictException({
+            code: 'GN_ALREADY_HAS_LEADER',
+            message: 'GN division already has an active CDC secretary assigned',
+          });
         }
       }
 
@@ -1531,5 +1577,127 @@ export class AccountService {
     tx: Prisma.TransactionClient,
   ): Promise<string> {
     return this.credentialService.generateUserCode();
+  }
+
+  /**
+   * Assigns a CDC Secretary to a GN Division (multi-GN assignment or handover per Decision C20).
+   * Enforces the database constraint of one active secretary per GN division.
+   * On handover: marks existing active assignment as valid_to = now() and bumps token_version on old holder.
+   */
+  async assignSecretaryToGn(
+    actorScope: ScopeContext,
+    profileId: string,
+    gnId: string,
+    teamId?: string,
+  ) {
+    if (
+      actorScope.role !== UserRole.super_admin &&
+      actorScope.role !== UserRole.admin &&
+      actorScope.role !== UserRole.dc &&
+      actorScope.role !== UserRole.sda
+    ) {
+      throw new ForbiddenException({
+        code: 'CANNOT_ASSIGN_AREA',
+        message:
+          'You do not have permission to assign CDC secretaries to GN divisions',
+      });
+    }
+
+    const targetProfile = await this.prisma.profile.findUnique({
+      where: { id: profileId },
+    });
+
+    if (
+      !targetProfile ||
+      targetProfile.role !== UserRole.cdc_secretary ||
+      !targetProfile.isActive
+    ) {
+      throw new BadRequestException({
+        code: 'INVALID_TARGET_PROFILE',
+        message: 'Target user must be an active CDC secretary',
+      });
+    }
+
+    const gn = await this.prisma.gnDivision.findUnique({
+      where: { id: gnId },
+      include: { ds: true },
+    });
+
+    if (!gn) {
+      throw new NotFoundException({
+        code: 'GN_NOT_FOUND',
+        message: 'Specified GN division does not exist',
+      });
+    }
+
+    if (
+      actorScope.role === UserRole.dc &&
+      gn.ds.districtId !== actorScope.districtId
+    ) {
+      throw new ForbiddenException({
+        code: 'OUT_OF_SCOPE_DISTRICT',
+        message: 'Cannot assign GN division outside your assigned district',
+      });
+    }
+    if (actorScope.role === UserRole.sda && gn.dsId !== actorScope.dsId) {
+      throw new ForbiddenException({
+        code: 'OUT_OF_SCOPE_DS',
+        message: 'Cannot assign GN division outside your assigned DS division',
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const existingActive = await tx.profileAssignment.findFirst({
+        where: { gnId, validTo: null },
+      });
+
+      if (existingActive) {
+        if (existingActive.profileId === profileId) {
+          return existingActive;
+        }
+
+        const now = new Date();
+        await tx.profileAssignment.update({
+          where: { id: existingActive.id },
+          data: { validTo: now },
+        });
+
+        await tx.profile.update({
+          where: { id: existingActive.profileId },
+          data: { tokenVersion: { increment: 1 } },
+        });
+
+        await tx.refreshToken.updateMany({
+          where: { profileId: existingActive.profileId, revokedAt: null },
+          data: { revokedAt: now },
+        });
+      }
+
+      const newAssignment = await tx.profileAssignment.create({
+        data: {
+          profileId,
+          gnId,
+          teamId,
+          validFrom: new Date(),
+        },
+      });
+
+      if (teamId) {
+        await tx.team.update({
+          where: { id: teamId },
+          data: { leaderId: profileId },
+        });
+      }
+
+      await tx.accountAudit.create({
+        data: {
+          actorId: actorScope.userId,
+          targetId: profileId,
+          action: 'gn_assigned',
+        },
+      });
+
+      return newAssignment;
+    });
   }
 }

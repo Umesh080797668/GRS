@@ -30,7 +30,7 @@ import { SyncChangesDto } from './dto/sync-changes.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class SyncController {
-  constructor(private readonly syncService: SyncService) {}
+  constructor(private readonly syncService: SyncService) { }
 
   @Get('area')
   @Roles(
@@ -55,7 +55,12 @@ export class SyncController {
     @CurrentUser() user: ScopeContext,
     @Query() query: SyncAreaDto,
   ) {
-    return this.syncService.getAreaData(user, query.cursor, query.limit);
+    return this.syncService.getAreaData(
+      user,
+      query.cursor,
+      query.limit,
+      query.gnId,
+    );
   }
 
   @Get('changes')

@@ -163,7 +163,7 @@ export default function UsersPage() {
       };
       const res = await api.createAccount(payload);
       setShowSingleModal(false);
-      const userObj = res?.user || res;
+      const userObj = res?.user || res?.account || res?.data?.user || res?.data || res;
       const userCode = userObj?.userCode || userObj?.user_code || '';
       const role = userObj?.role || formData.role;
       const fullName = userObj?.fullName || formData.fullName;
@@ -240,13 +240,13 @@ export default function UsersPage() {
           createdBatchIds.push(res.batchId);
         }
 
-        const usersList = res.accounts || res.users || [];
+        const usersList = res?.users || res?.accounts || res?.data?.users || res?.data || [];
         for (const u of usersList) {
           allCreds.push({
-            userCode: u.userCode || u.user_code,
-            role: bulkData.role,
-            fullName: u.fullName,
-            initialPassword: u.initialPassword || u.initial_password,
+            userCode: u?.userCode || u?.user_code || '',
+            role: u?.role || bulkData.role,
+            fullName: u?.fullName || '',
+            initialPassword: u?.initialPassword || u?.initial_password || '',
           });
         }
         remaining -= chunk;

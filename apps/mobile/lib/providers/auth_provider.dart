@@ -388,6 +388,26 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> switchArea(
+    String gnId, {
+    String deviceId = 'mobile-device',
+  }) async {
+    try {
+      final res = await _apiClient.switchArea(gnId, deviceId: deviceId);
+      await _storage.saveTokens(
+        accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
+      );
+      await _storage.saveActiveProfile(res.profile);
+      state = state.copyWith(
+        status: AuthStatus.authenticated,
+        profile: res.profile,
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   void skipAddEmail() {
     state = AuthState(status: AuthStatus.authenticated, profile: state.profile);
   }

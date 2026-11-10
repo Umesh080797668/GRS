@@ -7,6 +7,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { UserRole, ScopeContext } from './scope.types';
 import { ForbiddenException, ParseUUIDPipe } from '@nestjs/common';
 import { PrismaClientExceptionFilter } from '../filters/prisma-client-exception.filter';
+import { LookupService } from 'src/lookups/lookup.service';
 
 describe('Scope Bypass Protection across List Endpoints × Roles × Filters', () => {
   let scopeService: ScopeService;
@@ -80,7 +81,13 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
         },
         {
           provide: ClientService,
-          useFactory: (prisma, scope) => new ClientService(prisma, scope),
+          useFactory: (prisma, scope) =>
+            new ClientService(
+              prisma,
+              scope,
+              { validateLookup: jest.fn() } as any,
+              { getConfig: jest.fn() } as any,
+            ),
           inject: [PrismaService, ScopeService],
         },
         {
@@ -475,7 +482,7 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
         status: (s: number) => {
           statusCalledWith = s;
           return {
-            json: () => {},
+            json: () => { },
           };
         },
       };
@@ -493,6 +500,80 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
       );
 
       expect(statusCalledWith).toBe(500);
+    });
+  });
+
+  describe('Multi-GN Level 4 Scope Containment (Decision C20)', () => {
+    it('Level 4 holding GN A and GN B cannot read GN B data while session is active in GN A without switching', async () => {
+      // Level 4 Secretary holding GN A and GN B, but active session is in GN A
+      const sessionInGnA: ScopeContext = {
+        userId: 'sec-multi-1',
+        role: UserRole.cdc_secretary,
+        districtId: 'district-colombo',
+        dsId: 'ds-colombo-1',
+        gnId: 'gn-A',
+        teamId: 'team-A',
+      };
+
+      // 1. Verify household query filter in GN A session strictly enforces team A
+      const houseFilter = scopeService.getHouseholdScopeFilter(sessionInGnA);
+      expect(houseFilter.OR).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ teamId: 'team-A' }),
+          expect.objectContaining({ createdBy: 'sec-multi-1' }),
+        ]),
+      );
+
+      // Attempting to query households for GN B while in GN A session throws ForbiddenException
+      await expect(
+        householdService.getHouseholds(sessionInGnA, {
+          gnId: 'gn-B',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      // 2. Verify client query filter in GN A session strictly enforces team A
+      const clientFilter = scopeService.getClientScopeFilter(sessionInGnA);
+      expect(clientFilter.OR).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ teamId: 'team-A' }),
+          expect.objectContaining({ collectedBy: 'sec-multi-1' }),
+        ]),
+      );
+
+      // Attempting to query clients for team B while in GN A (team A) session throws ForbiddenException
+      await expect(
+        clientService.getClients(sessionInGnA, {
+          teamId: 'team-B',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      // 3. After switching session area to GN B:
+      const sessionSwitchedToGnB: ScopeContext = {
+        userId: 'sec-multi-1',
+        role: UserRole.cdc_secretary,
+        districtId: 'district-colombo',
+        dsId: 'ds-colombo-1',
+        gnId: 'gn-B',
+        teamId: 'team-B',
+      };
+
+      const switchedHouseFilter =
+        scopeService.getHouseholdScopeFilter(sessionSwitchedToGnB);
+      expect(switchedHouseFilter.OR).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ teamId: 'team-B' }),
+          expect.objectContaining({ createdBy: 'sec-multi-1' }),
+        ]),
+      );
+
+      // Switched session now accesses GN B successfully, but rejects GN A
+      await expect(
+        householdService.getHouseholds(sessionSwitchedToGnB, { gnId: 'gn-B' }),
+      ).resolves.toBeDefined();
+
+      await expect(
+        householdService.getHouseholds(sessionSwitchedToGnB, { gnId: 'gn-A' }),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

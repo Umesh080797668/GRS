@@ -321,7 +321,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               data: (db) {
                 return FutureBuilder<List<Map<String, dynamic>>>(
                   key: ValueKey(
-                    'households_${_selectedFilter}_${_searchController.text}_$revision',
+                    'households_${_selectedFilter}_${_searchController.text}_${authState.profile?.gnId}_$revision',
                   ),
                   future: db.getHouseholds(
                     search: _searchController.text.trim().isEmpty
@@ -330,6 +330,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     statusFilter: _selectedFilter == 'all'
                         ? null
                         : _selectedFilter,
+                    gnId: authState.profile?.gnId,
                   ),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) {
@@ -995,12 +996,16 @@ class _SkeletonCardState extends State<_SkeletonCard>
 // Level 4 Management Hub
 // ────────────────────────────────────────────────────────────────────────────
 
-class _Level4Hub extends StatelessWidget {
+class _Level4Hub extends ConsumerWidget {
   const _Level4Hub({required this.isDark});
   final bool isDark;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final profile = authState.profile;
+    final assignments = profile?.assignments ?? [];
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       child: Container(
@@ -1031,6 +1036,123 @@ class _Level4Hub extends StatelessWidget {
                     color: isDark ? Colors.white : GrsColors.textPrimaryLight,
                   ),
                 ),
+                const Spacer(),
+                if (assignments.length > 1) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isDark
+                            ? const Color(0xFF334155)
+                            : const Color(0xFFCBD5E1),
+                      ),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: profile?.gnId,
+                        isDense: true,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : GrsColors.primaryDark,
+                        ),
+                        items: assignments.map((a) {
+                          final name =
+                              a.gnName ??
+                              (a.gnCode != null
+                                  ? 'GN ${a.gnCode}'
+                                  : 'GN ${a.gnId.length > 6 ? a.gnId.substring(0, 6) : a.gnId}');
+                          return DropdownMenuItem<String>(
+                            value: a.gnId,
+                            child: Text(name),
+                          );
+                        }).toList(),
+                        onChanged: (newGnId) async {
+                          if (newGnId != null && newGnId != profile?.gnId) {
+                            try {
+                              await ref
+                                  .read(authProvider.notifier)
+                                  .switchArea(newGnId);
+                              ref
+                                  .read(recordsRevisionProvider.notifier)
+                                  .increment();
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Failed to switch area: $e'),
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+                const Spacer(),
+                if (assignments.length > 1) ...[
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isDark
+                            ? const Color(0xFF334155)
+                            : const Color(0xFFCBD5E1),
+                      ),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: profile?.gnId,
+                        isDense: true,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : GrsColors.primaryDark,
+                        ),
+                        items: assignments.map((a) {
+                          final name = a.gnName ??
+                              (a.gnCode != null
+                                  ? 'GN ${a.gnCode}'
+                                  : 'GN ${a.gnId.length > 6 ? a.gnId.substring(0, 6) : a.gnId}');
+                          return DropdownMenuItem<String>(
+                            value: a.gnId,
+                            child: Text(name),
+                          );
+                        }).toList(),
+                        onChanged: (newGnId) async {
+                          if (newGnId != null && newGnId != profile?.gnId) {
+                            try {
+                              await ref
+                                  .read(authProvider.notifier)
+                                  .switchArea(newGnId);
+                              ref
+                                  .read(recordsRevisionProvider.notifier)
+                                  .increment();
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Failed to switch area: $e'),
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 10),

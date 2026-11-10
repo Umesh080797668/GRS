@@ -16,11 +16,13 @@ import {
   ChevronRight,
   Home,
   Menu,
-  X
+  X,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import LanguageSwitch from './LanguageSwitch';
+import { api } from '../lib/api';
 
 interface NavItem {
   key: string;
@@ -41,8 +43,43 @@ export function Shell({ children, activePath }: ShellProps) {
   const pathname = activePath || routerPath;
 
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, switchArea } = useAuth();
   const { t } = useLanguage();
+
+  const [switchingArea, setSwitchingArea] = useState(false);
+  const [activeGnList, setActiveGnList] = useState<
+    Array<{ gnId: string; gnName?: string; gnCode?: string; teamId?: string; teamNo?: string }>
+  >([]);
+
+  useEffect(() => {
+    if (user?.role === 'cdc_secretary') {
+      if (user.assignments && user.assignments.length > 0) {
+        setActiveGnList(user.assignments);
+      } else {
+        api
+          .getAssignments()
+          .then((res) => {
+            if (res.assignments && res.assignments.length > 0) {
+              setActiveGnList(res.assignments);
+            }
+          })
+          .catch(() => { });
+      }
+    }
+  }, [user]);
+
+  const handleAreaSwitch = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const nextGnId = e.target.value;
+    if (!nextGnId || nextGnId === user?.gnId) return;
+    setSwitchingArea(true);
+    try {
+      await switchArea(nextGnId);
+      window.location.reload();
+    } catch (err: any) {
+      alert(`Failed to switch GN area: ${err.message}`);
+      setSwitchingArea(false);
+    }
+  };
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -429,8 +466,52 @@ export function Shell({ children, activePath }: ShellProps) {
             </div>
           </div>
 
-          {/* Right: Language switch, user profile, logout */}
+          {/* Right: Language switch, GN switcher, user profile, logout */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+            {user?.role === 'cdc_secretary' && activeGnList.length > 1 && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'var(--slate-50)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '3px 8px',
+                }}
+              >
+                <MapPin size={14} style={{ color: 'var(--primary)' }} />
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--slate-600)' }}>
+                  GN Area:
+                </span>
+                <select
+                  value={user.gnId || ''}
+                  onChange={handleAreaSwitch}
+                  disabled={switchingArea}
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: 'var(--primary)',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: switchingArea ? 'wait' : 'pointer',
+                    outline: 'none',
+                    padding: '2px 4px',
+                  }}
+                >
+                  {activeGnList.map((a) => (
+                    <option key={a.gnId} value={a.gnId}>
+                      {a.gnName
+                        ? `${a.gnName} (${a.gnCode || a.gnId.slice(0, 6)})`
+                        : `GN ${a.gnId.slice(0, 8)}`}
+                      {a.teamNo ? ` — Team ${a.teamNo}` : ''}
+                    </option>
+                  ))}
+                </select>
+                {switchingArea && <Loader2 size={12} className="animate-spin" />}
+              </div>
+            )}
+
             <LanguageSwitch variant="light" />
 
             {user && (

@@ -271,8 +271,10 @@ class AppDatabase {
       _cachedSchemaVersion = targetSchemaVersion;
     } else {
       // Check if households table needs stepwise migration to target schema
-      final cols =
-          await _executor.runSelect('PRAGMA table_info(households);', []);
+      final cols = await _executor.runSelect(
+        'PRAGMA table_info(households);',
+        [],
+      );
       final hasNotesCol = cols.any((c) => c['name'] == 'notes');
       final currentVer = hasNotesCol ? 2 : 1;
 
@@ -637,10 +639,16 @@ class AppDatabase {
     String? search,
     String? statusFilter,
     String? status,
+    String? gnId,
   }) async {
     var query = 'SELECT * FROM households';
     final conditions = <String>[];
     final args = <dynamic>[];
+
+    if (gnId != null && gnId.isNotEmpty) {
+      conditions.add('gn_id = ?');
+      args.add(gnId);
+    }
 
     if (search != null && search.trim().isNotEmpty) {
       final term = '%${search.trim()}%';

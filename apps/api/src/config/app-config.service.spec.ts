@@ -294,6 +294,16 @@ describe('AppConfigService & VersionGateGuard & RateLimiter (M1.8)', () => {
       ).rejects.toThrow();
     });
 
+    it('successfully updates config when payload contains undefined fields from class-transformer', async () => {
+      const res = await controller.updateConfig({
+        web_data_entry_enabled: true,
+        min_supported_version: undefined,
+        latest_version: undefined,
+        sync_jitter_max_s: undefined,
+      } as any);
+      expect(res.features.webDataEntry).toBe(true);
+    });
+
     it('rejects invalid web_entry_roles strings', async () => {
       await expect(
         controller.updateConfig({

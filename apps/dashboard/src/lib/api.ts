@@ -14,6 +14,14 @@ export interface SessionTokens {
     dsId?: string;
     gnId?: string;
     teamId?: string;
+    assignments?: Array<{
+      gnId: string;
+      gnName?: string;
+      gnCode?: string;
+      teamId?: string;
+      teamNo?: string;
+      validFrom: string;
+    }>;
   };
 }
 
@@ -378,6 +386,28 @@ export class ApiClient {
     })();
 
     return this.refreshPromise;
+  }
+
+  async switchArea(gnId: string): Promise<SessionTokens> {
+    const data = await this.request<SessionTokens>('/v1/auth/switch-area', {
+      method: 'POST',
+      body: JSON.stringify({ gnId }),
+    });
+    this.saveSession(data);
+    return data;
+  }
+
+  async getAssignments(): Promise<{
+    assignments: Array<{
+      gnId: string;
+      gnName?: string;
+      gnCode?: string;
+      teamId?: string;
+      teamNo?: string;
+      validFrom: string;
+    }>;
+  }> {
+    return this.request('/v1/auth/assignments');
   }
 
   // --- CONFIG ---

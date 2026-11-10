@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsInt, Min, Max } from 'class-validator';
+import { IsOptional, IsString, IsInt, IsUUID, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -21,4 +21,11 @@ export class SyncAreaDto {
   @Min(1)
   @Max(500)
   limit?: number = 500;
+
+  @ApiPropertyOptional({
+    description: 'Filter area download to specific assigned GN division UUID',
+  })
+  @IsOptional()
+  @IsUUID()
+  gnId?: string;
 }

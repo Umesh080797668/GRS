@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Patch,
   Body,
@@ -24,6 +25,7 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { LogoutDto } from './dto/logout.dto';
+import { SwitchAreaDto } from './dto/switch-area.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import type { ScopeContext } from '../common/scope/scope.types';
@@ -31,7 +33,7 @@ import type { ScopeContext } from '../common/scope/scope.types';
 @ApiTags('auth')
 @Controller('v1/auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -80,6 +82,28 @@ export class AuthController {
   @ApiOperation({ summary: 'Rotate refresh token and issue new session pair' })
   async refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refreshTokens(dto);
+  }
+
+  @Post('switch-area')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Switch active GN area session for multi-GN CDC secretary (Decision C20)',
+  })
+  async switchArea(
+    @CurrentUser() user: ScopeContext,
+    @Body() dto: SwitchAreaDto,
+  ) {
+    return this.authService.switchArea(user.userId, dto);
+  }
+
+  @Get('assignments')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List assigned GN divisions for current user' })
+  async getAssignments(@CurrentUser() user: ScopeContext) {
+    return this.authService.getAssignments(user.userId);
   }
 
   @Post('logout')

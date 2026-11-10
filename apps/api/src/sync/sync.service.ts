@@ -112,6 +112,7 @@ export class SyncService {
     user: ScopeContext,
     cursor?: string,
     limit: number = 500,
+    targetGnId?: string,
   ): Promise<AreaSyncResult> {
     if (!user || !user.role) {
       throw new ForbiddenException({
@@ -121,6 +122,74 @@ export class SyncService {
     }
 
     const where = this.scopeService.getHouseholdScopeFilter(user);
+
+    if (targetGnId && targetGnId.trim()) {
+      const cleanGnId = targetGnId.trim();
+      if (user.role === UserRole.cdc_secretary) {
+        let isAssigned = user.gnId === cleanGnId;
+        if (!isAssigned) {
+          const assignment = await this.prisma.profileAssignment.findFirst({
+            where: {
+              profileId: user.userId,
+              gnId: cleanGnId,
+              validTo: null,
+            },
+          });
+          if (assignment) isAssigned = true;
+        }
+        if (!isAssigned) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_GN',
+            message: 'GN division is outside your assigned scope',
+          });
+        }
+        delete where.teamId;
+        if (where.OR) {
+          where.OR = where.OR.map((cond: any) => {
+            const { teamId, ...rest } = cond;
+            return { ...rest, gnId: cleanGnId };
+          });
+        } else {
+          where.gnId = cleanGnId;
+        }
+      } else if (
+        user.role === UserRole.super_admin ||
+        user.role === UserRole.admin ||
+        user.role === UserRole.cg
+      ) {
+        where.gnId = cleanGnId;
+      } else if (user.role === UserRole.sda) {
+        const gn = await this.prisma.gnDivision.findUnique({
+          where: { id: cleanGnId },
+        });
+        if (!gn || gn.dsId !== user.dsId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_DS',
+            message: 'GN division is outside your assigned DS division',
+          });
+        }
+        where.gnId = cleanGnId;
+      } else if (user.role === UserRole.dc) {
+        const gn = await this.prisma.gnDivision.findUnique({
+          where: { id: cleanGnId },
+          include: { ds: true },
+        });
+        if (!gn || gn.ds.districtId !== user.districtId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_DISTRICT',
+            message: 'GN division is outside your assigned district',
+          });
+        }
+        where.gnId = cleanGnId;
+      } else if (user.role === UserRole.team_member) {
+        if (user.gnId && user.gnId !== cleanGnId) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE_GN',
+            message: 'GN division is outside your assigned team scope',
+          });
+        }
+      }
+    }
     const take = Math.min(Math.max(1, limit), 500);
 
     const queryArgs: any = {
@@ -568,6 +637,21 @@ export class SyncService {
 
     const finishedHouseholdsResults: SyncHouseholdResultItem[] = [];
 
+    // Query all actively assigned GN divisions for Level 4 multi-GN write permissions (Decision C20)
+    const assignedGns = new Set<string>();
+    if (user.role === UserRole.cdc_secretary) {
+      if (user.gnId) assignedGns.add(user.gnId);
+      try {
+        const assignments = await this.prisma.profileAssignment.findMany({
+          where: { profileId: user.userId, validTo: null },
+          select: { gnId: true },
+        });
+        for (const a of assignments) {
+          assignedGns.add(a.gnId);
+        }
+      } catch { }
+    }
+
     if (dto.finishedHouseholdIds && dto.finishedHouseholdIds.length > 0) {
       const households = await this.prisma.household.findMany({
         where: {
@@ -592,11 +676,9 @@ export class SyncService {
         }
 
         // Scope check:
-        // For Level 4 (cdc_secretary) and Level 5 (team_member), strictly own-team only!
-        if (
-          user.role === UserRole.team_member ||
-          user.role === UserRole.cdc_secretary
-        ) {
+        // For Level 5 (team_member): strictly own-team only.
+        // For Level 4 (cdc_secretary): accepts any assigned GN division or own team.
+        if (user.role === UserRole.team_member) {
           if (
             !user.teamId ||
             !household.teamId ||
@@ -607,6 +689,18 @@ export class SyncService {
               status: 'forbidden',
               code: 'OUT_OF_SCOPE_TEAM',
               message: 'Household is not assigned to your team',
+            });
+            continue;
+          }
+        } else if (user.role === UserRole.cdc_secretary) {
+          const matchesTeam = user.teamId && household.teamId === user.teamId;
+          const matchesGn = assignedGns.has(household.gnId);
+          if (!matchesTeam && !matchesGn) {
+            finishedHouseholdsResults.push({
+              id: hid,
+              status: 'forbidden',
+              code: 'OUT_OF_SCOPE_GN',
+              message: 'Household is outside your assigned GN divisions',
             });
             continue;
           }
@@ -918,7 +1012,8 @@ export class SyncService {
       }
 
       // Validate lookup codes against active lookup_values
-      const highestEdu = data.highest_education || data.highestEducation;
+      const highestEdu =
+        data.highest_education || data.highestEducation || data.education;
       if (highestEdu && !activeLookups.get('education')?.has(highestEdu)) {
         results[i] = {
           id: record.id,
@@ -929,7 +1024,12 @@ export class SyncService {
         continue;
       }
 
-      const highestVoc = data.highest_vocational || data.highestVocational;
+      const highestVoc =
+        data.highest_vocational ||
+        data.highestVocational ||
+        data.vocational ||
+        data.highest_vocational_qualification ||
+        data.highestVocationalQualification;
       if (
         highestVoc &&
         !activeLookups.get('vocational_qualification')?.has(highestVoc)
@@ -944,7 +1044,10 @@ export class SyncService {
       }
 
       const stream =
-        data.interested_vocational_stream || data.interestedVocationalStream;
+        data.interested_vocational_stream ||
+        data.interestedVocationalStream ||
+        data.vocational_stream ||
+        data.vocationalStream;
       if (stream && !activeLookups.get('vocational_stream')?.has(stream)) {
         results[i] = {
           id: record.id,
@@ -955,7 +1058,8 @@ export class SyncService {
         continue;
       }
 
-      const job = data.interested_job || data.interestedJob;
+      const job =
+        data.interested_job || data.interestedJob || data.job;
       if (job && !activeLookups.get('job')?.has(job)) {
         results[i] = {
           id: record.id,
@@ -994,14 +1098,28 @@ export class SyncService {
         whatsappRaw: whatsappRaw ? String(whatsappRaw).trim() : null,
         whatsappE164,
         highestEducation:
-          data.highest_education || data.highestEducation || null,
+          data.highest_education ||
+          data.highestEducation ||
+          data.education ||
+          null,
         highestVocational:
-          data.highest_vocational || data.highestVocational || null,
+          data.highest_vocational ||
+          data.highestVocational ||
+          data.vocational ||
+          data.highest_vocational_qualification ||
+          data.highestVocationalQualification ||
+          null,
         interestedVocationalStream:
           data.interested_vocational_stream ||
           data.interestedVocationalStream ||
+          data.vocational_stream ||
+          data.vocationalStream ||
           null,
-        interestedJob: data.interested_job || data.interestedJob || null,
+        interestedJob:
+          data.interested_job ||
+          data.interestedJob ||
+          data.job ||
+          null,
         isEpf: !!(data.is_epf ?? data.isEpf),
         isEtf: !!(data.is_etf ?? data.isEtf),
         isAswesuma: !!(data.is_aswesuma ?? data.isAswesuma),
@@ -1023,12 +1141,25 @@ export class SyncService {
           address: data.address,
           phoneE164,
           whatsappE164,
-          highestEducation: data.highest_education || data.highestEducation,
-          highestVocational: data.highest_vocational || data.highestVocational,
+          highestEducation:
+            data.highest_education ||
+            data.highestEducation ||
+            data.education,
+          highestVocational:
+            data.highest_vocational ||
+            data.highestVocational ||
+            data.vocational ||
+            data.highest_vocational_qualification ||
+            data.highestVocationalQualification,
           interestedVocationalStream:
             data.interested_vocational_stream ||
-            data.interestedVocationalStream,
-          interestedJob: data.interested_job || data.interestedJob,
+            data.interestedVocationalStream ||
+            data.vocational_stream ||
+            data.vocationalStream,
+          interestedJob:
+            data.interested_job ||
+            data.interestedJob ||
+            data.job,
           isEpf: !!(data.is_epf ?? data.isEpf),
           isEtf: !!(data.is_etf ?? data.isEtf),
           isAswesuma: !!(data.is_aswesuma ?? data.isAswesuma),
@@ -1134,15 +1265,28 @@ export class SyncService {
         continue;
       }
 
-      // Check caller scope per role (§8.3 & Blueprint §10.3)
-      if (user.role === 'team_member' || user.role === 'cdc_secretary') {
-        // Level 4 (secretary) and Level 5 (agent): strictly own team's households
+      // Check caller scope per role (§8.3 & Blueprint §10.3 & Decision C20)
+      if (user.role === 'team_member') {
+        // Level 5 (agent): strictly own team's households
         if (!user.teamId || household.teamId !== user.teamId) {
           results[idx] = {
             id: rec.id,
             status: 'forbidden',
             code: 'HOUSEHOLD_OUT_OF_SCOPE',
             message: 'Household is outside caller team scope',
+          };
+          continue;
+        }
+      } else if (user.role === 'cdc_secretary') {
+        // Level 4 (secretary): accepts any actively assigned GN division or own team
+        const matchesTeam = user.teamId && household.teamId === user.teamId;
+        const matchesGn = assignedGns.has(household.gnId);
+        if (!matchesTeam && !matchesGn) {
+          results[idx] = {
+            id: rec.id,
+            status: 'forbidden',
+            code: 'HOUSEHOLD_OUT_OF_SCOPE',
+            message: 'Household is outside caller assigned GN divisions',
           };
           continue;
         }
@@ -1208,8 +1352,9 @@ export class SyncService {
           continue;
         }
 
-        // Different content: if caller is Level 5 and base_version >= 1 -> locked (Decision C2)
-        if (user.role === 'team_member' && (rec.base_version ?? 0) >= 1) {
+        // Different content: if caller is Level 5 -> locked (Decision C2)
+        // Confirmed records in database cannot be overwritten by Level 5 agents with differing content, even with base_version: 0
+        if (user.role === 'team_member') {
           results[idx] = {
             id: rec.id,
             status: 'locked',

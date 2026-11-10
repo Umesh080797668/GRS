@@ -235,6 +235,56 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     expect(rLocked?.code).toBe('RECORD_LOCKED');
   });
 
+  it('locks an existing record when edited by Level 5 agent even when base_version is 0 (Decision C2)', async () => {
+    const existingClientId = 'a0000000-0000-0000-0000-000000000099';
+    mockPrisma.client.findMany.mockResolvedValueOnce([
+      {
+        id: existingClientId,
+        collectedBy: caller.userId,
+        householdId: validHouseholdId,
+        serverVersion: 2,
+        contentHash: 'hash-original-server-content',
+      },
+    ]);
+    mockPrisma.household.findMany.mockResolvedValueOnce([
+      {
+        id: validHouseholdId,
+        teamId: caller.teamId,
+        gnId: caller.gnId,
+        dsId: caller.dsId,
+        districtId: caller.districtId,
+        address: '123 Main Street',
+        deletedAt: null,
+      },
+    ]);
+
+    const dto: SyncPushDto = {
+      device_id: 'test-device-base-0',
+      app_version: '2.0.0',
+      schema_version: 2,
+      records: [
+        {
+          id: existingClientId,
+          base_version: 0, // Stale phone pushing with base_version: 0
+          data: {
+            household_id: validHouseholdId,
+            name: 'Sunil Overwrite Attempt',
+            age: 35,
+            gender: 'M',
+            info_provided_by: 'self',
+            consent_given: true,
+            consent_version: 'consent.v0',
+          },
+        },
+      ],
+    };
+
+    const res = await service.pushRecords(caller, dto);
+    expect(res.results.length).toBe(1);
+    expect(res.results[0].status).toBe('locked');
+    expect(res.results[0].code).toBe('RECORD_LOCKED');
+  });
+
   it('Scaling Invariant: A 50-record batch uses <= 3 database queries (M3.1 Done When)', async () => {
     // Generate 50 valid client records
     const records = [];
@@ -402,7 +452,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     expect(res.results[0].code).toBe('HOUSEHOLD_DELETED');
   });
 
-  it('Role Scope Matrix: Level 4 Secretary strictly restricted to own team houses (§8.3)', async () => {
+  it('Role Scope Matrix: Level 4 Secretary strictly restricted to assigned GN divisions (Decision C20)', async () => {
     const secretaryCaller = {
       userId: 'sec-001',
       role: UserRole.cdc_secretary,
@@ -416,8 +466,8 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     mockPrisma.household.findMany.mockResolvedValueOnce([
       {
         id: otherTeamHouseId,
-        gnId: 'gn-001', // Same GN!
-        teamId: 'team-sec-OTHER', // Different team!
+        gnId: 'gn-OUT-OF-SCOPE', // Different GN outside assigned divisions!
+        teamId: 'team-sec-OTHER',
         districtId: 'dist-001',
         dsId: 'ds-001',
         deletedAt: null,
@@ -678,11 +728,24 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
               interested_job: 'JOB_ASTRONAUT',
             },
           },
+          {
+            id: 'fa000000-0000-0000-0000-000000000005',
+            base_version: 0,
+            data: {
+              household_id: validHouseholdId,
+              name: 'Invalid GCE_OL',
+              age: 30,
+              gender: 'M',
+              consent_given: true,
+              consent_version: 'consent.v0',
+              education: 'GCE_OL',
+            },
+          },
         ],
       };
 
       const res = await service.pushRecords(caller, dto);
-      expect(res.results.length).toBe(4);
+      expect(res.results.length).toBe(5);
       expect(res.results[0].status).toBe('rejected');
       expect(res.results[0].code).toBe('INVALID_LOOKUP');
       expect(res.results[1].status).toBe('rejected');
@@ -691,6 +754,8 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
       expect(res.results[2].code).toBe('INVALID_LOOKUP');
       expect(res.results[3].status).toBe('rejected');
       expect(res.results[3].code).toBe('INVALID_LOOKUP');
+      expect(res.results[4].status).toBe('rejected');
+      expect(res.results[4].code).toBe('INVALID_LOOKUP');
     });
   });
 

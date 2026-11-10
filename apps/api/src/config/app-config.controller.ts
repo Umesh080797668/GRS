@@ -38,7 +38,7 @@ const KEY_MAPPINGS: Record<string, string> = {
 
 @Controller('v1/config')
 export class AppConfigController {
-  constructor(private readonly configService: AppConfigService) {}
+  constructor(private readonly configService: AppConfigService) { }
 
   @Get()
   async getConfig() {
@@ -56,32 +56,48 @@ export class AppConfigController {
       });
     }
 
-    // Check min_supported_version <= latest_version
-    const currentConfig = await this.configService.getConfig();
-    const targetMin =
-      body.min_supported_version ??
-      (body as any).minSupportedVersion ??
-      currentConfig.minSupportedVersion;
-    const targetLatest =
-      body.latest_version ??
-      (body as any).latestVersion ??
-      currentConfig.latestVersion;
+    // Check min_supported_version <= latest_version only when either is explicitly provided
+    const hasMin =
+      body.min_supported_version !== undefined ||
+      (body as any).minSupportedVersion !== undefined;
+    const hasLatest =
+      body.latest_version !== undefined ||
+      (body as any).latestVersion !== undefined;
 
-    if (
-      targetMin &&
-      targetLatest &&
-      this.configService.compareSemver(
-        String(targetMin),
-        String(targetLatest),
-      ) > 0
-    ) {
-      throw new BadRequestException({
-        code: 'INVALID_CONFIG_VALUE',
-        message: 'min_supported_version cannot exceed latest_version',
-      });
+    if (hasMin || hasLatest) {
+      const currentConfig = await this.configService.getConfig();
+      const targetMin =
+        body.min_supported_version ??
+        (body as any).minSupportedVersion ??
+        currentConfig.minSupportedVersion;
+      const targetLatest =
+        body.latest_version ??
+        (body as any).latestVersion ??
+        currentConfig.latestVersion;
+
+      if (
+        targetMin &&
+        targetLatest &&
+        SEMVER_REGEX.test(String(targetMin)) &&
+        SEMVER_REGEX.test(String(targetLatest)) &&
+        this.configService.compareSemver(
+          String(targetMin),
+          String(targetLatest),
+        ) > 0
+      ) {
+        throw new BadRequestException({
+          code: 'INVALID_CONFIG_VALUE',
+          message: 'min_supported_version cannot exceed latest_version',
+        });
+      }
     }
 
+    let updatedCount = 0;
     for (const [key, rawValue] of Object.entries(body)) {
+      if (rawValue === undefined) {
+        continue;
+      }
+      updatedCount++;
       const canonicalKey = KEY_MAPPINGS[key];
       if (!canonicalKey) {
         throw new BadRequestException({
@@ -192,6 +208,14 @@ export class AppConfigController {
         );
       }
     }
+
+    if (updatedCount === 0) {
+      throw new BadRequestException({
+        code: 'INVALID_CONFIG_PAYLOAD',
+        message: 'Config update body cannot be empty',
+      });
+    }
+
     return this.configService.getConfig();
   }
 }

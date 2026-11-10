@@ -296,13 +296,58 @@ class GrsApiClient {
       () => _client.patch(
         uri,
         headers: _headers(authenticated: true),
-        body: jsonEncode({'preferredLanguage': ?preferredLanguage}),
+        body: jsonEncode({'preferredLanguage': preferredLanguage}),
       ),
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       return ProfileModel.fromJson(json);
+    }
+
+    _handleError(response);
+  }
+
+  /// POST /v1/auth/switch-area
+  Future<LoginResponse> switchArea(String gnId, {String? deviceId}) async {
+    final uri = Uri.parse('$baseUrl/v1/auth/switch-area');
+    final response = await _sendWithAuthRetry(
+      () => _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode({'gnId': gnId, 'deviceId': ?deviceId}),
+      ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final res = LoginResponse.fromJson(json);
+      _accessToken = res.accessToken;
+      _refreshToken = res.refreshToken;
+      if (onTokenRefreshed != null) {
+        await onTokenRefreshed!(res.accessToken, res.refreshToken);
+      }
+      return res;
+    }
+
+    _handleError(response);
+  }
+
+  /// GET /v1/auth/assignments
+  Future<List<ProfileAssignmentModel>> getAssignments() async {
+    final uri = Uri.parse('$baseUrl/v1/auth/assignments');
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final list = json['assignments'] as List<dynamic>? ?? [];
+      return list
+          .map(
+            (e) => ProfileAssignmentModel.fromJson(e as Map<String, dynamic>),
+          )
+          .toList();
     }
 
     _handleError(response);

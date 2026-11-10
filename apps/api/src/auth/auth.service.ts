@@ -17,6 +17,7 @@ import { GrsValidators } from '../common/validators/grs-validators';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { SwitchAreaDto } from './dto/switch-area.dto';
 export type AuthSession = {
   mustChangePassword: false;
   accessToken: string;
@@ -26,11 +27,11 @@ export type AuthSession = {
 
 export type LoginResult =
   | {
-      mustChangePassword: true;
-      accessToken: string;
-      user: Record<string, any>;
-      profile?: Record<string, any>;
-    }
+    mustChangePassword: true;
+    accessToken: string;
+    user: Record<string, any>;
+    profile?: Record<string, any>;
+  }
   | AuthSession;
 
 @Injectable()
@@ -50,7 +51,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly rateLimitService: RateLimitService,
-  ) {}
+  ) { }
 
   /**
    * Normalizes login identifier (GRS ID -> uppercase, Email -> lowercase).
@@ -486,9 +487,30 @@ export class AuthService {
 
     // Revoke current token and issue new pair (preserve deviceId if not explicitly provided)
     const deviceId = dto.deviceId || tokenRecord.deviceId;
+
+    // Preserve active area assignment on refresh (Decision C20 / Multi-GN architecture)
+    let activeAreaOverride: { gnId?: string; teamId?: string; dsId?: string; districtId?: string } | undefined = undefined;
+    const activeGnId = (tokenRecord as any).activeGnId;
+    const activeTeamId = (tokenRecord as any).activeTeamId;
+    if (activeGnId) {
+      const gn = await this.prisma.gnDivision.findUnique({
+        where: { id: activeGnId },
+        include: { ds: true },
+      });
+      if (gn) {
+        activeAreaOverride = {
+          gnId: gn.id,
+          teamId: activeTeamId ?? profile.teamId ?? undefined,
+          dsId: gn.dsId,
+          districtId: gn.ds?.districtId,
+        };
+      }
+    }
+
     const session = await this.generateAuthSession(
       profile,
       deviceId ?? undefined,
+      activeAreaOverride,
     );
 
     // Atomically revoke current token to prevent rotation races
@@ -507,6 +529,98 @@ export class AuthService {
     }
 
     return session;
+  }
+
+  /**
+   * Switches active GN division for multi-GN Level 4 CDC secretaries.
+   * Reissues access token and refresh token scoped to the selected GN and team.
+   */
+  async switchArea(
+    userId: string,
+    dto: SwitchAreaDto,
+  ): Promise<AuthSession> {
+    const profile = await this.prisma.profile.findUnique({
+      where: { id: userId },
+    });
+
+    if (!profile || !profile.isActive) {
+      throw new UnauthorizedException({
+        code: 'AUTH_INVALID',
+        message_key: 'errors.auth.invalid_user',
+      });
+    }
+
+    // Verify active assignment for this GN division in profile_assignments
+    const assignment = await this.prisma.profileAssignment.findFirst({
+      where: {
+        profileId: userId,
+        gnId: dto.gnId,
+        validTo: null,
+      },
+      include: {
+        gn: {
+          include: {
+            ds: true,
+          },
+        },
+        team: true,
+      },
+    });
+
+    if (!assignment) {
+      throw new ForbiddenException({
+        code: 'AREA_ASSIGNMENT_NOT_FOUND',
+        message: 'You do not hold an active assignment for this GN division',
+      });
+    }
+
+    const activeArea = {
+      gnId: assignment.gnId,
+      teamId: assignment.teamId || assignment.team?.id || profile.teamId || undefined,
+      dsId: assignment.gn.dsId,
+      districtId: assignment.gn.ds.districtId,
+    };
+
+    // Update active GN on profile so default queries stay in sync
+    await this.prisma.profile.update({
+      where: { id: userId },
+      data: {
+        gnId: activeArea.gnId,
+        ...(activeArea.teamId ? { teamId: activeArea.teamId } : {}),
+      },
+    });
+
+    // Audit log area switch
+    try {
+      await this.prisma.accountAudit.create({
+        data: {
+          actorId: userId,
+          targetId: userId,
+          action: 'switch_area',
+        },
+      });
+    } catch { }
+
+    return this.generateAuthSession(profile, dto.deviceId, activeArea);
+  }
+
+  /**
+   * Returns all actively assigned GN divisions for the given user.
+   */
+  async getAssignments(userId: string) {
+    const assignments = await this.prisma.profileAssignment.findMany({
+      where: { profileId: userId, validTo: null },
+      include: { gn: true, team: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    return assignments.map((a) => ({
+      id: a.id,
+      gnId: a.gnId,
+      gnName: a.gn?.gnName || a.gn?.gnNumber || '',
+      gnNumber: a.gn?.gnNumber || '',
+      teamId: a.teamId,
+      teamNo: a.team?.teamNo,
+    }));
   }
 
   /**
@@ -539,15 +653,29 @@ export class AuthService {
   /**
    * Generates JWT Access Token (15m) and Refresh Token (30d).
    */
-  private async generateAuthSession(profile: any, deviceId?: string) {
+  private async generateAuthSession(
+    profile: any,
+    deviceId?: string,
+    activeArea?: {
+      gnId?: string;
+      teamId?: string;
+      dsId?: string;
+      districtId?: string;
+    },
+  ) {
+    const effectiveGnId = activeArea?.gnId ?? profile.gnId;
+    const effectiveTeamId = activeArea?.teamId ?? profile.teamId;
+    const effectiveDsId = activeArea?.dsId ?? profile.dsId;
+    const effectiveDistrictId = activeArea?.districtId ?? profile.districtId;
+
     const payload = {
       sub: profile.id,
       userCode: profile.userCode,
       role: profile.role,
-      districtId: profile.districtId,
-      dsId: profile.dsId,
-      gnId: profile.gnId,
-      teamId: profile.teamId,
+      districtId: effectiveDistrictId,
+      dsId: effectiveDsId,
+      gnId: effectiveGnId,
+      teamId: effectiveTeamId,
       tokenVersion: profile.tokenVersion,
       scope: 'full',
     };
@@ -568,16 +696,45 @@ export class AuthService {
         profileId: profile.id,
         tokenHash: refreshHash,
         deviceId,
+        activeGnId: effectiveGnId,
+        activeTeamId: effectiveTeamId,
         expiresAt,
       },
     });
+
+    let assignments: any[] = [];
+    try {
+      assignments = await this.prisma.profileAssignment.findMany({
+        where: { profileId: profile.id, validTo: null },
+        include: { gn: true, team: true },
+        orderBy: { createdAt: 'asc' },
+      });
+    } catch { }
+
+    const sanitized: any = this.sanitizeProfile({
+      ...profile,
+      gnId: effectiveGnId,
+      teamId: effectiveTeamId,
+      dsId: effectiveDsId,
+      districtId: effectiveDistrictId,
+    });
+
+    sanitized.assignments = assignments.map((a) => ({
+      id: a.id,
+      gnId: a.gnId,
+      gnName: a.gn?.gnName || a.gn?.gnNumber || '',
+      gnNumber: a.gn?.gnNumber || '',
+      teamId: a.teamId,
+      teamNo: a.team?.teamNo,
+      isActiveArea: a.gnId === effectiveGnId,
+    }));
 
     return {
       mustChangePassword: false as const,
       accessToken,
       refreshToken: rawRefreshToken,
-      user: this.sanitizeProfile(profile),
-      profile: this.sanitizeProfile(profile),
+      user: sanitized,
+      profile: sanitized,
     };
   }
 

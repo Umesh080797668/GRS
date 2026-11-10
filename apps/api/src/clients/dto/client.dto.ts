@@ -254,11 +254,12 @@ export class ListClientsDto {
   @IsOptional()
   cursor?: string;
 
+  @IsOptional()
   @Type(() => Number)
+  @Transform(({ value }) => (value !== undefined ? Number(value) : 50))
   @IsInt()
   @Min(1)
-  @Max(100)
-  @IsOptional()
+  @Max(1000)
   limit?: number = 50;
 
   @IsString()

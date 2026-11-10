@@ -6,22 +6,22 @@ export interface EndpointPolicy {
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   path: string;
   category:
-    | 'auth'
-    | 'accounts'
-    | 'config'
-    | 'lookups'
-    | 'areas'
-    | 'houses'
-    | 'clients'
-    | 'sync'
-    | 'duplicates'
-    | 'stats'
-    | 'exports'
-    | 'releases'
-    | 'imports';
+  | 'auth'
+  | 'accounts'
+  | 'config'
+  | 'lookups'
+  | 'areas'
+  | 'houses'
+  | 'clients'
+  | 'sync'
+  | 'duplicates'
+  | 'stats'
+  | 'exports'
+  | 'releases'
+  | 'imports';
   allowedRoles: ExtendedRole[];
   scopeEnforcement:
-    'none' | 'own_only' | 'team_only' | 'gn_only' | 'hierarchical' | 'national';
+  'none' | 'own_only' | 'team_only' | 'gn_only' | 'hierarchical' | 'national';
   description: string;
 }
 
@@ -177,6 +177,39 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     ],
     scopeEnforcement: 'own_only',
     description: 'Update user profile preferences (preferred language)',
+  },
+  {
+    method: 'POST',
+    path: '/auth/switch-area',
+    category: 'auth',
+    allowedRoles: [
+      'team_member',
+      'cdc_secretary',
+      'sda',
+      'dc',
+      'cg',
+      'admin',
+      'super_admin',
+    ],
+    scopeEnforcement: 'own_only',
+    description:
+      'Switch active GN area session for multi-GN CDC secretary (Decision C20)',
+  },
+  {
+    method: 'GET',
+    path: '/auth/assignments',
+    category: 'auth',
+    allowedRoles: [
+      'team_member',
+      'cdc_secretary',
+      'sda',
+      'dc',
+      'cg',
+      'admin',
+      'super_admin',
+    ],
+    scopeEnforcement: 'own_only',
+    description: 'List assigned GN divisions for current user',
   },
 
   // Accounts Endpoints (Creation matrix §6.1)
