@@ -19,15 +19,22 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { UserRole } from '../common/scope/scope.types';
 import type { ScopeContext } from '../common/scope/scope.types';
 import { AccountService } from './account.service';
+import { AssignmentService } from './assignment.service';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { CreateBulkAccountsDto } from './dto/create-bulk-accounts.dto';
 import { ListAccountsDto } from './dto/list-accounts.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
+import { AssignAccountDto } from './dto/assign-account.dto';
+import { TransferAccountDto } from './dto/transfer-account.dto';
+import { ListAssignmentsDto } from './dto/list-assignments.dto';
 
 @Controller('v1/accounts')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AccountController {
-  constructor(private readonly accountService: AccountService) {}
+  constructor(
+    private readonly accountService: AccountService,
+    private readonly assignmentService: AssignmentService,
+  ) { }
 
   @Post()
   @Header('Cache-Control', 'no-store')
@@ -176,5 +183,108 @@ export class AccountController {
     @Param('id', ParseUUIDPipe) batchId: string,
   ) {
     return this.accountService.reissueBatch(user, batchId);
+  }
+
+  // ── Assignment endpoints ────────────────────────────────────────────────────
+
+  /**
+   * GET /v1/accounts/assignments
+   * Lists active assignments within the caller's scope.
+   */
+  @Get('assignments')
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+  )
+  async listAssignments(
+    @CurrentUser() user: ScopeContext,
+    @Query() query: ListAssignmentsDto,
+  ) {
+    return this.assignmentService.listActive(user, query);
+  }
+
+  /**
+   * GET /v1/accounts/:id/assignments
+   * Full assignment history for a single profile.
+   */
+  @Get(':id/assignments')
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+  )
+  async getProfileAssignments(
+    @CurrentUser() user: ScopeContext,
+    @Param('id', ParseUUIDPipe) profileId: string,
+  ) {
+    return this.assignmentService.getForProfile(user, profileId);
+  }
+
+  /**
+   * POST /v1/accounts/:id/assign
+   * Assigns territory to an account. Ends any existing open assignment first.
+   */
+  @Post(':id/assign')
+  @Header('Cache-Control', 'no-store')
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+  )
+  async assignAccount(
+    @CurrentUser() user: ScopeContext,
+    @Param('id', ParseUUIDPipe) profileId: string,
+    @Body() dto: AssignAccountDto,
+  ) {
+    return this.assignmentService.assign(user, profileId, dto);
+  }
+
+  /**
+   * POST /v1/accounts/:id/end-assignment
+   * Ends the open assignment for a profile. Clears cache columns (fail-closed).
+   */
+  @Post(':id/end-assignment')
+  @Header('Cache-Control', 'no-store')
+  @HttpCode(HttpStatus.OK)
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+  )
+  async endAssignment(
+    @CurrentUser() user: ScopeContext,
+    @Param('id', ParseUUIDPipe) profileId: string,
+  ) {
+    return this.assignmentService.endAssignment(user, profileId);
+  }
+
+  /**
+   * POST /v1/accounts/:id/transfer
+   * Transfers the current assignment from :id to another profile.
+   */
+  @Post(':id/transfer')
+  @Header('Cache-Control', 'no-store')
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+  )
+  async transferAssignment(
+    @CurrentUser() user: ScopeContext,
+    @Param('id', ParseUUIDPipe) fromProfileId: string,
+    @Body() dto: TransferAccountDto,
+  ) {
+    return this.assignmentService.transfer(user, fromProfileId, dto);
   }
 }

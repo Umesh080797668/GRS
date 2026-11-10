@@ -104,6 +104,9 @@ model Profile {
   collectedClients   Client[]            @relation("ClientCollector")
   exportJobs         ExportJob[]
   assignments        ProfileAssignment[]
+  accountAssignments AccountAssignment[] @relation("ProfileAssignments")
+  assignmentsCreated AccountAssignment[] @relation("AssignedBy")
+  assignmentsEnded   AccountAssignment[] @relation("EndedBy")
 
   @@index([createdBy])
   @@index([teamId])
@@ -205,7 +208,8 @@ model District {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  divisions DivisionalSecretariat[]
+  divisions          DivisionalSecretariat[]
+  accountAssignments AccountAssignment[]
 
   @@map("districts")
 }
@@ -220,8 +224,9 @@ model DivisionalSecretariat {
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  district    District     @relation(fields: [districtId], references: [id], onDelete: Restrict)
-  gnDivisions GnDivision[]
+  district           District            @relation(fields: [districtId], references: [id], onDelete: Restrict)
+  gnDivisions        GnDivision[]
+  accountAssignments AccountAssignment[]
 
   @@index([districtId])
   @@map("divisional_secretariats")
@@ -240,10 +245,11 @@ model GnDivision {
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  ds          DivisionalSecretariat @relation(fields: [dsId], references: [id], onDelete: Restrict)
-  teams       Team[]
-  households  Household[]
-  assignments ProfileAssignment[]
+  ds                 DivisionalSecretariat @relation(fields: [dsId], references: [id], onDelete: Restrict)
+  teams              Team[]
+  households         Household[]
+  assignments        ProfileAssignment[]
+  accountAssignments AccountAssignment[]
 
   @@unique([dsId, gnNumber])
   @@index([dsId])
@@ -260,9 +266,10 @@ model Team {
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  gn          GnDivision          @relation(fields: [gnId], references: [id], onDelete: Restrict)
-  households  Household[]
-  assignments ProfileAssignment[]
+  gn                 GnDivision          @relation(fields: [gnId], references: [id], onDelete: Restrict)
+  households         Household[]
+  assignments        ProfileAssignment[]
+  accountAssignments AccountAssignment[] @relation("TeamAssignments")
 
   @@unique([gnId, teamNo])
   @@index([gnId])
@@ -570,4 +577,35 @@ model ProfileAssignment {
   @@index([profileId])
   @@index([gnId])
   @@map("profile_assignments")
+}
+
+model AccountAssignment {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profileId  String    @map("profile_id") @db.Uuid
+  districtId String?   @map("district_id") @db.Uuid
+  dsId       String?   @map("ds_id") @db.Uuid
+  gnId       String?   @map("gn_id") @db.Uuid
+  teamId     String?   @map("team_id") @db.Uuid
+  validFrom  DateTime  @default(now()) @map("valid_from") @db.Timestamptz(6)
+  validTo    DateTime? @map("valid_to") @db.Timestamptz(6)
+  assignedBy String    @map("assigned_by") @db.Uuid
+  endedBy    String?   @map("ended_by") @db.Uuid
+  note       String?   @db.Text
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  profile           Profile                @relation("ProfileAssignments", fields: [profileId], references: [id], onDelete: Cascade)
+  district          District?              @relation(fields: [districtId], references: [id], onDelete: Restrict)
+  ds                DivisionalSecretariat? @relation(fields: [dsId], references: [id], onDelete: Restrict)
+  gn                GnDivision?            @relation(fields: [gnId], references: [id], onDelete: Restrict)
+  team              Team?                  @relation("TeamAssignments", fields: [teamId], references: [id], onDelete: Restrict)
+  assignedByProfile Profile                @relation("AssignedBy", fields: [assignedBy], references: [id], onDelete: Restrict)
+  endedByProfile    Profile?               @relation("EndedBy", fields: [endedBy], references: [id], onDelete: SetNull)
+
+  @@index([profileId])
+  @@index([gnId])
+  @@index([dsId])
+  @@index([districtId])
+  @@index([teamId])
+  @@index([validTo])
+  @@map("account_assignments")
 }

@@ -490,6 +490,53 @@ export class ApiClient {
     return this.request(`/v1/accounts/${id}/reset-password`, { method: 'POST' });
   }
 
+  // --- ASSIGNMENT MANAGEMENT ---
+
+  async getAccountAssignments(params: {
+    profileId?: string;
+    gnId?: string;
+    dsId?: string;
+    districtId?: string;
+    status?: 'active' | 'all';
+  } = {}): Promise<{ items: any[]; total: number }> {
+    const p = new URLSearchParams();
+    if (params.profileId) p.append('profileId', params.profileId);
+    if (params.gnId) p.append('gnId', params.gnId);
+    if (params.dsId) p.append('dsId', params.dsId);
+    if (params.districtId) p.append('districtId', params.districtId);
+    if (params.status) p.append('status', params.status);
+    const q = p.toString() ? `?${p.toString()}` : '';
+    return this.request(`/v1/accounts/assignments${q}`);
+  }
+
+  async getProfileAssignmentHistory(profileId: string): Promise<{ profileId: string; items: any[] }> {
+    return this.request(`/v1/accounts/${profileId}/assignments`);
+  }
+
+  async assignAccount(
+    profileId: string,
+    territory: { districtId?: string; dsId?: string; gnId?: string; teamId?: string; note?: string },
+  ): Promise<any> {
+    return this.request(`/v1/accounts/${profileId}/assign`, {
+      method: 'POST',
+      body: JSON.stringify(territory),
+    });
+  }
+
+  async endAccountAssignment(profileId: string): Promise<any> {
+    return this.request(`/v1/accounts/${profileId}/end-assignment`, { method: 'POST' });
+  }
+
+  async transferAccountAssignment(
+    fromProfileId: string,
+    dto: { toProfileId: string; districtId?: string; dsId?: string; gnId?: string; teamId?: string; note?: string },
+  ): Promise<any> {
+    return this.request(`/v1/accounts/${fromProfileId}/transfer`, {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  }
+
   // --- GEOGRAPHIC HIERARCHY & TEAMS (M5.3) ---
 
   async getDistricts(): Promise<any[]> {

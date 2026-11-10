@@ -100,6 +100,12 @@ export function Shell({ children, activePath }: ShellProps) {
       roles: ['super_admin', 'admin', 'cg', 'dc', 'sda', 'cdc_secretary'],
     },
     {
+      key: 'nav.assignments',
+      href: '/assignments',
+      icon: <MapPin size={18} />,
+      roles: ['super_admin', 'admin', 'cg', 'dc', 'sda'],
+    },
+    {
       key: 'nav.areas',
       href: '/areas',
       icon: <MapPin size={18} />,
