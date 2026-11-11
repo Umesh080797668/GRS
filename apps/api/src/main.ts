@@ -2,24 +2,27 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import express, { Express } from 'express';
+import express, { Express, Request, Response } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 import * as Sentry from '@sentry/node';
-import { sentryEventScrubber } from './common/logging/sentry-scrubber';
+import { SentryEvent, SentryScrubber } from './common/logging/sentry-scrubber';
 import { StructuredLoggerService } from './common/logging/structured-logger.service';
 import { PrismaClientExceptionFilter } from './common/filters/prisma-client-exception.filter';
 
 const expressApp: Express = express();
-let isInitialized = false;
+let initPromise: Promise<void> | null = null;
 
 // Initialize Sentry with PII scrubber (M1.11 / Section 12)
 if (process.env.SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || 'development',
-    beforeSend: sentryEventScrubber as any,
+    beforeSend: (event) =>
+      SentryScrubber.beforeSend(
+        event as SentryEvent,
+      ) as unknown as typeof event,
   });
 }
 
@@ -32,13 +35,13 @@ export async function createNestServer(server: Express) {
   // Secure CORS policy: Restrict to exact configured origins or localhost development
   const allowedOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',')
-        .map((o) => o.trim())
-        .filter(Boolean)
+      .map((o) => o.trim())
+      .filter(Boolean)
     : [
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'http://localhost:8080',
-      ];
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:8080',
+    ];
 
   const isOriginAllowed = (origin: string): boolean => {
     if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
@@ -137,14 +140,19 @@ if (
   process.env.NODE_ENV !== 'test' &&
   require.main === module
 ) {
-  bootstrap();
+  void bootstrap();
 }
 
 // Exported serverless function handler for Vercel
-export default async function handler(req: any, res: any) {
-  if (!isInitialized) {
-    await createNestServer(expressApp);
-    isInitialized = true;
+export default async function handler(req: Request, res: Response) {
+  if (!initPromise) {
+    initPromise = createNestServer(expressApp)
+      .then(() => undefined)
+      .catch((err) => {
+        initPromise = null;
+        throw err;
+      });
   }
-  (expressApp as any)(req, res);
+  await initPromise;
+  expressApp(req, res);
 }
