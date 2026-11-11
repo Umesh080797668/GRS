@@ -10,6 +10,11 @@
 1. **Never commit the release keystore** or passwords into git.
 2. Store the production signing keystore in **two separate, highly secured backup locations**. Losing this keystore permanently prevents updating existing field devices!
 3. Minimum supported Android version: Android 10 (API level 29).
+4. For CI releases via `.github/workflows/release-apk.yml`, configure these GitHub Actions repository secrets:
+   - `ANDROID_KEYSTORE_BASE64` (base64-encoded `upload-keystore.jks`, e.g. `base64 -w 0 apps/mobile/android/app/upload-keystore.jks`)
+   - `ANDROID_KEYSTORE_PASSWORD`
+   - `ANDROID_KEY_PASSWORD`
+   - `ANDROID_KEY_ALIAS`
 
 ---
 

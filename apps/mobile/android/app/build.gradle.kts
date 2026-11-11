@@ -11,8 +11,21 @@ plugins {
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
 }
+
+val releaseKeyAlias = keystoreProperties.getProperty("keyAlias")?.trim().orEmpty()
+val releaseKeyPassword = keystoreProperties.getProperty("keyPassword")?.trim().orEmpty()
+val releaseStorePassword = keystoreProperties.getProperty("storePassword")?.trim().orEmpty()
+val releaseStoreFilePath = keystoreProperties.getProperty("storeFile")?.trim().orEmpty()
+val releaseStoreFile = if (releaseStoreFilePath.isNotEmpty()) file(releaseStoreFilePath) else null
+val hasValidReleaseKeystore =
+    keystorePropertiesFile.exists() &&
+    releaseKeyAlias.isNotEmpty() &&
+    releaseKeyPassword.isNotEmpty() &&
+    releaseStorePassword.isNotEmpty() &&
+    releaseStoreFile != null &&
+    releaseStoreFile.exists()
 
 android {
     namespace = "lk.gov.grs.mobile"
@@ -38,11 +51,11 @@ android {
 
     signingConfigs {
         create("release") {
-            if (keystorePropertiesFile.exists() && keystoreProperties.containsKey("keyAlias")) {
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
-                storeFile = keystoreProperties.getProperty("storeFile")?.let { file(it) }
-                storePassword = keystoreProperties.getProperty("storePassword")
+            if (hasValidReleaseKeystore) {
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePassword
                 enableV1Signing = true
                 enableV2Signing = true
             }
@@ -68,9 +81,9 @@ tasks.matching {
     (it.name.startsWith("assemble") || it.name.startsWith("bundle") || it.name.startsWith("package"))
 }.configureEach {
     doFirst {
-        if (!keystorePropertiesFile.exists() || !keystoreProperties.containsKey("keyAlias")) {
+        if (!hasValidReleaseKeystore) {
             throw GradleException(
-                "Release build failed: Release APKs must be signed with the official keystore configured in key.properties. Fallback to debug key is strictly prohibited per security policy."
+                "Release build failed: Release APKs must be signed with the official keystore configured in key.properties (storeFile, storePassword, keyAlias, keyPassword). Fallback to debug key is strictly prohibited per security policy."
             )
         }
     }

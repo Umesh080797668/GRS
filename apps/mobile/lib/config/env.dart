@@ -34,6 +34,6 @@ class AppEnv {
   /// Client semantic application version sent in X-App-Version header
   static const String appVersion = String.fromEnvironment(
     'APP_VERSION',
-    defaultValue: '2.0.1',
+    defaultValue: '2.0.2',
   );
 }

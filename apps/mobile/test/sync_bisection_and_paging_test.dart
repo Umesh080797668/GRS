@@ -42,7 +42,7 @@ class _MockSyncApiClient extends GrsApiClient {
   final List<SyncPushRequest> pushedRequests = [];
 
   _MockSyncApiClient()
-    : super(baseUrl: 'https://test.grs.gov.lk', appVersion: '2.0.1');
+    : super(baseUrl: 'https://test.grs.gov.lk', appVersion: AppEnv.appVersion);
 
   @override
   Future<SyncPushResponse> pushSync(SyncPushRequest req) async {

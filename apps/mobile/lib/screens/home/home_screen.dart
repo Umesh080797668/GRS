@@ -1036,8 +1036,8 @@ class _Level4Hub extends ConsumerWidget {
                     color: isDark ? Colors.white : GrsColors.textPrimaryLight,
                   ),
                 ),
-                const Spacer(),
                 if (assignments.length > 1) ...[
+                  const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -1054,7 +1054,9 @@ class _Level4Hub extends ConsumerWidget {
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
-                        value: profile?.gnId,
+                        value: assignments.any((a) => a.gnId == profile?.gnId)
+                            ? profile?.gnId
+                            : null,
                         isDense: true,
                         style: TextStyle(
                           fontSize: 12,
@@ -1064,63 +1066,6 @@ class _Level4Hub extends ConsumerWidget {
                         items: assignments.map((a) {
                           final name =
                               a.gnName ??
-                              (a.gnCode != null
-                                  ? 'GN ${a.gnCode}'
-                                  : 'GN ${a.gnId.length > 6 ? a.gnId.substring(0, 6) : a.gnId}');
-                          return DropdownMenuItem<String>(
-                            value: a.gnId,
-                            child: Text(name),
-                          );
-                        }).toList(),
-                        onChanged: (newGnId) async {
-                          if (newGnId != null && newGnId != profile?.gnId) {
-                            try {
-                              await ref
-                                  .read(authProvider.notifier)
-                                  .switchArea(newGnId);
-                              ref
-                                  .read(recordsRevisionProvider.notifier)
-                                  .increment();
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Failed to switch area: $e'),
-                                  ),
-                                );
-                              }
-                            }
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-                const Spacer(),
-                if (assignments.length > 1) ...[
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: isDark
-                            ? const Color(0xFF334155)
-                            : const Color(0xFFCBD5E1),
-                      ),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: profile?.gnId,
-                        isDense: true,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white : GrsColors.primaryDark,
-                        ),
-                        items: assignments.map((a) {
-                          final name = a.gnName ??
                               (a.gnCode != null
                                   ? 'GN ${a.gnCode}'
                                   : 'GN ${a.gnId.length > 6 ? a.gnId.substring(0, 6) : a.gnId}');

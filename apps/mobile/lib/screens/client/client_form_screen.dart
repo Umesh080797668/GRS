@@ -168,9 +168,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       if (!_isConsentConfirmed) {
         final l10n = GrsL10n.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.get('consentRequiredError')),
-          ),
+          SnackBar(content: Text(l10n.get('consentRequiredError'))),
         );
         return false;
       }

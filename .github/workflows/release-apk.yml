@@ -40,6 +40,10 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: release-apk-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build-and-release:
     name: Build & Publish Signed Android APK
@@ -75,6 +79,7 @@ jobs:
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git fetch --tags --force origin 2>/dev/null || true
 
@@ -105,8 +110,8 @@ jobs:
           elif [ "$GITHUB_EVENT_NAME" = "push" ]; then
             TAG="v${PUBSPEC_VER}"
             VERSION="${PUBSPEC_VER}"
-            if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-              echo "⚠️ Tag ${TAG} has already been released. Skipping duplicate release build."
+            if gh release view "${TAG}" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx 'app-release.apk'; then
+              echo "⚠️ Release ${TAG} with app-release.apk already exists. Skipping duplicate release build."
               echo "SKIP_RELEASE=true" >> $GITHUB_ENV
               exit 0
             fi
@@ -136,26 +141,17 @@ jobs:
             TAG="v${VERSION}"
           fi
 
-          BUILD_NUMBER="$GITHUB_RUN_NUMBER"
+          if [ "$PUBSPEC_BUILD" -gt "$GITHUB_RUN_NUMBER" ] 2>/dev/null; then
+            BUILD_NUMBER="$PUBSPEC_BUILD"
+          else
+            BUILD_NUMBER="$GITHUB_RUN_NUMBER"
+          fi
           echo "TAG=${TAG}" >> $GITHUB_ENV
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo "BUILD_NUMBER=${BUILD_NUMBER}" >> $GITHUB_ENV
           echo "SKIP_RELEASE=false" >> $GITHUB_ENV
 
           echo "🎯 Final release target: Tag=${TAG}, Version=${VERSION}, Build=${BUILD_NUMBER}"
-
-      - name: Create and Push Git Tag
-        if: env.SKIP_RELEASE != 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-            echo "Creating annotated git tag ${TAG}..."
-            git tag -a "${TAG}" -m "Release ${TAG} [skip ci]"
-            git push origin "${TAG}" || echo "Tag push completed or already present"
-          else
-            echo "Tag ${TAG} already exists locally or remotely."
-          fi
 
       - name: Prepare Release Changelog
         if: env.SKIP_RELEASE != 'true'
@@ -165,7 +161,7 @@ jobs:
           if [ -n "$INPUT_RELEASE_NOTES" ]; then
             NOTES="$INPUT_RELEASE_NOTES"
           else
-            PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
+            PREV_TAG=$(git describe --tags --abbrev=0 --exclude="${TAG}" 2>/dev/null || echo "")
             if [ -n "$PREV_TAG" ]; then
               COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" 2>/dev/null || echo "")
             else
@@ -176,6 +172,35 @@ jobs:
           echo "RELEASE_NOTES<<EOF" >> $GITHUB_ENV
           echo -e "$NOTES" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
+
+      - name: Configure Android Signing Keystore
+        if: env.SKIP_RELEASE != 'true'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ]; then
+            echo "::error::Missing Android signing secrets. Configure ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_PASSWORD, and ANDROID_KEY_ALIAS in GitHub Repository Secrets."
+            exit 1
+          fi
+
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > apps/mobile/android/app/upload-keystore.jks
+          if [ ! -s apps/mobile/android/app/upload-keystore.jks ]; then
+            echo "::error::Decoded keystore file apps/mobile/android/app/upload-keystore.jks is empty."
+            exit 1
+          fi
+
+          keytool -list \
+            -keystore apps/mobile/android/app/upload-keystore.jks \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$ANDROID_KEY_ALIAS" >/dev/null
+
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=upload-keystore.jks\n' \
+            "$ANDROID_KEYSTORE_PASSWORD" \
+            "$ANDROID_KEY_PASSWORD" \
+            "$ANDROID_KEY_ALIAS" > apps/mobile/android/key.properties
 
       - name: Install Dependencies
         if: env.SKIP_RELEASE != 'true'
@@ -189,6 +214,24 @@ jobs:
         run: |
           cd apps/mobile
           flutter build apk --release --build-name="${VERSION}" --build-number="${BUILD_NUMBER}" --dart-define=APP_VERSION="${VERSION}"
+
+      - name: Cleanup Signing Credentials
+        if: always()
+        run: |
+          rm -f apps/mobile/android/key.properties apps/mobile/android/app/upload-keystore.jks
+
+      - name: Create and Push Git Tag
+        if: env.SKIP_RELEASE != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "Creating annotated git tag ${TAG}..."
+            git tag -a "${TAG}" -m "Release ${TAG} [skip ci]"
+            git push origin "${TAG}" || echo "Tag push completed or already present"
+          else
+            echo "Tag ${TAG} already exists locally or remotely."
+          fi
 
       - name: Generate Checksum & Release Manifest
         if: env.SKIP_RELEASE != 'true'
@@ -256,12 +299,16 @@ jobs:
             checksum.txt
 
       - name: Notify NestJS Backend (Optional)
-        if: env.SKIP_RELEASE != 'true' && env.BACKEND_URL != ''
+        if: env.SKIP_RELEASE != 'true'
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
           RELEASE_SECRET: ${{ secrets.RELEASE_SECRET }}
         run: |
-          curl -s -X POST "${BACKEND_URL}/v1/releases" \
+          if [ -z "$BACKEND_URL" ]; then
+            echo "BACKEND_URL not configured; skipping backend release notification."
+            exit 0
+          fi
+          curl -fsS -X POST "${BACKEND_URL%/}/v1/releases" \
             -H "Content-Type: application/json" \
             -H "X-Release-Secret: ${RELEASE_SECRET}" \
             -d @manifest.json || echo "Backend release sync skipped or failed"
