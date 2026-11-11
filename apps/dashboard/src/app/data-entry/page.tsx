@@ -423,50 +423,45 @@ export default function DataEntryPage() {
 
   return (
     <Shell activePath="/data-entry">
-      <div className="space-y-6 max-w-6xl mx-auto pb-12">
+      <div className="de-page">
         {/* Page Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-teal-50 text-teal-800 border border-teal-200/60 rounded-xl flex-shrink-0">
-              <PenTool className="w-6 h-6" />
+        <div className="panel de-header-card">
+          <div className="de-header-main">
+            <div className="de-icon-badge de-icon-badge-lg">
+              <PenTool size={22} />
             </div>
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200/50">
-                  Administrative Field Entry
-                </span>
-                <span className="text-xs text-slate-400">•</span>
-                <span className="text-xs text-slate-500 font-mono">DD/S/001 & DD/S/002</span>
+              <div className="de-eyebrow-row">
+                <span className="de-eyebrow-pill">Administrative Field Entry</span>
+                <span className="de-dot">•</span>
+                <span className="de-code-label">DD/S/001 &amp; DD/S/002</span>
               </div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                {t('entry.title')}
-              </h1>
-              <p className="text-sm text-slate-500 mt-1">
+              <h1 className="de-page-title">{t('entry.title')}</h1>
+              <p className="de-page-subtitle">
                 Manual paper census entry fallback for official enumerator forms DD/S/001 (Household) and DD/S/002 (Individual).
               </p>
             </div>
           </div>
 
           {user?.role === 'super_admin' && (
-            <div className="flex-shrink-0">
+            <div className="de-header-actions">
               <button
+                type="button"
                 onClick={toggleWebEntryRole}
                 disabled={togglingConfig}
-                className={`btn text-xs font-semibold px-3.5 py-2 flex items-center gap-2 ${webEntryEnabled
-                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300'
-                  : 'btn-primary'
-                  }`}
+                className={webEntryEnabled ? 'de-btn-c19-lock' : 'btn-primary'}
+                style={{ fontSize: '12.5px', padding: '0.5rem 0.9rem' }}
               >
                 {togglingConfig ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 size={14} className="animate-spin" />
                 ) : webEntryEnabled ? (
                   <>
-                    <Lock className="w-3.5 h-3.5 text-amber-700" />
+                    <Lock size={14} />
                     <span>Enforce C19 Gate (Disable Web Entry)</span>
                   </>
                 ) : (
                   <>
-                    <Unlock className="w-3.5 h-3.5 text-white" />
+                    <Unlock size={14} />
                     <span>Override Decision C19 (Enable Entry)</span>
                   </>
                 )}
@@ -477,44 +472,48 @@ export default function DataEntryPage() {
 
         {/* Loading authorization state */}
         {loadingConfig && (
-          <div className="panel p-10 flex flex-col items-center justify-center gap-3 text-slate-500 text-center">
-            <Loader2 className="w-6 h-6 animate-spin text-teal-700" />
-            <div className="text-sm font-medium text-slate-700">Verifying role authorization & census protocol...</div>
-            <div className="text-xs text-slate-400">Querying platform policy configuration</div>
+          <div className="panel de-loading-card">
+            <Loader2 size={24} className="animate-spin" style={{ color: 'var(--primary)' }} />
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--slate-700)' }}>
+              Verifying role authorization &amp; census protocol...
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--slate-400)' }}>
+              Querying platform policy configuration
+            </div>
           </div>
         )}
 
         {/* Decision C19 Policy Gate Advisory Card (when disabled) */}
         {!loadingConfig && !webEntryEnabled && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-6 shadow-xs">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-amber-100 text-amber-800 rounded-xl flex-shrink-0 border border-amber-200">
-                <ShieldAlert className="w-6 h-6" />
+          <div className="de-c19-card">
+            <div className="de-c19-row">
+              <div className="de-c19-icon">
+                <ShieldAlert size={22} />
               </div>
-              <div className="space-y-3 flex-1">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-base font-bold text-amber-900">
-                    Decision C19: Web Direct Data Entry Restricted
-                  </h2>
-                  <span className="badge badge-warning text-xs font-semibold">
-                    Policy Protected
-                  </span>
+              <div className="de-c19-body">
+                <div className="de-c19-title-row">
+                  <h2 className="de-c19-title">Decision C19: Web Direct Data Entry Restricted</h2>
+                  <span className="badge badge-warning">Policy Protected</span>
                 </div>
-                <p className="text-sm text-amber-950 font-medium">
-                  {t('entry.web_roles_off')}
-                </p>
-                <p className="text-xs text-amber-800/90 leading-relaxed">
+                <p className="de-c19-lead">{t('entry.web_roles_off')}</p>
+                <p className="de-c19-desc">
                   To protect field census data integrity and avoid bypassing territorial assignment locks, central Level 00 administrators are restricted from entering survey records directly via web dashboard by default. Primary enumeration is mandated to originate from assigned field tablets with cryptographic timestamping.
                 </p>
                 {user?.role === 'super_admin' && (
-                  <div className="pt-2">
+                  <div style={{ paddingTop: '0.375rem' }}>
                     <button
+                      type="button"
                       onClick={toggleWebEntryRole}
                       disabled={togglingConfig}
-                      className="btn btn-primary text-xs flex items-center gap-2"
+                      className="btn-primary"
+                      style={{ fontSize: '12.5px' }}
                     >
-                      <Unlock className="w-3.5 h-3.5" />
-                      Grant Super Admin Override (Enable Web Entry)
+                      {togglingConfig ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Unlock size={14} />
+                      )}
+                      <span>Grant Super Admin Override (Enable Web Entry)</span>
                     </button>
                   </div>
                 )}
@@ -525,47 +524,49 @@ export default function DataEntryPage() {
 
         {/* Direct Data Entry Form (Active when enabled) */}
         {!loadingConfig && webEntryEnabled && (
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="de-form-stack">
             {/* Status alerts */}
             {submitError && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 flex items-start gap-3 shadow-xs">
-                <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <strong className="block font-semibold">Submission Failed</strong>
+              <div className="de-alert de-alert-danger">
+                <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px', color: 'var(--danger)' }} />
+                <div style={{ flex: 1 }}>
+                  <strong style={{ display: 'block', fontWeight: 600, marginBottom: '2px' }}>
+                    Submission Failed
+                  </strong>
                   <span>{submitError}</span>
                 </div>
               </div>
             )}
 
             {submitSuccess && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 flex items-start gap-3 shadow-xs">
-                <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <strong className="block font-semibold">Record Logged Successfully</strong>
+              <div className="de-alert de-alert-success">
+                <CheckCircle size={18} style={{ flexShrink: 0, marginTop: '2px', color: 'var(--success)' }} />
+                <div style={{ flex: 1 }}>
+                  <strong style={{ display: 'block', fontWeight: 600, marginBottom: '2px' }}>
+                    Record Logged Successfully
+                  </strong>
                   <span>{submitSuccess}</span>
                 </div>
               </div>
             )}
 
             {/* Section 1: Household Information (DD/S/001) */}
-            <div className="panel overflow-hidden">
-              <div className="p-5 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center font-bold">
-                    <Home className="w-4 h-4" />
+            <div className="panel" style={{ overflow: 'hidden' }}>
+              <div className="de-section-header de-section-header-between">
+                <div className="de-section-title-group">
+                  <div className="de-icon-badge">
+                    <Home size={18} />
                   </div>
                   <div>
-                    <h2 className="text-base font-bold text-slate-900">
-                      Section 1: Household Roster (DD/S/001)
-                    </h2>
-                    <p className="text-xs text-slate-500">
+                    <h2 className="de-section-title">Section 1: Household Roster (DD/S/001)</h2>
+                    <p className="de-section-subtitle">
                       Physical dwelling unit, geographic hierarchy, and welfare indicators
                     </p>
                   </div>
                 </div>
 
                 {/* Mode Switcher */}
-                <div className="inline-flex rounded-lg bg-slate-200/70 p-1 border border-slate-200 self-start sm:self-auto">
+                <div className="de-segmented">
                   <button
                     type="button"
                     onClick={() => {
@@ -581,41 +582,35 @@ export default function DataEntryPage() {
                       setIsSamurdhi(false);
                       setHasSpecialNeeds(false);
                     }}
-                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${householdMode === 'new'
-                      ? 'bg-white text-slate-900 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                      }`}
+                    className={`de-seg-btn ${householdMode === 'new' ? 'is-active' : ''}`}
                   >
                     + Register New Household
                   </button>
                   <button
                     type="button"
                     onClick={() => setHouseholdMode('existing')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${householdMode === 'existing'
-                      ? 'bg-white text-slate-900 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                      }`}
+                    className={`de-seg-btn ${householdMode === 'existing' ? 'is-active' : ''}`}
                   >
                     Attach to Existing House ({existingHouseholds.length})
                   </button>
                 </div>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="de-section-body">
                 {/* Existing Household Selector Bar */}
                 {householdMode === 'existing' && (
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="de-existing-box">
+                    <div className="de-existing-top">
                       <div>
-                        <label className="text-xs font-bold text-slate-800 block">
+                        <label className="form-label" style={{ marginBottom: '2px', color: 'var(--slate-800)' }}>
                           Select Existing Household to Attach Survey Entry *
                         </label>
-                        <p className="text-[11px] text-slate-500">
+                        <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: 0 }}>
                           Adding multiple members to the same household unit under form DD/S/002
                         </p>
                       </div>
-                      <div className="relative">
-                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <div className="de-search-wrap">
+                        <Search size={14} className="de-search-icon" />
                         <input
                           type="text"
                           placeholder="Filter house # or name..."
@@ -624,21 +619,23 @@ export default function DataEntryPage() {
                             setHouseSearch(e.target.value);
                             if (selectedGn) loadHouseholdsForGn(selectedGn, true, e.target.value);
                           }}
-                          className="input-field text-xs pl-8 pr-3 py-1.5 max-w-xs"
+                          className="input-field"
+                          style={{ paddingLeft: '32px', fontSize: '13px' }}
                         />
                       </div>
                     </div>
 
                     {existingHouseholds.length === 0 ? (
-                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                      <div className="de-empty-box">
                         {loadingHouses
                           ? 'Searching households in division...'
                           : 'No registered households found in this GN division. Register a new household or adjust search query.'}
                       </div>
                     ) : (
-                      <div className="space-y-2">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         <select
-                          className="select-field text-sm font-medium"
+                          className="select-field"
+                          style={{ fontWeight: 500 }}
                           value={selectedHouseholdId}
                           onChange={(e) => handleSelectExistingHousehold(e.target.value)}
                           required
@@ -653,17 +650,16 @@ export default function DataEntryPage() {
                           ))}
                         </select>
                         {hasMoreHouses && (
-                          <div className="flex justify-end pt-1">
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '4px' }}>
                             <button
                               type="button"
                               onClick={() => loadHouseholdsForGn(selectedGn, false, houseSearch)}
                               disabled={loadingHouses}
-                              className="btn btn-secondary text-xs py-1 px-3"
+                              className="btn-secondary"
+                              style={{ fontSize: '12px', padding: '0.35rem 0.75rem' }}
                             >
-                              {loadingHouses ? (
-                                <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                              ) : null}
-                              Load More Households
+                              {loadingHouses ? <Loader2 size={13} className="animate-spin" /> : null}
+                              <span>Load More Households</span>
                             </button>
                           </div>
                         )}
@@ -674,19 +670,17 @@ export default function DataEntryPage() {
 
                 {/* Geographic Cascade Dropdowns */}
                 <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <MapPin className="w-4 h-4 text-teal-700" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                      Administrative Territorial Boundaries
-                    </span>
+                  <div className="de-subsection-heading">
+                    <MapPin size={15} style={{ color: 'var(--primary)' }} />
+                    <span>Administrative Territorial Boundaries</span>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="de-grid-3">
                     <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                        District <span className="text-rose-600">*</span>
+                      <label className="form-label">
+                        District <span className="de-req">*</span>
                       </label>
                       <select
-                        className="select-field text-sm"
+                        className="select-field"
                         value={selectedDistrict}
                         onChange={(e) => handleDistrictChange(e.target.value)}
                         disabled={user?.role === 'cdc_secretary'}
@@ -700,11 +694,11 @@ export default function DataEntryPage() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                        DS Division <span className="text-rose-600">*</span>
+                      <label className="form-label">
+                        DS Division <span className="de-req">*</span>
                       </label>
                       <select
-                        className="select-field text-sm"
+                        className="select-field"
                         value={selectedDs}
                         onChange={(e) => handleDsChange(e.target.value)}
                         disabled={user?.role === 'cdc_secretary'}
@@ -718,11 +712,11 @@ export default function DataEntryPage() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                        GN Division <span className="text-rose-600">*</span>
+                      <label className="form-label">
+                        GN Division <span className="de-req">*</span>
                       </label>
                       <select
-                        className="select-field text-sm"
+                        className="select-field"
                         value={selectedGn}
                         onChange={(e) => handleGnChange(e.target.value)}
                         disabled={user?.role === 'cdc_secretary'}
@@ -738,11 +732,11 @@ export default function DataEntryPage() {
                 </div>
 
                 {/* Physical Household Unit Fields */}
-                <div className="pt-2 border-t border-slate-100">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="de-divider-top">
+                  <div className="de-grid-3">
                     <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                        House Number (DD/S/001 #1) <span className="text-rose-600">*</span>
+                      <label className="form-label">
+                        House Number (DD/S/001 #1) <span className="de-req">*</span>
                       </label>
                       <input
                         type="text"
@@ -756,8 +750,8 @@ export default function DataEntryPage() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                        Head of Household Name <span className="text-rose-600">*</span>
+                      <label className="form-label">
+                        Head of Household Name <span className="de-req">*</span>
                       </label>
                       <input
                         type="text"
@@ -771,9 +765,7 @@ export default function DataEntryPage() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                        Village / Street / Locality
-                      </label>
+                      <label className="form-label">Village / Street / Locality</label>
                       <input
                         type="text"
                         className="input-field"
@@ -784,10 +776,8 @@ export default function DataEntryPage() {
                       />
                     </div>
 
-                    <div className="md:col-span-3">
-                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                        Complete Postal Address
-                      </label>
+                    <div className="de-col-span-full">
+                      <label className="form-label">Complete Postal Address</label>
                       <input
                         type="text"
                         className="input-field"
@@ -801,18 +791,18 @@ export default function DataEntryPage() {
                 </div>
 
                 {/* Household Welfare Indicators */}
-                <div className="pt-4 border-t border-slate-100">
-                  <div className="flex items-center gap-2 mb-3">
-                    <HeartHandshake className="w-4 h-4 text-teal-700" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                      Welfare & Social Security Coverage
-                    </span>
+                <div className="de-divider-top">
+                  <div className="de-subsection-heading">
+                    <HeartHandshake size={15} style={{ color: 'var(--primary)' }} />
+                    <span>Welfare &amp; Social Security Coverage</span>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
-                    <label className="flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-all has-[:checked]:border-teal-600 has-[:checked]:bg-teal-50/50 has-[:checked]:text-teal-900 font-medium">
+                  <div className="de-grid-cards">
+                    <label
+                      className={`de-check-card ${isSamurdhi ? 'is-checked' : ''} ${householdMode === 'existing' ? 'is-disabled' : ''}`}
+                    >
                       <input
                         type="checkbox"
-                        className="w-4 h-4 rounded text-teal-700 accent-teal-700 cursor-pointer"
+                        className="de-checkbox"
                         checked={isSamurdhi}
                         disabled={householdMode === 'existing'}
                         onChange={(e) => setIsSamurdhi(e.target.checked)}
@@ -820,10 +810,12 @@ export default function DataEntryPage() {
                       <span>Samurdhi Beneficiary</span>
                     </label>
 
-                    <label className="flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-all has-[:checked]:border-teal-600 has-[:checked]:bg-teal-50/50 has-[:checked]:text-teal-900 font-medium">
+                    <label
+                      className={`de-check-card ${isAswesuma ? 'is-checked' : ''} ${householdMode === 'existing' ? 'is-disabled' : ''}`}
+                    >
                       <input
                         type="checkbox"
-                        className="w-4 h-4 rounded text-teal-700 accent-teal-700 cursor-pointer"
+                        className="de-checkbox"
                         checked={isAswesuma}
                         disabled={householdMode === 'existing'}
                         onChange={(e) => setIsAswesuma(e.target.checked)}
@@ -831,10 +823,12 @@ export default function DataEntryPage() {
                       <span>Aswesuma Beneficiary</span>
                     </label>
 
-                    <label className="flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-all has-[:checked]:border-teal-600 has-[:checked]:bg-teal-50/50 has-[:checked]:text-teal-900 font-medium">
+                    <label
+                      className={`de-check-card ${isEpf ? 'is-checked' : ''} ${householdMode === 'existing' ? 'is-disabled' : ''}`}
+                    >
                       <input
                         type="checkbox"
-                        className="w-4 h-4 rounded text-teal-700 accent-teal-700 cursor-pointer"
+                        className="de-checkbox"
                         checked={isEpf}
                         disabled={householdMode === 'existing'}
                         onChange={(e) => setIsEpf(e.target.checked)}
@@ -842,10 +836,12 @@ export default function DataEntryPage() {
                       <span>EPF Contributor</span>
                     </label>
 
-                    <label className="flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-all has-[:checked]:border-teal-600 has-[:checked]:bg-teal-50/50 has-[:checked]:text-teal-900 font-medium">
+                    <label
+                      className={`de-check-card ${isEtf ? 'is-checked' : ''} ${householdMode === 'existing' ? 'is-disabled' : ''}`}
+                    >
                       <input
                         type="checkbox"
-                        className="w-4 h-4 rounded text-teal-700 accent-teal-700 cursor-pointer"
+                        className="de-checkbox"
                         checked={isEtf}
                         disabled={householdMode === 'existing'}
                         onChange={(e) => setIsEtf(e.target.checked)}
@@ -853,10 +849,12 @@ export default function DataEntryPage() {
                       <span>ETF Contributor</span>
                     </label>
 
-                    <label className="flex items-center gap-2.5 p-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-all has-[:checked]:border-teal-600 has-[:checked]:bg-teal-50/50 has-[:checked]:text-teal-900 font-medium col-span-2 md:col-span-1">
+                    <label
+                      className={`de-check-card ${hasSpecialNeeds ? 'is-checked' : ''} ${householdMode === 'existing' ? 'is-disabled' : ''}`}
+                    >
                       <input
                         type="checkbox"
-                        className="w-4 h-4 rounded text-teal-700 accent-teal-700 cursor-pointer"
+                        className="de-checkbox"
                         checked={hasSpecialNeeds}
                         disabled={householdMode === 'existing'}
                         onChange={(e) => setHasSpecialNeeds(e.target.checked)}
@@ -869,26 +867,26 @@ export default function DataEntryPage() {
             </div>
 
             {/* Section 2: Individual Survey Details (DD/S/002) */}
-            <div className="panel overflow-hidden">
-              <div className="p-5 border-b border-slate-200 bg-slate-50/50 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center font-bold">
-                  <User className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-slate-900">
-                    Section 2: Individual Survey Data (DD/S/002)
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Citizen demographic profiling, vocational qualifications, and career aspirations
-                  </p>
+            <div className="panel" style={{ overflow: 'hidden' }}>
+              <div className="de-section-header">
+                <div className="de-section-title-group">
+                  <div className="de-icon-badge">
+                    <User size={18} />
+                  </div>
+                  <div>
+                    <h2 className="de-section-title">Section 2: Individual Survey Data (DD/S/002)</h2>
+                    <p className="de-section-subtitle">
+                      Citizen demographic profiling, vocational qualifications, and career aspirations
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                      Full Name of Individual <span className="text-rose-600">*</span>
+              <div className="de-section-body">
+                <div className="de-grid-3">
+                  <div className="de-col-span-2">
+                    <label className="form-label">
+                      Full Name of Individual <span className="de-req">*</span>
                     </label>
                     <input
                       type="text"
@@ -901,8 +899,8 @@ export default function DataEntryPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                      Age <span className="text-rose-600">*</span>
+                    <label className="form-label">
+                      Age <span className="de-req">*</span>
                     </label>
                     <input
                       type="number"
@@ -916,11 +914,11 @@ export default function DataEntryPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                      Gender <span className="text-rose-600">*</span>
+                    <label className="form-label">
+                      Gender <span className="de-req">*</span>
                     </label>
                     <select
-                      className="select-field text-sm"
+                      className="select-field"
                       value={clientGender}
                       onChange={(e) => setClientGender(e.target.value as any)}
                     >
@@ -931,9 +929,7 @@ export default function DataEntryPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                      Phone Number
-                    </label>
+                    <label className="form-label">Phone Number</label>
                     <input
                       type="tel"
                       className="input-field"
@@ -944,9 +940,7 @@ export default function DataEntryPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                      WhatsApp Number
-                    </label>
+                    <label className="form-label">WhatsApp Number</label>
                     <input
                       type="tel"
                       className="input-field"
@@ -957,11 +951,11 @@ export default function DataEntryPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                      Highest Education Level <span className="text-rose-600">*</span>
+                    <label className="form-label">
+                      Highest Education Level <span className="de-req">*</span>
                     </label>
                     <select
-                      className="select-field text-sm"
+                      className="select-field"
                       value={highestEducation}
                       onChange={(e) => setHighestEducation(e.target.value)}
                     >
@@ -978,11 +972,9 @@ export default function DataEntryPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                      Vocational Qualification
-                    </label>
+                    <label className="form-label">Vocational Qualification</label>
                     <select
-                      className="select-field text-sm"
+                      className="select-field"
                       value={highestVocational}
                       onChange={(e) => setHighestVocational(e.target.value)}
                     >
@@ -999,11 +991,9 @@ export default function DataEntryPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                      Interested Vocational Stream
-                    </label>
+                    <label className="form-label">Interested Vocational Stream</label>
                     <select
-                      className="select-field text-sm"
+                      className="select-field"
                       value={interestedStream}
                       onChange={(e) => setInterestedStream(e.target.value)}
                     >
@@ -1014,17 +1004,17 @@ export default function DataEntryPage() {
                           </option>
                         ))
                       ) : (
-                        <option value="STREAM_IT_COMPUTING">IT & Computing</option>
+                        <option value="STREAM_IT_COMPUTING">IT &amp; Computing</option>
                       )}
                     </select>
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                      Information Provided By <span className="text-rose-600">*</span>
+                    <label className="form-label">
+                      Information Provided By <span className="de-req">*</span>
                     </label>
                     <select
-                      className="select-field text-sm"
+                      className="select-field"
                       value={infoProvidedBy}
                       onChange={(e) => setInfoProvidedBy(e.target.value as any)}
                     >
@@ -1037,9 +1027,9 @@ export default function DataEntryPage() {
                   </div>
 
                   {infoProvidedBy === 'other' && (
-                    <div className="md:col-span-2">
-                      <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                        Provided By (Specify Relationship) <span className="text-rose-600">*</span>
+                    <div className="de-col-span-2">
+                      <label className="form-label">
+                        Provided By (Specify Relationship) <span className="de-req">*</span>
                       </label>
                       <input
                         type="text"
@@ -1054,20 +1044,27 @@ export default function DataEntryPage() {
                 </div>
 
                 {/* Future Aspirations (DD/S/002 #13) */}
-                <div className="pt-4 border-t border-slate-100">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Compass className="w-4 h-4 text-teal-700" />
+                <div className="de-divider-top">
+                  <div className="de-subsection-heading" style={{ alignItems: 'flex-start' }}>
+                    <Compass size={15} style={{ color: 'var(--primary)', marginTop: '2px', flexShrink: 0 }} />
                     <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                        Future Aspirations & Career Hopes (DD/S/002 #13)
-                      </span>
-                      <span className="text-xs text-slate-400 block font-normal">
+                      <div>Future Aspirations &amp; Career Hopes (DD/S/002 #13)</div>
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 400,
+                          textTransform: 'none',
+                          letterSpacing: 'normal',
+                          color: 'var(--slate-400)',
+                          marginTop: '2px',
+                        }}
+                      >
                         Select all pathways identified during enumeration
-                      </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-xs">
+                  <div className="de-grid-cards">
                     {[
                       { id: 'higher_education', label: 'Higher Education' },
                       { id: 'vocational_education', label: 'Vocational Training' },
@@ -1079,14 +1076,11 @@ export default function DataEntryPage() {
                       return (
                         <label
                           key={hope.id}
-                          className={`flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${isSelected
-                            ? 'border-teal-600 bg-teal-50/60 text-teal-900 font-semibold shadow-xs'
-                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                            }`}
+                          className={`de-check-card ${isSelected ? 'is-checked' : ''}`}
                         >
                           <input
                             type="checkbox"
-                            className="w-4 h-4 rounded text-teal-700 accent-teal-700 cursor-pointer"
+                            className="de-checkbox"
                             checked={isSelected}
                             onChange={(e) => {
                               if (e.target.checked) {
@@ -1104,26 +1098,36 @@ export default function DataEntryPage() {
                 </div>
 
                 {/* Invariant B2: Mandatory Consent Gate */}
-                <div className="pt-4 border-t border-slate-100">
-                  <label className="flex items-start gap-3.5 p-4 rounded-xl border border-teal-200 bg-teal-50/40 hover:bg-teal-50/70 transition-colors cursor-pointer shadow-xs">
+                <div className="de-divider-top">
+                  <label className={`de-consent-card ${consentGiven ? 'is-checked' : ''}`}>
                     <input
                       type="checkbox"
-                      className="w-4 h-4 mt-1 rounded text-teal-700 accent-teal-700 cursor-pointer flex-shrink-0"
+                      className="de-checkbox"
+                      style={{ marginTop: '3px' }}
                       checked={consentGiven}
                       onChange={(e) => setConsentGiven(e.target.checked)}
                       required
                     />
-                    <div className="text-xs text-slate-700 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <strong className="text-slate-900 text-sm font-bold flex items-center gap-1.5">
-                          <FileCheck className="w-4 h-4 text-teal-700" />
-                          Explicit Citizen Consent Received (Statutory Requirement — Invariant B2)
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12.5px', color: 'var(--slate-700)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <strong
+                          style={{
+                            color: 'var(--slate-900)',
+                            fontSize: '13.5px',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <FileCheck size={16} style={{ color: 'var(--primary)' }} />
+                          <span>Explicit Citizen Consent Received (Statutory Requirement — Invariant B2)</span>
                         </strong>
-                        <span className="badge badge-success text-[10px] font-mono">
+                        <span className="badge badge-success" style={{ fontSize: '10.5px', fontFamily: 'monospace' }}>
                           {consentVersion}
                         </span>
                       </div>
-                      <p className="text-slate-600 leading-relaxed">
+                      <p style={{ color: 'var(--slate-600)', lineHeight: 1.55, margin: 0 }}>
                         The surveyed citizen has granted explicit, voluntary consent for this profile data to be indexed and processed for national vocational career matching and skill development opportunities under the National Skills Census 2026.
                       </p>
                     </div>
@@ -1132,33 +1136,513 @@ export default function DataEntryPage() {
               </div>
 
               {/* Form Submission Footer */}
-              <div className="p-5 border-t border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row justify-between items-center gap-3">
-                <div className="text-xs text-slate-500">
+              <div className="de-form-footer">
+                <div style={{ fontSize: '12px', color: 'var(--slate-500)' }}>
                   All submissions are immutably signed with operator identity and territorial hierarchy.
                 </div>
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="btn btn-primary px-6 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 shadow-sm w-full sm:w-auto"
-                  >
-                    {submitting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Submitting Survey Record...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4" />
-                        <span>Submit Survey Record</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="btn-primary de-submit-btn"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Submitting Survey Record...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      <span>Submit Survey Record</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </form>
         )}
+
+        <style jsx global>{`
+          .de-page {
+            max-width: 1152px;
+            margin: 0 auto;
+            padding-bottom: 3rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+          }
+
+          .de-header-card {
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+          }
+
+          .de-header-main {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            flex: 1;
+            min-width: 260px;
+          }
+
+          .de-header-actions {
+            flex-shrink: 0;
+          }
+
+          .de-icon-badge {
+            width: 38px;
+            height: 38px;
+            border-radius: var(--radius-md);
+            background: var(--primary-subtle);
+            color: var(--primary);
+            border: 1px solid #b2dfdb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+          }
+
+          .de-icon-badge-lg {
+            width: 46px;
+            height: 46px;
+          }
+
+          .de-eyebrow-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 4px;
+          }
+
+          .de-eyebrow-pill {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--primary);
+            background: var(--primary-subtle);
+            border: 1px solid #b2dfdb;
+            padding: 2px 8px;
+            border-radius: var(--radius-xs);
+          }
+
+          .de-dot {
+            font-size: 12px;
+            color: var(--slate-400);
+          }
+
+          .de-code-label {
+            font-size: 12px;
+            color: var(--slate-500);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          }
+
+          .de-page-title {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--slate-900);
+            margin: 0;
+            line-height: 1.3;
+          }
+
+          .de-page-subtitle {
+            font-size: 13px;
+            color: var(--slate-500);
+            margin: 4px 0 0 0;
+          }
+
+          .de-btn-c19-lock {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            border-radius: var(--radius-sm);
+            background: var(--warning-bg);
+            color: var(--warning-text);
+            border: 1px solid var(--warning-border);
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: var(--shadow-xs);
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+            white-space: nowrap;
+          }
+
+          .de-btn-c19-lock:hover:not(:disabled) {
+            background: #fef3c7;
+            border-color: #fcd34d;
+          }
+
+          .de-btn-c19-lock:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+          }
+
+          .de-loading-card {
+            padding: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.625rem;
+            text-align: center;
+          }
+
+          .de-c19-card {
+            background: var(--warning-bg);
+            border: 1px solid var(--warning-border);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-xs);
+          }
+
+          .de-c19-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            flex-wrap: wrap;
+          }
+
+          .de-c19-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--radius-md);
+            background: #fef3c7;
+            border: 1px solid var(--warning-border);
+            color: var(--warning-text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+          }
+
+          .de-c19-body {
+            flex: 1;
+            min-width: 240px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.625rem;
+          }
+
+          .de-c19-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+          }
+
+          .de-c19-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--warning-text);
+            margin: 0;
+          }
+
+          .de-c19-lead {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: #78350f;
+            margin: 0;
+          }
+
+          .de-c19-desc {
+            font-size: 12.5px;
+            color: var(--warning-text);
+            line-height: 1.6;
+            margin: 0;
+          }
+
+          .de-form-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+          }
+
+          .de-alert {
+            border-radius: var(--radius-md);
+            padding: 0.875rem 1rem;
+            font-size: 13.5px;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            box-shadow: var(--shadow-xs);
+          }
+
+          .de-alert-danger {
+            background: var(--danger-bg);
+            border: 1px solid var(--danger-border);
+            color: var(--danger-text);
+          }
+
+          .de-alert-success {
+            background: var(--success-bg);
+            border: 1px solid var(--success-border);
+            color: var(--success-text);
+          }
+
+          .de-section-header {
+            padding: 1.125rem 1.5rem;
+            border-bottom: 1px solid var(--border-subtle);
+            background: var(--slate-50);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+          }
+
+          .de-section-header-between {
+            justify-content: space-between;
+          }
+
+          .de-section-title-group {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+          }
+
+          .de-section-title {
+            font-size: 15.5px;
+            font-weight: 700;
+            color: var(--slate-900);
+            margin: 0;
+          }
+
+          .de-section-subtitle {
+            font-size: 12px;
+            color: var(--slate-500);
+            margin: 2px 0 0 0;
+          }
+
+          .de-segmented {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            border-radius: var(--radius-md);
+            background: var(--slate-200);
+            padding: 4px;
+            border: 1px solid var(--border-subtle);
+          }
+
+          .de-seg-btn {
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 600;
+            border: none;
+            background: transparent;
+            color: var(--slate-600);
+            cursor: pointer;
+            transition: all 0.15s ease;
+          }
+
+          .de-seg-btn:hover {
+            color: var(--slate-900);
+          }
+
+          .de-seg-btn.is-active {
+            background: #ffffff;
+            color: var(--slate-900);
+            box-shadow: var(--shadow-xs);
+          }
+
+          .de-section-body {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+          }
+
+          .de-existing-box {
+            background: var(--slate-50);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 1rem 1.125rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+          }
+
+          .de-existing-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+          }
+
+          .de-search-wrap {
+            position: relative;
+            width: 100%;
+            max-width: 280px;
+          }
+
+          .de-search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--slate-400);
+            pointer-events: none;
+          }
+
+          .de-empty-box {
+            padding: 0.75rem 1rem;
+            background: var(--warning-bg);
+            border: 1px solid var(--warning-border);
+            border-radius: var(--radius-sm);
+            font-size: 12.5px;
+            color: var(--warning-text);
+          }
+
+          .de-subsection-heading {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.875rem;
+            font-size: 11.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--slate-700);
+          }
+
+          .de-divider-top {
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--slate-100);
+          }
+
+          .de-req {
+            color: var(--danger);
+            margin-left: 2px;
+          }
+
+          .de-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+          }
+
+          .de-col-span-2 {
+            grid-column: span 2;
+          }
+
+          .de-col-span-full {
+            grid-column: 1 / -1;
+          }
+
+          .de-grid-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+            gap: 0.75rem;
+          }
+
+          .de-check-card {
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+            padding: 0.75rem 0.875rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-surface);
+            color: var(--slate-700);
+            font-size: 12.5px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+          }
+
+          .de-check-card:hover:not(.is-disabled) {
+            background: var(--slate-50);
+            border-color: var(--border-strong);
+          }
+
+          .de-check-card.is-checked {
+            border-color: var(--primary);
+            background: var(--primary-subtle);
+            color: var(--primary-text);
+            font-weight: 600;
+            box-shadow: var(--shadow-xs);
+          }
+
+          .de-check-card.is-disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+          }
+
+          .de-checkbox {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary);
+            cursor: pointer;
+            flex-shrink: 0;
+          }
+
+          .de-consent-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.875rem;
+            padding: 1rem 1.125rem;
+            border-radius: var(--radius-md);
+            border: 1px solid #99f6e4;
+            background: #f0fdfa;
+            cursor: pointer;
+            transition: all 0.15s ease;
+          }
+
+          .de-consent-card:hover {
+            border-color: var(--primary-accent);
+            background: var(--primary-subtle);
+          }
+
+          .de-consent-card.is-checked {
+            border-color: var(--primary);
+            background: var(--primary-subtle);
+            box-shadow: var(--shadow-xs);
+          }
+
+          .de-form-footer {
+            padding: 1.125rem 1.5rem;
+            border-top: 1px solid var(--border-subtle);
+            background: var(--slate-50);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+          }
+
+          .de-submit-btn {
+            padding: 0.625rem 1.5rem;
+            font-size: 14px;
+          }
+
+          @media (max-width: 900px) {
+            .de-grid-3 {
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+          }
+
+          @media (max-width: 600px) {
+            .de-grid-3 {
+              grid-template-columns: minmax(0, 1fr);
+            }
+
+            .de-col-span-2 {
+              grid-column: span 1;
+            }
+
+            .de-submit-btn {
+              width: 100%;
+            }
+          }
+        `}</style>
       </div>
     </Shell>
   );
