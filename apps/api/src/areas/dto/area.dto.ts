@@ -98,21 +98,25 @@ export class CreateDsDto {
   districtId: string;
 
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsNotEmpty()
   @MaxLength(100)
   nameEn: string;
 
   @IsString()
-  @IsNotEmpty()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
   @MaxLength(100)
-  nameSi: string;
+  nameSi?: string;
 
   @IsString()
-  @IsNotEmpty()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
   @MaxLength(100)
-  nameTa: string;
+  nameTa?: string;
 
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsOptional()
   @MaxLength(255)
   sdoName?: string;
@@ -124,11 +128,13 @@ export class CreateGnDto {
   dsId: string;
 
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsNotEmpty()
   @MaxLength(50)
   gnNumber: string;
 
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsNotEmpty()
   @MaxLength(100)
   gnName: string;

@@ -79,11 +79,12 @@ interface AssignDialogProps {
   onGnChange: (gnId: string) => void;
   onSubmit: (territory: { districtId?: string; dsId?: string; gnId?: string; teamId?: string; note?: string }) => Promise<void>;
   submitting: boolean;
+  error: string | null;
 }
 
 function AssignDialog({
   profile, districts, dsDivisions, gnDivisions, teams,
-  onClose, onDsChange, onGnChange, onSubmit, submitting,
+  onClose, onDsChange, onGnChange, onSubmit, submitting, error,
 }: AssignDialogProps) {
   const [level, setLevel] = useState<'district' | 'ds' | 'gn' | 'team'>('gn');
   const [districtId, setDistrictId] = useState('');
@@ -123,6 +124,12 @@ function AssignDialog({
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {error && (
+              <div style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', color: 'var(--danger-text)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                <span>{error}</span>
+              </div>
+            )}
             {/* Level picker */}
             <div>
               <label className="form-label">Territory level *</label>
@@ -210,9 +217,10 @@ interface TransferDialogProps {
   onClose: () => void;
   onSubmit: (toProfileId: string, note: string) => Promise<void>;
   submitting: boolean;
+  error: string | null;
 }
 
-function TransferDialog({ fromProfile, currentTerritory, accounts, onClose, onSubmit, submitting }: TransferDialogProps) {
+function TransferDialog({ fromProfile, currentTerritory, accounts, onClose, onSubmit, submitting, error }: TransferDialogProps) {
   const [toProfileId, setToProfileId] = useState('');
   const [note, setNote] = useState('');
   const [search, setSearch] = useState('');
@@ -243,6 +251,12 @@ function TransferDialog({ fromProfile, currentTerritory, accounts, onClose, onSu
         </div>
 
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {error && (
+            <div style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', color: 'var(--danger-text)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+              <AlertCircle size={16} style={{ flexShrink: 0 }} />
+              <span>{error}</span>
+            </div>
+          )}
           <div>
             <label className="form-label">Transfer to *</label>
             <div style={{ position: 'relative', marginBottom: '8px' }}>
@@ -379,6 +393,7 @@ export default function AssignmentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -413,13 +428,34 @@ export default function AssignmentsPage() {
     fetchAssignments();
     api.getDistricts().then(setDistricts).catch(() => { });
     api.getDsDivisions().then(setDsDivisions).catch(() => { });
-    api.getAccounts({ limit: 500 }).then((r) => setAccounts(r.items || [])).catch(() => { });
+    api.getGnDivisions().then(setGnDivisions).catch(() => { });
     api.getTeams().then(setTeams).catch(() => { });
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const collected: any[] = [];
+        let cursor: string | undefined;
+        for (let page = 0; page < 5; page++) {
+          const res = await api.getAccounts({ limit: 100, cursor });
+          const items = res?.items || [];
+          collected.push(...items);
+          cursor = res?.nextCursor;
+          if (!cursor || items.length < 100) break;
+        }
+        if (!cancelled) setAccounts(collected);
+      } catch {
+        // Ignore background pre-fetch failure; user sees assignment list above.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [fetchAssignments]);
 
   const handleDsChange = async (dsId: string) => {
-    if (!dsId) return;
-    const gns = await api.getGnDivisions(dsId).catch(() => []);
+    const gns = await api.getGnDivisions(dsId || undefined).catch(() => []);
     setGnDivisions(gns);
     const ts = await api.getTeams().catch(() => []);
     setTeams(ts);
@@ -434,13 +470,14 @@ export default function AssignmentsPage() {
   const handleAssign = async (territory: any) => {
     if (!assignTarget) return;
     setSubmitting(true);
+    setModalError(null);
     try {
       await api.assignAccount(assignTarget.id, territory);
       flash(`Territory assigned to ${assignTarget.fullName}.`);
       setAssignTarget(null);
       fetchAssignments();
     } catch (e: any) {
-      flash(e.message || 'Assignment failed.', true);
+      setModalError(e.message || 'Assignment failed.');
     } finally {
       setSubmitting(false);
     }
@@ -460,13 +497,14 @@ export default function AssignmentsPage() {
   const handleTransfer = async (toProfileId: string, note: string) => {
     if (!transferFrom) return;
     setSubmitting(true);
+    setModalError(null);
     try {
       await api.transferAccountAssignment(transferFrom.profileId, { toProfileId, note: note || undefined });
       flash(`Assignment transferred from ${transferFrom.profile.fullName}.`);
       setTransferFrom(null);
       fetchAssignments();
     } catch (e: any) {
-      flash(e.message || 'Transfer failed.', true);
+      setModalError(e.message || 'Transfer failed.');
     } finally {
       setSubmitting(false);
     }
@@ -559,7 +597,10 @@ export default function AssignmentsPage() {
               style={{ minWidth: '280px' }}
               onChange={(e) => {
                 const acc = accounts.find((a) => a.id === e.target.value);
-                if (acc) setAssignTarget({ id: acc.id, userCode: acc.userCode || acc.user_code, fullName: acc.fullName || acc.full_name, role: acc.role });
+                if (acc) {
+                  setModalError(null);
+                  setAssignTarget({ id: acc.id, userCode: acc.userCode || acc.user_code, fullName: acc.fullName || acc.full_name, role: acc.role });
+                }
                 e.target.value = '';
               }}
               defaultValue=""
@@ -635,7 +676,7 @@ export default function AssignmentsPage() {
                         title="Reassign territory"
                         className="btn-secondary"
                         style={{ padding: '5px 8px', fontSize: '11px' }}
-                        onClick={() => setAssignTarget(a.profile)}
+                        onClick={() => { setModalError(null); setAssignTarget(a.profile); }}
                       >
                         <MapPin size={13} />
                       </button>
@@ -646,7 +687,7 @@ export default function AssignmentsPage() {
                         title="Transfer to another account"
                         className="btn-secondary"
                         style={{ padding: '5px 8px', fontSize: '11px' }}
-                        onClick={() => setTransferFrom(a)}
+                        onClick={() => { setModalError(null); setTransferFrom(a); }}
                       >
                         <ArrowRightLeft size={13} />
                       </button>
@@ -678,11 +719,12 @@ export default function AssignmentsPage() {
           dsDivisions={dsDivisions}
           gnDivisions={gnDivisions}
           teams={teams}
-          onClose={() => setAssignTarget(null)}
+          onClose={() => { setAssignTarget(null); setModalError(null); }}
           onDsChange={handleDsChange}
           onGnChange={handleGnChange}
           onSubmit={handleAssign}
           submitting={submitting}
+          error={modalError}
         />
       )}
 
@@ -691,9 +733,10 @@ export default function AssignmentsPage() {
           fromProfile={transferFrom.profile}
           currentTerritory={territoryLabel(transferFrom)}
           accounts={accounts}
-          onClose={() => setTransferFrom(null)}
+          onClose={() => { setTransferFrom(null); setModalError(null); }}
           onSubmit={handleTransfer}
           submitting={submitting}
+          error={modalError}
         />
       )}
 

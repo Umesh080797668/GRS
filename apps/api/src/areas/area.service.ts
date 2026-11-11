@@ -31,7 +31,7 @@ export interface PilotAreaImportResult {
 
 @Injectable()
 export class AreaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Seeds the 25 official Sri Lankan districts with trilingual names.
@@ -93,13 +93,25 @@ export class AreaService {
       });
     }
 
+    const nameEn = dto.nameEn?.trim();
+    if (!nameEn) {
+      throw new BadRequestException({
+        code: 'INVALID_DS_NAME',
+        message: 'DS division English name is required',
+      });
+    }
+
+    const nameSi = dto.nameSi?.trim() || nameEn;
+    const nameTa = dto.nameTa?.trim() || nameEn;
+    const sdoName = dto.sdoName?.trim() || undefined;
+
     return this.prisma.divisionalSecretariat.create({
       data: {
         districtId: dto.districtId,
-        nameEn: dto.nameEn,
-        nameSi: dto.nameSi,
-        nameTa: dto.nameTa,
-        sdoName: dto.sdoName,
+        nameEn,
+        nameSi,
+        nameTa,
+        sdoName,
       },
     });
   }
@@ -219,29 +231,38 @@ export class AreaService {
       });
     }
 
+    const gnNumber = dto.gnNumber?.trim();
+    const gnName = dto.gnName?.trim();
+    if (!gnNumber || !gnName) {
+      throw new BadRequestException({
+        code: 'INVALID_GN_DATA',
+        message: 'GN number and GN division name are required',
+      });
+    }
+
     const existing = await this.prisma.gnDivision.findUnique({
       where: {
         dsId_gnNumber: {
           dsId: dto.dsId,
-          gnNumber: dto.gnNumber,
+          gnNumber,
         },
       },
     });
     if (existing) {
       throw new ConflictException({
         code: 'GN_NUMBER_EXISTS',
-        message: `GN Division number ${dto.gnNumber} already exists in this DS division`,
+        message: `GN Division number ${gnNumber} already exists in this DS division`,
       });
     }
 
     return this.prisma.gnDivision.create({
       data: {
         dsId: dto.dsId,
-        gnNumber: dto.gnNumber,
-        gnName: dto.gnName,
-        secretaryName: dto.secretaryName,
-        secretaryContact: dto.secretaryContact,
-        secretaryEmail: dto.secretaryEmail,
+        gnNumber,
+        gnName,
+        secretaryName: dto.secretaryName?.trim() || undefined,
+        secretaryContact: dto.secretaryContact?.trim() || undefined,
+        secretaryEmail: dto.secretaryEmail?.trim() || undefined,
       },
     });
   }
@@ -717,11 +738,12 @@ export class AreaService {
         .replace(/^["']|["']$/g, ''),
     );
 
+    const gnNameCol = header.indexOf('gn_name');
     const colIndex = {
       district: header.indexOf('district'),
       dsDivision: header.indexOf('ds_division'),
       gnNumber: header.indexOf('gn_number'),
-      gnName: header.indexOf('gn_name'),
+      gnName: gnNameCol !== -1 ? gnNameCol : header.indexOf('gn_division'),
       secretaryName: header.indexOf('secretary_name'),
       secretaryContact: header.indexOf('secretary_contact'),
       secretaryEmail: header.indexOf('secretary_email'),

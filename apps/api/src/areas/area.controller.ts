@@ -31,7 +31,7 @@ import type { ScopeContext } from '../common/scope/scope.types';
 @Controller('v1/areas')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AreaController {
-  constructor(private readonly areaService: AreaService) {}
+  constructor(private readonly areaService: AreaService) { }
 
   @Get('districts')
   async getDistricts() {
@@ -44,14 +44,14 @@ export class AreaController {
   }
 
   @Post('districts/seed')
-  @Roles(UserRole.super_admin)
+  @Roles(UserRole.super_admin, UserRole.admin)
   async seedDistricts() {
     const seeded = await this.areaService.seedDistricts();
     return { message: 'Districts seeded successfully', count: seeded };
   }
 
   @Post('ds')
-  @Roles(UserRole.super_admin)
+  @Roles(UserRole.super_admin, UserRole.admin)
   async createDs(@Body() dto: CreateDsDto) {
     return this.areaService.createDivisionalSecretariat(dto);
   }
@@ -71,7 +71,7 @@ export class AreaController {
   }
 
   @Post('gn')
-  @Roles(UserRole.super_admin)
+  @Roles(UserRole.super_admin, UserRole.admin)
   async createGn(@Body() dto: CreateGnDto) {
     return this.areaService.createGnDivision(dto);
   }
@@ -108,7 +108,7 @@ export class AreaController {
   }
 
   @Patch('gn/:id')
-  @Roles(UserRole.cdc_secretary, UserRole.super_admin)
+  @Roles(UserRole.cdc_secretary, UserRole.admin, UserRole.super_admin)
   async updateGn(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) id: string,
@@ -118,7 +118,7 @@ export class AreaController {
   }
 
   @Post('teams')
-  @Roles(UserRole.super_admin)
+  @Roles(UserRole.super_admin, UserRole.admin)
   async createTeam(@Body() dto: CreateTeamDto) {
     return this.areaService.createTeam(dto);
   }
@@ -140,7 +140,7 @@ export class AreaController {
   }
 
   @Patch('teams/:id')
-  @Roles(UserRole.super_admin)
+  @Roles(UserRole.super_admin, UserRole.admin)
   async updateTeam(
     @Param('id', ParseUUIDPipe) teamId: string,
     @Body() dto: UpdateTeamDto,
@@ -149,7 +149,7 @@ export class AreaController {
   }
 
   @Post('import-csv')
-  @Roles(UserRole.super_admin)
+  @Roles(UserRole.super_admin, UserRole.admin)
   async importPilotArea(@Body() dto: ImportPilotAreaCsvDto) {
     return this.areaService.importPilotAreaFromCsv(dto.csvContent, dto.dryRun);
   }

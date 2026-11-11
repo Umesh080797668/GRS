@@ -1,5 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { validate } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
 import { AreaService } from './area.service';
+import { AreaController } from './area.controller';
+import { CreateDsDto } from './dto/area.dto';
+import { ListAccountsDto } from '../accounts/dto/list-accounts.dto';
+import { ROLES_KEY } from '../auth/roles.decorator';
+import { UserRole } from '../common/scope/scope.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { SRI_LANKA_25_DISTRICTS } from './districts.data';
 
@@ -43,7 +50,7 @@ describe('AreaService (M1.7)', () => {
             (ds) =>
               ds.districtId === where.districtId &&
               ds.nameEn.toLowerCase() ===
-                (where.nameEn.equals || where.nameEn).toLowerCase(),
+              (where.nameEn.equals || where.nameEn).toLowerCase(),
           ) || null,
         );
       }),
@@ -516,6 +523,186 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
           service.getTeams(secretaryScope, { gnId: 'gn-other' }),
         ).rejects.toThrow('Cannot access teams outside assigned GN division');
       });
+    });
+  });
+
+  describe('Area & Team Creation, CSV Headers, DTOs & Controller Roles', () => {
+    const districtId = '11111111-1111-4111-8111-111111111111';
+
+    beforeEach(() => {
+      inMemoryDistricts = [
+        {
+          id: districtId,
+          code: 'DIST-COL',
+          nameEn: 'Colombo',
+          nameSi: 'කොළඹ',
+          nameTa: 'கொழும்பு',
+        },
+      ];
+    });
+
+    it('creates a DS division defaulting omitted Sinhala/Tamil names to English and trims values', async () => {
+      const ds = await service.createDivisionalSecretariat({
+        districtId,
+        nameEn: '  Homagama  ',
+        sdoName: '  S. Perera  ',
+      });
+
+      expect(ds.districtId).toBe(districtId);
+      expect(ds.nameEn).toBe('Homagama');
+      expect(ds.nameSi).toBe('Homagama');
+      expect(ds.nameTa).toBe('Homagama');
+      expect(ds.sdoName).toBe('S. Perera');
+      expect(inMemoryDs).toHaveLength(1);
+    });
+
+    it('creates a DS division preserving explicit Sinhala/Tamil names', async () => {
+      const ds = await service.createDivisionalSecretariat({
+        districtId,
+        nameEn: 'Maharagama',
+        nameSi: 'මහරගම',
+        nameTa: 'மஹரகம',
+      });
+
+      expect(ds.nameSi).toBe('මහරගම');
+      expect(ds.nameTa).toBe('மஹரகம');
+    });
+
+    it('creates a GN division with trimmed values and rejects duplicate GN numbers', async () => {
+      const ds = await service.createDivisionalSecretariat({
+        districtId,
+        nameEn: 'Kesbewa',
+      });
+
+      const gn = await service.createGnDivision({
+        dsId: ds.id,
+        gnNumber: ' 520A ',
+        gnName: ' Piliyandala East ',
+        secretaryName: ' K. Silva ',
+        secretaryContact: ' +94771234567 ',
+        secretaryEmail: ' sec@grs.gov.lk ',
+      });
+
+      expect(gn.gnNumber).toBe('520A');
+      expect(gn.gnName).toBe('Piliyandala East');
+      expect(gn.secretaryName).toBe('K. Silva');
+      expect(gn.secretaryEmail).toBe('sec@grs.gov.lk');
+
+      await expect(
+        service.createGnDivision({
+          dsId: ds.id,
+          gnNumber: '520A',
+          gnName: 'Duplicate GN',
+        }),
+      ).rejects.toThrow('GN Division number 520A already exists');
+    });
+
+    it('creates field teams under a GN division and rejects duplicate team numbers', async () => {
+      const ds = await service.createDivisionalSecretariat({
+        districtId,
+        nameEn: 'Padukka',
+      });
+      const gn = await service.createGnDivision({
+        dsId: ds.id,
+        gnNumber: '530',
+        gnName: 'Padukka Town',
+      });
+
+      const team = await service.createTeam({
+        gnId: gn.id,
+        teamNo: 1,
+        maxMembers: 15,
+      });
+
+      expect(team.gnId).toBe(gn.id);
+      expect(team.teamNo).toBe(1);
+      expect(team.maxMembers).toBe(15);
+
+      await expect(
+        service.createTeam({
+          gnId: gn.id,
+          teamNo: 1,
+          maxMembers: 10,
+        }),
+      ).rejects.toThrow('Team 1 already exists in this GN division');
+    });
+
+    it('imports pilot CSV with both gn_name and legacy gn_division headers', async () => {
+      const legacyCsv = [
+        'district,ds_division,gn_division,gn_number,initial_teams',
+        'Colombo,Colombo,Kollupitiya,GN-01,2',
+      ].join('\n');
+
+      const legacyResult = await service.importPilotAreaFromCsv(
+        legacyCsv,
+        false,
+      );
+      expect(legacyResult.rowCount).toBe(1);
+      expect(legacyResult.importedGn).toBe(1);
+      expect(legacyResult.importedTeams).toBe(2);
+      expect(inMemoryGn).toHaveLength(1);
+      expect(inMemoryGn[0].gnName).toBe('Kollupitiya');
+      expect(inMemoryTeams).toHaveLength(2);
+
+      const standardCsv = [
+        'district,ds_division,gn_name,gn_number,initial_teams',
+        'Colombo,Colombo,Bambalapitiya,GN-02,1',
+      ].join('\n');
+
+      const standardResult = await service.importPilotAreaFromCsv(
+        standardCsv,
+        false,
+      );
+      expect(standardResult.rowCount).toBe(1);
+      expect(standardResult.importedGn).toBe(1);
+      expect(inMemoryGn).toHaveLength(2);
+      expect(inMemoryGn[1].gnName).toBe('Bambalapitiya');
+      expect(inMemoryTeams).toHaveLength(3);
+    });
+
+    it('validates CreateDsDto with optional Sinhala/Tamil names and ListAccountsDto max limit=100', async () => {
+      const validDs = plainToInstance(CreateDsDto, {
+        districtId,
+        nameEn: '  Colombo  ',
+      });
+      expect(await validate(validDs)).toHaveLength(0);
+
+      const blankDs = plainToInstance(CreateDsDto, {
+        districtId,
+        nameEn: '   ',
+      });
+      expect((await validate(blankDs)).length).toBeGreaterThan(0);
+
+      const validAccountsQuery = plainToInstance(ListAccountsDto, {
+        limit: '100',
+      });
+      expect(await validate(validAccountsQuery)).toHaveLength(0);
+
+      const invalidAccountsQuery = plainToInstance(ListAccountsDto, {
+        limit: '500',
+      });
+      const errors = await validate(invalidAccountsQuery);
+      expect(errors.length).toBeGreaterThan(0);
+    });
+
+    it('allows both super_admin and admin roles on AreaController mutation endpoints', () => {
+      const proto = AreaController.prototype;
+      for (const methodName of [
+        'seedDistricts',
+        'createDs',
+        'createGn',
+        'updateGn',
+        'createTeam',
+        'updateTeam',
+        'importPilotArea',
+      ] as const) {
+        const roles: UserRole[] = Reflect.getMetadata(
+          ROLES_KEY,
+          proto[methodName],
+        );
+        expect(roles).toContain(UserRole.super_admin);
+        expect(roles).toContain(UserRole.admin);
+      }
     });
   });
 });

@@ -539,6 +539,36 @@ export class ApiClient {
 
   // --- GEOGRAPHIC HIERARCHY & TEAMS (M5.3) ---
 
+  private async fetchAllAreaItems(
+    path: string,
+    params: Record<string, string | undefined> = {},
+  ): Promise<any[]> {
+    const collected: any[] = [];
+    let cursor: string | undefined;
+
+    for (let page = 0; page < 20; page++) {
+      const search = new URLSearchParams();
+      for (const [k, v] of Object.entries(params)) {
+        if (v) search.set(k, v);
+      }
+      search.set('limit', '100');
+      if (cursor) search.set('cursor', cursor);
+
+      const res = await this.request(`${path}?${search.toString()}`);
+      if (Array.isArray(res)) {
+        return res;
+      }
+      const items = res?.items || [];
+      collected.push(...items);
+      cursor = res?.nextCursor;
+      if (!cursor || items.length < 100) {
+        break;
+      }
+    }
+
+    return collected;
+  }
+
   async getDistricts(): Promise<any[]> {
     const res = await this.request('/v1/areas/districts');
     return Array.isArray(res) ? res : res.items || [];
@@ -547,8 +577,8 @@ export class ApiClient {
   async createDsDivision(data: {
     districtId: string;
     nameEn: string;
-    nameSi: string;
-    nameTa: string;
+    nameSi?: string;
+    nameTa?: string;
     sdoName?: string;
   }): Promise<any> {
     return this.request('/v1/areas/ds', {
@@ -558,9 +588,7 @@ export class ApiClient {
   }
 
   async getDsDivisions(districtId?: string): Promise<any[]> {
-    const p = districtId ? `?districtId=${districtId}` : '';
-    const res = await this.request(`/v1/areas/ds${p}`);
-    return Array.isArray(res) ? res : res.items || [];
+    return this.fetchAllAreaItems('/v1/areas/ds', { districtId });
   }
 
   async createGnDivision(data: {
@@ -589,9 +617,7 @@ export class ApiClient {
   }
 
   async getGnDivisions(dsId?: string): Promise<any[]> {
-    const p = dsId ? `?dsId=${dsId}` : '';
-    const res = await this.request(`/v1/areas/gn${p}`);
-    return Array.isArray(res) ? res : res.items || [];
+    return this.fetchAllAreaItems('/v1/areas/gn', { dsId });
   }
 
   async createTeam(data: {
@@ -606,9 +632,7 @@ export class ApiClient {
   }
 
   async getTeams(gnId?: string): Promise<any[]> {
-    const p = gnId ? `?gnId=${gnId}` : '';
-    const res = await this.request(`/v1/areas/teams${p}`);
-    return Array.isArray(res) ? res : res.items || [];
+    return this.fetchAllAreaItems('/v1/areas/teams', { gnId });
   }
 
   async updateTeam(id: string, data: { maxMembers?: number; memberLimit?: number; leaderId?: string }): Promise<any> {

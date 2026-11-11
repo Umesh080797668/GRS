@@ -23,6 +23,7 @@ export default function AreasPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
+  const canManageAreas = user?.role === 'super_admin' || user?.role === 'admin';
   const [districts, setDistricts] = useState<any[]>([]);
   const [dsDivisions, setDsDivisions] = useState<any[]>([]);
   const [gnDivisions, setGnDivisions] = useState<any[]>([]);
@@ -35,7 +36,7 @@ export default function AreasPage() {
   const [loading, setLoading] = useState(true);
   const [showPilotImport, setShowPilotImport] = useState(false);
   const [pilotCsv, setPilotCsv] = useState(
-    'district,ds_division,gn_division,gn_number,initial_teams\nColombo,Colombo,Kollupitiya,GN-01,2\nColombo,Colombo,Bambalapitiya,GN-02,3'
+    'district,ds_division,gn_name,gn_number,initial_teams\nColombo,Colombo,Kollupitiya,GN-01,2\nColombo,Colombo,Bambalapitiya,GN-02,3'
   );
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
@@ -66,7 +67,7 @@ export default function AreasPage() {
   const [teamMaxMembers, setTeamMaxMembers] = useState<number>(10);
 
   // Config modal states
-  const [appConfig, setAppConfig] = useState<any>(null);
+  const [setAppConfig] = useState<any>(null);
   const [configMinVersion, setConfigMinVersion] = useState('');
   const [configJitter, setConfigJitter] = useState<number>(30);
   const [configWebRoles, setConfigWebRoles] = useState<string[]>([]);
@@ -74,55 +75,79 @@ export default function AreasPage() {
 
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     loadDistricts();
   }, []);
 
-  const loadDistricts = async () => {
+  const loadDistricts = async (preferredDistrictId?: string) => {
     try {
       setLoading(true);
       const data = await api.getDistricts();
       setDistricts(data);
       if (data.length > 0) {
-        setSelectedDistrictId(data[0].id);
-        loadDsDivisions(data[0].id);
+        const nextDistrictId =
+          preferredDistrictId && data.some((d) => d.id === preferredDistrictId)
+            ? preferredDistrictId
+            : data[0].id;
+        setSelectedDistrictId(nextDistrictId);
+        await loadDsDivisions(nextDistrictId);
+      } else {
+        setSelectedDistrictId('');
+        setSelectedDsId('');
+        setSelectedGnId('');
+        setDsDivisions([]);
+        setGnDivisions([]);
+        setTeams([]);
       }
     } catch (err: any) {
-      console.error(err);
+      setErrorBanner(`Failed to load districts: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadDsDivisions = async (districtId: string) => {
+  const loadDsDivisions = async (districtId: string, preferredDsId?: string) => {
     try {
       const data = await api.getDsDivisions(districtId);
       setDsDivisions(data);
       if (data.length > 0) {
-        setSelectedDsId(data[0].id);
-        loadGnDivisions(data[0].id);
+        const nextDsId =
+          preferredDsId && data.some((d) => d.id === preferredDsId)
+            ? preferredDsId
+            : data[0].id;
+        setSelectedDsId(nextDsId);
+        await loadGnDivisions(nextDsId);
       } else {
+        setSelectedDsId('');
+        setSelectedGnId('');
         setGnDivisions([]);
         setTeams([]);
       }
     } catch (err: any) {
-      console.error(err);
+      setErrorBanner(`Failed to load DS divisions: ${err.message}`);
     }
   };
 
-  const loadGnDivisions = async (dsId: string) => {
+  const loadGnDivisions = async (dsId: string, preferredGnId?: string) => {
     try {
       const data = await api.getGnDivisions(dsId);
       setGnDivisions(data);
       if (data.length > 0) {
-        setSelectedGnId(data[0].id);
-        loadTeams(data[0].id);
+        const nextGnId =
+          preferredGnId && data.some((g) => g.id === preferredGnId)
+            ? preferredGnId
+            : data[0].id;
+        setSelectedGnId(nextGnId);
+        await loadTeams(nextGnId);
       } else {
+        setSelectedGnId('');
         setTeams([]);
       }
     } catch (err: any) {
-      console.error(err);
+      setErrorBanner(`Failed to load GN divisions: ${err.message}`);
     }
   };
 
@@ -131,7 +156,7 @@ export default function AreasPage() {
       const data = await api.getTeams(gnId);
       setTeams(data);
     } catch (err: any) {
-      console.error(err);
+      setErrorBanner(`Failed to load field teams: ${err.message}`);
     }
   };
 
@@ -153,14 +178,16 @@ export default function AreasPage() {
   const handleCreateDs = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDistrictId) return;
+    setSubmitting(true);
+    setModalError(null);
     setErrorBanner(null);
     setSuccessBanner(null);
     try {
-      await api.createDsDivision({
+      const created = await api.createDsDivision({
         districtId: selectedDistrictId,
         nameEn: dsNameEn.trim(),
-        nameSi: dsNameSi.trim(),
-        nameTa: dsNameTa.trim(),
+        nameSi: dsNameSi.trim() || undefined,
+        nameTa: dsNameTa.trim() || undefined,
         sdoName: dsSdoName.trim() || undefined,
       });
       setShowDsModal(false);
@@ -169,19 +196,23 @@ export default function AreasPage() {
       setDsNameTa('');
       setDsSdoName('');
       setSuccessBanner('DS Division created successfully.');
-      loadDsDivisions(selectedDistrictId);
+      await loadDsDivisions(selectedDistrictId, created?.id);
     } catch (err: any) {
-      setErrorBanner(`Failed to create DS Division: ${err.message}`);
+      setModalError(err.message || 'Failed to create DS Division.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleCreateGn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDsId) return;
+    setSubmitting(true);
+    setModalError(null);
     setErrorBanner(null);
     setSuccessBanner(null);
     try {
-      await api.createGnDivision({
+      const created = await api.createGnDivision({
         dsId: selectedDsId,
         gnNumber: gnNumber.trim(),
         gnName: gnName.trim(),
@@ -196,34 +227,42 @@ export default function AreasPage() {
       setGnSecContact('');
       setGnSecEmail('');
       setSuccessBanner('GN Division created successfully.');
-      loadGnDivisions(selectedDsId);
+      await loadGnDivisions(selectedDsId, created?.id);
     } catch (err: any) {
-      setErrorBanner(`Failed to create GN Division: ${err.message}`);
+      setModalError(err.message || 'Failed to create GN Division.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedGnId) return;
+    const createdTeamNo = Number(teamNo);
+    setSubmitting(true);
+    setModalError(null);
     setErrorBanner(null);
     setSuccessBanner(null);
     try {
       await api.createTeam({
         gnId: selectedGnId,
-        teamNo: Number(teamNo),
+        teamNo: createdTeamNo,
         maxMembers: Number(teamMaxMembers),
       });
       setShowTeamModal(false);
-      setTeamNo(teamNo + 1);
-      setSuccessBanner(`Field Team #${teamNo} created successfully.`);
-      loadTeams(selectedGnId);
+      setTeamNo(createdTeamNo + 1);
+      setSuccessBanner(`Field Team #${createdTeamNo} created successfully.`);
+      await loadTeams(selectedGnId);
     } catch (err: any) {
-      setErrorBanner(`Failed to create team: ${err.message}`);
+      setModalError(err.message || 'Failed to create Field Team.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleOpenConfigModal = async () => {
     setErrorBanner(null);
+    setModalError(null);
     setShowConfigModal(true);
     try {
       const cfg = await api.getConfig();
@@ -232,13 +271,14 @@ export default function AreasPage() {
       setConfigJitter(cfg.syncJitterSeconds || cfg.sync_jitter_seconds || 30);
       setConfigWebRoles(cfg.webEntryRoles || cfg.web_entry_roles || ['cdc_secretary', 'sda', 'dc', 'admin']);
     } catch (err: any) {
-      setErrorBanner(`Failed to load config: ${err.message}`);
+      setModalError(`Failed to load config: ${err.message}`);
     }
   };
 
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     setConfigSaving(true);
+    setModalError(null);
     setErrorBanner(null);
     setSuccessBanner(null);
     try {
@@ -250,7 +290,7 @@ export default function AreasPage() {
       setShowConfigModal(false);
       setSuccessBanner('System configuration and app release version published successfully.');
     } catch (err: any) {
-      setErrorBanner(`Failed to update config: ${err.message}`);
+      setModalError(`Failed to update config: ${err.message}`);
     } finally {
       setConfigSaving(false);
     }
@@ -258,34 +298,59 @@ export default function AreasPage() {
 
   const handleSaveTeamLimit = async () => {
     if (!editingTeam) return;
+    setSubmitting(true);
+    setModalError(null);
     setErrorBanner(null);
     setSuccessBanner(null);
     try {
       await api.updateTeam(editingTeam.id, { maxMembers: Number(newTeamLimit) });
       setEditingTeam(null);
       setSuccessBanner('Team member capacity updated successfully.');
-      loadTeams(selectedGnId);
+      await loadTeams(selectedGnId);
     } catch (err: any) {
-      setErrorBanner(`Failed to update team limit: ${err.message}`);
+      setModalError(`Failed to update team limit: ${err.message}`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleImportPilotCsv = async () => {
     setImporting(true);
     setImportResult(null);
+    setModalError(null);
     setErrorBanner(null);
     setSuccessBanner(null);
     try {
       const res = await api.importPilotAreaCsv(pilotCsv);
       setImportResult(res);
       setSuccessBanner('Pilot areas CSV imported successfully.');
-      loadDistricts();
+      await loadDistricts(selectedDistrictId);
     } catch (err: any) {
-      setErrorBanner(`Pilot import failed: ${err.message}`);
+      setModalError(`Pilot import failed: ${err.message}`);
     } finally {
       setImporting(false);
     }
   };
+
+  const renderModalError = () =>
+    modalError ? (
+      <div
+        style={{
+          background: 'var(--danger-bg)',
+          border: '1px solid var(--danger-border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '10px 12px',
+          color: 'var(--danger-text)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+        }}
+      >
+        <AlertCircle size={16} style={{ flexShrink: 0 }} />
+        <span>{modalError}</span>
+      </div>
+    ) : null;
 
   return (
     <Shell activePath="/areas">
@@ -317,17 +382,29 @@ export default function AreasPage() {
           </p>
         </div>
 
-        {isSuperAdmin && (
+        {(isSuperAdmin || canManageAreas) && (
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button type="button" onClick={handleOpenConfigModal} className="btn-secondary">
-              <Settings size={15} />
-              <span>{t('areas.system_config')}</span>
-            </button>
+            {isSuperAdmin && (
+              <button type="button" onClick={handleOpenConfigModal} className="btn-secondary">
+                <Settings size={15} />
+                <span>{t('areas.system_config')}</span>
+              </button>
+            )}
 
-            <button type="button" onClick={() => setShowPilotImport(true)} className="btn-primary">
-              <Upload size={15} />
-              <span>{t('areas.import_pilot')}</span>
-            </button>
+            {canManageAreas && (
+              <button
+                type="button"
+                onClick={() => {
+                  setModalError(null);
+                  setImportResult(null);
+                  setShowPilotImport(true);
+                }}
+                className="btn-primary"
+              >
+                <Upload size={15} />
+                <span>{t('areas.import_pilot')}</span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -461,10 +538,13 @@ export default function AreasPage() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span className="badge badge-neutral">{dsDivisions.length}</span>
-              {isSuperAdmin && (
+              {canManageAreas && (
                 <button
                   type="button"
-                  onClick={() => setShowDsModal(true)}
+                  onClick={() => {
+                    setModalError(null);
+                    setShowDsModal(true);
+                  }}
                   disabled={!selectedDistrictId}
                   className="btn-secondary"
                   style={{ padding: '2px 7px', fontSize: '11px', height: '24px' }}
@@ -542,10 +622,13 @@ export default function AreasPage() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span className="badge badge-neutral">{gnDivisions.length}</span>
-              {isSuperAdmin && (
+              {canManageAreas && (
                 <button
                   type="button"
-                  onClick={() => setShowGnModal(true)}
+                  onClick={() => {
+                    setModalError(null);
+                    setShowGnModal(true);
+                  }}
                   disabled={!selectedDsId}
                   className="btn-secondary"
                   style={{ padding: '2px 7px', fontSize: '11px', height: '24px' }}
@@ -596,7 +679,7 @@ export default function AreasPage() {
                   >
                     <div>
                       <div style={{ color: isSelected ? 'var(--warning-text)' : 'var(--slate-900)' }}>
-                        {gn.nameEn || gn.name}
+                        {gn.gnName || gn.nameEn || gn.name || gn.gnNumber}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--slate-500)', marginTop: '1px' }}>
                         GN No: {gn.gnNumber || gn.code || '—'}
@@ -630,10 +713,15 @@ export default function AreasPage() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span className="badge badge-neutral">{teams.length}</span>
-              {isSuperAdmin && (
+              {canManageAreas && (
                 <button
                   type="button"
-                  onClick={() => setShowTeamModal(true)}
+                  onClick={() => {
+                    setModalError(null);
+                    const maxTeamNo = teams.reduce((max, tm) => Math.max(max, Number(tm.teamNo ?? 0)), 0);
+                    setTeamNo(maxTeamNo + 1);
+                    setShowTeamModal(true);
+                  }}
                   disabled={!selectedGnId}
                   className="btn-secondary"
                   style={{ padding: '2px 7px', fontSize: '11px', height: '24px' }}
@@ -653,8 +741,8 @@ export default function AreasPage() {
               </div>
             ) : (
               teams.map((tm) => {
-                const active = tm.activeMembers || tm.active_members || 0;
-                const limit = tm.memberLimit || tm.member_limit || 10;
+                const active = tm.activeMembers ?? tm.active_members ?? 0;
+                const limit = tm.maxMembers ?? tm.memberLimit ?? tm.member_limit ?? 10;
                 const isFull = active >= limit;
                 return (
                   <div
@@ -686,10 +774,11 @@ export default function AreasPage() {
                       </div>
                     </div>
 
-                    {isSuperAdmin && (
+                    {canManageAreas && (
                       <button
                         type="button"
                         onClick={() => {
+                          setModalError(null);
                           setEditingTeam(tm);
                           setNewTeamLimit(limit);
                         }}
@@ -719,12 +808,12 @@ export default function AreasPage() {
                   {t('areas.import_pilot')}
                 </h3>
                 <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '3px 0 0 0' }}>
-                  Required headers: district,ds_division,gn_division,gn_number,initial_teams
+                  Required headers: district,ds_division,gn_name,gn_number (also accepts gn_division),initial_teams
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setShowPilotImport(false)}
+                onClick={() => { setShowPilotImport(false); setModalError(null); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
               >
                 <X size={18} />
@@ -732,6 +821,7 @@ export default function AreasPage() {
             </div>
 
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {renderModalError()}
               <textarea
                 className="input-field"
                 rows={6}
@@ -748,7 +838,7 @@ export default function AreasPage() {
             </div>
 
             <div className="modal-footer">
-              <button type="button" onClick={() => setShowPilotImport(false)} className="btn-secondary">
+              <button type="button" onClick={() => { setShowPilotImport(false); setModalError(null); }} className="btn-secondary">
                 Close
               </button>
               <button type="button" onClick={handleImportPilotCsv} disabled={importing} className="btn-primary">
@@ -774,7 +864,7 @@ export default function AreasPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setEditingTeam(null)}
+                onClick={() => { setEditingTeam(null); setModalError(null); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
               >
                 <X size={18} />
@@ -782,6 +872,7 @@ export default function AreasPage() {
             </div>
 
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {renderModalError()}
               <div>
                 <label className="form-label">
                   Max Active Members *
@@ -798,11 +889,11 @@ export default function AreasPage() {
             </div>
 
             <div className="modal-footer">
-              <button type="button" onClick={() => setEditingTeam(null)} className="btn-secondary">
+              <button type="button" onClick={() => { setEditingTeam(null); setModalError(null); }} className="btn-secondary">
                 Cancel
               </button>
-              <button type="button" onClick={handleSaveTeamLimit} className="btn-primary">
-                Save Capacity
+              <button type="button" onClick={handleSaveTeamLimit} disabled={submitting} className="btn-primary">
+                {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Save Capacity'}
               </button>
             </div>
           </div>
@@ -824,7 +915,7 @@ export default function AreasPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setShowDsModal(false)}
+                onClick={() => { setShowDsModal(false); setModalError(null); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
               >
                 <X size={18} />
@@ -832,6 +923,7 @@ export default function AreasPage() {
             </div>
             <form onSubmit={handleCreateDs}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {renderModalError()}
                 <div>
                   <label className="form-label">English Name *</label>
                   <input
@@ -844,25 +936,23 @@ export default function AreasPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Sinhala Name *</label>
+                  <label className="form-label">Sinhala Name (Optional — defaults to English)</label>
                   <input
                     type="text"
                     className="input-field"
                     placeholder="e.g. මහනුවර කඩවත් සතර"
                     value={dsNameSi}
                     onChange={(e) => setDsNameSi(e.target.value)}
-                    required
                   />
                 </div>
                 <div>
-                  <label className="form-label">Tamil Name *</label>
+                  <label className="form-label">Tamil Name (Optional — defaults to English)</label>
                   <input
                     type="text"
                     className="input-field"
                     placeholder="e.g. கண்டி கடவத் சதர"
                     value={dsNameTa}
                     onChange={(e) => setDsNameTa(e.target.value)}
-                    required
                   />
                 </div>
                 <div>
@@ -877,11 +967,11 @@ export default function AreasPage() {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" onClick={() => setShowDsModal(false)} className="btn-secondary">
+                <button type="button" onClick={() => { setShowDsModal(false); setModalError(null); }} className="btn-secondary">
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
-                  Create DS Division
+                <button type="submit" disabled={submitting} className="btn-primary">
+                  {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Create DS Division'}
                 </button>
               </div>
             </form>
@@ -904,7 +994,7 @@ export default function AreasPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setShowGnModal(false)}
+                onClick={() => { setShowGnModal(false); setModalError(null); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
               >
                 <X size={18} />
@@ -912,6 +1002,7 @@ export default function AreasPage() {
             </div>
             <form onSubmit={handleCreateGn}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {renderModalError()}
                 <div>
                   <label className="form-label">GN Number / Code *</label>
                   <input
@@ -966,11 +1057,11 @@ export default function AreasPage() {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" onClick={() => setShowGnModal(false)} className="btn-secondary">
+                <button type="button" onClick={() => { setShowGnModal(false); setModalError(null); }} className="btn-secondary">
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
-                  Create GN Division
+                <button type="submit" disabled={submitting} className="btn-primary">
+                  {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Create GN Division'}
                 </button>
               </div>
             </form>
@@ -988,12 +1079,15 @@ export default function AreasPage() {
                   Create Field Team
                 </h3>
                 <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
-                  GN: {gnDivisions.find((g) => g.id === selectedGnId)?.nameEn || selectedGnId}
+                  GN: {(() => {
+                    const g = gnDivisions.find((item) => item.id === selectedGnId);
+                    return g?.gnName || g?.nameEn || g?.gnNumber || selectedGnId;
+                  })()}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setShowTeamModal(false)}
+                onClick={() => { setShowTeamModal(false); setModalError(null); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
               >
                 <X size={18} />
@@ -1001,6 +1095,7 @@ export default function AreasPage() {
             </div>
             <form onSubmit={handleCreateTeam}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {renderModalError()}
                 <div>
                   <label className="form-label">Team Number *</label>
                   <input
@@ -1027,11 +1122,11 @@ export default function AreasPage() {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" onClick={() => setShowTeamModal(false)} className="btn-secondary">
+                <button type="button" onClick={() => { setShowTeamModal(false); setModalError(null); }} className="btn-secondary">
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
-                  Create Team
+                <button type="submit" disabled={submitting} className="btn-primary">
+                  {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Create Team'}
                 </button>
               </div>
             </form>
@@ -1054,7 +1149,7 @@ export default function AreasPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setShowConfigModal(false)}
+                onClick={() => { setShowConfigModal(false); setModalError(null); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
               >
                 <X size={18} />
@@ -1062,6 +1157,7 @@ export default function AreasPage() {
             </div>
             <form onSubmit={handleSaveConfig}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {renderModalError()}
                 <div>
                   <label className="form-label">
                     Minimum App Version (Enforces Upgrade Required on Older Apps) *
@@ -1122,7 +1218,7 @@ export default function AreasPage() {
               </div>
 
               <div className="modal-footer">
-                <button type="button" onClick={() => setShowConfigModal(false)} className="btn-secondary">
+                <button type="button" onClick={() => { setShowConfigModal(false); setModalError(null); }} className="btn-secondary">
                   Cancel
                 </button>
                 <button type="submit" disabled={configSaving} className="btn-primary">
