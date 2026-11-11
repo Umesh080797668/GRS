@@ -1081,7 +1081,10 @@ export default function AreasPage() {
                 <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
                   GN: {(() => {
                     const g = gnDivisions.find((item) => item.id === selectedGnId);
-                    return g?.gnName || g?.nameEn || g?.gnNumber || selectedGnId;
+                    if (!g) return selectedGnId;
+                    const label = g.gnName || g.nameEn || g.name;
+                    if (g.gnNumber && label) return `${g.gnNumber} — ${label}`;
+                    return label || g.gnNumber || selectedGnId;
                   })()}
                 </p>
               </div>

@@ -251,8 +251,9 @@ model GnDivision {
   assignments        ProfileAssignment[]
   accountAssignments AccountAssignment[]
 
-  @@unique([dsId, gnNumber])
+  @@unique([dsId, gnNumber, gnName])
   @@index([dsId])
+  @@index([dsId, gnNumber])
   @@map("gn_divisions")
 }
 

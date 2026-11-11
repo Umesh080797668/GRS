@@ -220,6 +220,21 @@ export class AreaService {
     };
   }
 
+  private async findGnDivisionByNumberAndName(
+    client: Pick<PrismaService, 'gnDivision'>,
+    dsId: string,
+    gnNumber: string,
+    gnName: string,
+  ) {
+    return client.gnDivision.findFirst({
+      where: {
+        dsId,
+        gnNumber: { equals: gnNumber, mode: 'insensitive' },
+        gnName: { equals: gnName, mode: 'insensitive' },
+      },
+    });
+  }
+
   async createGnDivision(dto: CreateGnDto) {
     const ds = await this.prisma.divisionalSecretariat.findUnique({
       where: { id: dto.dsId },
@@ -240,18 +255,16 @@ export class AreaService {
       });
     }
 
-    const existing = await this.prisma.gnDivision.findUnique({
-      where: {
-        dsId_gnNumber: {
-          dsId: dto.dsId,
-          gnNumber,
-        },
-      },
-    });
+    const existing = await this.findGnDivisionByNumberAndName(
+      this.prisma,
+      dto.dsId,
+      gnNumber,
+      gnName,
+    );
     if (existing) {
       throw new ConflictException({
-        code: 'GN_NUMBER_EXISTS',
-        message: `GN Division number ${gnNumber} already exists in this DS division`,
+        code: 'GN_DIVISION_EXISTS',
+        message: `GN Division "${gnNumber} — ${gnName}" already exists in this DS division`,
       });
     }
 
@@ -372,7 +385,7 @@ export class AreaService {
           orderBy: { teamNo: 'asc' },
         },
       },
-      orderBy: [{ gnNumber: 'asc' }, { id: 'asc' }],
+      orderBy: [{ gnNumber: 'asc' }, { gnName: 'asc' }, { id: 'asc' }],
       take: limit + 1,
       skip,
       cursor,
@@ -946,16 +959,15 @@ export class AreaService {
         }
 
         // 3. Resolve or create GN division
-        let gn = await tx.gnDivision.findUnique({
-          where: {
-            dsId_gnNumber: {
-              dsId: ds.id,
-              gnNumber: row.gnNumber,
-            },
-          },
-        });
+        const existingGn = await this.findGnDivisionByNumberAndName(
+          tx,
+          ds.id,
+          row.gnNumber,
+          row.gnName,
+        );
+        let gn = existingGn;
         if (!gn) {
-          gn = await tx.gnDivision.create({
+          gn = (await tx.gnDivision.create({
             data: {
               dsId: ds.id,
               gnNumber: row.gnNumber,
@@ -964,7 +976,7 @@ export class AreaService {
               secretaryContact: row.secContact || null,
               secretaryEmail: row.secEmail || null,
             },
-          });
+          })) as NonNullable<typeof existingGn>;
           importedGn++;
         }
 

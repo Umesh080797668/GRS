@@ -83,13 +83,36 @@ describe('AreaService (M1.7)', () => {
       }),
     },
     gnDivision: {
+      findFirst: jest.fn().mockImplementation(({ where }) => {
+        const num = where?.gnNumber?.equals ?? where?.gnNumber;
+        const name = where?.gnName?.equals ?? where?.gnName;
+        return Promise.resolve(
+          inMemoryGn.find((gn) => {
+            if (where?.dsId !== undefined && gn.dsId !== where.dsId) return false;
+            if (
+              num !== undefined &&
+              gn.gnNumber.toLowerCase() !== String(num).toLowerCase()
+            ) {
+              return false;
+            }
+            if (
+              name !== undefined &&
+              gn.gnName.toLowerCase() !== String(name).toLowerCase()
+            ) {
+              return false;
+            }
+            return true;
+          }) || null,
+        );
+      }),
       findUnique: jest.fn().mockImplementation(({ where }) => {
-        if (where.dsId_gnNumber) {
+        if (where.dsId_gnNumber_gnName) {
           return Promise.resolve(
             inMemoryGn.find(
               (gn) =>
-                gn.dsId === where.dsId_gnNumber.dsId &&
-                gn.gnNumber === where.dsId_gnNumber.gnNumber,
+                gn.dsId === where.dsId_gnNumber_gnName.dsId &&
+                gn.gnNumber === where.dsId_gnNumber_gnName.gnNumber &&
+                gn.gnName === where.dsId_gnNumber_gnName.gnName,
             ) || null,
           );
         }
@@ -568,7 +591,7 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
       expect(ds.nameTa).toBe('மஹரகம');
     });
 
-    it('creates a GN division with trimmed values and rejects duplicate GN numbers', async () => {
+    it('allows same GN number with different name and same name with different number, rejecting only duplicate (number, name) pairs', async () => {
       const ds = await service.createDivisionalSecretariat({
         districtId,
         nameEn: 'Kesbewa',
@@ -588,13 +611,35 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
       expect(gn.secretaryName).toBe('K. Silva');
       expect(gn.secretaryEmail).toBe('sec@grs.gov.lk');
 
+      // Same GN number, different GN area name -> allowed
+      const sameNumDiffName = await service.createGnDivision({
+        dsId: ds.id,
+        gnNumber: '520A',
+        gnName: 'Piliyandala West',
+      });
+      expect(sameNumDiffName.gnNumber).toBe('520A');
+      expect(sameNumDiffName.gnName).toBe('Piliyandala West');
+
+      // Different GN number, same GN area name -> allowed
+      const diffNumSameName = await service.createGnDivision({
+        dsId: ds.id,
+        gnNumber: '520B',
+        gnName: 'Piliyandala East',
+      });
+      expect(diffNumSameName.gnNumber).toBe('520B');
+      expect(diffNumSameName.gnName).toBe('Piliyandala East');
+
+      // Both GN number and GN name identical (including case-insensitive) -> rejected
       await expect(
         service.createGnDivision({
           dsId: ds.id,
-          gnNumber: '520A',
-          gnName: 'Duplicate GN',
+          gnNumber: '520a',
+          gnName: 'piliyandala east',
         }),
-      ).rejects.toThrow('GN Division number 520A already exists');
+      ).rejects.toThrow(
+        'GN Division "520a — piliyandala east" already exists in this DS division',
+      );
+      expect(inMemoryGn).toHaveLength(3);
     });
 
     it('creates field teams under a GN division and rejects duplicate team numbers', async () => {
@@ -647,17 +692,19 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
       const standardCsv = [
         'district,ds_division,gn_name,gn_number,initial_teams',
         'Colombo,Colombo,Bambalapitiya,GN-02,1',
+        'Colombo,Colombo,Bambalapitiya South,GN-02,1',
       ].join('\n');
 
       const standardResult = await service.importPilotAreaFromCsv(
         standardCsv,
         false,
       );
-      expect(standardResult.rowCount).toBe(1);
-      expect(standardResult.importedGn).toBe(1);
-      expect(inMemoryGn).toHaveLength(2);
+      expect(standardResult.rowCount).toBe(2);
+      expect(standardResult.importedGn).toBe(2);
+      expect(inMemoryGn).toHaveLength(3);
       expect(inMemoryGn[1].gnName).toBe('Bambalapitiya');
-      expect(inMemoryTeams).toHaveLength(3);
+      expect(inMemoryGn[2].gnName).toBe('Bambalapitiya South');
+      expect(inMemoryTeams).toHaveLength(4);
     });
 
     it('validates CreateDsDto with optional Sinhala/Tamil names and ListAccountsDto max limit=100', async () => {
