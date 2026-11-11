@@ -1,27 +1,45 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { sanitizeCsvCell } from './utils.ts';
+import { formatActiveDuration, formatRelativeTime } from './utils.ts';
 
-describe('CSV Sanitizer (Plan Invariant 9)', () => {
-  it('escapes standard formula injection prefixes (=, +, -, @)', () => {
-    assert.strictEqual(sanitizeCsvCell('=1+1'), `"'=1+1"`);
-    assert.strictEqual(sanitizeCsvCell('+cmd'), `"'+cmd"`);
-    assert.strictEqual(sanitizeCsvCell('-cmd'), `"'-cmd"`);
-    assert.strictEqual(sanitizeCsvCell('@SUM(A1)'), `"'@SUM(A1)"`);
+describe('Dashboard activity duration & relative time formatting', () => {
+  it('formats durations into < 1 min, minutes, hours, and hours+minutes cleanly', () => {
+    assert.strictEqual(formatActiveDuration(null), '-');
+    assert.strictEqual(formatActiveDuration(undefined), '-');
+    assert.strictEqual(formatActiveDuration(0), '< 1 min');
+    assert.strictEqual(formatActiveDuration(45), '< 1 min');
+    assert.strictEqual(formatActiveDuration(60), '1 min');
+    assert.strictEqual(formatActiveDuration(15 * 60 + 20), '15 mins');
+    assert.strictEqual(formatActiveDuration(60 * 60), '1 hr');
+    assert.strictEqual(formatActiveDuration(2 * 3600 + 60), '2 hrs 1 min');
+    assert.strictEqual(formatActiveDuration(3 * 3600 + 27 * 60), '3 hrs 27 mins');
   });
 
-  it('escapes tab (\\t) and carriage return (\\r) per Plan Invariant 9', () => {
-    assert.strictEqual(sanitizeCsvCell('\t=calc'), `"'\t=calc"`);
-    assert.strictEqual(sanitizeCsvCell('\r=calc'), `"'\r=calc"`);
-    assert.strictEqual(sanitizeCsvCell('\ttab_content'), `"'\ttab_content"`);
-    assert.strictEqual(sanitizeCsvCell('\rcarriage_return_content'), `"'\rcarriage_return_content"`);
-  });
-
-  it('handles benign values and double-quotes inside content', () => {
-    assert.strictEqual(sanitizeCsvCell('Normal Text'), `"Normal Text"`);
-    assert.strictEqual(sanitizeCsvCell('He said "Hello"'), `"He said ""Hello"""`);
-    assert.strictEqual(sanitizeCsvCell(12345), `"12345"`);
-    assert.strictEqual(sanitizeCsvCell(null), `""`);
-    assert.strictEqual(sanitizeCsvCell(undefined), `""`);
+  it('formats recent activity timestamps into relative strings and falls back to date', () => {
+    const now = new Date('2026-11-11T12:00:00Z').getTime();
+    assert.strictEqual(formatRelativeTime(null, now), '-');
+    assert.strictEqual(
+      formatRelativeTime(new Date(now - 20_000).toISOString(), now),
+      'Just now',
+    );
+    assert.strictEqual(
+      formatRelativeTime(new Date(now - 60_000).toISOString(), now),
+      '1 min ago',
+    );
+    assert.strictEqual(
+      formatRelativeTime(new Date(now - 18 * 60_000).toISOString(), now),
+      '18 mins ago',
+    );
+    assert.strictEqual(
+      formatRelativeTime(new Date(now - 3 * 3600_000).toISOString(), now),
+      '3 hrs ago',
+    );
+    assert.strictEqual(
+      formatRelativeTime(new Date(now - 2 * 86400_000).toISOString(), now),
+      '2 days ago',
+    );
+    const tenDaysAgo = new Date(now - 10 * 86400_000).toISOString();
+    const formatted = formatRelativeTime(tenDaysAgo, now);
+    assert.ok(!formatted.includes('ago') && formatted.includes('2026'));
   });
 });

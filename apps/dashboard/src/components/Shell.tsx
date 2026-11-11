@@ -10,6 +10,7 @@ import {
   ClipboardCheck,
   FileText,
   Activity,
+  Radio,
   Sparkles,
   LogOut,
   ChevronLeft,
@@ -100,6 +101,12 @@ export function Shell({ children, activePath }: ShellProps) {
       roles: ['super_admin', 'admin', 'cg', 'dc', 'sda', 'cdc_secretary'],
     },
     {
+      key: 'nav.activity',
+      href: '/activity',
+      icon: <Radio size={18} />,
+      roles: ['super_admin'],
+    },
+    {
       key: 'nav.assignments',
       href: '/assignments',
       icon: <MapPin size={18} />,
@@ -150,10 +157,11 @@ export function Shell({ children, activePath }: ShellProps) {
   // Role guard: redirect if navigating to a restricted page
   useEffect(() => {
     if (!user?.role) return;
-    const currentItem = navItems.find((item) => pathname === item.href);
+    const normalizedPath = pathname === '/' ? '/' : pathname?.replace(/\/$/, '');
+    const currentItem = navItems.find((item) => normalizedPath === item.href);
     if (currentItem && currentItem.roles && !currentItem.roles.includes(user.role)) {
       // Super admin can access data-entry for C19 override
-      if (user.role === 'super_admin' && pathname === '/data-entry') {
+      if (user.role === 'super_admin' && normalizedPath === '/data-entry') {
         return;
       }
       router.replace('/progress');

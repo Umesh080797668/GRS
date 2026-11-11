@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ConflictException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -13,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CredentialService } from './credential.service';
 import { EmailService } from '../email/email.service';
 import { RateLimitService } from '../config/rate-limit.service';
+import { SessionActivityService } from './session-activity.service';
 import { GrsValidators } from '../common/validators/grs-validators';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -51,7 +53,22 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly rateLimitService: RateLimitService,
+    @Optional()
+    private readonly sessionActivityService?: SessionActivityService,
   ) { }
+
+  private async runActivitySafe(
+    action: string,
+    fn: (() => Promise<unknown> | undefined) | undefined,
+  ): Promise<void> {
+    if (!fn) return;
+    try {
+      await fn();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Session activity ${action} skipped: ${message}`);
+    }
+  }
 
   /**
    * Normalizes login identifier (GRS ID -> uppercase, Email -> lowercase).
@@ -277,12 +294,14 @@ export class AuthService {
     }
 
     // Reset failed counter and record last login
+    const signedInAt = new Date();
     await this.prisma.profile.update({
       where: { id: profile.id },
       data: {
         failedLoginCount: 0,
         lockedUntil: null,
-        lastLoginAt: new Date(),
+        lastLoginAt: signedInAt,
+        lastActiveAt: signedInAt,
       },
     });
 
@@ -307,7 +326,16 @@ export class AuthService {
     }
 
     // Standard Login Session
-    return this.generateAuthSession(profile, dto.deviceId);
+    const session = await this.generateAuthSession(profile, dto.deviceId);
+    await this.runActivitySafe('recordLoginSession', () =>
+      this.sessionActivityService?.recordLoginSession({
+        profileId: profile.id,
+        clientType,
+        deviceId: dto.deviceId,
+        now: signedInAt,
+      }),
+    );
+    return session;
   }
 
   /**
@@ -317,6 +345,8 @@ export class AuthService {
   async changePassword(
     userId: string,
     dto: ChangePasswordDto,
+    clientType?: string,
+    deviceId?: string,
   ): Promise<AuthSession> {
     if (typeof userId !== 'string' || !userId.trim()) {
       throw new UnauthorizedException({
@@ -406,13 +436,32 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
 
-    return this.generateAuthSession(updated);
+    await this.runActivitySafe('endSessionsOnPasswordChange', () =>
+      this.sessionActivityService?.endSessions({
+        profileId: userId,
+        reason: 'password_reset',
+        all: true,
+      }),
+    );
+
+    const session = await this.generateAuthSession(updated, deviceId);
+    await this.runActivitySafe('recordLoginSessionAfterPasswordChange', () =>
+      this.sessionActivityService?.recordLoginSession({
+        profileId: userId,
+        clientType,
+        deviceId,
+      }),
+    );
+    return session;
   }
 
   /**
    * Rotates refresh tokens with reuse detection.
    */
-  async refreshTokens(dto: RefreshTokenDto): Promise<AuthSession> {
+  async refreshTokens(
+    dto: RefreshTokenDto,
+    clientType?: string,
+  ): Promise<AuthSession> {
     if (
       !dto ||
       typeof dto.refreshToken !== 'string' ||
@@ -528,6 +577,15 @@ export class AuthService {
       });
     }
 
+    await this.runActivitySafe('touchActivityOnRefresh', () =>
+      this.sessionActivityService?.touchActivity({
+        profileId: profile.id,
+        clientType,
+        deviceId: deviceId ?? undefined,
+        skipDebounce: true,
+      }),
+    );
+
     return session;
   }
 
@@ -538,6 +596,7 @@ export class AuthService {
   async switchArea(
     userId: string,
     dto: SwitchAreaDto,
+    clientType?: string,
   ): Promise<AuthSession> {
     const profile = await this.prisma.profile.findUnique({
       where: { id: userId },
@@ -601,7 +660,20 @@ export class AuthService {
       });
     } catch { }
 
-    return this.generateAuthSession(profile, dto.deviceId, activeArea);
+    const session = await this.generateAuthSession(
+      profile,
+      dto.deviceId,
+      activeArea,
+    );
+    await this.runActivitySafe('touchActivityOnSwitchArea', () =>
+      this.sessionActivityService?.touchActivity({
+        profileId: userId,
+        clientType,
+        deviceId: dto.deviceId,
+        skipDebounce: true,
+      }),
+    );
+    return session;
   }
 
   /**
@@ -627,7 +699,7 @@ export class AuthService {
    * Terminates active session. If deviceId is omitted, only terminates unassigned sessions
    * rather than revoking all active devices.
    */
-  async logout(profileId: string, deviceId?: string) {
+  async logout(profileId: string, deviceId?: string, clientType?: string) {
     if (deviceId) {
       await this.prisma.refreshToken.updateMany({
         where: {
@@ -647,7 +719,40 @@ export class AuthService {
         data: { revokedAt: new Date() },
       });
     }
+    await this.runActivitySafe('endSessionsOnLogout', () =>
+      this.sessionActivityService?.endSessions({
+        profileId,
+        reason: 'logout',
+        clientType,
+        deviceId,
+      }),
+    );
     return { success: true };
+  }
+
+  /**
+   * Records an explicit keep-alive heartbeat from an active web or mobile client.
+   */
+  async recordHeartbeat(
+    profileId: string,
+    clientType?: string,
+    deviceId?: string,
+  ) {
+    let lastActiveAt = new Date();
+    await this.runActivitySafe('heartbeat', async () => {
+      if (this.sessionActivityService) {
+        lastActiveAt = await this.sessionActivityService.touchActivity({
+          profileId,
+          clientType,
+          deviceId,
+          skipDebounce: true,
+        });
+      }
+    });
+    return {
+      ok: true,
+      lastActiveAt: lastActiveAt.toISOString(),
+    };
   }
 
   /**
@@ -991,6 +1096,15 @@ export class AuthService {
           where: { profileId: profile.id, revokedAt: null },
           data: { revokedAt: new Date() },
         });
+
+        await this.sessionActivityService?.endSessions(
+          {
+            profileId: profile.id,
+            reason: 'password_reset',
+            all: true,
+          },
+          tx,
+        );
 
         await tx.accountAudit.create({
           data: {

@@ -8,6 +8,7 @@ import { CredentialService } from './credential.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { RolesGuard } from './roles.guard';
+import { SessionActivityService } from './session-activity.service';
 
 @Module({
   imports: [
@@ -31,12 +32,19 @@ import { RolesGuard } from './roles.guard';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, CredentialService, JwtStrategy, RolesGuard],
+  providers: [
+    AuthService,
+    CredentialService,
+    JwtStrategy,
+    RolesGuard,
+    SessionActivityService,
+  ],
   exports: [
     AuthService,
     CredentialService,
     JwtStrategy,
     RolesGuard,
+    SessionActivityService,
     PassportModule,
     JwtModule,
   ],

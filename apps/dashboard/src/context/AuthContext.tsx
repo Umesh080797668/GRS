@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { api, SessionTokens } from '../lib/api';
 
@@ -64,6 +64,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, [user, isLoading, pathname, router]);
+
+  // Keep user session alive while tab is visible (every 60s, throttled on visibility resume)
+  const lastHeartbeatRef = useRef<number>(0);
+  const userId = user?.id;
+  const mustChangePassword = user?.mustChangePassword;
+
+  useEffect(() => {
+    if (!userId || mustChangePassword) return;
+
+    const ping = (force = false) => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return;
+      }
+      const now = Date.now();
+      if (!force && now - lastHeartbeatRef.current < 45_000) {
+        return;
+      }
+      lastHeartbeatRef.current = now;
+      api.sendHeartbeat().catch(() => {
+        // Non-blocking keep-alive ping
+      });
+    };
+
+    ping(true);
+    const intervalId = window.setInterval(() => ping(true), 60_000);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        ping(false);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [userId, mustChangePassword]);
 
   const login = async (identifier: string, pwd: string) => {
     const session = await api.login(identifier, pwd);

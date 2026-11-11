@@ -54,6 +54,92 @@ export class ApiError extends Error {
 const DEFAULT_API_URL = 'http://localhost:3000';
 export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
 
+export type ActivityStatus = 'online' | 'offline' | 'never';
+export type ActivityClientType = 'web' | 'mobile' | 'unknown';
+
+export interface AccountActivitySummary {
+  totalAccounts: number;
+  onlineNow: number;
+  onlineWeb: number;
+  onlineMobile: number;
+  offlinePreviouslyActive: number;
+  neverSignedIn: number;
+  activeToday: number;
+}
+
+export interface AccountActivityItem {
+  id: string;
+  userCode: string;
+  email: string | null;
+  fullName: string;
+  role: string;
+  isActive: boolean;
+  districtName: string | null;
+  dsName: string | null;
+  gnName: string | null;
+  teamName: string | null;
+  status: ActivityStatus;
+  activeClients: ActivityClientType[];
+  lastClientType: ActivityClientType | null;
+  lastLoginAt: string | null;
+  lastActiveAt: string | null;
+  currentSessionStartedAt: string | null;
+  currentSessionDurationSeconds: number | null;
+  lastSessionStartedAt: string | null;
+  lastSessionEndedAt: string | null;
+  lastSessionDurationSeconds: number | null;
+  todayActiveSeconds: number;
+}
+
+export interface AccountActivityListResponse {
+  generatedAt: string;
+  idleTimeoutSeconds: number;
+  summary: AccountActivitySummary;
+  items: AccountActivityItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface UserSessionHistoryItem {
+  id: string;
+  clientType: ActivityClientType;
+  deviceId: string | null;
+  startedAt: string;
+  lastActiveAt: string;
+  endedAt: string | null;
+  effectiveEndedAt: string | null;
+  endReason: string | null;
+  isOnline: boolean;
+  durationSeconds: number;
+}
+
+export interface AccountActivityDetailResponse {
+  generatedAt: string;
+  idleTimeoutSeconds: number;
+  account: {
+    id: string;
+    userCode: string;
+    email: string | null;
+    fullName: string;
+    role: string;
+    isActive: boolean;
+    districtName: string | null;
+    dsName: string | null;
+    gnName: string | null;
+    teamName: string | null;
+    status: ActivityStatus;
+    activeClients: ActivityClientType[];
+    lastLoginAt: string | null;
+    lastActiveAt: string | null;
+    currentSessionStartedAt: string | null;
+    currentSessionDurationSeconds: number | null;
+    lastSessionDurationSeconds: number | null;
+    todayActiveSeconds: number;
+  };
+  sessions: UserSessionHistoryItem[];
+}
+
 export class ApiClient {
   private baseUrl: string;
   private refreshPromise: Promise<boolean> | null = null;
@@ -298,6 +384,9 @@ export class ApiClient {
 
   async logout(): Promise<void> {
     try {
+      if (!this.getToken() && this.getRefreshToken()) {
+        await this.refreshSession().catch(() => false);
+      }
       await this.request('/v1/auth/logout', {
         method: 'POST',
       }, false);
@@ -306,6 +395,16 @@ export class ApiClient {
     } finally {
       this.clearSession();
     }
+  }
+
+  async sendHeartbeat(): Promise<{ ok: boolean; lastActiveAt?: string }> {
+    return this.request<{ ok: boolean; lastActiveAt?: string }>(
+      '/v1/auth/heartbeat',
+      {
+        method: 'POST',
+        body: JSON.stringify({}),
+      },
+    );
   }
 
   async changePassword(currentPassword: string, newPassword: string): Promise<SessionTokens> {
@@ -538,6 +637,35 @@ export class ApiClient {
       method: 'POST',
       body: JSON.stringify(dto),
     });
+  }
+
+  async getAccountActivity(params?: {
+    status?: 'all' | 'online' | 'offline' | 'never';
+    role?: string;
+    clientType?: 'all' | 'web' | 'mobile';
+    search?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<AccountActivityListResponse> {
+    const search = new URLSearchParams();
+    if (params?.status) search.set('status', params.status);
+    if (params?.role) search.set('role', params.role);
+    if (params?.clientType) search.set('clientType', params.clientType);
+    if (params?.search) search.set('search', params.search);
+    if (params?.page) search.set('page', String(params.page));
+    if (params?.limit) search.set('limit', String(params.limit));
+    const qs = search.toString();
+    return this.request<AccountActivityListResponse>(
+      `/v1/accounts/activity${qs ? `?${qs}` : ''}`,
+    );
+  }
+
+  async getAccountActivityDetail(
+    profileId: string,
+  ): Promise<AccountActivityDetailResponse> {
+    return this.request<AccountActivityDetailResponse>(
+      `/v1/accounts/${profileId}/activity`,
+    );
   }
 
   // --- GEOGRAPHIC HIERARCHY & TEAMS (M5.3) ---

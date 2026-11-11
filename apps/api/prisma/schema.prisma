@@ -90,6 +90,7 @@ model Profile {
   failedLoginCount   Int       @default(0) @map("failed_login_count")
   lockedUntil        DateTime? @map("locked_until") @db.Timestamptz(6)
   lastLoginAt        DateTime? @map("last_login_at") @db.Timestamptz(6)
+  lastActiveAt       DateTime? @map("last_active_at") @db.Timestamptz(6)
   tokenVersion       Int       @default(1) @map("token_version")
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -107,12 +108,14 @@ model Profile {
   accountAssignments AccountAssignment[] @relation("ProfileAssignments")
   assignmentsCreated AccountAssignment[] @relation("AssignedBy")
   assignmentsEnded   AccountAssignment[] @relation("EndedBy")
+  sessions           UserSession[]
 
   @@index([createdBy])
   @@index([teamId])
   @@index([districtId])
   @@index([dsId])
   @@index([gnId])
+  @@index([lastActiveAt])
   @@map("profiles")
 }
 
@@ -133,6 +136,24 @@ model RefreshToken {
   @@index([profileId])
   @@index([tokenHash])
   @@map("refresh_tokens")
+}
+
+model UserSession {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profileId    String    @map("profile_id") @db.Uuid
+  clientType   String    @default("web") @map("client_type") @db.VarChar(20)
+  deviceId     String?   @map("device_id") @db.VarChar(100)
+  startedAt    DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  lastActiveAt DateTime  @default(now()) @map("last_active_at") @db.Timestamptz(6)
+  endedAt      DateTime? @map("ended_at") @db.Timestamptz(6)
+  endReason    String?   @map("end_reason") @db.VarChar(30)
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, endedAt, lastActiveAt])
+  @@index([profileId, startedAt])
+  @@index([endedAt, lastActiveAt])
+  @@map("user_sessions")
 }
 
 model EmailCode {

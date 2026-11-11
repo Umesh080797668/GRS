@@ -4,9 +4,11 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CredentialService } from '../auth/credential.service';
+import { SessionActivityService } from '../auth/session-activity.service';
 import { ScopeService } from '../common/scope/scope.service';
 import { GrsValidators } from '../common/validators/grs-validators';
 import {
@@ -40,6 +42,8 @@ export class AccountService {
     private readonly prisma: PrismaService,
     private readonly credentialService: CredentialService,
     private readonly scopeService: ScopeService,
+    @Optional()
+    private readonly sessionActivityService?: SessionActivityService,
   ) { }
 
   /**
@@ -504,6 +508,11 @@ export class AccountService {
           where: { profileId: targetUserId },
         });
 
+        await this.sessionActivityService?.endSessions(
+          { profileId: targetUserId, reason: 'deactivated', all: true },
+          tx,
+        );
+
         // Clear leader_id on the team if this deactivated user was the recorded leader
         if (target.role === UserRole.cdc_secretary && target.teamId) {
           await tx.team.updateMany({
@@ -694,6 +703,11 @@ export class AccountService {
         await tx.refreshToken.deleteMany({
           where: { profileId: targetUserId },
         });
+
+        await this.sessionActivityService?.endSessions(
+          { profileId: targetUserId, reason: 'password_reset', all: true },
+          tx,
+        );
 
         await tx.accountAudit.create({
           data: {
@@ -886,6 +900,10 @@ export class AccountService {
           await tx.refreshToken.deleteMany({
             where: { profileId: targetUserId },
           });
+          await this.sessionActivityService?.endSessions(
+            { profileId: targetUserId, reason: 'deactivated', all: true },
+            tx,
+          );
         }
 
         await tx.accountAudit.create({
@@ -989,6 +1007,11 @@ export class AccountService {
               tokenVersion: { increment: 1 },
             },
           });
+
+          await this.sessionActivityService?.endSessions(
+            { profileId: profile.id, reason: 'password_reset', all: true },
+            tx,
+          );
 
           await tx.accountAudit.create({
             data: {
@@ -1712,6 +1735,16 @@ export class AccountService {
           where: { profileId: existingActive.profileId, revokedAt: null },
           data: { revokedAt: now },
         });
+
+        await this.sessionActivityService?.endSessions(
+          {
+            profileId: existingActive.profileId,
+            reason: 'superseded',
+            all: true,
+            now,
+          },
+          tx,
+        );
       }
 
       const newAssignment = await tx.profileAssignment.create({

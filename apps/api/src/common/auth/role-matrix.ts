@@ -211,6 +211,22 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     scopeEnforcement: 'own_only',
     description: 'List assigned GN divisions for current user',
   },
+  {
+    method: 'POST',
+    path: '/auth/heartbeat',
+    category: 'auth',
+    allowedRoles: [
+      'team_member',
+      'cdc_secretary',
+      'sda',
+      'dc',
+      'cg',
+      'admin',
+      'super_admin',
+    ],
+    scopeEnforcement: 'own_only',
+    description: 'Record client keep-alive heartbeat and extend active session',
+  },
 
   // Accounts Endpoints (Creation matrix §6.1)
   {
@@ -326,6 +342,24 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     allowedRoles: ['sda', 'dc', 'cg', 'admin', 'super_admin'],
     scopeEnforcement: 'hierarchical',
     description: 'Transfer active assignment to another subordinate account',
+  },
+  {
+    method: 'GET',
+    path: '/accounts/activity',
+    category: 'accounts',
+    allowedRoles: ['super_admin'],
+    scopeEnforcement: 'national',
+    description:
+      'Super Admin monitor of currently logged-in users, last active times, and active durations',
+  },
+  {
+    method: 'GET',
+    path: '/accounts/:id/activity',
+    category: 'accounts',
+    allowedRoles: ['super_admin'],
+    scopeEnforcement: 'national',
+    description:
+      'Super Admin drill-down of session history for a single account',
   },
 
   // Config & Lookups

@@ -10,8 +10,9 @@ import { LookupModule } from './lookups/lookup.module';
 import { AreaModule } from './areas/area.module';
 import { AppConfigModule } from './config/app-config.module';
 import { EmailModule } from './email/email.module';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { VersionGateGuard } from './config/version-gate.guard';
+import { ActivityInterceptor } from './auth/activity.interceptor';
 import { ReleasesModule } from './releases/releases.module';
 import { JobsModule } from './jobs/jobs.module';
 import { SyncModule } from './sync/sync.module';
@@ -49,6 +50,10 @@ import { ImportModule } from './imports/import.module';
       provide: APP_GUARD,
       useClass: VersionGateGuard,
     },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ActivityInterceptor,
+    },
   ],
 })
-export class AppModule {}
+export class AppModule { }

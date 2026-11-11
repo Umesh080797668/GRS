@@ -52,6 +52,7 @@ class GrsApiClient {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       'X-App-Version': appVersion,
+      'X-Client-Type': 'mobile',
     };
     if (authenticated && _accessToken != null && _accessToken!.isNotEmpty) {
       headers['Authorization'] = 'Bearer $_accessToken';
@@ -247,6 +248,24 @@ class GrsApiClient {
     } finally {
       clearTokens();
     }
+  }
+
+  /// POST /v1/auth/heartbeat
+  Future<void> sendHeartbeat({String? deviceId}) async {
+    final uri = Uri.parse('$baseUrl/v1/auth/heartbeat');
+    final response = await _sendWithAuthRetry(
+      () => _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode(deviceId != null ? {'deviceId': deviceId} : {}),
+      ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+
+    _handleError(response);
   }
 
   /// POST /v1/auth/forgot

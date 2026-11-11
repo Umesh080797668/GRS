@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -51,10 +52,41 @@ class GrsMobileApp extends ConsumerStatefulWidget {
   ConsumerState<GrsMobileApp> createState() => _GrsMobileAppState();
 }
 
-class _GrsMobileAppState extends ConsumerState<GrsMobileApp> {
+class _GrsMobileAppState extends ConsumerState<GrsMobileApp>
+    with WidgetsBindingObserver {
+  Timer? _heartbeatTimer;
+  DateTime? _lastHeartbeatAt;
+
+  bool get _isWidgetTest =>
+      WidgetsBinding.instance.runtimeType.toString().contains('Test');
+
+  void _sendActivityHeartbeat({bool force = false}) {
+    if (_isWidgetTest || !mounted) return;
+    final authState = ref.read(authProvider);
+    if (authState.status != AuthStatus.authenticated ||
+        (authState.profile?.mustChangePassword ?? false)) {
+      return;
+    }
+    final now = DateTime.now();
+    if (!force &&
+        _lastHeartbeatAt != null &&
+        now.difference(_lastHeartbeatAt!).inSeconds < 45) {
+      return;
+    }
+    _lastHeartbeatAt = now;
+    unawaited(
+      ref
+          .read(apiClientProvider)
+          .sendHeartbeat(deviceId: 'mobile-device')
+          .catchError((_) {}),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     // Cold Start session check kicks off immediately so Home screen opens instantly (M2.6)
     ref.read(authProvider.notifier).checkColdStart();
 
@@ -62,6 +94,16 @@ class _GrsMobileAppState extends ConsumerState<GrsMobileApp> {
     Future.microtask(() {
       ref.read(syncProvider.notifier).triggerPacedSync();
     });
+
+    if (!_isWidgetTest) {
+      _heartbeatTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+        if (WidgetsBinding.instance.lifecycleState == null ||
+            WidgetsBinding.instance.lifecycleState ==
+                AppLifecycleState.resumed) {
+          _sendActivityHeartbeat(force: true);
+        }
+      });
+    }
 
     // Concurrently restore saved API server URL
     Future.microtask(() async {
@@ -82,6 +124,20 @@ class _GrsMobileAppState extends ConsumerState<GrsMobileApp> {
             ApiEndpointResolver.resolveDefault();
       }
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _sendActivityHeartbeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _heartbeatTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override

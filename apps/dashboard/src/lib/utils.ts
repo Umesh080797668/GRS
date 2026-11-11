@@ -81,3 +81,81 @@ export function formatDate(isoString?: string): string {
     return isoString;
   }
 }
+
+export interface DurationLabels {
+  ltMin?: string;
+  min?: string;
+  mins?: string;
+  hr?: string;
+  hrs?: string;
+}
+
+/**
+ * Formats an active duration in seconds into concise minutes/hours text (e.g. "45 mins", "2 hrs 15 mins").
+ */
+export function formatActiveDuration(
+  seconds?: number | null,
+  labels?: DurationLabels,
+): string {
+  if (seconds === null || seconds === undefined || Number.isNaN(seconds)) {
+    return '-';
+  }
+  const safe = Math.max(0, Math.floor(seconds));
+  if (safe < 60) {
+    return labels?.ltMin ?? '< 1 min';
+  }
+  const totalMinutes = Math.floor(safe / 60);
+  const minLabel = totalMinutes === 1 ? (labels?.min ?? 'min') : (labels?.mins ?? 'mins');
+  if (totalMinutes < 60) {
+    return `${totalMinutes} ${minLabel}`;
+  }
+  const hours = Math.floor(totalMinutes / 60);
+  const remMins = totalMinutes % 60;
+  const hrLabel = hours === 1 ? (labels?.hr ?? 'hr') : (labels?.hrs ?? 'hrs');
+  if (remMins === 0) {
+    return `${hours} ${hrLabel}`;
+  }
+  const remMinLabel = remMins === 1 ? (labels?.min ?? 'min') : (labels?.mins ?? 'mins');
+  return `${hours} ${hrLabel} ${remMins} ${remMinLabel}`;
+}
+
+export interface RelativeTimeLabels {
+  justNow?: string;
+  minAgo?: string;
+  minsAgo?: string;
+  hrAgo?: string;
+  hrsAgo?: string;
+  dayAgo?: string;
+  daysAgo?: string;
+}
+
+/**
+ * Formats an ISO timestamp into relative time for recent activity, falling back to full date after 7 days.
+ */
+export function formatRelativeTime(
+  isoString?: string | null,
+  nowMs: number = Date.now(),
+  labels?: RelativeTimeLabels,
+): string {
+  if (!isoString) return '-';
+  const ts = new Date(isoString).getTime();
+  if (Number.isNaN(ts)) return isoString;
+
+  const diffSeconds = Math.max(0, Math.floor((nowMs - ts) / 1000));
+  if (diffSeconds < 60) {
+    return labels?.justNow ?? 'Just now';
+  }
+  const diffMins = Math.floor(diffSeconds / 60);
+  if (diffMins < 60) {
+    return `${diffMins} ${diffMins === 1 ? (labels?.minAgo ?? 'min ago') : (labels?.minsAgo ?? 'mins ago')}`;
+  }
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) {
+    return `${diffHours} ${diffHours === 1 ? (labels?.hrAgo ?? 'hr ago') : (labels?.hrsAgo ?? 'hrs ago')}`;
+  }
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) {
+    return `${diffDays} ${diffDays === 1 ? (labels?.dayAgo ?? 'day ago') : (labels?.daysAgo ?? 'days ago')}`;
+  }
+  return formatDate(isoString);
+}

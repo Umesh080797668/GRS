@@ -13,6 +13,7 @@
 | `/auth/profile` | **PATCH** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `own_only` |
 | `/auth/switch-area` | **POST** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `own_only` |
 | `/auth/assignments` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `own_only` |
+| `/auth/heartbeat` | **POST** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `own_only` |
 | `/accounts` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
 | `/accounts/bulk` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
 | `/accounts` | **GET** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
@@ -27,6 +28,8 @@
 | `/accounts/:id/assign` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
 | `/accounts/:id/end-assignment` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
 | `/accounts/:id/transfer` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/accounts/activity` | **GET** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `national` |
+| `/accounts/:id/activity` | **GET** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `national` |
 | `/config` | **GET** | ✅ Allow | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `none` |
 | `/config` | **PATCH** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `national` |
 | `/lookups` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `national` |

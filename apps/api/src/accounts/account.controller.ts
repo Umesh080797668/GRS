@@ -20,9 +20,11 @@ import { UserRole } from '../common/scope/scope.types';
 import type { ScopeContext } from '../common/scope/scope.types';
 import { AccountService } from './account.service';
 import { AssignmentService } from './assignment.service';
+import { SessionActivityService } from '../auth/session-activity.service';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { CreateBulkAccountsDto } from './dto/create-bulk-accounts.dto';
 import { ListAccountsDto } from './dto/list-accounts.dto';
+import { ListAccountActivityDto } from './dto/list-account-activity.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { AssignAccountDto } from './dto/assign-account.dto';
 import { EndAssignmentDto } from './dto/end-assignment.dto';
@@ -35,6 +37,7 @@ export class AccountController {
   constructor(
     private readonly accountService: AccountService,
     private readonly assignmentService: AssignmentService,
+    private readonly sessionActivityService: SessionActivityService,
   ) { }
 
   @Post()
@@ -205,6 +208,26 @@ export class AccountController {
     @Query() query: ListAssignmentsDto,
   ) {
     return this.assignmentService.listActive(user, query);
+  }
+
+  /**
+   * GET /v1/accounts/activity
+   * Super Admin monitoring view of currently online users, last active timestamps, and active durations.
+   */
+  @Get('activity')
+  @Roles(UserRole.super_admin)
+  async getActivity(@Query() query: ListAccountActivityDto) {
+    return this.sessionActivityService.getAccountsActivity(query);
+  }
+
+  /**
+   * GET /v1/accounts/:id/activity
+   * Super Admin drill-down of session history for a single account.
+   */
+  @Get(':id/activity')
+  @Roles(UserRole.super_admin)
+  async getAccountActivityDetail(@Param('id', ParseUUIDPipe) id: string) {
+    return this.sessionActivityService.getAccountActivityDetail(id);
   }
 
   /**
