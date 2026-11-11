@@ -310,8 +310,11 @@ export function Shell({ children, activePath }: ShellProps) {
           aria-label="Sidebar Navigation"
         >
           {allowedNavItems.map((item) => {
+            const normalizedPath =
+              pathname === '/' ? '/' : pathname?.replace(/\/$/, '');
             const isActive =
-              pathname === item.href || (item.href.includes('#') && pathname === '/progress');
+              normalizedPath === item.href ||
+              (item.href.includes('#') && normalizedPath === '/progress');
             return (
               <button
                 key={item.key}

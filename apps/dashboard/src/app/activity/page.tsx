@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  AlertCircle,
   Clock,
   Globe,
   History,
@@ -16,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import KPICard from '../../components/KPICard';
+import Shell from '../../components/Shell';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import {
@@ -100,14 +102,12 @@ export default function UserActivityPage() {
 
   const isSuperAdmin = user?.role === 'super_admin';
 
-  // Enforce Super Admin only on this page
   useEffect(() => {
     if (!authLoading && user && !isSuperAdmin) {
       router.replace('/progress');
     }
   }, [authLoading, user, isSuperAdmin, router]);
 
-  // Debounce text search cleanly
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setDebouncedSearch(searchInput.trim());
@@ -116,7 +116,6 @@ export default function UserActivityPage() {
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
-  // Live duration clock tick (every 10s so active durations stay fresh)
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 10_000);
     return () => window.clearInterval(timer);
@@ -164,12 +163,11 @@ export default function UserActivityPage() {
     return () => window.clearTimeout(timer);
   }, [isSuperAdmin, fetchActivity]);
 
-  // Optional 30s auto-refresh while visible
   useEffect(() => {
     if (!isSuperAdmin || !autoRefresh) return;
     const id = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
-        fetchActivity(true);
+        void fetchActivity(true);
       }
     }, 30_000);
     return () => window.clearInterval(id);
@@ -235,8 +233,42 @@ export default function UserActivityPage() {
     }
   };
 
-  if (authLoading || !user || !isSuperAdmin) {
-    return null;
+  if (authLoading || !user) {
+    return (
+      <Shell activePath="/activity">
+        <div
+          style={{
+            padding: '3rem 1rem',
+            textAlign: 'center',
+            color: 'var(--slate-500)',
+            fontSize: '14px',
+          }}
+        >
+          Loading activity monitor...
+        </div>
+      </Shell>
+    );
+  }
+
+  if (!isSuperAdmin) {
+    return (
+      <Shell activePath="/activity">
+        <div
+          style={{
+            padding: '2.5rem 1rem',
+            textAlign: 'center',
+            color: 'var(--slate-500)',
+            fontSize: '14px',
+          }}
+        >
+          <AlertCircle
+            size={32}
+            style={{ marginBottom: '0.75rem', color: 'var(--danger)' }}
+          />
+          <p>Super Admin access is required to view user activity monitoring.</p>
+        </div>
+      </Shell>
+    );
   }
 
   const summary = data?.summary;
@@ -247,43 +279,75 @@ export default function UserActivityPage() {
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / limit));
 
   return (
-    <div className="space-y-6">
+    <Shell activePath="/activity">
       {/* Page Header */}
       <div
-        className="flex flex-wrap items-start justify-between gap-4"
-        style={{ paddingBottom: '0.25rem' }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '1.5rem',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
       >
         <div>
           <h1
-            className="text-2xl font-bold tracking-tight"
-            style={{ color: 'var(--navy)' }}
+            style={{
+              fontSize: '22px',
+              fontWeight: 700,
+              color: 'var(--slate-900)',
+              letterSpacing: '-0.02em',
+              margin: 0,
+            }}
           >
             {t('activity.title')}
           </h1>
-          <p className="text-sm text-muted" style={{ marginTop: '0.25rem' }}>
+          <p
+            style={{
+              fontSize: '13px',
+              color: 'var(--slate-500)',
+              marginTop: '4px',
+            }}
+          >
             {t('activity.subtitle')}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            flexWrap: 'wrap',
+          }}
+        >
           {data?.generatedAt && (
             <span
-              className="text-xs text-muted"
-              style={{ fontVariantNumeric: 'tabular-nums' }}
+              className="tabular-nums"
+              style={{ fontSize: '12px', color: 'var(--slate-500)' }}
             >
-              {t('activity.last_updated')}: {formatDate(data.generatedAt)}
+              {t('activity.last_updated')}:{' '}
+              <strong style={{ color: 'var(--slate-700)', fontWeight: 600 }}>
+                {formatDate(data.generatedAt)}
+              </strong>
             </span>
           )}
 
           <label
-            className="inline-flex items-center gap-2 text-xs font-medium"
             style={{
-              color: 'var(--text-secondary)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '12.5px',
+              fontWeight: 500,
+              color: 'var(--slate-700)',
               cursor: 'pointer',
               padding: '0.45rem 0.75rem',
               borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border-main)',
-              background: '#fff',
+              border: '1px solid var(--border-subtle)',
+              background: '#ffffff',
+              boxShadow: 'var(--shadow-xs)',
             }}
           >
             <input
@@ -292,23 +356,44 @@ export default function UserActivityPage() {
               onChange={(e) => setAutoRefresh(e.target.checked)}
               style={{ accentColor: 'var(--primary)' }}
             />
-            {t('activity.auto_refresh')}
+            <span>{t('activity.auto_refresh')}</span>
           </label>
 
           <button
             type="button"
             className="btn-secondary"
-            onClick={() => fetchActivity(true)}
+            onClick={() => void fetchActivity(true)}
             disabled={loading || refreshing}
           >
             <RefreshCw
-              size={15}
+              size={14}
               className={refreshing ? 'animate-spin' : undefined}
             />
-            {t('activity.refresh_now')}
+            <span>{t('activity.refresh_now')}</span>
           </button>
         </div>
       </div>
+
+      {/* Error Alert */}
+      {error && (
+        <div
+          style={{
+            background: 'var(--danger-bg)',
+            border: '1px solid var(--danger-border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 16px',
+            color: 'var(--danger-text)',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '13.5px',
+          }}
+        >
+          <AlertCircle size={18} style={{ flexShrink: 0 }} />
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Summary KPI Grid */}
       <div
@@ -316,6 +401,7 @@ export default function UserActivityPage() {
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
           gap: '1rem',
+          marginBottom: '1.5rem',
         }}
       >
         <KPICard
@@ -324,8 +410,8 @@ export default function UserActivityPage() {
           subtitle={
             summary
               ? t('activity.web_mobile_split')
-                  .replace('{web}', String(summary.onlineWeb))
-                  .replace('{mobile}', String(summary.onlineMobile))
+                .replace('{web}', String(summary.onlineWeb))
+                .replace('{mobile}', String(summary.onlineMobile))
               : undefined
           }
           icon={<Radio size={18} />}
@@ -362,102 +448,114 @@ export default function UserActivityPage() {
         />
       </div>
 
-      {/* Filters & Status Tabs */}
-      <div className="panel" style={{ padding: '1rem 1.25rem' }}>
+      {/* Filters & Status Tabs Toolbar */}
+      <div
+        className="panel"
+        style={{
+          padding: '1rem 1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+        }}
+      >
         <div
-          className="flex flex-wrap items-center justify-between gap-3"
-          style={{ marginBottom: '0.875rem' }}
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '8px',
+          }}
         >
-          <div className="flex flex-wrap items-center gap-2">
-            {(
-              [
-                {
-                  key: 'all' as const,
-                  label: t('activity.filter_all'),
-                  count: summary?.totalAccounts,
-                },
-                {
-                  key: 'online' as const,
-                  label: t('activity.filter_online'),
-                  count: summary?.onlineNow,
-                },
-                {
-                  key: 'offline' as const,
-                  label: t('activity.filter_offline'),
-                  count: summary?.offlinePreviouslyActive,
-                },
-                {
-                  key: 'never' as const,
-                  label: t('activity.filter_never'),
-                  count: summary?.neverSignedIn,
-                },
-              ]
-            ).map((tab) => {
-              const active = statusFilter === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => {
-                    setStatusFilter(tab.key);
-                    setPage(1);
-                  }}
-                  style={{
-                    padding: '0.42rem 0.85rem',
-                    borderRadius: '9999px',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    border: active
-                      ? '1px solid var(--primary)'
-                      : '1px solid var(--border-main)',
-                    background: active ? 'var(--primary)' : '#fff',
-                    color: active ? '#fff' : 'var(--text-secondary)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <span>{tab.label}</span>
-                  {tab.count !== undefined && (
-                    <span
-                      style={{
-                        fontSize: '0.7rem',
-                        padding: '0.05rem 0.4rem',
-                        borderRadius: '9999px',
-                        background: active
-                          ? 'rgba(255,255,255,0.22)'
-                          : 'var(--bg-subtle)',
-                        color: active ? '#fff' : 'var(--text-main)',
-                        fontVariantNumeric: 'tabular-nums',
-                      }}
-                    >
-                      {tab.count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          {(
+            [
+              {
+                key: 'all' as const,
+                label: t('activity.filter_all'),
+                count: summary?.totalAccounts,
+              },
+              {
+                key: 'online' as const,
+                label: t('activity.filter_online'),
+                count: summary?.onlineNow,
+              },
+              {
+                key: 'offline' as const,
+                label: t('activity.filter_offline'),
+                count: summary?.offlinePreviouslyActive,
+              },
+              {
+                key: 'never' as const,
+                label: t('activity.filter_never'),
+                count: summary?.neverSignedIn,
+              },
+            ]
+          ).map((tab) => {
+            const active = statusFilter === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => {
+                  setStatusFilter(tab.key);
+                  setPage(1);
+                }}
+                style={{
+                  padding: '0.42rem 0.85rem',
+                  borderRadius: '9999px',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  border: active
+                    ? '1px solid var(--primary)'
+                    : '1px solid var(--border-subtle)',
+                  background: active ? 'var(--primary)' : '#ffffff',
+                  color: active ? '#ffffff' : 'var(--slate-700)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span>{tab.label}</span>
+                {tab.count !== undefined && (
+                  <span
+                    className="tabular-nums"
+                    style={{
+                      fontSize: '11px',
+                      padding: '1px 7px',
+                      borderRadius: '9999px',
+                      background: active
+                        ? 'rgba(255,255,255,0.22)'
+                        : 'var(--slate-100)',
+                      color: active ? '#ffffff' : 'var(--slate-800)',
+                    }}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '0.75rem',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '12px',
           }}
         >
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', flex: '1 1 260px' }}>
             <Search
               size={15}
+              color="var(--slate-400)"
               style={{
                 position: 'absolute',
-                left: '0.75rem',
+                left: '11px',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                color: 'var(--text-muted)',
               }}
             />
             <input
@@ -466,7 +564,7 @@ export default function UserActivityPage() {
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder={t('activity.search_placeholder')}
-              style={{ paddingLeft: '2.25rem' }}
+              style={{ paddingLeft: '34px' }}
             />
           </div>
 
@@ -477,6 +575,7 @@ export default function UserActivityPage() {
               setRoleFilter(e.target.value);
               setPage(1);
             }}
+            style={{ width: '210px', flex: '0 0 auto' }}
           >
             <option value="">{t('activity.role_all')}</option>
             {ROLE_OPTIONS.map((roleKey) => (
@@ -493,6 +592,7 @@ export default function UserActivityPage() {
               setClientFilter(e.target.value as 'all' | 'web' | 'mobile');
               setPage(1);
             }}
+            style={{ width: '165px', flex: '0 0 auto' }}
           >
             <option value="all">{t('activity.platform_all')}</option>
             <option value="web">{t('activity.platform_web')}</option>
@@ -501,318 +601,418 @@ export default function UserActivityPage() {
         </div>
       </div>
 
-      {/* Error State */}
-      {error && (
-        <div
-          className="panel"
-          style={{
-            padding: '1rem 1.25rem',
-            borderColor: '#fecaca',
-            background: '#fef2f2',
-            color: '#b91c1c',
-            fontSize: '0.875rem',
-            fontWeight: 500,
-          }}
-        >
-          {error}
-        </div>
-      )}
-
       {/* Activity Table */}
-      <div className="panel" style={{ overflow: 'hidden' }}>
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
+      <div className="table-container">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>{t('activity.col_user')}</th>
+              <th>{t('activity.col_role_area')}</th>
+              <th>{t('activity.col_status')}</th>
+              <th>{t('activity.col_last_active')}</th>
+              <th>{t('activity.col_active_duration')}</th>
+              <th>{t('activity.col_today_total')}</th>
+              <th style={{ textAlign: 'right' }}>{t('activity.col_actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && !data ? (
               <tr>
-                <th>{t('activity.col_user')}</th>
-                <th>{t('activity.col_role_area')}</th>
-                <th>{t('activity.col_status')}</th>
-                <th>{t('activity.col_last_active')}</th>
-                <th>{t('activity.col_active_duration')}</th>
-                <th>{t('activity.col_today_total')}</th>
-                <th style={{ textAlign: 'right' }}>{t('activity.col_actions')}</th>
+                <td
+                  colSpan={7}
+                  style={{
+                    textAlign: 'center',
+                    padding: '2.5rem 1rem',
+                    color: 'var(--slate-400)',
+                  }}
+                >
+                  Loading user activity...
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {loading && !data ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    style={{
-                      textAlign: 'center',
-                      padding: '2.5rem 1rem',
-                      color: 'var(--text-muted)',
-                    }}
-                  >
-                    {t('common.loading') || 'Loading...'}
-                  </td>
-                </tr>
-              ) : !data || data.items.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    style={{
-                      textAlign: 'center',
-                      padding: '2.5rem 1rem',
-                      color: 'var(--text-muted)',
-                    }}
-                  >
-                    {t('activity.empty')}
-                  </td>
-                </tr>
-              ) : (
-                data.items.map((item) => {
-                  const areaParts = [
-                    item.districtName,
-                    item.dsName,
-                    item.gnName,
-                    item.teamName,
-                  ].filter(Boolean);
+            ) : !data || data.items.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={7}
+                  style={{
+                    textAlign: 'center',
+                    padding: '2.5rem 1rem',
+                    color: 'var(--slate-400)',
+                  }}
+                >
+                  {t('activity.empty')}
+                </td>
+              </tr>
+            ) : (
+              data.items.map((item) => {
+                const areaParts = [
+                  item.districtName,
+                  item.dsName,
+                  item.gnName,
+                  item.teamName,
+                ].filter(Boolean);
 
-                  const isOnline = item.status === 'online';
-                  const liveSessionSecs =
-                    isOnline && item.currentSessionDurationSeconds !== null
-                      ? item.currentSessionDurationSeconds + liveDeltaSeconds
-                      : null;
-                  const liveTodaySecs =
-                    isOnline && item.todayActiveSeconds > 0
-                      ? item.todayActiveSeconds + liveDeltaSeconds
-                      : item.todayActiveSeconds;
+                const isOnline = item.status === 'online';
+                const liveSessionSecs =
+                  isOnline && item.currentSessionDurationSeconds !== null
+                    ? item.currentSessionDurationSeconds + liveDeltaSeconds
+                    : null;
+                const liveTodaySecs =
+                  isOnline && item.todayActiveSeconds > 0
+                    ? item.todayActiveSeconds + liveDeltaSeconds
+                    : item.todayActiveSeconds;
 
-                  return (
-                    <tr key={item.id}>
-                      {/* User */}
-                      <td>
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span
-                              className="font-semibold"
-                              style={{ color: 'var(--navy)' }}
-                            >
-                              {item.fullName}
-                            </span>
-                            {!item.isActive && (
-                              <span className="badge badge-danger">
-                                {t('activity.deactivated_badge')}
-                              </span>
-                            )}
-                          </div>
+                return (
+                  <tr key={item.id}>
+                    {/* User */}
+                    <td>
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '3px',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            flexWrap: 'wrap',
+                          }}
+                        >
                           <span
-                            className="text-xs text-muted"
-                            style={{ fontFamily: 'monospace' }}
+                            style={{
+                              fontWeight: 600,
+                              color: 'var(--slate-900)',
+                            }}
                           >
-                            {item.userCode}
-                            {item.email ? ` · ${item.email}` : ''}
+                            {item.fullName}
                           </span>
+                          {!item.isActive && (
+                            <span className="badge badge-danger">
+                              {t('activity.deactivated_badge')}
+                            </span>
+                          )}
                         </div>
-                      </td>
+                        <span
+                          style={{
+                            fontSize: '12px',
+                            color: 'var(--slate-500)',
+                            fontFamily: 'monospace',
+                          }}
+                        >
+                          {item.userCode}
+                          {item.email ? ` · ${item.email}` : ''}
+                        </span>
+                      </div>
+                    </td>
 
-                      {/* Role & Area */}
-                      <td>
-                        <div className="flex flex-col gap-1">
+                    {/* Role & Area */}
+                    <td>
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px',
+                        }}
+                      >
+                        <span
+                          className="badge badge-neutral"
+                          style={{ alignSelf: 'flex-start' }}
+                        >
+                          {ROLE_LABELS[item.role] || item.role}
+                        </span>
+                        <span
+                          style={{ fontSize: '12px', color: 'var(--slate-500)' }}
+                        >
+                          {areaParts.length > 0
+                            ? areaParts.join(' › ')
+                            : 'National'}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Status */}
+                    <td>
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '5px',
+                        }}
+                      >
+                        {item.status === 'online' ? (
+                          <span
+                            className="badge badge-success"
+                            style={{ alignSelf: 'flex-start', gap: '6px' }}
+                          >
+                            <span
+                              style={{
+                                width: '7px',
+                                height: '7px',
+                                borderRadius: '9999px',
+                                background: '#16a34a',
+                                display: 'inline-block',
+                              }}
+                            />
+                            {t('activity.status_online')}
+                          </span>
+                        ) : item.status === 'offline' ? (
                           <span
                             className="badge badge-neutral"
                             style={{ alignSelf: 'flex-start' }}
                           >
-                            {ROLE_LABELS[item.role] || item.role}
+                            {t('activity.status_offline')}
                           </span>
-                          <span className="text-xs text-muted">
-                            {areaParts.length > 0 ? areaParts.join(' › ') : 'National'}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Online / Offline Status */}
-                      <td>
-                        <div className="flex flex-col gap-1">
-                          {item.status === 'online' ? (
-                            <span
-                              className="badge badge-success"
-                              style={{ alignSelf: 'flex-start', gap: '6px' }}
-                            >
-                              <span
-                                style={{
-                                  width: '7px',
-                                  height: '7px',
-                                  borderRadius: '9999px',
-                                  background: '#16a34a',
-                                  display: 'inline-block',
-                                }}
-                              />
-                              {t('activity.status_online')}
-                            </span>
-                          ) : item.status === 'offline' ? (
-                            <span
-                              className="badge badge-neutral"
-                              style={{ alignSelf: 'flex-start' }}
-                            >
-                              {t('activity.status_offline')}
-                            </span>
-                          ) : (
-                            <span
-                              className="badge badge-neutral"
-                              style={{
-                                alignSelf: 'flex-start',
-                                opacity: 0.72,
-                              }}
-                            >
-                              {t('activity.status_never')}
-                            </span>
-                          )}
-
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {item.status === 'online'
-                              ? item.activeClients.map((c) => (
-                                  <ClientBadge key={c} clientType={c} />
-                                ))
-                              : item.lastClientType && (
-                                  <ClientBadge clientType={item.lastClientType} />
-                                )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Last Active */}
-                      <td>
-                        {item.status === 'online' ? (
-                          <div className="flex flex-col gap-1">
-                            <span
-                              className="text-sm font-semibold"
-                              style={{ color: '#15803d' }}
-                            >
-                              {t('activity.rel_just_now')}
-                            </span>
-                            <span className="text-xs text-muted tabular-nums">
-                              {formatDate(item.lastActiveAt ?? undefined)}
-                            </span>
-                          </div>
-                        ) : item.lastActiveAt ? (
-                          <div className="flex flex-col gap-1">
-                            <span
-                              className="text-sm font-semibold"
-                              style={{ color: 'var(--navy)' }}
-                            >
-                              {formatRelativeTime(
-                                item.lastActiveAt,
-                                nowMs,
-                                relativeLabels,
-                              )}
-                            </span>
-                            <span className="text-xs text-muted tabular-nums">
-                              {formatDate(item.lastActiveAt)}
-                            </span>
-                          </div>
                         ) : (
-                          <span className="text-xs text-muted">-</span>
-                        )}
-                      </td>
-
-                      {/* Active Duration */}
-                      <td>
-                        {isOnline && liveSessionSecs !== null ? (
-                          <div className="flex flex-col gap-1">
-                            <span
-                              className="text-sm font-semibold tabular-nums"
-                              style={{ color: '#047857' }}
-                            >
-                              {t('activity.current_session_prefix')}{' '}
-                              {formatActiveDuration(liveSessionSecs, durationLabels)}
-                            </span>
-                            {item.currentSessionStartedAt && (
-                              <span className="text-xs text-muted tabular-nums">
-                                {t('activity.started_at')}:{' '}
-                                {formatDate(item.currentSessionStartedAt)}
-                              </span>
-                            )}
-                          </div>
-                        ) : item.lastSessionDurationSeconds !== null ? (
-                          <div className="flex flex-col gap-1">
-                            <span
-                              className="text-sm font-semibold tabular-nums"
-                              style={{ color: 'var(--text-main)' }}
-                            >
-                              {t('activity.last_session_prefix')}{' '}
-                              {formatActiveDuration(
-                                item.lastSessionDurationSeconds,
-                                durationLabels,
-                              )}
-                            </span>
-                            {item.lastSessionEndedAt && (
-                              <span className="text-xs text-muted tabular-nums">
-                                {t('activity.ended_at')}:{' '}
-                                {formatDate(item.lastSessionEndedAt)}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted">
-                            {t('activity.no_sessions_yet')}
+                          <span
+                            className="badge badge-neutral"
+                            style={{
+                              alignSelf: 'flex-start',
+                              opacity: 0.72,
+                            }}
+                          >
+                            {t('activity.status_never')}
                           </span>
                         )}
-                      </td>
 
-                      {/* Active Today Total */}
-                      <td>
-                        <span
-                          className="text-sm font-semibold tabular-nums"
+                        <div
                           style={{
-                            color:
-                              liveTodaySecs > 0
-                                ? 'var(--primary)'
-                                : 'var(--text-muted)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            flexWrap: 'wrap',
                           }}
                         >
-                          {liveTodaySecs > 0
-                            ? formatActiveDuration(liveTodaySecs, durationLabels)
-                            : '-'}
-                        </span>
-                      </td>
+                          {item.status === 'online'
+                            ? item.activeClients.map((c) => (
+                              <ClientBadge key={c} clientType={c} />
+                            ))
+                            : item.lastClientType && (
+                              <ClientBadge clientType={item.lastClientType} />
+                            )}
+                        </div>
+                      </div>
+                    </td>
 
-                      {/* Session History Action */}
-                      <td style={{ textAlign: 'right' }}>
-                        <button
-                          type="button"
-                          className="btn-ghost"
-                          onClick={() => handleOpenHistory(item)}
-                          style={{ fontSize: '0.8rem', padding: '0.35rem 0.65rem' }}
+                    {/* Last Active */}
+                    <td>
+                      {item.status === 'online' ? (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px',
+                          }}
                         >
-                          <History size={14} />
-                          {t('activity.view_history')}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                          <span
+                            style={{
+                              fontSize: '13px',
+                              fontWeight: 600,
+                              color: 'var(--success-text)',
+                            }}
+                          >
+                            {t('activity.rel_just_now')}
+                          </span>
+                          <span
+                            className="tabular-nums"
+                            style={{ fontSize: '12px', color: 'var(--slate-500)' }}
+                          >
+                            {formatDate(item.lastActiveAt ?? undefined)}
+                          </span>
+                        </div>
+                      ) : item.lastActiveAt ? (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px',
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: '13px',
+                              fontWeight: 600,
+                              color: 'var(--slate-900)',
+                            }}
+                          >
+                            {formatRelativeTime(
+                              item.lastActiveAt,
+                              nowMs,
+                              relativeLabels,
+                            )}
+                          </span>
+                          <span
+                            className="tabular-nums"
+                            style={{ fontSize: '12px', color: 'var(--slate-500)' }}
+                          >
+                            {formatDate(item.lastActiveAt)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span
+                          style={{ fontSize: '12px', color: 'var(--slate-400)' }}
+                        >
+                          -
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Active Duration */}
+                    <td>
+                      {isOnline && liveSessionSecs !== null ? (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px',
+                          }}
+                        >
+                          <span
+                            className="tabular-nums"
+                            style={{
+                              fontSize: '13px',
+                              fontWeight: 600,
+                              color: 'var(--success-text)',
+                            }}
+                          >
+                            {t('activity.current_session_prefix')}{' '}
+                            {formatActiveDuration(liveSessionSecs, durationLabels)}
+                          </span>
+                          {item.currentSessionStartedAt && (
+                            <span
+                              className="tabular-nums"
+                              style={{
+                                fontSize: '12px',
+                                color: 'var(--slate-500)',
+                              }}
+                            >
+                              {t('activity.started_at')}:{' '}
+                              {formatDate(item.currentSessionStartedAt)}
+                            </span>
+                          )}
+                        </div>
+                      ) : item.lastSessionDurationSeconds !== null ? (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px',
+                          }}
+                        >
+                          <span
+                            className="tabular-nums"
+                            style={{
+                              fontSize: '13px',
+                              fontWeight: 600,
+                              color: 'var(--slate-800)',
+                            }}
+                          >
+                            {t('activity.last_session_prefix')}{' '}
+                            {formatActiveDuration(
+                              item.lastSessionDurationSeconds,
+                              durationLabels,
+                            )}
+                          </span>
+                          {item.lastSessionEndedAt && (
+                            <span
+                              className="tabular-nums"
+                              style={{
+                                fontSize: '12px',
+                                color: 'var(--slate-500)',
+                              }}
+                            >
+                              {t('activity.ended_at')}:{' '}
+                              {formatDate(item.lastSessionEndedAt)}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span
+                          style={{ fontSize: '12px', color: 'var(--slate-400)' }}
+                        >
+                          {t('activity.no_sessions_yet')}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Active Today Total */}
+                    <td>
+                      <span
+                        className="tabular-nums"
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color:
+                            liveTodaySecs > 0
+                              ? 'var(--primary)'
+                              : 'var(--slate-400)',
+                        }}
+                      >
+                        {liveTodaySecs > 0
+                          ? formatActiveDuration(liveTodaySecs, durationLabels)
+                          : '-'}
+                      </span>
+                    </td>
+
+                    {/* Session History Action */}
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => void handleOpenHistory(item)}
+                        style={{ padding: '5px 10px', fontSize: '12px' }}
+                      >
+                        <History size={13} />
+                        <span>{t('activity.view_history')}</span>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
 
         {/* Pagination Footer */}
         {data && data.total > 0 && (
           <div
-            className="flex flex-wrap items-center justify-between gap-3"
             style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
               padding: '0.75rem 1rem',
               borderTop: '1px solid var(--border-subtle)',
-              background: 'var(--bg-subtle)',
+              background: 'var(--slate-50)',
             }}
           >
-            <span className="text-xs text-muted tabular-nums">
+            <span
+              className="tabular-nums"
+              style={{ fontSize: '12px', color: 'var(--slate-500)' }}
+            >
               Showing {(data.page - 1) * data.limit + 1}–
               {Math.min(data.page * data.limit, data.total)} of {data.total} users
             </span>
-            <div className="flex items-center gap-2">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 type="button"
                 className="btn-secondary"
                 disabled={page <= 1 || loading}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '12px' }}
               >
                 Previous
               </button>
-              <span className="text-xs font-medium tabular-nums">
+              <span
+                className="tabular-nums"
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: 'var(--slate-700)',
+                }}
+              >
                 Page {page} / {totalPages}
               </span>
               <button
@@ -820,7 +1020,7 @@ export default function UserActivityPage() {
                 className="btn-secondary"
                 disabled={page >= totalPages || loading}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '12px' }}
               >
                 Next
               </button>
@@ -845,12 +1045,22 @@ export default function UserActivityPage() {
             <div className="modal-header">
               <div>
                 <h2
-                  className="text-lg font-bold"
-                  style={{ color: 'var(--navy)' }}
+                  style={{
+                    fontSize: '17px',
+                    fontWeight: 700,
+                    color: 'var(--slate-900)',
+                    margin: 0,
+                  }}
                 >
                   {t('activity.history_title')} — {selectedUser.fullName}
                 </h2>
-                <p className="text-xs text-muted" style={{ marginTop: '2px' }}>
+                <p
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--slate-500)',
+                    marginTop: '2px',
+                  }}
+                >
                   {selectedUser.userCode} ·{' '}
                   {ROLE_LABELS[selectedUser.role] || selectedUser.role}
                 </p>
@@ -865,14 +1075,17 @@ export default function UserActivityPage() {
               </button>
             </div>
 
-            <div className="modal-body space-y-4">
+            <div
+              className="modal-body"
+              style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+            >
               {detailLoading ? (
                 <div
                   style={{
                     padding: '2rem',
                     textAlign: 'center',
-                    color: 'var(--text-muted)',
-                    fontSize: '0.875rem',
+                    color: 'var(--slate-500)',
+                    fontSize: '14px',
                   }}
                 >
                   Loading session history...
@@ -880,11 +1093,12 @@ export default function UserActivityPage() {
               ) : detailError ? (
                 <div
                   style={{
-                    padding: '0.875rem',
+                    padding: '12px 14px',
                     borderRadius: 'var(--radius-sm)',
-                    background: '#fef2f2',
-                    color: '#b91c1c',
-                    fontSize: '0.875rem',
+                    background: 'var(--danger-bg)',
+                    border: '1px solid var(--danger-border)',
+                    color: 'var(--danger-text)',
+                    fontSize: '13.5px',
                   }}
                 >
                   {detailError}
@@ -895,18 +1109,24 @@ export default function UserActivityPage() {
                     style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                      gap: '0.75rem',
-                      padding: '0.75rem',
+                      gap: '12px',
+                      padding: '12px',
                       borderRadius: 'var(--radius-md)',
-                      background: 'var(--bg-subtle)',
-                      border: '1px solid var(--border-main)',
+                      background: 'var(--slate-50)',
+                      border: '1px solid var(--border-subtle)',
                     }}
                   >
                     <div>
-                      <div className="text-xs text-muted">
+                      <div style={{ fontSize: '12px', color: 'var(--slate-500)' }}>
                         {t('activity.col_status')}
                       </div>
-                      <div className="text-sm font-semibold">
+                      <div
+                        style={{
+                          fontSize: '13.5px',
+                          fontWeight: 600,
+                          color: 'var(--slate-900)',
+                        }}
+                      >
                         {detail.account.status === 'online'
                           ? t('activity.status_online')
                           : detail.account.status === 'offline'
@@ -915,25 +1135,39 @@ export default function UserActivityPage() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted">
+                      <div style={{ fontSize: '12px', color: 'var(--slate-500)' }}>
                         {t('activity.col_last_active')}
                       </div>
-                      <div className="text-sm font-semibold tabular-nums">
+                      <div
+                        className="tabular-nums"
+                        style={{
+                          fontSize: '13.5px',
+                          fontWeight: 600,
+                          color: 'var(--slate-900)',
+                        }}
+                      >
                         {detail.account.lastActiveAt
                           ? formatDate(detail.account.lastActiveAt)
                           : '-'}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted">
+                      <div style={{ fontSize: '12px', color: 'var(--slate-500)' }}>
                         {t('activity.col_today_total')}
                       </div>
-                      <div className="text-sm font-semibold tabular-nums">
+                      <div
+                        className="tabular-nums"
+                        style={{
+                          fontSize: '13.5px',
+                          fontWeight: 600,
+                          color: 'var(--primary)',
+                        }}
+                      >
                         {detail.account.todayActiveSeconds > 0
                           ? formatActiveDuration(
-                              detail.account.todayActiveSeconds,
-                              durationLabels,
-                            )
+                            detail.account.todayActiveSeconds,
+                            durationLabels,
+                          )
                           : '0 mins'}
                       </div>
                     </div>
@@ -941,8 +1175,12 @@ export default function UserActivityPage() {
 
                   {detail.sessions.length === 0 ? (
                     <div
-                      className="text-sm text-muted"
-                      style={{ textAlign: 'center', padding: '1.5rem 0' }}
+                      style={{
+                        textAlign: 'center',
+                        padding: '1.5rem 0',
+                        fontSize: '13.5px',
+                        color: 'var(--slate-500)',
+                      }}
                     >
                       {t('activity.no_sessions_yet')}
                     </div>
@@ -964,14 +1202,22 @@ export default function UserActivityPage() {
                               <td>
                                 <ClientBadge clientType={sess.clientType} />
                               </td>
-                              <td className="text-xs tabular-nums">
+                              <td
+                                className="tabular-nums"
+                                style={{ fontSize: '12px' }}
+                              >
                                 {formatDate(sess.startedAt)}
                               </td>
-                              <td className="text-xs tabular-nums">
+                              <td
+                                className="tabular-nums"
+                                style={{ fontSize: '12px' }}
+                              >
                                 {sess.isOnline ? (
                                   <span
-                                    className="font-semibold"
-                                    style={{ color: '#15803d' }}
+                                    style={{
+                                      fontWeight: 600,
+                                      color: 'var(--success-text)',
+                                    }}
                                   >
                                     {t('activity.status_online')}
                                   </span>
@@ -981,7 +1227,10 @@ export default function UserActivityPage() {
                                   )
                                 )}
                               </td>
-                              <td className="text-sm font-semibold tabular-nums">
+                              <td
+                                className="tabular-nums"
+                                style={{ fontSize: '13px', fontWeight: 600 }}
+                              >
                                 {formatActiveDuration(
                                   sess.durationSeconds,
                                   durationLabels,
@@ -1020,6 +1269,6 @@ export default function UserActivityPage() {
           </div>
         </div>
       )}
-    </div>
+    </Shell>
   );
 }
