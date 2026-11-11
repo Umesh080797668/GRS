@@ -154,6 +154,27 @@ export class AccountService {
           });
         }
 
+        // Record initial active territory assignment in account_assignments
+        if (
+          (resolvedTerritory.districtId ||
+            resolvedTerritory.dsId ||
+            gnId ||
+            resolvedTerritory.teamId) &&
+          (tx as any).accountAssignment
+        ) {
+          await (tx as any).accountAssignment.create({
+            data: {
+              profileId: profile.id,
+              districtId: resolvedTerritory.districtId ?? null,
+              dsId: resolvedTerritory.dsId ?? null,
+              gnId: gnId ?? null,
+              teamId: resolvedTerritory.teamId ?? null,
+              assignedBy: creatorScope.userId,
+              validFrom: new Date(),
+            },
+          });
+        }
+
         await tx.accountAudit.create({
           data: {
             actorId: creatorScope.userId,
@@ -335,6 +356,26 @@ export class AccountService {
               batchId: batch.id,
             },
           });
+
+          if (
+            (resolvedTerritory.districtId ||
+              resolvedTerritory.dsId ||
+              gnId ||
+              resolvedTerritory.teamId) &&
+            (tx as any).accountAssignment
+          ) {
+            await (tx as any).accountAssignment.create({
+              data: {
+                profileId: profile.id,
+                districtId: resolvedTerritory.districtId ?? null,
+                dsId: resolvedTerritory.dsId ?? null,
+                gnId: gnId ?? null,
+                teamId: resolvedTerritory.teamId ?? null,
+                assignedBy: creatorScope.userId,
+                validFrom: new Date(),
+              },
+            });
+          }
 
           results.push({
             id: profile.id,

@@ -109,7 +109,7 @@ function AssignDialog({
         <div className="modal-header">
           <div>
             <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
-              Assign Territory
+              {profile?.role === 'cdc_secretary' ? 'Add GN / Assign Territory' : 'Assign Territory'}
             </h3>
             {profile && (
               <p style={{ fontSize: '12px', color: 'var(--slate-500)', marginTop: '3px' }}>
@@ -124,6 +124,11 @@ function AssignDialog({
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {profile?.role === 'cdc_secretary' && (
+              <div style={{ background: 'var(--primary-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '9px 12px', color: 'var(--slate-700)', fontSize: '12.5px', lineHeight: 1.4 }}>
+                CDC Secretaries can hold multiple GN divisions simultaneously. Assigning a new GN division adds it without ending their other active GN assignments.
+              </div>
+            )}
             {error && (
               <div style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', color: 'var(--danger-text)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
                 <AlertCircle size={16} style={{ flexShrink: 0 }} />
@@ -483,11 +488,17 @@ export default function AssignmentsPage() {
     }
   };
 
-  const handleEndAssignment = async (profileId: string, name: string) => {
-    if (!confirm(`End the active assignment for ${name}? They will see nothing until reassigned.`)) return;
+  const handleEndAssignment = async (assignment: Assignment) => {
+    const label = territoryLabel(assignment);
+    const activeCount = assignments.filter((row) => row.profileId === assignment.profileId).length;
+    const message =
+      activeCount > 1
+        ? `End assignment "${label}" for ${assignment.profile.fullName}? Their other ${activeCount - 1} active assignment(s) will remain active.`
+        : `End the active assignment "${label}" for ${assignment.profile.fullName}? They will see nothing until reassigned.`;
+    if (!confirm(message)) return;
     try {
-      await api.endAccountAssignment(profileId);
-      flash(`Assignment ended for ${name}.`);
+      await api.endAccountAssignment(assignment.profileId, assignment.id);
+      flash(`Assignment (${label}) ended for ${assignment.profile.fullName}.`);
       fetchAssignments();
     } catch (e: any) {
       flash(e.message || 'Could not end assignment.', true);
@@ -499,8 +510,12 @@ export default function AssignmentsPage() {
     setSubmitting(true);
     setModalError(null);
     try {
-      await api.transferAccountAssignment(transferFrom.profileId, { toProfileId, note: note || undefined });
-      flash(`Assignment transferred from ${transferFrom.profile.fullName}.`);
+      await api.transferAccountAssignment(transferFrom.profileId, {
+        toProfileId,
+        assignmentId: transferFrom.id,
+        note: note || undefined,
+      });
+      flash(`Assignment (${territoryLabel(transferFrom)}) transferred from ${transferFrom.profile.fullName}.`);
       setTransferFrom(null);
       fetchAssignments();
     } catch (e: any) {
@@ -509,6 +524,11 @@ export default function AssignmentsPage() {
       setSubmitting(false);
     }
   };
+
+  const activeCountByProfile = new Map<string, number>();
+  for (const a of assignments) {
+    activeCountByProfile.set(a.profileId, (activeCountByProfile.get(a.profileId) ?? 0) + 1);
+  }
 
   const filtered = assignments.filter((a) => {
     if (!searchQuery) return true;
@@ -599,6 +619,7 @@ export default function AssignmentsPage() {
                 const acc = accounts.find((a) => a.id === e.target.value);
                 if (acc) {
                   setModalError(null);
+                  handleDsChange('');
                   setAssignTarget({ id: acc.id, userCode: acc.userCode || acc.user_code, fullName: acc.fullName || acc.full_name, role: acc.role });
                 }
                 e.target.value = '';
@@ -641,7 +662,14 @@ export default function AssignmentsPage() {
               filtered.map((a) => (
                 <tr key={a.id}>
                   <td>
-                    <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--slate-900)' }}>{a.profile.fullName}</div>
+                    <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--slate-900)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>{a.profile.fullName}</span>
+                      {(activeCountByProfile.get(a.profileId) ?? 0) > 1 && (
+                        <span className="badge badge-info" style={{ fontSize: '10px' }}>
+                          {activeCountByProfile.get(a.profileId)} active
+                        </span>
+                      )}
+                    </div>
                     <div style={{ fontSize: '11px', fontFamily: 'monospace', color: 'var(--primary)' }}>{a.profile.userCode}</div>
                   </td>
                   <td>
@@ -670,13 +698,13 @@ export default function AssignmentsPage() {
                         <Clock size={13} />
                       </button>
 
-                      {/* Reassign (opens assign dialog) */}
+                      {/* Reassign / Add GN (opens assign dialog) */}
                       <button
                         type="button"
-                        title="Reassign territory"
+                        title={a.profile.role === 'cdc_secretary' ? 'Add GN / assign territory' : 'Reassign territory'}
                         className="btn-secondary"
                         style={{ padding: '5px 8px', fontSize: '11px' }}
-                        onClick={() => { setModalError(null); setAssignTarget(a.profile); }}
+                        onClick={() => { setModalError(null); handleDsChange(''); setAssignTarget(a.profile); }}
                       >
                         <MapPin size={13} />
                       </button>
@@ -698,7 +726,7 @@ export default function AssignmentsPage() {
                         title="End assignment (removes territory access)"
                         className="btn-danger"
                         style={{ padding: '5px 8px', fontSize: '11px' }}
-                        onClick={() => handleEndAssignment(a.profileId, a.profile.fullName)}
+                        onClick={() => handleEndAssignment(a)}
                       >
                         <XCircle size={13} />
                       </button>

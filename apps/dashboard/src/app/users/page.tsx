@@ -539,7 +539,7 @@ export default function UsersPage() {
                         {acc.role}
                       </span>
                     </td>
-                    <td>{acc.phone_e164 || acc.phone || '—'}</td>
+                    <td>{acc.phoneE164 || acc.phone_e164 || acc.phone || '—'}</td>
                     <td>
                       {isActive ? (
                         <span className="badge badge-success">{t('users.active')}</span>

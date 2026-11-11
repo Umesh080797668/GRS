@@ -523,13 +523,16 @@ export class ApiClient {
     });
   }
 
-  async endAccountAssignment(profileId: string): Promise<any> {
-    return this.request(`/v1/accounts/${profileId}/end-assignment`, { method: 'POST' });
+  async endAccountAssignment(profileId: string, assignmentId?: string): Promise<any> {
+    return this.request(`/v1/accounts/${profileId}/end-assignment`, {
+      method: 'POST',
+      ...(assignmentId ? { body: JSON.stringify({ assignmentId }) } : {}),
+    });
   }
 
   async transferAccountAssignment(
     fromProfileId: string,
-    dto: { toProfileId: string; districtId?: string; dsId?: string; gnId?: string; teamId?: string; note?: string },
+    dto: { toProfileId: string; assignmentId?: string; districtId?: string; dsId?: string; gnId?: string; teamId?: string; note?: string },
   ): Promise<any> {
     return this.request(`/v1/accounts/${fromProfileId}/transfer`, {
       method: 'POST',

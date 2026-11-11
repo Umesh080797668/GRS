@@ -11,6 +11,10 @@ export class TransferAccountDto {
 
   @IsUUID()
   @IsOptional()
+  assignmentId?: string;
+
+  @IsUUID()
+  @IsOptional()
   districtId?: string;
 
   @IsUUID()

@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRole, ScopeContext, getRoleRank } from '../common/scope/scope.types';
 import { AssignAccountDto } from './dto/assign-account.dto';
+import { EndAssignmentDto } from './dto/end-assignment.dto';
 import { TransferAccountDto } from './dto/transfer-account.dto';
 import { ListAssignmentsDto } from './dto/list-assignments.dto';
 
@@ -28,7 +29,10 @@ export class AssignmentService {
 
   /**
    * Assigns territory to a profile.
-   * Ends any currently open assignment first (one-active-per-person rule).
+   * For CDC Secretaries assigned to a GN division, multiple active GN assignments
+   * are permitted concurrently (Decision C23), while handing over that specific GN
+   * if another CDC Secretary currently holds it. All other roles keep one active
+   * assignment per person.
    * Bumps tokenVersion so stale access tokens pick up the change on next refresh.
    */
   async assign(
@@ -44,6 +48,7 @@ export class AssignmentService {
     this.assertCanAssignRole(actor);
 
     const target = await this.requireActiveProfile(profileId);
+    this.assertCanManage(actor, target);
 
     // Resolve the full territory chain from the specified leaf so that
     // assertCanAssign has the full districtId/dsId populated for containment.
@@ -52,47 +57,13 @@ export class AssignmentService {
 
     return this.prisma.$transaction(
       async (tx) => {
-        // End any currently open assignment for this profile
-        await this.endOpenAssignment(tx, profileId, actor.userId);
-
-        // Create new assignment
-        const assignment = await (tx as any).accountAssignment.create({
-          data: {
-            profileId,
-            districtId: resolved.districtId ?? null,
-            dsId: resolved.dsId ?? null,
-            gnId: resolved.gnId ?? null,
-            teamId: resolved.teamId ?? null,
-            assignedBy: actor.userId,
-            note: dto.note ?? null,
-            validFrom: new Date(),
-          },
-        });
-
-        // Update profile cache columns + bump tokenVersion
-        await tx.profile.update({
-          where: { id: profileId },
-          data: {
-            districtId: resolved.districtId ?? null,
-            dsId: resolved.dsId ?? null,
-            gnId: resolved.gnId ?? null,
-            teamId: resolved.teamId ?? null,
-            tokenVersion: { increment: 1 },
-          },
-        });
-
-        // If assigning to a GN, keep profile_assignments in sync (compat shim)
-        if (resolved.gnId) {
-          await this.syncProfileAssignment(tx, profileId, resolved, actor.userId);
-
-          // Keep teams.leader_id in sync for cdc_secretary
-          if (resolved.teamId && target.role === UserRole.cdc_secretary) {
-            await tx.team.update({
-              where: { id: resolved.teamId },
-              data: { leaderId: profileId },
-            });
-          }
-        }
+        const assignment = await this.grantAssignment(
+          tx,
+          actor,
+          target,
+          resolved,
+          dto.note,
+        );
 
         await tx.accountAudit.create({
           data: {
@@ -109,40 +80,77 @@ export class AssignmentService {
   }
 
   /**
-   * Ends the open assignment for a profile.
-   * Clears cache columns and bumps tokenVersion (fail-closed: next request sees empty scope).
+   * Ends an open assignment for a profile.
+   * When assignmentId is specified (e.g., for a multi-GN CDC Secretary), only
+   * that assignment is closed and the profile cache switches to any remaining
+   * active assignment; if none remain, profile cache clears fail-closed.
    */
-  async endAssignment(actor: ScopeContext, profileId: string) {
+  async endAssignment(
+    actor: ScopeContext,
+    profileId: string,
+    dto?: EndAssignmentDto,
+  ) {
     const target = await this.requireActiveProfile(profileId);
     this.assertCanManage(actor, target);
 
     return this.prisma.$transaction(
       async (tx) => {
-        const ended = await this.endOpenAssignment(tx, profileId, actor.userId);
-        if (!ended) {
+        const existing = dto?.assignmentId
+          ? await (tx as any).accountAssignment.findFirst({
+              where: { id: dto.assignmentId, profileId, validTo: null },
+            })
+          : await (tx as any).accountAssignment.findFirst({
+              where: { profileId, validTo: null },
+              orderBy: { validFrom: 'desc' },
+            });
+
+        if (!existing) {
           throw new NotFoundException({
             code: 'NO_ACTIVE_ASSIGNMENT',
             message: 'Profile has no active assignment to end',
           });
         }
 
-        // Clear profile cache columns → fail-closed
-        await tx.profile.update({
-          where: { id: profileId },
-          data: {
-            districtId: null,
-            dsId: null,
-            gnId: null,
-            teamId: null,
-            tokenVersion: { increment: 1 },
-          },
+        if (actor.role === UserRole.dc || actor.role === UserRole.sda) {
+          this.assertCanAssign(actor, {
+            districtId: existing.districtId ?? null,
+            dsId: existing.dsId ?? null,
+            gnId: existing.gnId ?? null,
+            teamId: existing.teamId ?? null,
+          });
+        }
+
+        const now = new Date();
+        const ended = await (tx as any).accountAssignment.update({
+          where: { id: existing.id },
+          data: { validTo: now, endedBy: actor.userId },
         });
 
-        // Revoke refresh tokens so the next session starts clean
-        await tx.refreshToken.updateMany({
-          where: { profileId, revokedAt: null },
-          data: { revokedAt: new Date() },
-        });
+        if (target.role === UserRole.cdc_secretary && existing.gnId) {
+          await this.closeOpenProfileAssignments(
+            tx,
+            { profileId, gnId: existing.gnId },
+            now,
+          );
+        }
+        if (
+          target.role === UserRole.cdc_secretary &&
+          existing.teamId &&
+          (tx as any).team &&
+          typeof (tx as any).team.updateMany === 'function'
+        ) {
+          await (tx as any).team.updateMany({
+            where: { id: existing.teamId, leaderId: profileId },
+            data: { leaderId: null },
+          });
+        }
+
+        await this.syncProfileCacheAfterRemoval(
+          tx,
+          profileId,
+          [existing.id],
+          existing.gnId ?? null,
+        );
 
         await tx.accountAudit.create({
           data: {
@@ -159,8 +167,12 @@ export class AssignmentService {
   }
 
   /**
-   * Transfers the current open assignment (or a specified territory) from one profile to another.
-   * Atomically ends the from-profile's assignment and creates one for the to-profile.
+   * Transfers an open assignment (by assignmentId or latest open assignment)
+   * from one profile to another.
+   * For multi-GN CDC Secretaries, only the targeted assignment is closed on
+   * fromProfileId while keeping their remaining GNs active, and assigning the
+   * territory to toProfileId preserves toProfileId's other active GNs if they
+   * are also a CDC Secretary.
    */
   async transfer(
     actor: ScopeContext,
@@ -185,10 +197,34 @@ export class AssignmentService {
 
     return this.prisma.$transaction(
       async (tx) => {
-        // Find from-profile's current open assignment
-        const existing = await (tx as any).accountAssignment.findFirst({
-          where: { profileId: fromProfileId, validTo: null },
-        });
+        const existing = dto.assignmentId
+          ? await (tx as any).accountAssignment.findFirst({
+              where: {
+                id: dto.assignmentId,
+                profileId: fromProfileId,
+                validTo: null,
+              },
+            })
+          : await (tx as any).accountAssignment.findFirst({
+              where: { profileId: fromProfileId, validTo: null },
+              orderBy: { validFrom: 'desc' },
+            });
+
+        if (dto.assignmentId && !existing) {
+          throw new NotFoundException({
+            code: 'NO_ACTIVE_ASSIGNMENT',
+            message: 'Specified active assignment was not found for source profile',
+          });
+        }
+
+        if (existing && (actor.role === UserRole.dc || actor.role === UserRole.sda)) {
+          this.assertCanAssign(actor, {
+            districtId: existing.districtId ?? null,
+            dsId: existing.dsId ?? null,
+            gnId: existing.gnId ?? null,
+            teamId: existing.teamId ?? null,
+          });
+        }
 
         // Territory: use dto if provided, else copy from existing
         const rawTerritory: Territory = {
@@ -202,69 +238,62 @@ export class AssignmentService {
 
         await this.assertCanAssign(actor, resolved);
 
-        // End from-profile's assignment
+        const now = new Date();
         if (existing) {
           await (tx as any).accountAssignment.update({
             where: { id: existing.id },
-            data: { validTo: new Date(), endedBy: actor.userId },
+            data: { validTo: now, endedBy: actor.userId },
+          });
+
+          if (fromProfile.role === UserRole.cdc_secretary && existing.gnId) {
+            await this.closeOpenProfileAssignments(
+              tx,
+              { profileId: fromProfileId, gnId: existing.gnId },
+              now,
+            );
+          }
+          if (
+            fromProfile.role === UserRole.cdc_secretary &&
+            existing.teamId &&
+            (tx as any).team &&
+            typeof (tx as any).team.updateMany === 'function'
+          ) {
+            await (tx as any).team.updateMany({
+              where: { id: existing.teamId, leaderId: fromProfileId },
+              data: { leaderId: null },
+            });
+          }
+
+          await this.syncProfileCacheAfterRemoval(
+            tx,
+            fromProfileId,
+            [existing.id],
+            existing.gnId ?? null,
+          );
+        } else {
+          await tx.profile.update({
+            where: { id: fromProfileId },
+            data: {
+              districtId: null,
+              dsId: null,
+              gnId: null,
+              teamId: null,
+              tokenVersion: { increment: 1 },
+            },
+          });
+          await tx.refreshToken.updateMany({
+            where: { profileId: fromProfileId, revokedAt: null },
+            data: { revokedAt: now },
           });
         }
 
-        // Clear from-profile cache
-        await tx.profile.update({
-          where: { id: fromProfileId },
-          data: {
-            districtId: null,
-            dsId: null,
-            gnId: null,
-            teamId: null,
-            tokenVersion: { increment: 1 },
-          },
-        });
-        await tx.refreshToken.updateMany({
-          where: { profileId: fromProfileId, revokedAt: null },
-          data: { revokedAt: new Date() },
-        });
-
-        // End any existing assignment on to-profile
-        await this.endOpenAssignment(tx, toProfileId, actor.userId);
-
-        // Create new assignment on to-profile
-        const newAssignment = await (tx as any).accountAssignment.create({
-          data: {
-            profileId: toProfileId,
-            districtId: resolved.districtId ?? null,
-            dsId: resolved.dsId ?? null,
-            gnId: resolved.gnId ?? null,
-            teamId: resolved.teamId ?? null,
-            assignedBy: actor.userId,
-            note: dto.note ?? null,
-            validFrom: new Date(),
-          },
-        });
-
-        // Update to-profile cache
-        await tx.profile.update({
-          where: { id: toProfileId },
-          data: {
-            districtId: resolved.districtId ?? null,
-            dsId: resolved.dsId ?? null,
-            gnId: resolved.gnId ?? null,
-            teamId: resolved.teamId ?? null,
-            tokenVersion: { increment: 1 },
-          },
-        });
-
-        // Keep profile_assignments in sync for GN assignments
-        if (resolved.gnId) {
-          await this.syncProfileAssignment(tx, toProfileId, resolved, actor.userId);
-          if (resolved.teamId && toProfile.role === UserRole.cdc_secretary) {
-            await tx.team.update({
-              where: { id: resolved.teamId },
-              data: { leaderId: toProfileId },
-            });
-          }
-        }
+        const newAssignment = await this.grantAssignment(
+          tx,
+          actor,
+          toProfile,
+          resolved,
+          dto.note,
+        );
 
         await tx.accountAudit.createMany({
           data: [
@@ -527,50 +556,281 @@ export class AssignmentService {
   }
 
   /**
-   * Ends the currently open assignment for a profile (sets valid_to = now).
-   * Returns the ended row, or null if no open assignment existed.
+   * Grants a territory assignment to target inside a transaction.
+   * For CDC Secretaries at GN level, supports concurrent multi-GN assignments
+   * while cleanly handing over the target GN from any prior CDC Secretary holder.
    */
-  private async endOpenAssignment(tx: any, profileId: string, endedBy: string) {
-    const existing = await tx.accountAssignment.findFirst({
-      where: { profileId, validTo: null },
+  private async grantAssignment(
+    tx: any,
+    actor: ScopeContext,
+    target: { id: string; role: UserRole },
+    resolved: Territory,
+    note?: string | null,
+  ) {
+    const now = new Date();
+    const isMultiGnSecretary =
+      target.role === UserRole.cdc_secretary && Boolean(resolved.gnId);
+
+    if (isMultiGnSecretary && resolved.gnId) {
+      await this.displaceOtherSecretaryOnGn(
+        tx,
+        actor,
+        target.id,
+        resolved.gnId,
+        now,
+      );
+
+      // Replace only any active assignment on THIS same GN (or non-GN fallback)
+      // while leaving the secretary's other active GN assignments intact.
+      const ownAaRows = await this.findOpenRows(tx.accountAssignment, {
+        profileId: target.id,
+        validTo: null,
+      });
+      for (const aa of ownAaRows) {
+        if (!aa || aa.profileId !== target.id) continue;
+        if (!aa.gnId || aa.gnId === resolved.gnId) {
+          await tx.accountAssignment.update({
+            where: { id: aa.id },
+            data: { validTo: now, endedBy: actor.userId },
+          });
+        }
+      }
+
+      await this.closeOpenProfileAssignments(
+        tx,
+        { profileId: target.id, gnId: resolved.gnId },
+        now,
+      );
+    } else {
+      const ownAaRows = await this.findOpenRows(tx.accountAssignment, {
+        profileId: target.id,
+        validTo: null,
+      });
+      for (const aa of ownAaRows) {
+        if (!aa || aa.profileId !== target.id) continue;
+        await tx.accountAssignment.update({
+          where: { id: aa.id },
+          data: { validTo: now, endedBy: actor.userId },
+        });
+      }
+      await this.closeOpenProfileAssignments(tx, { profileId: target.id }, now);
+    }
+
+    const assignment = await tx.accountAssignment.create({
+      data: {
+        profileId: target.id,
+        districtId: resolved.districtId ?? null,
+        dsId: resolved.dsId ?? null,
+        gnId: resolved.gnId ?? null,
+        teamId: resolved.teamId ?? null,
+        assignedBy: actor.userId,
+        note: note ?? null,
+        validFrom: now,
+      },
     });
-    if (!existing) return null;
-    return tx.accountAssignment.update({
-      where: { id: existing.id },
-      data: { validTo: new Date(), endedBy },
+
+    await tx.profile.update({
+      where: { id: target.id },
+      data: {
+        districtId: resolved.districtId ?? null,
+        dsId: resolved.dsId ?? null,
+        gnId: resolved.gnId ?? null,
+        teamId: resolved.teamId ?? null,
+        tokenVersion: { increment: 1 },
+      },
     });
+
+    if (isMultiGnSecretary && resolved.gnId) {
+      if (tx.profileAssignment) {
+        await tx.profileAssignment.create({
+          data: {
+            profileId: target.id,
+            gnId: resolved.gnId,
+            teamId: resolved.teamId ?? null,
+            validFrom: now,
+          },
+        });
+      }
+      if (resolved.teamId && tx.team) {
+        await tx.team.update({
+          where: { id: resolved.teamId },
+          data: { leaderId: target.id },
+        });
+      }
+    }
+
+    return assignment;
   }
 
   /**
-   * Keeps profile_assignments in sync for CDC Secretary GN assignments.
-   * This is a compatibility shim while the old table still exists.
+   * Ends only the target GN assignment for any other CDC Secretary currently
+   * holding gnId so they retain their other GN assignments during a handover.
    */
-  private async syncProfileAssignment(
+  private async displaceOtherSecretaryOnGn(
     tx: any,
-    profileId: string,
-    resolved: Territory,
-    _actorId: string,
+    actor: ScopeContext,
+    newHolderId: string,
+    gnId: string,
+    now: Date,
   ) {
-    if (!resolved.gnId) return;
-    // End existing open profile_assignment for this profile
-    const existing = await tx.profileAssignment.findFirst({
-      where: { profileId, validTo: null },
+    const displacedByAccount = new Map<string, string[]>();
+    const displacedTeamIds = new Set<string>();
+
+    const otherPaRows = await this.findOpenRows(tx.profileAssignment, {
+      gnId,
+      validTo: null,
+      profileId: { not: newHolderId },
     });
-    if (existing) {
+    for (const pa of otherPaRows) {
+      if (!pa || pa.profileId === newHolderId || pa.gnId !== gnId) continue;
       await tx.profileAssignment.update({
-        where: { id: existing.id },
-        data: { validTo: new Date() },
+        where: { id: pa.id },
+        data: { validTo: now },
+      });
+      if (!displacedByAccount.has(pa.profileId)) {
+        displacedByAccount.set(pa.profileId, []);
+      }
+      if (pa.teamId) displacedTeamIds.add(pa.teamId);
+    }
+
+    const otherAaRows = await this.findOpenRows(
+      tx.accountAssignment,
+      {
+        gnId,
+        validTo: null,
+        profileId: { not: newHolderId },
+      },
+      { profile: { select: { role: true } } },
+    );
+    for (const aa of otherAaRows) {
+      if (!aa || aa.profileId === newHolderId || aa.gnId !== gnId) continue;
+      const isDisplacedSecretary =
+        aa.profile?.role === UserRole.cdc_secretary ||
+        displacedByAccount.has(aa.profileId);
+      if (!isDisplacedSecretary) continue;
+
+      await tx.accountAssignment.update({
+        where: { id: aa.id },
+        data: { validTo: now, endedBy: actor.userId },
+      });
+      const list = displacedByAccount.get(aa.profileId) ?? [];
+      list.push(aa.id);
+      displacedByAccount.set(aa.profileId, list);
+      if (aa.teamId) displacedTeamIds.add(aa.teamId);
+    }
+
+    if (displacedTeamIds.size > 0 && tx.team && typeof tx.team.updateMany === 'function') {
+      const displacedIds = Array.from(displacedByAccount.keys());
+      for (const teamId of displacedTeamIds) {
+        await tx.team.updateMany({
+          where: { id: teamId, leaderId: { in: displacedIds } },
+          data: { leaderId: null },
+        });
+      }
+    }
+
+    for (const [oldHolderId, closedIds] of displacedByAccount.entries()) {
+      await this.syncProfileCacheAfterRemoval(tx, oldHolderId, closedIds, gnId);
+      await tx.accountAudit.create({
+        data: {
+          actorId: actor.userId,
+          targetId: oldHolderId,
+          action: 'assignment_ended',
+        },
       });
     }
-    // Create new one
-    await tx.profileAssignment.create({
-      data: {
+  }
+
+  /**
+   * Updates a profile's cached territory after closing assignment(s):
+   * switches cache to a remaining open assignment if present, or clears it
+   * fail-closed and revokes all refresh tokens if none remain.
+   */
+  private async syncProfileCacheAfterRemoval(
+    tx: any,
+    profileId: string,
+    closedIds: string[],
+    removedGnId?: string | null,
+  ) {
+    const remaining = await tx.accountAssignment.findFirst({
+      where: {
         profileId,
-        gnId: resolved.gnId,
-        teamId: resolved.teamId ?? null,
-        validFrom: new Date(),
+        validTo: null,
+        ...(closedIds.length > 0 ? { id: { notIn: closedIds } } : {}),
+      },
+      orderBy: { validFrom: 'desc' },
+    });
+    const nextActive =
+      remaining && !closedIds.includes(remaining.id) ? remaining : null;
+
+    if (nextActive) {
+      await tx.profile.update({
+        where: { id: profileId },
+        data: {
+          districtId: nextActive.districtId ?? null,
+          dsId: nextActive.dsId ?? null,
+          gnId: nextActive.gnId ?? null,
+          teamId: nextActive.teamId ?? null,
+          tokenVersion: { increment: 1 },
+        },
+      });
+      if (removedGnId && tx.refreshToken?.updateMany) {
+        await tx.refreshToken.updateMany({
+          where: { profileId, activeGnId: removedGnId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+      }
+      return;
+    }
+
+    await tx.profile.update({
+      where: { id: profileId },
+      data: {
+        districtId: null,
+        dsId: null,
+        gnId: null,
+        teamId: null,
+        tokenVersion: { increment: 1 },
       },
     });
+
+    await tx.refreshToken.updateMany({
+      where: { profileId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  private async findOpenRows(repo: any, where: any, include?: any): Promise<any[]> {
+    if (!repo) return [];
+    if (typeof repo.findMany === 'function') {
+      return repo.findMany({ where, ...(include ? { include } : {}) });
+    }
+    if (typeof repo.findFirst === 'function') {
+      const one = await repo.findFirst({ where, ...(include ? { include } : {}) });
+      return one ? [one] : [];
+    }
+    return [];
+  }
+
+  private async closeOpenProfileAssignments(
+    tx: any,
+    filter: { profileId: string; gnId?: string },
+    now: Date,
+  ) {
+    if (!tx.profileAssignment) return;
+    const rows = await this.findOpenRows(tx.profileAssignment, {
+      profileId: filter.profileId,
+      ...(filter.gnId ? { gnId: filter.gnId } : {}),
+      validTo: null,
+    });
+    for (const pa of rows) {
+      if (!pa || pa.profileId !== filter.profileId) continue;
+      if (filter.gnId && pa.gnId !== filter.gnId) continue;
+      await tx.profileAssignment.update({
+        where: { id: pa.id },
+        data: { validTo: now },
+      });
+    }
   }
 
   private async requireActiveProfile(profileId: string) {

@@ -25,6 +25,7 @@ import { CreateBulkAccountsDto } from './dto/create-bulk-accounts.dto';
 import { ListAccountsDto } from './dto/list-accounts.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { AssignAccountDto } from './dto/assign-account.dto';
+import { EndAssignmentDto } from './dto/end-assignment.dto';
 import { TransferAccountDto } from './dto/transfer-account.dto';
 import { ListAssignmentsDto } from './dto/list-assignments.dto';
 
@@ -263,8 +264,9 @@ export class AccountController {
   async endAssignment(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) profileId: string,
+    @Body() dto?: EndAssignmentDto,
   ) {
-    return this.assignmentService.endAssignment(user, profileId);
+    return this.assignmentService.endAssignment(user, profileId, dto);
   }
 
   /**
