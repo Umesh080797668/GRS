@@ -3,6 +3,8 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Logger,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScopeService } from '../common/scope/scope.service';
@@ -16,6 +18,7 @@ import {
 import { LookupService } from '../lookups/lookup.service';
 import { AppConfigService } from '../config/app-config.service';
 import { SyncService } from '../sync/sync.service';
+import { DuplicatesService } from '../duplicates/duplicates.service';
 
 const VALID_INFO_PROVIDED_BY = new Set([
   'self',
@@ -27,12 +30,26 @@ const VALID_INFO_PROVIDED_BY = new Set([
 
 @Injectable()
 export class ClientService {
+  private readonly logger = new Logger(ClientService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: ScopeService,
     private readonly lookupService: LookupService,
     private readonly configService: AppConfigService,
-  ) {}
+    @Optional() private readonly duplicatesService?: DuplicatesService,
+  ) { }
+
+  private async scoreClientSafely(clientId: string): Promise<void> {
+    if (!this.duplicatesService) return;
+    try {
+      await this.duplicatesService.scoreCommittedClients([clientId]);
+    } catch (err: any) {
+      this.logger.warn(
+        `Post-commit duplicate scoring skipped for client ${clientId}: ${err?.message || 'unknown'}`,
+      );
+    }
+  }
 
   /**
    * Keyset-paged clients within caller scope (Blueprint §5.5, §10.2).
@@ -147,9 +164,9 @@ export class ClientService {
       },
       ...(query.cursor && query.cursor.trim().length > 0
         ? {
-            cursor: { id: query.cursor.trim() },
-            skip: 1,
-          }
+          cursor: { id: query.cursor.trim() },
+          skip: 1,
+        }
         : {}),
     });
 
@@ -242,8 +259,8 @@ export class ClientService {
     if (caller.role !== UserRole.team_member) {
       const webRolesSetting = this.prisma?.appSetting?.findUnique
         ? await this.prisma.appSetting.findUnique({
-            where: { key: 'web_entry_roles' },
-          })
+          where: { key: 'web_entry_roles' },
+        })
         : null;
       const allowedRoles: string[] = Array.isArray(webRolesSetting?.value)
         ? (webRolesSetting.value as string[])
@@ -420,7 +437,7 @@ export class ClientService {
       });
     }
 
-    const nameNorm = dto.name.trim().toLowerCase().replace(/\s+/g, ' ');
+    const nameNorm = SyncService.normalizeName(nameVal.value!);
 
     // Deterministic contentHash aligned with /sync/push
     const contentHash = SyncService.computeContentHash({
@@ -458,7 +475,7 @@ export class ClientService {
       return existing;
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
       const client = await tx.client.create({
         data: {
           householdId: dto.householdId,
@@ -507,6 +524,9 @@ export class ClientService {
 
       return client;
     });
+
+    await this.scoreClientSafely(created.id);
+    return created;
   }
 
   /**
@@ -551,7 +571,7 @@ export class ClientService {
         });
       }
       validatedName = nameVal.value!;
-      nameNorm = validatedName.trim().toLowerCase().replace(/\s+/g, ' ');
+      nameNorm = SyncService.normalizeName(validatedName);
     }
 
     // Age validation if provided
@@ -791,7 +811,7 @@ export class ClientService {
       consentGiven: client.consentGiven,
     });
 
-    return this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx) => {
       // 1. Audit trail record in client_audit (M1.13, Decision C2)
       await tx.clientAudit.create({
         data: {
@@ -832,6 +852,7 @@ export class ClientService {
           infoProvidedByOther: mergedInfoProvidedByOther,
           contentHash: newContentHash,
           serverVersion: { increment: 1 },
+          updatedBy: caller.userId,
           updatedAt: new Date(),
         },
       });
@@ -845,5 +866,8 @@ export class ClientService {
 
       return updated;
     });
+
+    await this.scoreClientSafely(updated.id);
+    return updated;
   }
 }

@@ -75,15 +75,28 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _household;
 
+  List<DuplicateCandidateInput> _houseMembers = const [];
+  List<SameHouseDuplicateMatch> _sameHouseMatches = const [];
+  bool _dismissedWarning = false;
+  String _lastWarningSignature = '';
+
   @override
   void initState() {
     super.initState();
     _isConsentConfirmed = widget.consentGiven;
+    _nameController.addListener(_evaluateSameHouseDuplicates);
+    _ageController.addListener(_evaluateSameHouseDuplicates);
+    _phoneController.addListener(_evaluateSameHouseDuplicates);
+    _whatsappController.addListener(_evaluateSameHouseDuplicates);
     _loadInitialData();
   }
 
   @override
   void dispose() {
+    _nameController.removeListener(_evaluateSameHouseDuplicates);
+    _ageController.removeListener(_evaluateSameHouseDuplicates);
+    _phoneController.removeListener(_evaluateSameHouseDuplicates);
+    _whatsappController.removeListener(_evaluateSameHouseDuplicates);
     _nameController.dispose();
     _ageController.dispose();
     _addressController.dispose();
@@ -91,6 +104,40 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
     _whatsappController.dispose();
     _infoOtherController.dispose();
     super.dispose();
+  }
+
+  void _evaluateSameHouseDuplicates() {
+    if (!mounted || _houseMembers.isEmpty || _isLocked) return;
+
+    final matches = GrsDuplicates.findSameHouseMatches(
+      draft: DuplicateCandidateInput(
+        id: widget.clientId ?? '__draft__',
+        name: _nameController.text.trim(),
+        age: int.tryParse(_ageController.text.trim()),
+        gender: _gender,
+        phone: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
+        whatsapp: _whatsappController.text.trim().isEmpty
+            ? null
+            : _whatsappController.text.trim(),
+        householdId: widget.houseId,
+        gnId: _household?['gn_id'] as String?,
+      ),
+      existingInHouse: _houseMembers,
+    );
+
+    final signature = matches.map((m) => m.existing.id).join(',');
+    final shouldResetDismiss =
+        signature.isNotEmpty && signature != _lastWarningSignature;
+
+    setState(() {
+      _sameHouseMatches = matches;
+      if (shouldResetDismiss || signature.isEmpty) {
+        _dismissedWarning = false;
+      }
+      _lastWarningSignature = signature;
+    });
   }
 
   Future<void> _loadInitialData() async {
@@ -106,6 +153,25 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
 
     final house = await db.getHouseholdById(widget.houseId);
     _household = house;
+
+    final localHouseClients = await db.getClientsForHousehold(widget.houseId);
+    _houseMembers = localHouseClients
+        .where((c) => c['id'] != widget.clientId)
+        .map(
+          (c) => DuplicateCandidateInput(
+            id: c['id'] as String,
+            name: (c['name'] as String?) ?? '',
+            age: c['age'] as int?,
+            gender: c['gender'] as String?,
+            phone: (c['phone_e164'] as String?) ?? (c['phone_raw'] as String?),
+            whatsapp:
+                (c['whatsapp_e164'] as String?) ??
+                (c['whatsapp_raw'] as String?),
+            householdId: c['household_id'] as String?,
+            gnId: house?['gn_id'] as String?,
+          ),
+        )
+        .toList();
 
     if (widget.clientId != null) {
       final client = await db.getClientById(widget.clientId!);
@@ -160,7 +226,10 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       }
     }
 
-    if (mounted) setState(() => _isLoading = false);
+    if (mounted) {
+      setState(() => _isLoading = false);
+      _evaluateSameHouseDuplicates();
+    }
   }
 
   Future<bool> _saveRecord({required SyncStatus status}) async {
@@ -419,6 +488,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                     GrsFadeSlideItem(
                       index: 2,
                       child: GrsTextField(
+                        key: const Key('client_form_name_field'),
                         controller: _nameController,
                         label: l10n.get('nameLabel'),
                         hint: l10n.get('nameHint'),
@@ -441,6 +511,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                           Expanded(
                             flex: 2,
                             child: GrsTextField(
+                              key: const Key('client_form_age_field'),
                               controller: _ageController,
                               label: l10n.get('ageLabel'),
                               hint: l10n.get('ageHint'),
@@ -511,6 +582,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                         children: [
                           Expanded(
                             child: GrsTextField(
+                              key: const Key('client_form_phone_field'),
                               controller: _phoneController,
                               label: l10n.get('phoneLabel'),
                               hint: l10n.get('phoneHint'),
@@ -525,6 +597,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: GrsTextField(
+                              key: const Key('client_form_whatsapp_field'),
                               controller: _whatsappController,
                               label: l10n.get('whatsappLabel'),
                               hint: l10n.get('whatsappHint'),
@@ -539,6 +612,13 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                         ],
                       ),
                     ),
+
+                    if (_sameHouseMatches.isNotEmpty &&
+                        !_dismissedWarning &&
+                        !_isLocked) ...[
+                      const SizedBox(height: GrsSpacing.md),
+                      _buildSameHouseDuplicateBanner(l10n, isDark),
+                    ],
 
                     const SizedBox(height: GrsSpacing.sectionGap),
 
@@ -941,6 +1021,142 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSameHouseDuplicateBanner(GrsL10n l10n, bool isDark) {
+    final top = _sameHouseMatches.first;
+    final pct = (top.nameSimilarity * 100).round().clamp(0, 100);
+    final bannerBg = isDark
+        ? const Color(0xFF3B2806)
+        : GrsColors.duplicateAlertBg;
+    final bannerBorder = GrsColors.duplicateAlert.withValues(alpha: 0.7);
+    final titleColor = isDark
+        ? const Color(0xFFFCD34D)
+        : const Color(0xFF92400E);
+    final bodyColor = isDark
+        ? const Color(0xFFFDE68A)
+        : const Color(0xFF78350F);
+
+    return Container(
+      key: const Key('duplicate_warning_banner'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: bannerBg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: bannerBorder, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: GrsColors.duplicateAlert,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.get('possibleDuplicateFoundTitle'),
+                  style: GrsTypography.labelMedium(
+                    color: titleColor,
+                  ).copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l10n.translate('possibleDuplicateFoundDesc', {
+              'name': top.existing.name,
+            }),
+            style: GrsTypography.bodyMedium(color: bodyColor),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              if (top.nameSimilarity >= 0.70)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: GrsColors.duplicateAlert.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    l10n.translate('duplicateSameNameReason', {
+                      'percent': '$pct',
+                    }),
+                    style: GrsTypography.labelSmall(
+                      color: titleColor,
+                    ).copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              if (top.samePhone)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: GrsColors.duplicateAlert.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    l10n.get('duplicateSamePhoneReason'),
+                    style: GrsTypography.labelSmall(
+                      color: titleColor,
+                    ).copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              TextButton(
+                onPressed: () {
+                  setState(() => _dismissedWarning = true);
+                },
+                style: TextButton.styleFrom(foregroundColor: titleColor),
+                child: Text(l10n.get('continueAnyway')),
+              ),
+              OutlinedButton(
+                onPressed: () {
+                  final targetRoute =
+                      '/houses/${widget.houseId}/client/${top.existing.id}';
+                  if (GoRouter.maybeOf(context) != null) {
+                    context.pushReplacement(targetRoute);
+                  } else {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute<void>(
+                        builder: (_) => ClientFormScreen(
+                          houseId: widget.houseId,
+                          clientId: top.existing.id,
+                        ),
+                      ),
+                    );
+                  }
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: titleColor,
+                  side: BorderSide(color: bannerBorder),
+                ),
+                child: Text(l10n.get('openExistingRecord')),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

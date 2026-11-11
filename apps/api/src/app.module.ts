@@ -20,6 +20,7 @@ import { HouseholdModule } from './households/household.module';
 import { ClientModule } from './clients/client.module';
 import { StatsModule } from './stats/stats.module';
 import { ImportModule } from './imports/import.module';
+import { DuplicatesModule } from './duplicates/duplicates.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { ImportModule } from './imports/import.module';
     ClientModule,
     StatsModule,
     ImportModule,
+    DuplicatesModule,
   ],
   controllers: [AppController],
   providers: [

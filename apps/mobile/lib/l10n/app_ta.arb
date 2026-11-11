@@ -725,5 +725,67 @@
   "householdNotFound": "வீடு கிடைக்கவில்லை.",
   "@householdNotFound": {},
   "genericErrorNotice": "ஏதோ தவறு நடந்துவிட்டது. மீண்டும் முயற்சிக்கவும்.",
-  "@genericErrorNotice": {}
+  "@genericErrorNotice": {},
+  "possibleDuplicateFoundTitle": "இந்த வீட்டில் ஒரே நபர் ஏற்கனவே இருக்கலாம்",
+  "@possibleDuplicateFoundTitle": {},
+  "possibleDuplicateFoundDesc": "இந்த நபர் ஏற்கனவே பதிவு செய்யப்பட்டிருக்கலாம் ({name}). தொடரவா அல்லது அதனை திறக்கவா?",
+  "@possibleDuplicateFoundDesc": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "openExistingRecord": "ஏற்கனவே உள்ளதைத் திறக்கவும்",
+  "@openExistingRecord": {},
+  "continueAnyway": "இருந்தாலும் தொடரவும்",
+  "@continueAnyway": {},
+  "duplicateSameNameReason": "ஒத்த பெயர் ({percent}%)",
+  "@duplicateSameNameReason": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "duplicateSamePhoneReason": "ஒரே தொலைபேசி எண்",
+  "@duplicateSamePhoneReason": {},
+  "duplicatesHubLabel": "நகல்கள்",
+  "@duplicatesHubLabel": {},
+  "duplicatesQueueTitle": "நகல் சரிபார்ப்பு வரிசை",
+  "@duplicatesQueueTitle": {},
+  "duplicatesOfflineBanner": "ஆஃப்லைன் நிலை — நகல் இணைகளைச் சரிபார்த்து தீர்க்க இணையத்துடன் இணைக்கவும்.",
+  "@duplicatesOfflineBanner": {},
+  "duplicatesEmptyState": "சரிபார்க்க நகல் இணைகள் எதுவும் இல்லை.",
+  "@duplicatesEmptyState": {},
+  "confirmDuplicateAction": "நகலை உறுதிப்படுத்துக",
+  "@confirmDuplicateAction": {},
+  "dismissDuplicateAction": "நிராகரி",
+  "@dismissDuplicateAction": {},
+  "keepRecordLabel": "முதன்மை பதிவாக வைத்திரு",
+  "@keepRecordLabel": {},
+  "duplicateConfirmedSuccess": "பதிவுகள் நீக்கப்படாமல் நகல் உறுதிப்படுத்தப்பட்டது. எண்ணிக்கைகள் புதுப்பிக்கப்படும்.",
+  "@duplicateConfirmedSuccess": {},
+  "duplicateDismissedSuccess": "நகல் பரிந்துரை நிராகரிக்கப்பட்டது.",
+  "@duplicateDismissedSuccess": {},
+  "duplicateScoreBadge": "மதிப்பெண் {score}",
+  "@duplicateScoreBadge": {
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
+  "duplicateProbableLabel": "சாத்தியமான நகல்",
+  "@duplicateProbableLabel": {},
+  "duplicatePossibleLabel": "இருக்கக்கூடிய நகல்",
+  "@duplicatePossibleLabel": {},
+  "statusOpenLabel": "திறந்தது",
+  "@statusOpenLabel": {},
+  "statusConfirmedLabel": "உறுதிப்படுத்தப்பட்டது",
+  "@statusConfirmedLabel": {},
+  "statusDismissedLabel": "நிராகரிக்கப்பட்டது",
+  "@statusDismissedLabel": {},
+  "loadMore": "மேலும் ஏற்று",
+  "@loadMore": {}
 }

@@ -725,5 +725,67 @@
   "householdNotFound": "Household not found.",
   "@householdNotFound": {},
   "genericErrorNotice": "Something went wrong. Please try again.",
-  "@genericErrorNotice": {}
+  "@genericErrorNotice": {},
+  "possibleDuplicateFoundTitle": "Possible duplicate in this house",
+  "@possibleDuplicateFoundTitle": {},
+  "possibleDuplicateFoundDesc": "This person looks already entered ({name}). Continue or open it?",
+  "@possibleDuplicateFoundDesc": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "openExistingRecord": "Open existing",
+  "@openExistingRecord": {},
+  "continueAnyway": "Continue anyway",
+  "@continueAnyway": {},
+  "duplicateSameNameReason": "Similar name ({percent}%)",
+  "@duplicateSameNameReason": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "duplicateSamePhoneReason": "Same phone number",
+  "@duplicateSamePhoneReason": {},
+  "duplicatesHubLabel": "Duplicates",
+  "@duplicatesHubLabel": {},
+  "duplicatesQueueTitle": "Duplicate Review Queue",
+  "@duplicatesQueueTitle": {},
+  "duplicatesOfflineBanner": "Offline mode — connect to the internet to review and resolve duplicate pairs.",
+  "@duplicatesOfflineBanner": {},
+  "duplicatesEmptyState": "No duplicate pairs to review.",
+  "@duplicatesEmptyState": {},
+  "confirmDuplicateAction": "Confirm Duplicate",
+  "@confirmDuplicateAction": {},
+  "dismissDuplicateAction": "Dismiss",
+  "@dismissDuplicateAction": {},
+  "keepRecordLabel": "Keep as canonical",
+  "@keepRecordLabel": {},
+  "duplicateConfirmedSuccess": "Duplicate confirmed without deleting records. Stats queued for refresh.",
+  "@duplicateConfirmedSuccess": {},
+  "duplicateDismissedSuccess": "Duplicate candidate dismissed.",
+  "@duplicateDismissedSuccess": {},
+  "duplicateScoreBadge": "Score {score}",
+  "@duplicateScoreBadge": {
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
+  "duplicateProbableLabel": "Probable",
+  "@duplicateProbableLabel": {},
+  "duplicatePossibleLabel": "Possible",
+  "@duplicatePossibleLabel": {},
+  "statusOpenLabel": "Open",
+  "@statusOpenLabel": {},
+  "statusConfirmedLabel": "Confirmed",
+  "@statusConfirmedLabel": {},
+  "statusDismissedLabel": "Dismissed",
+  "@statusDismissedLabel": {},
+  "loadMore": "Load More",
+  "@loadMore": {}
 }

@@ -351,6 +351,31 @@ class AppTranslations {
     "themeDark": "Dark",
     "householdNotFound": "Household not found.",
     "genericErrorNotice": "Something went wrong. Please try again.",
+    "possibleDuplicateFoundTitle": "Possible duplicate in this house",
+    "possibleDuplicateFoundDesc":
+        "This person looks already entered ({name}). Continue or open it?",
+    "openExistingRecord": "Open existing",
+    "continueAnyway": "Continue anyway",
+    "duplicateSameNameReason": "Similar name ({percent}%)",
+    "duplicateSamePhoneReason": "Same phone number",
+    "duplicatesHubLabel": "Duplicates",
+    "duplicatesQueueTitle": "Duplicate Review Queue",
+    "duplicatesOfflineBanner":
+        "Offline mode — connect to the internet to review and resolve duplicate pairs.",
+    "duplicatesEmptyState": "No duplicate pairs to review.",
+    "confirmDuplicateAction": "Confirm Duplicate",
+    "dismissDuplicateAction": "Dismiss",
+    "keepRecordLabel": "Keep as canonical",
+    "duplicateConfirmedSuccess":
+        "Duplicate confirmed without deleting records. Stats queued for refresh.",
+    "duplicateDismissedSuccess": "Duplicate candidate dismissed.",
+    "duplicateScoreBadge": "Score {score}",
+    "duplicateProbableLabel": "Probable",
+    "duplicatePossibleLabel": "Possible",
+    "statusOpenLabel": "Open",
+    "statusConfirmedLabel": "Confirmed",
+    "statusDismissedLabel": "Dismissed",
+    "loadMore": "Load More",
   };
 
   static const Map<String, String> si = {
@@ -711,6 +736,31 @@ class AppTranslations {
     "themeDark": "අඳුරු",
     "householdNotFound": "නිවස සොයාගත නොහැකි විය.",
     "genericErrorNotice": "යම් දෝෂයක් සිදු විය. කරුණාකර නැවත උත්සාහ කරන්න.",
+    "possibleDuplicateFoundTitle": "මෙම නිවසේ සමාන පුද්ගලයෙකු සිටිය හැකිය",
+    "possibleDuplicateFoundDesc":
+        "මෙම පුද්ගලයා දැනටමත් ඇතුළත් කර ඇති බව පෙනේ ({name}). ඉදිරියට යන්නද නැතිනම් එය විවෘත කරන්නද?",
+    "openExistingRecord": "පවතින වාර්තාව විවෘත කරන්න",
+    "continueAnyway": "එසේ වුවද ඉදිරියට යන්න",
+    "duplicateSameNameReason": "සමාන නම ({percent}%)",
+    "duplicateSamePhoneReason": "එකම දුරකථන අංකය",
+    "duplicatesHubLabel": "අනුපිටපත්",
+    "duplicatesQueueTitle": "අනුපිටපත් සමාලෝචන පෝලිම",
+    "duplicatesOfflineBanner":
+        "නොබැඳි ප්‍රකාරය — අනුපිටපත් යුගල සමාලෝචනය කර විසඳීමට අන්තර්ජාලයට සම්බන්ධ වන්න.",
+    "duplicatesEmptyState": "සමාලෝචනය කිරීමට අනුපිටපත් යුගල නොමැත.",
+    "confirmDuplicateAction": "අනුපිටපත තහවුරු කරන්න",
+    "dismissDuplicateAction": "ඉවතලන්න",
+    "keepRecordLabel": "ප්‍රධාන වාර්තාව ලෙස තබා ගන්න",
+    "duplicateConfirmedSuccess":
+        "වාර්තා මකා නොදමා අනුපිටපත තහවුරු කරන ලදී. සංඛ්‍යාලේඛන යාවත්කාලීන කෙරේ.",
+    "duplicateDismissedSuccess": "අනුපිටපත් යෝජනාව ඉවතලන ලදී.",
+    "duplicateScoreBadge": "ලකුණු {score}",
+    "duplicateProbableLabel": "බොහෝ විට අනුපිටපතකි",
+    "duplicatePossibleLabel": "විය හැකි අනුපිටපතකි",
+    "statusOpenLabel": "විවෘතයි",
+    "statusConfirmedLabel": "තහවුරු කළ",
+    "statusDismissedLabel": "ඉවතලන ලද",
+    "loadMore": "තවත් පූරණය කරන්න",
   };
 
   static const Map<String, String> ta = {
@@ -1073,6 +1123,31 @@ class AppTranslations {
     "themeDark": "இருள்",
     "householdNotFound": "வீடு கிடைக்கவில்லை.",
     "genericErrorNotice": "ஏதோ தவறு நடந்துவிட்டது. மீண்டும் முயற்சிக்கவும்.",
+    "possibleDuplicateFoundTitle": "இந்த வீட்டில் ஒரே நபர் ஏற்கனவே இருக்கலாம்",
+    "possibleDuplicateFoundDesc":
+        "இந்த நபர் ஏற்கனவே பதிவு செய்யப்பட்டிருக்கலாம் ({name}). தொடரவா அல்லது அதனை திறக்கவா?",
+    "openExistingRecord": "ஏற்கனவே உள்ளதைத் திறக்கவும்",
+    "continueAnyway": "இருந்தாலும் தொடரவும்",
+    "duplicateSameNameReason": "ஒத்த பெயர் ({percent}%)",
+    "duplicateSamePhoneReason": "ஒரே தொலைபேசி எண்",
+    "duplicatesHubLabel": "நகல்கள்",
+    "duplicatesQueueTitle": "நகல் சரிபார்ப்பு வரிசை",
+    "duplicatesOfflineBanner":
+        "ஆஃப்லைன் நிலை — நகல் இணைகளைச் சரிபார்த்து தீர்க்க இணையத்துடன் இணைக்கவும்.",
+    "duplicatesEmptyState": "சரிபார்க்க நகல் இணைகள் எதுவும் இல்லை.",
+    "confirmDuplicateAction": "நகலை உறுதிப்படுத்துக",
+    "dismissDuplicateAction": "நிராகரி",
+    "keepRecordLabel": "முதன்மை பதிவாக வைத்திரு",
+    "duplicateConfirmedSuccess":
+        "பதிவுகள் நீக்கப்படாமல் நகல் உறுதிப்படுத்தப்பட்டது. எண்ணிக்கைகள் புதுப்பிக்கப்படும்.",
+    "duplicateDismissedSuccess": "நகல் பரிந்துரை நிராகரிக்கப்பட்டது.",
+    "duplicateScoreBadge": "மதிப்பெண் {score}",
+    "duplicateProbableLabel": "சாத்தியமான நகல்",
+    "duplicatePossibleLabel": "இருக்கக்கூடிய நகல்",
+    "statusOpenLabel": "திறந்தது",
+    "statusConfirmedLabel": "உறுதிப்படுத்தப்பட்டது",
+    "statusDismissedLabel": "நிராகரிக்கப்பட்டது",
+    "loadMore": "மேலும் ஏற்று",
   };
 
   static Map<String, String> get(String lang) {

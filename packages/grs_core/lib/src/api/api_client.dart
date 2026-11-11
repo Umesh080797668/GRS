@@ -1101,4 +1101,79 @@ class GrsApiClient {
     }
     _handleError(response);
   }
+
+  /// GET /v1/duplicates - List flagged duplicate candidate pairs (M6.4)
+  Future<Map<String, dynamic>> getDuplicates({
+    String status = 'open',
+    String? classification,
+    int? minScore,
+    String? cursor,
+    int limit = 20,
+  }) async {
+    final query = <String, String>{
+      'status': status,
+      'limit': limit.toString(),
+      if (classification != null && classification != 'all')
+        'classification': classification,
+      if (minScore != null) 'minScore': minScore.toString(),
+      if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+    };
+    final uri = Uri.parse(
+      '$baseUrl/v1/duplicates',
+    ).replace(queryParameters: query);
+    final response = await _sendWithAuthRetry(
+      () => _client.get(uri, headers: _headers(authenticated: true)),
+    );
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// POST /v1/duplicates/:id/confirm - Confirm a duplicate pair (M6.4)
+  Future<Map<String, dynamic>> confirmDuplicate(
+    String id, {
+    String? canonicalClientId,
+    String? reason,
+  }) async {
+    final uri = Uri.parse('$baseUrl/v1/duplicates/$id/confirm');
+    final body = <String, dynamic>{
+      if (canonicalClientId != null && canonicalClientId.isNotEmpty)
+        'canonicalClientId': canonicalClientId,
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+    };
+    final response = await _sendWithAuthRetry(
+      () => _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode(body),
+      ),
+    );
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
+
+  /// POST /v1/duplicates/:id/dismiss - Dismiss a false-positive pair (M6.4)
+  Future<Map<String, dynamic>> dismissDuplicate(
+    String id, {
+    String? reason,
+  }) async {
+    final uri = Uri.parse('$baseUrl/v1/duplicates/$id/dismiss');
+    final body = <String, dynamic>{
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+    };
+    final response = await _sendWithAuthRetry(
+      () => _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode(body),
+      ),
+    );
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    _handleError(response);
+  }
 }

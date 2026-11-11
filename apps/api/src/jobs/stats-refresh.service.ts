@@ -200,7 +200,7 @@ export class StatsRefreshService {
    */
   async checkDrift(): Promise<DriftReport> {
     const freshClients = await this.prisma.client.count({
-      where: { deletedAt: null, teamId: { not: null } },
+      where: { deletedAt: null, duplicateOf: null, teamId: { not: null } },
     });
     const freshHouseholds = await this.prisma.household.count({
       where: { deletedAt: null },

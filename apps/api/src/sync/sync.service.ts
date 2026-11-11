@@ -1,10 +1,11 @@
-import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException, Optional } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { LookupService } from '../lookups/lookup.service';
 import { ScopeService } from '../common/scope/scope.service';
 import { AppConfigService } from '../config/app-config.service';
 import { GrsValidators } from '../common/validators/grs-validators';
+import { DuplicatesService } from '../duplicates/duplicates.service';
 import { UserRole, type ScopeContext } from '../common/scope/scope.types';
 import {
   SyncPushDto,
@@ -14,6 +15,7 @@ import {
   SyncHouseholdResultItem,
 } from './dto/sync-push.dto';
 import { SyncChangesResponse } from './dto/sync-changes.dto';
+import { normalizeDuplicateName } from '../duplicates/duplicate-scoring';
 
 export interface AreaSyncResult {
   items: any[];
@@ -32,6 +34,7 @@ export class SyncService {
     private readonly lookupService: LookupService,
     private readonly scopeService: ScopeService,
     private readonly configService: AppConfigService,
+    @Optional() private readonly duplicatesService?: DuplicatesService,
   ) { }
 
   /**
@@ -39,17 +42,7 @@ export class SyncService {
    * NFC, lowercase, strip honorifics, remove punctuation and zero-width characters, sort name tokens.
    */
   static normalizeName(name: string): string {
-    if (!name) return '';
-    return name
-      .normalize('NFC')
-      .toLowerCase()
-      .replace(/\b(mr|mrs|miss|ms|rev|dr|prof|ven)\b\.?/gi, '')
-      .replace(/[\p{P}\p{S}\u200B-\u200D\uFEFF]/gu, ' ')
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .sort()
-      .join(' ');
+    return normalizeDuplicateName(name);
   }
 
   /**
@@ -1580,6 +1573,17 @@ export class SyncService {
               code: 'RACE_CONFLICT',
               message: 'Record updated by another user concurrently',
             };
+          }
+        }
+
+        if (this.duplicatesService && returnedRows.length > 0) {
+          const committedIds = returnedRows.map((r) => r.id);
+          try {
+            await this.duplicatesService.scoreCommittedClients(committedIds);
+          } catch (dupErr: any) {
+            this.logger.warn(
+              `Post-commit duplicate scoring skipped for ${committedIds.length} record(s): ${dupErr?.message || 'unknown'}`,
+            );
           }
         }
       } catch (err: any) {

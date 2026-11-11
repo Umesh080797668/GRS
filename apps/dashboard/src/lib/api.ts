@@ -915,6 +915,51 @@ export class ApiClient {
       body: JSON.stringify({ ...rest, correctionReason: reason }),
     });
   }
+
+  async getDuplicates(params: {
+    status?: string;
+    classification?: string;
+    minScore?: number;
+    districtId?: string;
+    dsId?: string;
+    gnId?: string;
+    teamId?: string;
+    cursor?: string;
+    limit?: number;
+  } = {}): Promise<any> {
+    const query = new URLSearchParams();
+    if (params.status) query.set('status', params.status);
+    if (params.classification) query.set('classification', params.classification);
+    if (params.minScore !== undefined) query.set('minScore', String(params.minScore));
+    if (params.districtId) query.set('districtId', params.districtId);
+    if (params.dsId) query.set('dsId', params.dsId);
+    if (params.gnId) query.set('gnId', params.gnId);
+    if (params.teamId) query.set('teamId', params.teamId);
+    if (params.cursor) query.set('cursor', params.cursor);
+    if (params.limit !== undefined) query.set('limit', String(params.limit));
+    const qs = query.toString();
+    return this.request(`/v1/duplicates${qs ? `?${qs}` : ''}`);
+  }
+
+  async confirmDuplicate(
+    id: string,
+    payload: { canonicalClientId?: string; reason?: string } = {},
+  ): Promise<any> {
+    return this.request(`/v1/duplicates/${id}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async dismissDuplicate(
+    id: string,
+    payload: { reason?: string } = {},
+  ): Promise<any> {
+    return this.request(`/v1/duplicates/${id}/dismiss`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
 }
 
 export const api = new ApiClient();

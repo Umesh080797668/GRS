@@ -7,6 +7,7 @@ import '../../providers/area_download_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/connectivity_provider.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/duplicates_provider.dart';
 import '../../providers/sync_provider.dart';
 import '../../providers/theme_provider.dart';
 
@@ -1002,9 +1003,12 @@ class _Level4Hub extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = GrsL10n.of(context);
     final authState = ref.watch(authProvider);
     final profile = authState.profile;
     final assignments = profile?.assignments ?? [];
+    final openDuplicatesCount =
+        ref.watch(teamOpenDuplicatesCountProvider).valueOrNull ?? 0;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
@@ -1146,6 +1150,14 @@ class _Level4Hub extends ConsumerWidget {
                     onTap: () => context.push('/team-records'),
                     isDark: isDark,
                   ),
+                  const SizedBox(width: 8),
+                  _HubButton(
+                    icon: Icons.copy_all_outlined,
+                    label: l10n.get('duplicatesHubLabel'),
+                    badgeCount: openDuplicatesCount,
+                    onTap: () => context.push('/team-duplicates'),
+                    isDark: isDark,
+                  ),
                 ],
               ),
             ),
@@ -1162,12 +1174,14 @@ class _HubButton extends StatelessWidget {
     required this.label,
     required this.onTap,
     required this.isDark,
+    this.badgeCount = 0,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool isDark;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -1180,7 +1194,9 @@ class _HubButton extends StatelessWidget {
           color: isDark ? const Color(0xFF0F172A) : Colors.white,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+            color: badgeCount > 0
+                ? GrsColors.duplicateAlert
+                : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
           ),
         ),
         child: Row(
@@ -1196,6 +1212,25 @@ class _HubButton extends StatelessWidget {
                 color: isDark ? Colors.white70 : GrsColors.textPrimaryLight,
               ),
             ),
+            if (badgeCount > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                key: const Key('l4_duplicates_badge'),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: GrsColors.duplicateAlert,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  badgeCount > 99 ? '99+' : '$badgeCount',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

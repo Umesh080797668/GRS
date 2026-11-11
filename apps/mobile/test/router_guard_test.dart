@@ -56,6 +56,7 @@ void main() {
       '/team-members',
       '/team-progress',
       '/team-records',
+      '/team-duplicates',
     ];
 
     setUp(() async {

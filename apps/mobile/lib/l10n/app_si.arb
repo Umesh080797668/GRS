@@ -725,5 +725,67 @@
   "householdNotFound": "නිවස සොයාගත නොහැකි විය.",
   "@householdNotFound": {},
   "genericErrorNotice": "යම් දෝෂයක් සිදු විය. කරුණාකර නැවත උත්සාහ කරන්න.",
-  "@genericErrorNotice": {}
+  "@genericErrorNotice": {},
+  "possibleDuplicateFoundTitle": "මෙම නිවසේ සමාන පුද්ගලයෙකු සිටිය හැකිය",
+  "@possibleDuplicateFoundTitle": {},
+  "possibleDuplicateFoundDesc": "මෙම පුද්ගලයා දැනටමත් ඇතුළත් කර ඇති බව පෙනේ ({name}). ඉදිරියට යන්නද නැතිනම් එය විවෘත කරන්නද?",
+  "@possibleDuplicateFoundDesc": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "openExistingRecord": "පවතින වාර්තාව විවෘත කරන්න",
+  "@openExistingRecord": {},
+  "continueAnyway": "එසේ වුවද ඉදිරියට යන්න",
+  "@continueAnyway": {},
+  "duplicateSameNameReason": "සමාන නම ({percent}%)",
+  "@duplicateSameNameReason": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "duplicateSamePhoneReason": "එකම දුරකථන අංකය",
+  "@duplicateSamePhoneReason": {},
+  "duplicatesHubLabel": "අනුපිටපත්",
+  "@duplicatesHubLabel": {},
+  "duplicatesQueueTitle": "අනුපිටපත් සමාලෝචන පෝලිම",
+  "@duplicatesQueueTitle": {},
+  "duplicatesOfflineBanner": "නොබැඳි ප්‍රකාරය — අනුපිටපත් යුගල සමාලෝචනය කර විසඳීමට අන්තර්ජාලයට සම්බන්ධ වන්න.",
+  "@duplicatesOfflineBanner": {},
+  "duplicatesEmptyState": "සමාලෝචනය කිරීමට අනුපිටපත් යුගල නොමැත.",
+  "@duplicatesEmptyState": {},
+  "confirmDuplicateAction": "අනුපිටපත තහවුරු කරන්න",
+  "@confirmDuplicateAction": {},
+  "dismissDuplicateAction": "ඉවතලන්න",
+  "@dismissDuplicateAction": {},
+  "keepRecordLabel": "ප්‍රධාන වාර්තාව ලෙස තබා ගන්න",
+  "@keepRecordLabel": {},
+  "duplicateConfirmedSuccess": "වාර්තා මකා නොදමා අනුපිටපත තහවුරු කරන ලදී. සංඛ්‍යාලේඛන යාවත්කාලීන කෙරේ.",
+  "@duplicateConfirmedSuccess": {},
+  "duplicateDismissedSuccess": "අනුපිටපත් යෝජනාව ඉවතලන ලදී.",
+  "@duplicateDismissedSuccess": {},
+  "duplicateScoreBadge": "ලකුණු {score}",
+  "@duplicateScoreBadge": {
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
+  "duplicateProbableLabel": "බොහෝ විට අනුපිටපතකි",
+  "@duplicateProbableLabel": {},
+  "duplicatePossibleLabel": "විය හැකි අනුපිටපතකි",
+  "@duplicatePossibleLabel": {},
+  "statusOpenLabel": "විවෘතයි",
+  "@statusOpenLabel": {},
+  "statusConfirmedLabel": "තහවුරු කළ",
+  "@statusConfirmedLabel": {},
+  "statusDismissedLabel": "ඉවතලන ලද",
+  "@statusDismissedLabel": {},
+  "loadMore": "තවත් පූරණය කරන්න",
+  "@loadMore": {}
 }

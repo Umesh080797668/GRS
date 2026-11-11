@@ -23,6 +23,7 @@ import '../screens/level4/choose_houses_screen.dart';
 import '../screens/level4/team_members_screen.dart';
 import '../screens/level4/team_progress_screen.dart';
 import '../screens/level4/team_records_screen.dart';
+import '../screens/level4/team_duplicates_screen.dart';
 
 class AppRouterNotifier extends ChangeNotifier {
   final Ref _ref;
@@ -115,6 +116,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         '/team-members',
         '/team-progress',
         '/team-records',
+        '/team-duplicates',
       };
 
       if (level4Routes.contains(location)) {
@@ -209,6 +211,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/team-records',
         builder: (context, state) => const TeamRecordsScreen(),
+      ),
+      GoRoute(
+        path: '/team-duplicates',
+        builder: (context, state) => const TeamDuplicatesScreen(),
       ),
       GoRoute(
         path: '/houses/:id',

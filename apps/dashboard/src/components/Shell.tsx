@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   ClipboardCheck,
   FileText,
+  CopyCheck,
   Activity,
   Radio,
   Sparkles,
@@ -48,9 +49,38 @@ export function Shell({ children, activePath }: ShellProps) {
   const { t } = useLanguage();
 
   const [switchingArea, setSwitchingArea] = useState(false);
+  const [openDuplicatesCount, setOpenDuplicatesCount] = useState<number>(0);
   const [activeGnList, setActiveGnList] = useState<
     Array<{ gnId: string; gnName?: string; gnCode?: string; teamId?: string; teamNo?: string }>
   >([]);
+
+  useEffect(() => {
+    const allowedRoles = ['super_admin', 'admin', 'cg', 'dc', 'sda', 'cdc_secretary'];
+    if (!user || !allowedRoles.includes(user.role)) {
+      setOpenDuplicatesCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    const refreshOpenCount = () => {
+      api
+        .getDuplicates({ status: 'open', limit: 1 })
+        .then((res) => {
+          if (!cancelled && typeof res?.openCount === 'number') {
+            setOpenDuplicatesCount(res.openCount);
+          }
+        })
+        .catch(() => { });
+    };
+
+    refreshOpenCount();
+    const handler = () => refreshOpenCount();
+    window.addEventListener('grs:duplicates-updated', handler);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('grs:duplicates-updated', handler);
+    };
+  }, [user]);
 
   useEffect(() => {
     if (user?.role === 'cdc_secretary') {
@@ -134,6 +164,12 @@ export function Shell({ children, activePath }: ShellProps) {
       key: 'nav.records',
       href: '/records',
       icon: <ClipboardCheck size={18} />,
+      roles: ['super_admin', 'admin', 'cg', 'dc', 'sda', 'cdc_secretary'],
+    },
+    {
+      key: 'nav.duplicates',
+      href: '/duplicates',
+      icon: <CopyCheck size={18} />,
       roles: ['super_admin', 'admin', 'cg', 'dc', 'sda', 'cdc_secretary'],
     },
     {
@@ -361,9 +397,23 @@ export function Shell({ children, activePath }: ShellProps) {
                     justifyContent: 'center',
                     color: isActive ? '#34d399' : 'var(--slate-400)',
                     flexShrink: 0,
+                    position: 'relative',
                   }}
                 >
                   {item.icon}
+                  {collapsed && item.key === 'nav.duplicates' && openDuplicatesCount > 0 && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: -3,
+                        right: -4,
+                        width: 7,
+                        height: 7,
+                        borderRadius: '9999px',
+                        background: '#f59e0b',
+                      }}
+                    />
+                  )}
                 </div>
                 {!collapsed && (
                   <span
@@ -371,9 +421,27 @@ export function Shell({ children, activePath }: ShellProps) {
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
+                      flex: 1,
                     }}
                   >
                     {t(item.key)}
+                  </span>
+                )}
+                {!collapsed && item.key === 'nav.duplicates' && openDuplicatesCount > 0 && (
+                  <span
+                    data-testid="nav-duplicates-badge"
+                    style={{
+                      background: '#f59e0b',
+                      color: '#1e293b',
+                      borderRadius: '9999px',
+                      padding: '1px 7px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      lineHeight: '16px',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {openDuplicatesCount > 99 ? '99+' : openDuplicatesCount}
                   </span>
                 )}
               </button>

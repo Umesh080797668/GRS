@@ -302,4 +302,71 @@ describe('ApiClient - Single-flight refresh (Bug 4)', () => {
     assert.strictEqual(authHeaderSent, 'Bearer refreshed-token-999');
     assert.strictEqual(callCount, 2);
   });
+
+  it('duplicate review endpoints serialize filters and payloads cleanly', async () => {
+    const requests: Array<{ url: string; method?: string; body?: any }> = [];
+    (globalThis as any).fetch = async (url: string, options: any = {}) => {
+      requests.push({
+        url,
+        method: options.method || 'GET',
+        body: options.body ? JSON.parse(options.body) : undefined,
+      });
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: async () => JSON.stringify({ items: [], openCount: 4 }),
+      };
+    };
+
+    client.setAccessToken('admin-token');
+
+    const listRes = await client.getDuplicates({
+      status: 'open',
+      classification: 'probable',
+      minScore: 70,
+      districtId: 'dist-1',
+      cursor: 'cursor-1',
+      limit: 20,
+    });
+    assert.strictEqual(listRes.openCount, 4);
+
+    await client.confirmDuplicate('cand-1', {
+      canonicalClientId: 'client-a',
+      reason: 'Verified duplicate',
+    });
+    await client.dismissDuplicate('cand-2', { reason: 'Twins in household' });
+
+    assert.strictEqual(requests.length, 3);
+    assert.strictEqual(
+      requests[0].url.includes('/v1/duplicates?'),
+      true,
+    );
+    assert.strictEqual(requests[0].url.includes('status=open'), true);
+    assert.strictEqual(requests[0].url.includes('classification=probable'), true);
+    assert.strictEqual(requests[0].url.includes('minScore=70'), true);
+    assert.strictEqual(requests[0].url.includes('districtId=dist-1'), true);
+    assert.strictEqual(requests[0].url.includes('cursor=cursor-1'), true);
+    assert.strictEqual(requests[0].url.includes('limit=20'), true);
+    assert.strictEqual(requests[0].method, 'GET');
+
+    assert.strictEqual(
+      requests[1].url.endsWith('/v1/duplicates/cand-1/confirm'),
+      true,
+    );
+    assert.strictEqual(requests[1].method, 'POST');
+    assert.deepStrictEqual(requests[1].body, {
+      canonicalClientId: 'client-a',
+      reason: 'Verified duplicate',
+    });
+
+    assert.strictEqual(
+      requests[2].url.endsWith('/v1/duplicates/cand-2/dismiss'),
+      true,
+    );
+    assert.strictEqual(requests[2].method, 'POST');
+    assert.deepStrictEqual(requests[2].body, {
+      reason: 'Twins in household',
+    });
+  });
 });

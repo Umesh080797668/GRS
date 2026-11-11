@@ -97,18 +97,19 @@ model Profile {
 
   refreshTokens      RefreshToken[]
   emailCodes         EmailCode[]
-  createdBatches     AccountBatch[]      @relation("BatchCreator")
-  actionsPerformed   AccountAudit[]      @relation("Actor")
-  actionsReceived    AccountAudit[]      @relation("Target")
-  createdHouseholds  Household[]         @relation("HouseholdCreator")
-  finishedHouseholds Household[]         @relation("HouseholdFinisher")
-  collectedClients   Client[]            @relation("ClientCollector")
+  createdBatches     AccountBatch[]       @relation("BatchCreator")
+  actionsPerformed   AccountAudit[]       @relation("Actor")
+  actionsReceived    AccountAudit[]       @relation("Target")
+  createdHouseholds  Household[]          @relation("HouseholdCreator")
+  finishedHouseholds Household[]          @relation("HouseholdFinisher")
+  collectedClients   Client[]             @relation("ClientCollector")
   exportJobs         ExportJob[]
   assignments        ProfileAssignment[]
-  accountAssignments AccountAssignment[] @relation("ProfileAssignments")
-  assignmentsCreated AccountAssignment[] @relation("AssignedBy")
-  assignmentsEnded   AccountAssignment[] @relation("EndedBy")
+  accountAssignments AccountAssignment[]  @relation("ProfileAssignments")
+  assignmentsCreated AccountAssignment[]  @relation("AssignedBy")
+  assignmentsEnded   AccountAssignment[]  @relation("EndedBy")
   sessions           UserSession[]
+  duplicateReviews   DuplicateCandidate[] @relation("DuplicateReviewer")
 
   @@index([createdBy])
   @@index([teamId])
@@ -396,9 +397,11 @@ model Client {
   createdAt                  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                  DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  household Household     @relation(fields: [householdId], references: [id], onDelete: Restrict)
-  collector Profile       @relation("ClientCollector", fields: [collectedBy], references: [id])
-  audits    ClientAudit[]
+  household            Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  collector            Profile              @relation("ClientCollector", fields: [collectedBy], references: [id])
+  audits               ClientAudit[]
+  duplicateCandidatesA DuplicateCandidate[] @relation("DuplicateClientA")
+  duplicateCandidatesB DuplicateCandidate[] @relation("DuplicateClientB")
 
   // Keyset indexes per Section 5.3
   @@index([districtId, createdAt, id])
@@ -409,6 +412,7 @@ model Client {
   @@index([householdId])
   @@index([phoneE164])
   @@index([whatsappE164])
+  @@index([duplicateOf])
   @@map("clients")
 }
 
@@ -438,8 +442,13 @@ model DuplicateCandidate {
   reviewedAt DateTime?       @map("reviewed_at") @db.Timestamptz(6)
   createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  clientARecord Client   @relation("DuplicateClientA", fields: [clientA], references: [id], onDelete: Cascade)
+  clientBRecord Client   @relation("DuplicateClientB", fields: [clientB], references: [id], onDelete: Cascade)
+  reviewer      Profile? @relation("DuplicateReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
   @@unique([clientA, clientB])
   @@index([status])
+  @@index([clientB])
   @@map("duplicate_candidates")
 }
 

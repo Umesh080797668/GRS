@@ -183,7 +183,29 @@ This document records the exact status and verification evidence for every task 
   - Android permissions verified (strictly `INTERNET` and `ACCESS_NETWORK_STATE` only).
   - Traceability 100% verified across 47 fields and all 5 layers (`node scripts/check_traceability.cjs`).
   - Local CI runner (`scripts/ci.sh`) updated and passing with 5 quality gates.
-- **Phase Transition:** Milestone 5 (District & National Web Dashboard) is formally signed off and complete. Ready to proceed with **Milestone 6 — Hardening, Staging Verification, & Go-Live (Phase 6)**.
+- **Phase Transition:** Milestone 5 (District & National Web Dashboard) is formally signed off and complete. Proceeded to **Milestone 6 — Duplicate Detection (Phase 6)**.
+
+---
+
+## Milestone 6 — Duplicate Detection (Phase 6)
+
+| Task | Title | Status | Date | Evidence / Command Output |
+| --- | --- | --- | --- | --- |
+| **M6.1** | Shared `name_norm`, phone normalization, trilingual/initial-aware vector scoring & ≥60 labelled pairs | Done | 2026-11-11 | `docs/test-vectors/duplicates.json` (62 labelled pairs: 33 `true_duplicate`, 29 `non_duplicate`), `apps/api/src/duplicates/duplicate-scoring.ts` & `packages/grs_core/lib/src/duplicates.dart` (`GrsDuplicates`, Sinhala ZWJ conjunct preservation, Romanized phonetic folding, initial-aware token alignment, §9 `< 0.70` similarity false-positive cap). Verified in `apps/api/src/duplicates/duplicate-scoring.spec.ts` (`precision = 1.00` (33/33, 0 FP), `recall = 1.00` (33/33)) and `packages/grs_core/test/duplicates_test.dart`. `SyncService.normalizeName` and `ClientService` unified on `normalizeDuplicateName`. |
+| **M6.2** | Post-commit server duplicate scoring job, `duplicate_candidates` queue & REST API | Done | 2026-11-11 | Created `apps/api/src/duplicates/{duplicates.module.ts,duplicates.service.ts,duplicates.controller.ts,dto/duplicate.dto.ts}` with `GET /v1/duplicates` (keyset cursor paged, zero OFFSET, fail-closed caller scope, L5 `team_member` forbidden), `POST /v1/duplicates/:id/confirm`, and `POST /v1/duplicates/:id/dismiss` (`ROLE_ENDPOINT_MATRIX` enforced in `role-matrix.spec.ts`). Wired post-commit non-blocking `scoreCommittedClients` / `scoreClientSafely` into `SyncService.pushRecords` & `ClientService`. |
+| **M6.3** | On-device same-house non-blocking duplicate warning during form entry | Done | 2026-11-11 | `apps/mobile/lib/screens/client/client_form_screen.dart`: live reactive `GrsDuplicates.findSameHouseMatches` comparison against local Drift household members, amber non-blocking banner (`Key('duplicate_warning_banner')`) with **Open existing** and **Continue anyway** actions while Save buttons always remain enabled. Verified in `apps/mobile/test/duplicate_warning_test.dart` (en/si/ta parity verified in `l10n_test.dart`). |
+| **M6.4** | Review queue on web dashboard (`/duplicates`) & mobile L4 badge + `/team-duplicates` with soft-link `duplicate_of` stats exclusion | Done | 2026-11-11 | Dashboard: `apps/dashboard/src/app/duplicates/page.tsx`, `apps/dashboard/src/components/Shell.tsx` nav badge, `apps/dashboard/src/lib/{api.ts,translations.ts}`. Mobile L4: `apps/mobile/lib/screens/level4/team_duplicates_screen.dart`, `apps/mobile/lib/providers/duplicates_provider.dart`, `apps/mobile/lib/screens/home/home_screen.dart` `_Level4Hub` badge, `apps/mobile/lib/router/app_router.dart`, `packages/grs_core/lib/src/api/api_client.dart`. Confirming sets `clients.duplicate_of` (never deletes records), logs `client_audit`, marks `teams.stats_dirty_at`, and excludes confirmed duplicates from `public.refresh_dirty_team_stats()` & `StatsRefreshService.checkDrift()` with 0 drift (`apps/api/prisma/migrations/{11_duplicate_detection.sql,04_cron.sql}`). Verified by `apps/api/src/duplicates/duplicates.real-db.spec.ts` (3/3 on real PostgreSQL 16) and `apps/mobile/test/level4_duplicates_test.dart`. |
+| **M6.5** | Performance proof: scoring candidate lookup against 5M rows (`< 300 ms`) with `EXPLAIN (ANALYZE, BUFFERS)` | Done | 2026-11-11 | `apps/api/prisma/migrations/11_duplicate_detection.sql` (`pg_trgm` GIN, `btree_gin` composite `(gn_id, name_norm)`, partial live indexes) + `scripts/benchmarks/m6_duplicate_5m_bench.cjs` executed on **5,000,003** `clients` rows (4,645 MB) in isolated PostgreSQL 16.15: Q1 Phone/WhatsApp `Index Scan` (`0.045 ms`), Q2 Household `Bitmap Index Scan` (`0.121 ms`), Q3 Same-GN `pg_trgm` fuzzy name (`47.65 ms` across 30,003 rows in target GN). Full parallel Q1+Q2+Q3 + JS scoring pipeline across 25 warm runs: `min = 52.39 ms`, `p50 = 57.41 ms`, **`p95 = 59.97 ms`** (`< 300 ms` SLA), `max = 70.32 ms`. Full `EXPLAIN (ANALYZE, BUFFERS)` report archived in `docs/benchmarks/m6_5m_explain.md`. |
+
+### Milestone 6 Completion & Sign-Off Summary
+- **Status:** **100% COMPLETE (5/5 tasks DONE)** as of 2026-11-11.
+- **Quality Gates Evidence:**
+  - `pnpm --filter api run build` & `pnpm --filter api run test:unit`: 26/26 suites, 1040/1040 unit tests passing.
+  - `apps/api/src/duplicates/duplicates.real-db.spec.ts`: 3/3 real PostgreSQL 16 integration tests passing (post-commit duplicate candidate creation, `confirmDuplicate` soft-link + audit + zero-drift `StatsRefreshService`, `dismissDuplicate`, Migration 11 index catalog check).
+  - `apps/dashboard`: `pnpm lint` (0 errors), `pnpm test` (12/12 tests passing), and static export `pnpm build` (16 routes including `/duplicates`, CSP hashes generated).
+  - `packages/grs_core`, `packages/grs_ui`, & `apps/mobile`: `dart format`, `flutter analyze`, unit/widget tests (including `level4_duplicates_test.dart`, `duplicate_warning_test.dart`, `router_guard_test.dart`, `l10n_test.dart`), and `./scripts/ci.sh` passing.
+  - 5M-row benchmark proof (`docs/benchmarks/m6_5m_explain.md`): `p95 = 59.97 ms` vs `< 300 ms` target.
+- **Phase Transition:** Milestone 6 (Duplicate Detection) is formally signed off and complete. Ready to proceed with **Milestone 7 — Reports and exports (Blueprint phase 6)**.
 
 
 

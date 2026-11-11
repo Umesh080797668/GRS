@@ -1,7 +1,13 @@
 -- Migration 04: pg_cron and Automated Refresh Job (M1.14 / Section 8.5)
--- Ensures pg_cron is enabled and registers scheduled stats refresh
+-- Ensures pg_cron is enabled when available (Supabase) without blocking plain PostgreSQL test instances
 
-CREATE EXTENSION IF NOT EXISTS "pg_cron";
+DO $$
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS "pg_cron";
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'pg_cron extension unavailable in this environment, skipping extension creation';
+END $$;
 
 -- Ensure households columns exist
 ALTER TABLE "households" ADD COLUMN IF NOT EXISTS "visit_status" VARCHAR(50) DEFAULT 'not_started';
@@ -9,6 +15,7 @@ ALTER TABLE "households" ADD COLUMN IF NOT EXISTS "finished_at" TIMESTAMPTZ(6);
 ALTER TABLE "households" ADD COLUMN IF NOT EXISTS "finished_by" UUID;
 
 -- Stored procedure to refresh dirty team stats matching TeamStat model
+DROP FUNCTION IF EXISTS public.refresh_dirty_team_stats();
 CREATE OR REPLACE FUNCTION public.refresh_dirty_team_stats()
 RETURNS integer AS $$
 DECLARE
@@ -48,7 +55,7 @@ BEGIN
     JOIN "gn_divisions" gn ON gn.id = dt.gn_id
     JOIN "divisional_secretariats" ds ON ds.id = gn.ds_id
     LEFT JOIN "households" h ON h.team_id = dt.id AND h.deleted_at IS NULL
-    LEFT JOIN "clients" c ON c.household_id = h.id AND c.deleted_at IS NULL
+    LEFT JOIN "clients" c ON c.household_id = h.id AND c.deleted_at IS NULL AND c.duplicate_of IS NULL
     GROUP BY dt.id, dt.gn_id, gn.ds_id, ds.district_id
   ),
   upserted_team_stats AS (
@@ -112,6 +119,7 @@ $$ LANGUAGE plpgsql;
 
 -- Stored procedure to purge expired / stale records across high-churn tables
 -- Enforces retention policies per table to avoid hitting Supabase 500 MB limits
+DROP FUNCTION IF EXISTS public.purge_expired_data();
 CREATE OR REPLACE FUNCTION public.purge_expired_data()
 RETURNS jsonb AS $$
 DECLARE
