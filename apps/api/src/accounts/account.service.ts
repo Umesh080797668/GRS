@@ -425,15 +425,11 @@ export class AccountService {
     );
   }
 
-  /**
-   * Deactivates a user account.
-   * Requires higher role rank and matching territory.
-   * Instantly revokes sessions by incrementing token_version (Invariant 14).
-   */
-  async deactivateAccount(
+  private async assertCanManageTargetProfile(
     adminScope: ScopeContext,
     targetUserId: string,
-  ): Promise<void> {
+    actionVerb: string,
+  ) {
     const target = await this.prisma.profile.findUnique({
       where: { id: targetUserId },
     });
@@ -448,11 +444,11 @@ export class AccountService {
     if (getRoleRank(adminScope.role) <= getRoleRank(target.role)) {
       throw new ForbiddenException({
         code: 'INSUFFICIENT_RANK',
-        message: 'Cannot deactivate an account with equal or higher rank',
+        message: `Cannot ${actionVerb} an account with equal or higher rank`,
       });
     }
 
-    // CDC Secretary can only deactivate members in their own team (fail-closed if teamId is missing or doesn't match)
+    // CDC Secretary can only manage members in their own team (fail-closed if teamId is missing or doesn't match)
     if (adminScope.role === UserRole.cdc_secretary) {
       if (
         !adminScope.teamId ||
@@ -461,24 +457,24 @@ export class AccountService {
       ) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE',
-          message: 'Cannot deactivate an account outside your team',
+          message: `Cannot ${actionVerb} an account outside your team`,
         });
       }
     }
 
-    // SDA can only deactivate accounts in their DS division or accounts they created
+    // SDA can only manage accounts in their DS division or accounts they created
     if (adminScope.role === UserRole.sda) {
       const isCreator = target.createdBy === adminScope.userId;
       const inScope = !!adminScope.dsId && target.dsId === adminScope.dsId;
       if (!isCreator && !inScope) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE',
-          message: 'Cannot deactivate an account outside your DS division',
+          message: `Cannot ${actionVerb} an account outside your DS division`,
         });
       }
     }
 
-    // DC can only deactivate accounts in their district or accounts they created
+    // DC can only manage accounts in their district or accounts they created
     if (adminScope.role === UserRole.dc) {
       const isCreator = target.createdBy === adminScope.userId;
       const inScope =
@@ -486,10 +482,28 @@ export class AccountService {
       if (!isCreator && !inScope) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE',
-          message: 'Cannot deactivate an account outside your district',
+          message: `Cannot ${actionVerb} an account outside your district`,
         });
       }
     }
+
+    return target;
+  }
+
+  /**
+   * Deactivates a user account.
+   * Requires higher role rank and matching territory.
+   * Instantly revokes sessions by incrementing token_version (Invariant 14).
+   */
+  async deactivateAccount(
+    adminScope: ScopeContext,
+    targetUserId: string,
+  ): Promise<void> {
+    const target = await this.assertCanManageTargetProfile(
+      adminScope,
+      targetUserId,
+      'deactivate',
+    );
 
     await this.prisma.$transaction(
       async (tx) => {
@@ -867,13 +881,14 @@ export class AccountService {
         }
 
         const data: Prisma.ProfileUpdateInput = {
-          fullName: dto.fullName ?? undefined,
+          fullName: dto.fullName !== undefined ? dto.fullName.trim() : undefined,
           phoneE164:
             normalizedPhoneE164 !== undefined
               ? normalizedPhoneE164
               : undefined,
           teamId: dto.teamId !== undefined ? dto.teamId : undefined,
           isActive: dto.isActive ?? undefined,
+          preferredLanguage: dto.preferredLanguage ?? undefined,
         };
 
         if (isTeamChanging && dto.teamId) {
@@ -918,10 +933,107 @@ export class AccountService {
           id: updated.id,
           userCode: updated.userCode,
           fullName: updated.fullName,
+          phoneE164: updated.phoneE164,
+          preferredLanguage: updated.preferredLanguage,
           role: updated.role,
           teamId: updated.teamId,
           isActive: updated.isActive,
         };
+      },
+      { maxWait: 45000, timeout: 45000 },
+    );
+  }
+
+  /**
+   * Permanently deletes a subordinate account that has no field/administrative history.
+   * Refuses with 409 Conflict if the user collected clients, created households/batches,
+   * requested exports, assigned territories, or audited other accounts.
+   */
+  async deleteAccount(
+    adminScope: ScopeContext,
+    targetUserId: string,
+  ): Promise<{ success: boolean; id: string }> {
+    if (targetUserId === adminScope.userId) {
+      throw new ForbiddenException({
+        code: 'CANNOT_DELETE_SELF',
+        message: 'Cannot delete your own account',
+      });
+    }
+
+    await this.assertCanManageTargetProfile(
+      adminScope,
+      targetUserId,
+      'delete',
+    );
+
+    const [
+      clientsCount,
+      householdsCount,
+      batchesCount,
+      exportsCount,
+      assignedByCount,
+      otherActorAuditsCount,
+    ] = await Promise.all([
+      this.prisma.client.count({
+        where: { OR: [{ collectedBy: targetUserId }, { createdBy: targetUserId }] },
+      }),
+      this.prisma.household.count({
+        where: { OR: [{ createdBy: targetUserId }, { finishedBy: targetUserId }] },
+      }),
+      this.prisma.accountBatch.count({ where: { createdBy: targetUserId } }),
+      this.prisma.exportJob.count({ where: { requestedBy: targetUserId } }),
+      this.prisma.accountAssignment.count({
+        where: { assignedBy: targetUserId },
+      }),
+      this.prisma.accountAudit.count({
+        where: { actorId: targetUserId, targetId: { not: targetUserId } },
+      }),
+    ]);
+
+    if (
+      clientsCount > 0 ||
+      householdsCount > 0 ||
+      batchesCount > 0 ||
+      exportsCount > 0 ||
+      assignedByCount > 0 ||
+      otherActorAuditsCount > 0
+    ) {
+      throw new ConflictException({
+        code: 'ACCOUNT_HAS_HISTORY',
+        message:
+          'Cannot delete account that has collected records, created households, batches, exports, assignments, or audit history. Deactivate the account instead.',
+      });
+    }
+
+    return this.prisma.$transaction(
+      async (tx) => {
+        await tx.team.updateMany({
+          where: { leaderId: targetUserId },
+          data: { leaderId: null },
+        });
+        await tx.gnDivision.updateMany({
+          where: { cdcSecretaryId: targetUserId },
+          data: { cdcSecretaryId: null },
+        });
+        await tx.accountAssignment.updateMany({
+          where: { endedBy: targetUserId },
+          data: { endedBy: null },
+        });
+        await tx.accountAudit.deleteMany({
+          where: { OR: [{ targetId: targetUserId }, { actorId: targetUserId }] },
+        });
+        await tx.refreshToken.deleteMany({ where: { profileId: targetUserId } });
+        await tx.userSession.deleteMany({ where: { profileId: targetUserId } });
+        await tx.emailCode.deleteMany({ where: { profileId: targetUserId } });
+        await tx.profileAssignment.deleteMany({
+          where: { profileId: targetUserId },
+        });
+        await tx.accountAssignment.deleteMany({
+          where: { profileId: targetUserId },
+        });
+        await tx.profile.delete({ where: { id: targetUserId } });
+
+        return { success: true, id: targetUserId };
       },
       { maxWait: 45000, timeout: 45000 },
     );

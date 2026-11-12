@@ -49,13 +49,39 @@ describe('Account Creation & Bulk Generation for Level 4 CDC Admin & Team Member
         ),
         findFirst: jest.fn().mockResolvedValue(null),
         findUnique: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockImplementation(({ where, data }) =>
+          Promise.resolve({ id: where.id, ...data }),
+        ),
+        delete: jest.fn().mockResolvedValue({}),
       },
       accountBatch: {
         create: jest.fn().mockResolvedValue({ id: 'batch-mock-id' }),
+        count: jest.fn().mockResolvedValue(0),
       },
       accountAudit: {
         create: jest.fn().mockResolvedValue({ id: 'audit-mock-id' }),
+        count: jest.fn().mockResolvedValue(0),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
+      client: { count: jest.fn().mockResolvedValue(0) },
+      household: { count: jest.fn().mockResolvedValue(0) },
+      exportJob: { count: jest.fn().mockResolvedValue(0) },
+      accountAssignment: {
+        count: jest.fn().mockResolvedValue(0),
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      profileAssignment: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      refreshToken: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      userSession: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      emailCode: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      gnDivision: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
       team: {
         findUnique: jest.fn().mockImplementation(({ where }) => {
           if (where.id === mockTeam.id) {
@@ -64,6 +90,7 @@ describe('Account Creation & Bulk Generation for Level 4 CDC Admin & Team Member
           return Promise.resolve(null);
         }),
         update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       $transaction: jest.fn().mockImplementation(async (cb) => {
         return cb(mockPrisma);
@@ -314,6 +341,65 @@ describe('Account Creation & Bulk Generation for Level 4 CDC Admin & Team Member
           phoneE164: '12345',
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('Account Update & Delete', () => {
+    it('deletes clean unused subordinate account and blocks accounts with collected/audit history', async () => {
+      mockPrisma.profile.findUnique.mockResolvedValue({
+        id: 'target-user-1',
+        userCode: 'GRS1111111111',
+        fullName: 'Member One',
+        role: UserRole.team_member,
+        teamId: mockTeam.id,
+        gnId: mockTeam.gnId,
+        dsId: mockTeam.gn.dsId,
+        districtId: mockTeam.gn.ds.districtId,
+        isActive: true,
+      });
+
+      const deleted = await service.deleteAccount(
+        superAdminScope,
+        'target-user-1',
+      );
+      expect(deleted).toEqual({ success: true, id: 'target-user-1' });
+      expect(mockPrisma.profile.delete).toHaveBeenCalledWith({
+        where: { id: 'target-user-1' },
+      });
+
+      // Block if account has collected clients
+      mockPrisma.client.count.mockResolvedValueOnce(2);
+      await expect(
+        service.deleteAccount(superAdminScope, 'target-user-1'),
+      ).rejects.toThrow(ConflictException);
+
+      // Block self-delete
+      await expect(
+        service.deleteAccount(superAdminScope, superAdminScope.userId),
+      ).rejects.toThrow('Cannot delete your own account');
+    });
+
+    it('updates fullName, normalized phoneE164, and preferredLanguage', async () => {
+      mockPrisma.profile.findUnique.mockResolvedValue({
+        id: 'target-user-2',
+        userCode: 'GRS2222222222',
+        fullName: 'Old Name',
+        role: UserRole.team_member,
+        teamId: mockTeam.id,
+        gnId: mockTeam.gnId,
+        dsId: mockTeam.gn.dsId,
+        districtId: mockTeam.gn.ds.districtId,
+        isActive: true,
+      });
+
+      const res = await service.updateAccount(superAdminScope, 'target-user-2', {
+        fullName: 'New Member Name',
+        phoneE164: '0779876543',
+        preferredLanguage: 'en',
+      });
+      expect(res.fullName).toBe('New Member Name');
+      expect(res.phoneE164).toBe('+94779876543');
+      expect(res.preferredLanguage).toBe('en');
     });
   });
 });

@@ -417,4 +417,75 @@ describe('ApiClient - Single-flight refresh (Bug 4)', () => {
     assert.strictEqual(requests[3].url.includes('lang=ta'), true);
     assert.strictEqual(requests[3].url.includes('dsId=ds-9'), true);
   });
+
+  it('admin edit and delete endpoints dispatch expected HTTP methods, paths, and payloads', async () => {
+    const requests: Array<{ url: string; method?: string; body?: any }> = [];
+    (globalThis as any).fetch = async (url: string, options: any = {}) => {
+      requests.push({
+        url,
+        method: options.method || 'GET',
+        body: options.body ? JSON.parse(options.body) : undefined,
+      });
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: async () => JSON.stringify({ success: true }),
+      };
+    };
+
+    client.setAccessToken('admin-token');
+    await client.updateAccount('acc-1', { fullName: 'Updated Name', preferredLanguage: 'si' });
+    await client.deleteAccount('acc-2');
+    await client.updateDsDivision('ds-1', { nameEn: 'New DS' });
+    await client.deleteDsDivision('ds-2');
+    await client.updateGnDivision('gn-1', { gnNumber: '101/A', gnName: 'Pallekele' });
+    await client.deleteGnDivision('gn-2');
+    await client.updateTeam('tm-1', { teamNo: 4, maxMembers: 12 });
+    await client.deleteTeam('tm-2');
+    await client.updateHousehold('h-1', { houseNo: '102/B', houseLeaderName: 'K. Perera' });
+    await client.deleteHousehold('h-2', 'Entered twice');
+    await client.deleteClient('cl-1', 'Duplicate entry');
+
+    assert.strictEqual(requests.length, 11);
+    assert.strictEqual(requests[0].method, 'PATCH');
+    assert.strictEqual(requests[0].url.endsWith('/v1/accounts/acc-1'), true);
+    assert.deepStrictEqual(requests[0].body, { fullName: 'Updated Name', preferredLanguage: 'si' });
+
+    assert.strictEqual(requests[1].method, 'DELETE');
+    assert.strictEqual(requests[1].url.endsWith('/v1/accounts/acc-2'), true);
+
+    assert.strictEqual(requests[2].method, 'PATCH');
+    assert.strictEqual(requests[2].url.endsWith('/v1/areas/ds/ds-1'), true);
+    assert.deepStrictEqual(requests[2].body, { nameEn: 'New DS' });
+
+    assert.strictEqual(requests[3].method, 'DELETE');
+    assert.strictEqual(requests[3].url.endsWith('/v1/areas/ds/ds-2'), true);
+
+    assert.strictEqual(requests[4].method, 'PATCH');
+    assert.strictEqual(requests[4].url.endsWith('/v1/areas/gn/gn-1'), true);
+    assert.deepStrictEqual(requests[4].body, { gnNumber: '101/A', gnName: 'Pallekele' });
+
+    assert.strictEqual(requests[5].method, 'DELETE');
+    assert.strictEqual(requests[5].url.endsWith('/v1/areas/gn/gn-2'), true);
+
+    assert.strictEqual(requests[6].method, 'PATCH');
+    assert.strictEqual(requests[6].url.endsWith('/v1/areas/teams/tm-1'), true);
+    assert.deepStrictEqual(requests[6].body, { teamNo: 4, maxMembers: 12 });
+
+    assert.strictEqual(requests[7].method, 'DELETE');
+    assert.strictEqual(requests[7].url.endsWith('/v1/areas/teams/tm-2'), true);
+
+    assert.strictEqual(requests[8].method, 'PATCH');
+    assert.strictEqual(requests[8].url.endsWith('/v1/houses/h-1'), true);
+    assert.deepStrictEqual(requests[8].body, { houseNo: '102/B', houseLeaderName: 'K. Perera' });
+
+    assert.strictEqual(requests[9].method, 'DELETE');
+    assert.strictEqual(requests[9].url.endsWith('/v1/houses/h-2'), true);
+    assert.deepStrictEqual(requests[9].body, { reason: 'Entered twice' });
+
+    assert.strictEqual(requests[10].method, 'DELETE');
+    assert.strictEqual(requests[10].url.endsWith('/v1/clients/cl-1'), true);
+    assert.deepStrictEqual(requests[10].body, { reason: 'Duplicate entry' });
+  });
 });

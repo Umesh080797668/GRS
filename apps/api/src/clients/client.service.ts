@@ -14,6 +14,7 @@ import {
   CreateClientDto,
   UpdateClientDto,
   ListClientsDto,
+  DeleteClientDto,
 } from './dto/client.dto';
 import { LookupService } from '../lookups/lookup.service';
 import { AppConfigService } from '../config/app-config.service';
@@ -869,5 +870,87 @@ export class ClientService {
 
     await this.scoreClientSafely(updated.id);
     return updated;
+  }
+
+  /**
+   * Soft-deletes a client record with audit logging and dirty team stats marking.
+   * Decision C2: Level 5 cannot delete synced records. Level 4 restricted to own team.
+   */
+  async deleteClient(
+    caller: ScopeContext,
+    id: string,
+    dto?: DeleteClientDto,
+  ): Promise<{ success: boolean; id: string }> {
+    const client = await this.getClientById(caller, id);
+
+    if (caller.role === UserRole.team_member) {
+      throw new ForbiddenException({
+        code: 'LOCKED_RECORD',
+        message:
+          'Enumerators cannot delete records after sync. Contact your team leader (Decision C2).',
+      });
+    }
+
+    if (
+      caller.role === UserRole.cdc_secretary &&
+      client.teamId !== caller.teamId
+    ) {
+      throw new ForbiddenException({
+        code: 'OUT_OF_SCOPE_TEAM',
+        message: 'CDC Secretary can only delete records from their own team',
+      });
+    }
+
+    const now = new Date();
+    const deleteReason = dto?.reason?.trim() || 'Record deleted by supervisor';
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.clientAudit.create({
+        data: {
+          clientId: id,
+          changedBy: caller.userId,
+          reason: deleteReason,
+          before: client,
+          after: {
+            ...client,
+            deletedAt: now.toISOString(),
+            deletedReason: deleteReason,
+          },
+        },
+      });
+
+      await tx.client.update({
+        where: { id },
+        data: {
+          deletedAt: now,
+          serverVersion: { increment: 1 },
+          updatedBy: caller.userId,
+          updatedAt: now,
+        },
+      });
+
+      if ((tx as any).duplicateCandidate?.updateMany) {
+        await (tx as any).duplicateCandidate.updateMany({
+          where: {
+            status: 'open',
+            OR: [{ clientA: id }, { clientB: id }],
+          },
+          data: {
+            status: 'dismissed',
+            reviewedBy: caller.userId,
+            reviewedAt: now,
+          },
+        });
+      }
+
+      if (client.teamId) {
+        await tx.team.update({
+          where: { id: client.teamId },
+          data: { statsDirtyAt: now },
+        });
+      }
+
+      return { success: true, id };
+    });
   }
 }

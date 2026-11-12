@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -19,13 +20,14 @@ import {
   CreateClientDto,
   UpdateClientDto,
   ListClientsDto,
+  DeleteClientDto,
 } from './dto/client.dto';
 import { CurrentUser } from '../auth/current-user.decorator';
 
 @Controller('v1/clients')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ClientController {
-  constructor(private readonly clientService: ClientService) {}
+  constructor(private readonly clientService: ClientService) { }
 
   @Get()
   @Roles(
@@ -69,5 +71,15 @@ export class ClientController {
     @Body() dto: UpdateClientDto,
   ) {
     return this.clientService.updateClient(user, id, dto);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.cdc_secretary, UserRole.super_admin)
+  async deleteClient(
+    @CurrentUser() user: ScopeContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto?: DeleteClientDto,
+  ) {
+    return this.clientService.deleteClient(user, id, dto);
   }
 }

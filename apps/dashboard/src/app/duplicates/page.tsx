@@ -47,7 +47,7 @@ interface DuplicateCandidateItem {
   score: number;
   classification: 'probable' | 'possible';
   reasons?: {
-    factors?: string[];
+    factors?: Array<string | { key?: string; label?: string; score?: number }>;
     nameSimilarity?: number;
     phoneMatch?: boolean;
     sameHousehold?: boolean;
@@ -251,10 +251,22 @@ export default function DuplicatesPage() {
     }
   }
 
-  function formatFactor(factor: string): string {
-    const key = `duplicates.factor.${factor}`;
+  function extractFactorKey(factor: unknown): string {
+    if (typeof factor === 'string') return factor;
+    if (factor && typeof factor === 'object') {
+      const f = factor as { key?: unknown; label?: unknown };
+      if (typeof f.key === 'string') return f.key;
+      if (typeof f.label === 'string') return f.label;
+    }
+    return factor == null ? '' : String(factor);
+  }
+
+  function formatFactor(factor: unknown): string {
+    const raw = extractFactorKey(factor);
+    if (!raw) return '';
+    const key = `duplicates.factor.${raw}`;
     const translated = t(key);
-    return translated === key ? factor.replaceAll('_', ' ') : translated;
+    return translated === key ? raw.replace(/_/g, ' ') : translated;
   }
 
   function formatDate(iso?: string | null): string {
@@ -633,7 +645,7 @@ export default function DuplicatesPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {items.map((item) => {
             const isProbable = item.classification === 'probable';
-            const factors = item.reasons?.factors || [];
+            const factors = Array.isArray(item.reasons?.factors) ? item.reasons.factors : [];
             const isOpen = item.status === 'open';
             const isActing = actingId === item.id;
 
@@ -663,21 +675,25 @@ export default function DuplicatesPage() {
                   </div>
 
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    {factors.map((f) => (
-                      <span
-                        key={f}
-                        style={{
-                          fontSize: '11px',
-                          background: 'var(--slate-100)',
-                          color: 'var(--slate-700)',
-                          padding: '2px 8px',
-                          borderRadius: '9999px',
-                          border: '1px solid var(--slate-200)',
-                        }}
-                      >
-                        {formatFactor(f)}
-                      </span>
-                    ))}
+                    {factors.map((f, idx) => {
+                      const label = formatFactor(f);
+                      if (!label) return null;
+                      return (
+                        <span
+                          key={`${extractFactorKey(f)}-${idx}`}
+                          style={{
+                            fontSize: '11px',
+                            background: 'var(--slate-100)',
+                            color: 'var(--slate-700)',
+                            padding: '2px 8px',
+                            borderRadius: '9999px',
+                            border: '1px solid var(--slate-200)',
+                          }}
+                        >
+                          {label}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
 

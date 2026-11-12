@@ -122,6 +122,33 @@ export class CreateDsDto {
   sdoName?: string;
 }
 
+export class UpdateDsDto {
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
+  @IsNotEmpty()
+  @MaxLength(100)
+  nameEn?: string;
+
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
+  @MaxLength(100)
+  nameSi?: string;
+
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
+  @MaxLength(100)
+  nameTa?: string;
+
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
+  @MaxLength(255)
+  sdoName?: string;
+}
+
 export class CreateGnDto {
   @IsUUID()
   @IsNotEmpty()
@@ -157,6 +184,20 @@ export class CreateGnDto {
 
 export class UpdateGnDto {
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
+  @IsNotEmpty()
+  @MaxLength(50)
+  gnNumber?: string;
+
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
+  @IsNotEmpty()
+  @MaxLength(100)
+  gnName?: string;
+
+  @IsString()
   @IsOptional()
   @MaxLength(255)
   secretaryName?: string;
@@ -189,6 +230,13 @@ export class CreateTeamDto {
 }
 
 export class UpdateTeamDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  teamNo?: number;
+
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)

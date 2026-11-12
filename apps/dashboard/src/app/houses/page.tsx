@@ -16,7 +16,9 @@ import {
   ArrowRight,
   RotateCcw,
   X,
-  Search
+  Search,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 
 export default function HousesPage() {
@@ -48,7 +50,28 @@ export default function HousesPage() {
   // Modals
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [showGnModal, setShowGnModal] = useState<boolean>(false);
+  const [editingHouse, setEditingHouse] = useState<any>(null);
+  const [editHouseForm, setEditHouseForm] = useState({
+    houseNo: '',
+    houseLeaderName: '',
+    villageName: '',
+    address: '',
+    targetFemale: 0,
+    targetMale: 0,
+    isSamurdhi: false,
+    isAswesuma: false,
+    isEpf: false,
+    isEtf: false,
+    hasSpecialNeeds: false,
+    langSinhala: false,
+    langTamil: false,
+    langEnglish: false,
+  });
+  const [deletingHouse, setDeletingHouse] = useState<any>(null);
+  const [deleteHouseReason, setDeleteHouseReason] = useState('');
+  const [modalError, setModalError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const canMutateHouse = user?.role === 'super_admin' || user?.role === 'cdc_secretary';
 
   // Banners
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
@@ -314,6 +337,86 @@ export default function HousesPage() {
       fetchHouseholds(selectedGn, true);
     } catch (err: any) {
       setErrorBanner(`Failed to add household: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  function openEditHouse(house: any) {
+    setModalError(null);
+    setEditingHouse(house);
+    setEditHouseForm({
+      houseNo: house.houseNo || '',
+      houseLeaderName: house.houseLeaderName || '',
+      villageName: house.villageName || '',
+      address: house.address || '',
+      targetFemale: Number(house.targetFemale ?? 0),
+      targetMale: Number(house.targetMale ?? 0),
+      isSamurdhi: Boolean(house.isSamurdhi),
+      isAswesuma: Boolean(house.isAswesuma),
+      isEpf: Boolean(house.isEpf),
+      isEtf: Boolean(house.isEtf),
+      hasSpecialNeeds: Boolean(house.hasSpecialNeeds),
+      langSinhala: Boolean(house.langSinhala),
+      langTamil: Boolean(house.langTamil),
+      langEnglish: Boolean(house.langEnglish),
+    });
+  }
+
+  async function handleUpdateHousehold(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingHouse) return;
+    setActionLoading(true);
+    setModalError(null);
+    setErrorBanner(null);
+    setSuccessBanner(null);
+    try {
+      await api.updateHousehold(editingHouse.id, {
+        houseNo: editHouseForm.houseNo.trim(),
+        houseLeaderName: editHouseForm.houseLeaderName.trim(),
+        villageName: editHouseForm.villageName.trim(),
+        address: editHouseForm.address.trim(),
+        targetFemale: Number(editHouseForm.targetFemale) || 0,
+        targetMale: Number(editHouseForm.targetMale) || 0,
+        isSamurdhi: editHouseForm.isSamurdhi,
+        isAswesuma: editHouseForm.isAswesuma,
+        isEpf: editHouseForm.isEpf,
+        isEtf: editHouseForm.isEtf,
+        hasSpecialNeeds: editHouseForm.hasSpecialNeeds,
+        langSinhala: editHouseForm.langSinhala,
+        langTamil: editHouseForm.langTamil,
+        langEnglish: editHouseForm.langEnglish,
+      });
+      setEditingHouse(null);
+      setSuccessBanner(`House #${editHouseForm.houseNo.trim()} updated successfully.`);
+      fetchHouseholds(selectedGn, true);
+    } catch (err: any) {
+      setModalError(err.message || 'Failed to update household.');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleDeleteHousehold() {
+    if (!deletingHouse) return;
+    setActionLoading(true);
+    setModalError(null);
+    setErrorBanner(null);
+    setSuccessBanner(null);
+    try {
+      await api.deleteHousehold(
+        deletingHouse.id,
+        deleteHouseReason.trim() || undefined
+      );
+      const removedNo = deletingHouse.houseNo;
+      const removedId = deletingHouse.id;
+      setDeletingHouse(null);
+      setDeleteHouseReason('');
+      setSelectedHouseIds((prev) => prev.filter((id) => id !== removedId));
+      setSuccessBanner(`House #${removedNo} deleted successfully.`);
+      fetchHouseholds(selectedGn, true);
+    } catch (err: any) {
+      setModalError(err.message || 'Failed to delete household.');
     } finally {
       setActionLoading(false);
     }
@@ -864,6 +967,39 @@ export default function HousesPage() {
                               {t('houses.unassign')}
                             </button>
                           )}
+                          {canMutateHouse && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openEditHouse(h)}
+                                className="btn-secondary"
+                                style={{ padding: '4px 8px', fontSize: '11px' }}
+                                title={t('houses.edit_house')}
+                                aria-label={t('houses.edit_house')}
+                              >
+                                <Edit2 size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setModalError(null);
+                                  setDeleteHouseReason('');
+                                  setDeletingHouse(h);
+                                }}
+                                className="btn-secondary"
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '11px',
+                                  color: 'var(--danger-text)',
+                                  borderColor: 'var(--danger-border)',
+                                }}
+                                title={t('houses.delete_house')}
+                                aria-label={t('houses.delete_house')}
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1054,6 +1190,252 @@ export default function HousesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Household Modal */}
+      {editingHouse && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '560px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                  {t('houses.edit_house')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
+                  House #{editingHouse.houseNo} — {editingHouse.houseLeaderName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setEditingHouse(null); setModalError(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateHousehold}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {modalError && (
+                  <div
+                    style={{
+                      background: 'var(--danger-bg)',
+                      border: '1px solid var(--danger-border)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '10px 12px',
+                      color: 'var(--danger-text)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                    <span>{modalError}</span>
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label className="form-label">House Number *</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={editHouseForm.houseNo}
+                      onChange={(e) => setEditHouseForm({ ...editHouseForm, houseNo: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Head of Household *</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={editHouseForm.houseLeaderName}
+                      onChange={(e) => setEditHouseForm({ ...editHouseForm, houseLeaderName: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label className="form-label">Village / Street</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={editHouseForm.villageName}
+                      onChange={(e) => setEditHouseForm({ ...editHouseForm, villageName: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Full Postal Address</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={editHouseForm.address}
+                      onChange={(e) => setEditHouseForm({ ...editHouseForm, address: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label className="form-label">Target Female Count</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="99"
+                      className="input-field"
+                      value={editHouseForm.targetFemale}
+                      onChange={(e) => setEditHouseForm({ ...editHouseForm, targetFemale: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Target Male Count</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="99"
+                      className="input-field"
+                      value={editHouseForm.targetMale}
+                      onChange={(e) => setEditHouseForm({ ...editHouseForm, targetMale: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label">Social Welfare & Identifiers</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px', fontSize: '13px', marginTop: '4px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editHouseForm.isSamurdhi} onChange={(e) => setEditHouseForm({ ...editHouseForm, isSamurdhi: e.target.checked })} />
+                      <span>Samurdhi</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editHouseForm.isAswesuma} onChange={(e) => setEditHouseForm({ ...editHouseForm, isAswesuma: e.target.checked })} />
+                      <span>Aswesuma</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editHouseForm.isEpf} onChange={(e) => setEditHouseForm({ ...editHouseForm, isEpf: e.target.checked })} />
+                      <span>EPF</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editHouseForm.isEtf} onChange={(e) => setEditHouseForm({ ...editHouseForm, isEtf: e.target.checked })} />
+                      <span>ETF</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editHouseForm.hasSpecialNeeds} onChange={(e) => setEditHouseForm({ ...editHouseForm, hasSpecialNeeds: e.target.checked })} />
+                      <span>Special Needs</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label">Household Languages</label>
+                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '13px', marginTop: '4px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editHouseForm.langSinhala} onChange={(e) => setEditHouseForm({ ...editHouseForm, langSinhala: e.target.checked })} />
+                      <span>Sinhala</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editHouseForm.langTamil} onChange={(e) => setEditHouseForm({ ...editHouseForm, langTamil: e.target.checked })} />
+                      <span>Tamil</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editHouseForm.langEnglish} onChange={(e) => setEditHouseForm({ ...editHouseForm, langEnglish: e.target.checked })} />
+                      <span>English</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" onClick={() => { setEditingHouse(null); setModalError(null); }} className="btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={actionLoading} className="btn-primary">
+                  {actionLoading ? <Loader2 size={16} className="animate-spin" /> : t('common.save_changes')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Household Confirmation Modal */}
+      {deletingHouse && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '440px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--danger-text)' }}>
+                  {t('houses.delete_house')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
+                  House #{deletingHouse.houseNo} — {deletingHouse.houseLeaderName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setDeletingHouse(null); setModalError(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {modalError && (
+                <div
+                  style={{
+                    background: 'var(--danger-bg)',
+                    border: '1px solid var(--danger-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '10px 12px',
+                    color: 'var(--danger-text)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '13px',
+                  }}
+                >
+                  <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                  <span>{modalError}</span>
+                </div>
+              )}
+              <p style={{ fontSize: '13.5px', color: 'var(--slate-700)', margin: 0, lineHeight: 1.5 }}>
+                Are you sure you want to delete household <strong>#{deletingHouse.houseNo}</strong>? Households with active client survey records attached cannot be deleted until those client records are removed or reassigned (Decision C6).
+              </p>
+              <div>
+                <label className="form-label">Deletion Reason (Optional)</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. Duplicate or entered in wrong GN"
+                  value={deleteHouseReason}
+                  onChange={(e) => setDeleteHouseReason(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" onClick={() => { setDeletingHouse(null); setModalError(null); }} className="btn-secondary">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteHousehold}
+                disabled={actionLoading}
+                className="btn-secondary"
+                style={{
+                  background: 'var(--danger-bg)',
+                  borderColor: 'var(--danger-border)',
+                  color: 'var(--danger-text)',
+                  fontWeight: 600,
+                }}
+              >
+                {actionLoading ? <Loader2 size={16} className="animate-spin" /> : t('common.delete')}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -91,6 +92,7 @@ export class AccountController {
   @Patch(':id')
   @Roles(
     UserRole.super_admin,
+    UserRole.admin,
     UserRole.cg,
     UserRole.dc,
     UserRole.sda,
@@ -102,6 +104,22 @@ export class AccountController {
     @Body() dto: UpdateAccountDto,
   ) {
     return this.accountService.updateAccount(user, targetId, dto);
+  }
+
+  @Delete(':id')
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.cg,
+    UserRole.dc,
+    UserRole.sda,
+    UserRole.cdc_secretary,
+  )
+  async deleteAccount(
+    @CurrentUser() user: ScopeContext,
+    @Param('id', ParseUUIDPipe) targetId: string,
+  ) {
+    return this.accountService.deleteAccount(user, targetId);
   }
 
   @Patch(':id/deactivate')

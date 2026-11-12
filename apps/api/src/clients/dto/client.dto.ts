@@ -271,3 +271,10 @@ export class ListClientsDto {
   @IsBoolean()
   includeCount?: boolean;
 }
+
+export class DeleteClientDto {
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  reason?: string;
+}

@@ -263,6 +263,15 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     description: 'Update profile details for subordinate account in scope',
   },
   {
+    method: 'DELETE',
+    path: '/accounts/:id',
+    category: 'accounts',
+    allowedRoles: ['cdc_secretary', 'sda', 'dc', 'cg', 'admin', 'super_admin'],
+    scopeEnforcement: 'hierarchical',
+    description:
+      'Permanently delete unused subordinate account without field/audit history',
+  },
+  {
     method: 'PATCH',
     path: '/accounts/:id/deactivate',
     category: 'accounts',
@@ -495,6 +504,22 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     description: 'Create DS division (L00/Admin)',
   },
   {
+    method: 'PATCH',
+    path: '/areas/ds/:id',
+    category: 'areas',
+    allowedRoles: ['admin', 'super_admin'],
+    scopeEnforcement: 'national',
+    description: 'Update DS division details (L00/Admin)',
+  },
+  {
+    method: 'DELETE',
+    path: '/areas/ds/:id',
+    category: 'areas',
+    allowedRoles: ['admin', 'super_admin'],
+    scopeEnforcement: 'national',
+    description: 'Delete DS division when empty (L00/Admin)',
+  },
+  {
     method: 'GET',
     path: '/areas/gn',
     category: 'areas',
@@ -543,6 +568,14 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     description: 'Update GN division secretary details (L4 own GN, L00/Admin)',
   },
   {
+    method: 'DELETE',
+    path: '/areas/gn/:id',
+    category: 'areas',
+    allowedRoles: ['admin', 'super_admin'],
+    scopeEnforcement: 'national',
+    description: 'Delete GN division when empty (L00/Admin)',
+  },
+  {
     method: 'GET',
     path: '/areas/teams',
     category: 'areas',
@@ -565,6 +598,14 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     allowedRoles: ['admin', 'super_admin'],
     scopeEnforcement: 'national',
     description: 'Update team details or member limits (L00/Admin)',
+  },
+  {
+    method: 'DELETE',
+    path: '/areas/teams/:id',
+    category: 'areas',
+    allowedRoles: ['admin', 'super_admin'],
+    scopeEnforcement: 'national',
+    description: 'Delete empty field team (L00/Admin)',
   },
   {
     method: 'POST',
@@ -723,6 +764,15 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     scopeEnforcement: 'team_only',
     description:
       'Correction of client fields (writes client_audit row, L5 locked)',
+  },
+  {
+    method: 'DELETE',
+    path: '/clients/:id',
+    category: 'clients',
+    allowedRoles: ['cdc_secretary', 'super_admin'],
+    scopeEnforcement: 'team_only',
+    description:
+      'Soft-delete client record (writes client_audit row, L5 locked)',
   },
 
   // Sync Engine (M3)

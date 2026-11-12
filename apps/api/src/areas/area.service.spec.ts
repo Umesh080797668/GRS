@@ -45,12 +45,15 @@ describe('AreaService (M1.7)', () => {
     },
     divisionalSecretariat: {
       findFirst: jest.fn().mockImplementation(({ where }) => {
+        const nameEnTarget = String(
+          where.nameEn?.equals ?? where.nameEn ?? '',
+        ).toLowerCase();
         return Promise.resolve(
           inMemoryDs.find(
             (ds) =>
               ds.districtId === where.districtId &&
-              ds.nameEn.toLowerCase() ===
-              (where.nameEn.equals || where.nameEn).toLowerCase(),
+              (!where.id?.not || ds.id !== where.id.not) &&
+              ds.nameEn.toLowerCase() === nameEnTarget,
           ) || null,
         );
       }),
@@ -81,6 +84,21 @@ describe('AreaService (M1.7)', () => {
         inMemoryDs.push(ds);
         return Promise.resolve(ds);
       }),
+      update: jest.fn().mockImplementation(({ where, data }) => {
+        const idx = inMemoryDs.findIndex((ds) => ds.id === where.id);
+        if (idx === -1) return Promise.resolve(null);
+        const defined = Object.fromEntries(
+          Object.entries(data).filter(([, v]) => v !== undefined),
+        );
+        inMemoryDs[idx] = { ...inMemoryDs[idx], ...defined };
+        return Promise.resolve(inMemoryDs[idx]);
+      }),
+      delete: jest.fn().mockImplementation(({ where }) => {
+        const idx = inMemoryDs.findIndex((ds) => ds.id === where.id);
+        if (idx === -1) return Promise.resolve(null);
+        const [removed] = inMemoryDs.splice(idx, 1);
+        return Promise.resolve(removed);
+      }),
     },
     gnDivision: {
       findFirst: jest.fn().mockImplementation(({ where }) => {
@@ -88,6 +106,7 @@ describe('AreaService (M1.7)', () => {
         const name = where?.gnName?.equals ?? where?.gnName;
         return Promise.resolve(
           inMemoryGn.find((gn) => {
+            if (where?.id?.not && gn.id === where.id.not) return false;
             if (where?.dsId !== undefined && gn.dsId !== where.dsId) return false;
             if (
               num !== undefined &&
@@ -139,11 +158,33 @@ describe('AreaService (M1.7)', () => {
       }),
       count: jest
         .fn()
-        .mockImplementation(() => Promise.resolve(inMemoryGn.length)),
+        .mockImplementation(({ where } = {}) => {
+          if (where?.dsId) {
+            return Promise.resolve(
+              inMemoryGn.filter((g) => g.dsId === where.dsId).length,
+            );
+          }
+          return Promise.resolve(inMemoryGn.length);
+        }),
       create: jest.fn().mockImplementation(({ data }) => {
         const gn = { id: `gn-${Date.now()}-${Math.random()}`, ...data };
         inMemoryGn.push(gn);
         return Promise.resolve(gn);
+      }),
+      update: jest.fn().mockImplementation(({ where, data }) => {
+        const idx = inMemoryGn.findIndex((gn) => gn.id === where.id);
+        if (idx === -1) return Promise.resolve(null);
+        const defined = Object.fromEntries(
+          Object.entries(data).filter(([, v]) => v !== undefined),
+        );
+        inMemoryGn[idx] = { ...inMemoryGn[idx], ...defined };
+        return Promise.resolve(inMemoryGn[idx]);
+      }),
+      delete: jest.fn().mockImplementation(({ where }) => {
+        const idx = inMemoryGn.findIndex((gn) => gn.id === where.id);
+        if (idx === -1) return Promise.resolve(null);
+        const [removed] = inMemoryGn.splice(idx, 1);
+        return Promise.resolve(removed);
       }),
     },
     team: {
@@ -180,7 +221,14 @@ describe('AreaService (M1.7)', () => {
       }),
       count: jest
         .fn()
-        .mockImplementation(() => Promise.resolve(inMemoryTeams.length)),
+        .mockImplementation(({ where } = {}) => {
+          if (where?.gnId) {
+            return Promise.resolve(
+              inMemoryTeams.filter((t) => t.gnId === where.gnId).length,
+            );
+          }
+          return Promise.resolve(inMemoryTeams.length);
+        }),
       create: jest.fn().mockImplementation(({ data }) => {
         const t = { id: `team-${Date.now()}-${Math.random()}`, ...data };
         inMemoryTeams.push(t);
@@ -189,12 +237,28 @@ describe('AreaService (M1.7)', () => {
       update: jest.fn().mockImplementation(({ where, data }) => {
         const idx = inMemoryTeams.findIndex((t) => t.id === where.id);
         if (idx !== -1) {
-          inMemoryTeams[idx] = { ...inMemoryTeams[idx], ...data };
+          const defined = Object.fromEntries(
+            Object.entries(data).filter(([, v]) => v !== undefined),
+          );
+          inMemoryTeams[idx] = { ...inMemoryTeams[idx], ...defined };
           return Promise.resolve(inMemoryTeams[idx]);
         }
         return Promise.resolve(null);
       }),
+      delete: jest.fn().mockImplementation(({ where }) => {
+        const idx = inMemoryTeams.findIndex((t) => t.id === where.id);
+        if (idx === -1) return Promise.resolve(null);
+        const [removed] = inMemoryTeams.splice(idx, 1);
+        return Promise.resolve(removed);
+      }),
     },
+    profile: { count: jest.fn().mockResolvedValue(0) },
+    household: { count: jest.fn().mockResolvedValue(0) },
+    client: { count: jest.fn().mockResolvedValue(0) },
+    profileAssignment: { count: jest.fn().mockResolvedValue(0) },
+    accountAssignment: { count: jest.fn().mockResolvedValue(0) },
+    areaStat: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+    teamStat: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
     $transaction: jest
       .fn()
       .mockImplementation((cb) =>
@@ -737,10 +801,14 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
       for (const methodName of [
         'seedDistricts',
         'createDs',
+        'updateDs',
+        'deleteDs',
         'createGn',
         'updateGn',
+        'deleteGn',
         'createTeam',
         'updateTeam',
+        'deleteTeam',
         'importPilotArea',
       ] as const) {
         const roles: UserRole[] = Reflect.getMetadata(
@@ -750,6 +818,90 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
         expect(roles).toContain(UserRole.super_admin);
         expect(roles).toContain(UserRole.admin);
       }
+    });
+
+    it('supports updating and deleting DS, GN, and Teams while blocking dependency deletion', async () => {
+      await service.seedDistricts();
+      const colombo = inMemoryDistricts.find((d) => d.nameEn === 'Colombo');
+      const superAdminScope = { userId: 'sa-1', role: UserRole.super_admin };
+
+      const ds1 = await service.createDivisionalSecretariat({
+        districtId: colombo.id,
+        nameEn: 'Homagama',
+      });
+      const ds2 = await service.createDivisionalSecretariat({
+        districtId: colombo.id,
+        nameEn: 'Maharagama',
+      });
+
+      const updatedDs = await service.updateDivisionalSecretariat(ds1.id, {
+        nameEn: 'Homagama North',
+        sdoName: 'SDO Silva',
+      });
+      expect(updatedDs.nameEn).toBe('Homagama North');
+      expect(updatedDs.sdoName).toBe('SDO Silva');
+
+      await expect(
+        service.updateDivisionalSecretariat(ds2.id, { nameEn: 'homagama north' }),
+      ).rejects.toThrow('already exists in this district');
+
+      const gn = await service.createGnDivision({
+        dsId: ds1.id,
+        gnNumber: '450A',
+        gnName: 'Pitipana',
+      });
+
+      // CDC secretary cannot rename gnNumber/gnName
+      await expect(
+        service.updateGnDivision(
+          { userId: 'sec-1', role: UserRole.cdc_secretary, gnId: gn.id },
+          gn.id,
+          { gnName: 'Renamed' },
+        ),
+      ).rejects.toThrow('GN office secretary contact details');
+
+      const updatedGn = await service.updateGnDivision(superAdminScope, gn.id, {
+        gnNumber: '450B',
+        gnName: 'Pitipana North',
+        secretaryName: 'K. Perera',
+      });
+      expect(updatedGn.gnNumber).toBe('450B');
+      expect(updatedGn.gnName).toBe('Pitipana North');
+
+      const team = await service.createTeam({
+        gnId: gn.id,
+        teamNo: 1,
+        maxMembers: 10,
+      });
+
+      // Simulate 4 active members preventing shrink below 4
+      mockPrisma.profile.count.mockResolvedValueOnce(4);
+      await expect(
+        service.updateTeam(team.id, { maxMembers: 3 }),
+      ).rejects.toThrow('below 4 active team member');
+
+      const updatedTeam = await service.updateTeam(team.id, {
+        teamNo: 2,
+        maxMembers: 12,
+      });
+      expect(updatedTeam.teamNo).toBe(2);
+      expect(updatedTeam.maxMembers).toBe(12);
+
+      // Deletion blocked while hierarchy children exist
+      await expect(service.deleteGnDivision(gn.id)).rejects.toThrow(
+        'Cannot delete GN division',
+      );
+      await expect(
+        service.deleteDivisionalSecretariat(ds1.id),
+      ).rejects.toThrow('Cannot delete DS division');
+
+      // Delete bottom-up succeeds cleanly
+      await service.deleteTeam(team.id);
+      await service.deleteGnDivision(gn.id);
+      await service.deleteDivisionalSecretariat(ds1.id);
+      expect(inMemoryTeams).toHaveLength(0);
+      expect(inMemoryGn).toHaveLength(0);
+      expect(inMemoryDs.find((d) => d.id === ds1.id)).toBeUndefined();
     });
   });
 });

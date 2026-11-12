@@ -17,7 +17,8 @@ import {
   ChevronLeft,
   X,
   UserCheck,
-  ShieldAlert
+  ShieldAlert,
+  Trash2,
 } from 'lucide-react';
 
 export default function RecordsPage() {
@@ -51,6 +52,10 @@ export default function RecordsPage() {
   const [auditReason, setAuditReason] = useState<string>('');
   const [savingAudit, setSavingAudit] = useState<boolean>(false);
   const [auditError, setAuditError] = useState<string | null>(null);
+  const [deletingRecord, setDeletingRecord] = useState<any | null>(null);
+  const [deleteReason, setDeleteReason] = useState<string>('');
+  const [deleting, setDeleting] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
 
   // Edit form fields
@@ -226,7 +231,25 @@ export default function RecordsPage() {
     }
   }
 
-  const canEditRecords = ['super_admin', 'admin', 'cdc_secretary'].includes(user?.role || '');
+  async function handleDeleteRecord() {
+    if (!deletingRecord) return;
+    setDeleting(true);
+    setDeleteError(null);
+    setSuccessBanner(null);
+    try {
+      await api.deleteClient(deletingRecord.id, deleteReason.trim() || undefined);
+      setSuccessBanner(`Record #${deletingRecord.id.slice(0, 8)} deleted successfully.`);
+      setDeletingRecord(null);
+      setDeleteReason('');
+      loadRecords(cursorHistory.length > 0 ? cursorHistory[cursorHistory.length - 1] : undefined);
+    } catch (err: any) {
+      setDeleteError(err.message || 'Failed to delete record.');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const canEditRecords = ['super_admin', 'cdc_secretary'].includes(user?.role || '');
 
   return (
     <Shell activePath="/records">
@@ -494,16 +517,37 @@ export default function RecordsPage() {
                           <Eye size={13} />
                         </button>
                         {canEditRecords && (
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(r)}
-                            className="btn-secondary"
-                            style={{ padding: '5px 8px', fontSize: '11px', color: 'var(--warning-text)' }}
-                            title={t('records.edit_record')}
-                            aria-label={t('records.edit_record')}
-                          >
-                            <Edit3 size={13} />
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(r)}
+                              className="btn-secondary"
+                              style={{ padding: '5px 8px', fontSize: '11px', color: 'var(--warning-text)' }}
+                              title={t('records.edit_record')}
+                              aria-label={t('records.edit_record')}
+                            >
+                              <Edit3 size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeleteError(null);
+                                setDeleteReason('');
+                                setDeletingRecord(r);
+                              }}
+                              className="btn-secondary"
+                              style={{
+                                padding: '5px 8px',
+                                fontSize: '11px',
+                                color: 'var(--danger-text)',
+                                borderColor: 'var(--danger-border)',
+                              }}
+                              title={t('records.delete_record')}
+                              aria-label={t('records.delete_record')}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
@@ -827,6 +871,88 @@ export default function RecordsPage() {
                     <span>{t('records.save_audit')}</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Record Confirmation Modal */}
+      {deletingRecord && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '460px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--danger-text)' }}>
+                  {t('records.delete_record')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
+                  {deletingRecord.name || 'Record'} (#{deletingRecord.id.slice(0, 8)})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setDeletingRecord(null); setDeleteError(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {deleteError && (
+                <div
+                  style={{
+                    background: 'var(--danger-bg)',
+                    border: '1px solid var(--danger-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '10px 12px',
+                    color: 'var(--danger-text)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '13px',
+                  }}
+                >
+                  <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                  <span>{deleteError}</span>
+                </div>
+              )}
+              <p style={{ fontSize: '13.5px', color: 'var(--slate-700)', margin: 0, lineHeight: 1.5 }}>
+                Are you sure you want to soft-delete the survey record for <strong>{deletingRecord.name || deletingRecord.id.slice(0, 8)}</strong>? This action logs an immutable audit entry and automatically dismisses open duplicate candidates referencing this record.
+              </p>
+              <div>
+                <label className="form-label">Deletion Reason (Optional)</label>
+                <textarea
+                  rows={2}
+                  className="input-field"
+                  placeholder="e.g. Entered in error or verified duplicate"
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                onClick={() => { setDeletingRecord(null); setDeleteError(null); }}
+                className="btn-secondary"
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteRecord}
+                disabled={deleting}
+                className="btn-secondary"
+                style={{
+                  background: 'var(--danger-bg)',
+                  borderColor: 'var(--danger-border)',
+                  color: 'var(--danger-text)',
+                  fontWeight: 600,
+                }}
+              >
+                {deleting ? <Loader2 size={15} className="animate-spin" /> : t('common.delete')}
               </button>
             </div>
           </div>

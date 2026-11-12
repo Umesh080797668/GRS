@@ -18,8 +18,20 @@ import {
   AlertCircle,
   CheckCircle,
   Loader2,
-  X
+  X,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
+
+const ROLE_RANK: Record<string, number> = {
+  super_admin: 100,
+  admin: 90,
+  cg: 80,
+  dc: 70,
+  sda: 60,
+  cdc_secretary: 50,
+  team_member: 40,
+};
 
 // Role creation hierarchy aligned strictly with backend CREATION_MATRIX (§6.1)
 const CREATABLE_ROLES: Record<string, { value: string; label: string }[]> = {
@@ -84,6 +96,15 @@ export default function UsersPage() {
   });
 
   const [actionLoading, setActionLoading] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<any>(null);
+  const [editForm, setEditForm] = useState({
+    fullName: '',
+    phoneE164: '',
+    preferredLanguage: 'en' as 'si' | 'ta' | 'en',
+    teamId: '',
+  });
+  const [deletingAccount, setDeletingAccount] = useState<any>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
   const isSuperAdmin = user?.role === 'super_admin' || user?.role === 'admin';
 
   const allowedSingleRoles = (user?.role && CREATABLE_ROLES[user.role])
@@ -352,6 +373,72 @@ export default function UsersPage() {
     }
   };
 
+  const openEditModal = (acc: any) => {
+    setModalError(null);
+    setEditingAccount(acc);
+    const lang = acc.preferredLanguage || acc.preferred_language || 'en';
+    setEditForm({
+      fullName: acc.fullName || acc.full_name || '',
+      phoneE164: acc.phoneE164 || acc.phone_e164 || acc.phone || '',
+      preferredLanguage: (['si', 'ta', 'en'].includes(lang) ? lang : 'en') as 'si' | 'ta' | 'en',
+      teamId: acc.teamId || acc.team_id || '',
+    });
+  };
+
+  const handleUpdateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAccount) return;
+    setActionLoading(true);
+    setModalError(null);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const payload: {
+        fullName?: string;
+        phoneE164?: string;
+        preferredLanguage?: 'si' | 'ta' | 'en';
+        teamId?: string | null;
+      } = {
+        fullName: editForm.fullName.trim(),
+        phoneE164: editForm.phoneE164.trim(),
+        preferredLanguage: editForm.preferredLanguage,
+      };
+      const originalTeamId = editingAccount.teamId || editingAccount.team_id || '';
+      if (editingAccount.role === 'team_member' && editForm.teamId && editForm.teamId !== originalTeamId) {
+        payload.teamId = editForm.teamId;
+      }
+      await api.updateAccount(editingAccount.id, payload);
+      const code = editingAccount.userCode || editingAccount.user_code || '';
+      setEditingAccount(null);
+      setSuccessMessage(`Account ${code || 'user'} updated successfully.`);
+      fetchAccounts(undefined, true);
+    } catch (err: any) {
+      setModalError(err.message || 'Failed to update account.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletingAccount) return;
+    setActionLoading(true);
+    setModalError(null);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      await api.deleteAccount(deletingAccount.id);
+      const code = deletingAccount.userCode || deletingAccount.user_code || '';
+      setDeletingAccount(null);
+      setSuccessMessage(`Account ${code || 'user'} permanently deleted.`);
+      fetchAccounts(undefined, true);
+      api.getTeams().then(setTeams).catch(() => { });
+    } catch (err: any) {
+      setModalError(err.message || 'Failed to delete account.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   return (
     <Shell>
       {/* Title & Action Bar */}
@@ -551,9 +638,20 @@ export default function UsersPage() {
                       {formatDate(acc.created_at || acc.createdAt)}
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      {/* Restrict UI actions: Level 00 can manage accounts, Level 4 only manages team_member */}
-                      {(user?.role === 'super_admin' || (user?.role === 'cdc_secretary' && acc.role === 'team_member')) && (
+                      {/* Match backend rank hierarchy: callers can manage strictly lower roles within scope */}
+                      {acc.id !== user?.id && (ROLE_RANK[user?.role || ''] ?? 0) > (ROLE_RANK[acc.role || ''] ?? 999) && (
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(acc)}
+                            title={t('users.edit')}
+                            aria-label={t('users.edit')}
+                            className="btn-secondary"
+                            style={{ padding: '5px 8px', fontSize: '11px' }}
+                          >
+                            <Edit2 size={13} />
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => handleResetPassword(acc.id)}
@@ -565,31 +663,48 @@ export default function UsersPage() {
                             <KeyRound size={13} />
                           </button>
 
-                          {acc.id !== user?.id && (
-                            isActive ? (
-                              <button
-                                type="button"
-                                onClick={() => handleDeactivate(acc.id)}
-                                title={t('users.deactivate')}
-                                aria-label={t('users.deactivate')}
-                                className="btn-danger"
-                                style={{ padding: '5px 8px', fontSize: '11px' }}
-                              >
-                                <UserX size={13} />
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleReactivate(acc.id)}
-                                title={t('users.reactivate')}
-                                aria-label={t('users.reactivate')}
-                                className="btn-secondary"
-                                style={{ padding: '5px 8px', fontSize: '11px', color: 'var(--success)' }}
-                              >
-                                <UserCheck size={13} />
-                              </button>
-                            )
+                          {isActive ? (
+                            <button
+                              type="button"
+                              onClick={() => handleDeactivate(acc.id)}
+                              title={t('users.deactivate')}
+                              aria-label={t('users.deactivate')}
+                              className="btn-danger"
+                              style={{ padding: '5px 8px', fontSize: '11px' }}
+                            >
+                              <UserX size={13} />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleReactivate(acc.id)}
+                              title={t('users.reactivate')}
+                              aria-label={t('users.reactivate')}
+                              className="btn-secondary"
+                              style={{ padding: '5px 8px', fontSize: '11px', color: 'var(--success)' }}
+                            >
+                              <UserCheck size={13} />
+                            </button>
                           )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalError(null);
+                              setDeletingAccount(acc);
+                            }}
+                            title={t('users.delete')}
+                            aria-label={t('users.delete')}
+                            className="btn-secondary"
+                            style={{
+                              padding: '5px 8px',
+                              fontSize: '11px',
+                              color: 'var(--danger-text)',
+                              borderColor: 'var(--danger-border)',
+                            }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </div>
                       )}
                     </td>
@@ -947,6 +1062,177 @@ export default function UsersPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Account Modal */}
+      {editingAccount && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                  {t('users.edit')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
+                  {editingAccount.userCode || editingAccount.user_code} ({editingAccount.role})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setEditingAccount(null); setModalError(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateAccount}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {modalError && (
+                  <div
+                    style={{
+                      background: 'var(--danger-bg)',
+                      border: '1px solid var(--danger-border)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '10px 12px',
+                      color: 'var(--danger-text)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                    <span>{modalError}</span>
+                  </div>
+                )}
+                <div>
+                  <label className="form-label">Full Name *</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={editForm.fullName}
+                    onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Phone Number (e.g. +94771234567)</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="+94771234567 (leave blank to clear)"
+                    value={editForm.phoneE164}
+                    onChange={(e) => setEditForm({ ...editForm, phoneE164: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Preferred Language</label>
+                  <select
+                    className="input-field"
+                    value={editForm.preferredLanguage}
+                    onChange={(e) => setEditForm({ ...editForm, preferredLanguage: e.target.value as 'si' | 'ta' | 'en' })}
+                  >
+                    <option value="en">English (en)</option>
+                    <option value="si">Sinhala (si)</option>
+                    <option value="ta">Tamil (ta)</option>
+                  </select>
+                </div>
+                {editingAccount.role === 'team_member' && teams.length > 0 && (
+                  <div>
+                    <label className="form-label">Assigned Field Team</label>
+                    <select
+                      className="input-field"
+                      value={editForm.teamId}
+                      onChange={(e) => setEditForm({ ...editForm, teamId: e.target.value })}
+                    >
+                      <option value="">Keep current team</option>
+                      {teams.map((tm) => (
+                        <option key={tm.id} value={tm.id}>
+                          {tm.name || tm.teamCode || `Team ${tm.teamNo}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => { setEditingAccount(null); setModalError(null); }} className="btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={actionLoading} className="btn-primary">
+                  {actionLoading ? <Loader2 size={16} className="animate-spin" /> : t('common.save_changes')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Confirmation Modal */}
+      {deletingAccount && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '440px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--danger-text)' }}>
+                  {t('users.delete')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
+                  {deletingAccount.userCode || deletingAccount.user_code} — {deletingAccount.fullName || deletingAccount.full_name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setDeletingAccount(null); setModalError(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {modalError && (
+                <div
+                  style={{
+                    background: 'var(--danger-bg)',
+                    border: '1px solid var(--danger-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '10px 12px',
+                    color: 'var(--danger-text)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '13px',
+                  }}
+                >
+                  <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                  <span>{modalError}</span>
+                </div>
+              )}
+              <p style={{ fontSize: '13.5px', color: 'var(--slate-700)', margin: 0, lineHeight: 1.5 }}>
+                Are you sure you want to permanently delete <strong>{deletingAccount.userCode || deletingAccount.user_code}</strong>? Accounts with recorded survey data, households, exports, or audit history cannot be deleted — deactivate them instead.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" onClick={() => { setDeletingAccount(null); setModalError(null); }} className="btn-secondary">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={actionLoading}
+                className="btn-secondary"
+                style={{
+                  background: 'var(--danger-bg)',
+                  borderColor: 'var(--danger-border)',
+                  color: 'var(--danger-text)',
+                  fontWeight: 600,
+                }}
+              >
+                {actionLoading ? <Loader2 size={16} className="animate-spin" /> : t('common.delete')}
+              </button>
+            </div>
           </div>
         </div>
       )}

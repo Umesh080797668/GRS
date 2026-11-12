@@ -577,6 +577,26 @@ export class ApiClient {
     });
   }
 
+  async updateAccount(
+    id: string,
+    data: {
+      fullName?: string;
+      phoneE164?: string;
+      teamId?: string | null;
+      isActive?: boolean;
+      preferredLanguage?: 'si' | 'ta' | 'en';
+    },
+  ): Promise<any> {
+    return this.request(`/v1/accounts/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAccount(id: string): Promise<{ success: boolean; id: string }> {
+    return this.request(`/v1/accounts/${id}`, { method: 'DELETE' });
+  }
+
   async deactivateAccount(id: string): Promise<void> {
     await this.request(`/v1/accounts/${id}/deactivate`, { method: 'PATCH' });
   }
@@ -722,6 +742,20 @@ export class ApiClient {
     return this.fetchAllAreaItems('/v1/areas/ds', { districtId });
   }
 
+  async updateDsDivision(
+    id: string,
+    data: { nameEn?: string; nameSi?: string; nameTa?: string; sdoName?: string },
+  ): Promise<any> {
+    return this.request(`/v1/areas/ds/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteDsDivision(id: string): Promise<{ success: boolean; id: string }> {
+    return this.request(`/v1/areas/ds/${id}`, { method: 'DELETE' });
+  }
+
   async createGnDivision(data: {
     dsId: string;
     gnNumber: string;
@@ -737,6 +771,8 @@ export class ApiClient {
   }
 
   async updateGnDivision(id: string, data: {
+    gnNumber?: string;
+    gnName?: string;
     secretaryName?: string;
     secretaryContact?: string;
     secretaryEmail?: string;
@@ -745,6 +781,10 @@ export class ApiClient {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
+  }
+
+  async deleteGnDivision(id: string): Promise<{ success: boolean; id: string }> {
+    return this.request(`/v1/areas/gn/${id}`, { method: 'DELETE' });
   }
 
   async getGnDivisions(dsId?: string): Promise<any[]> {
@@ -766,8 +806,14 @@ export class ApiClient {
     return this.fetchAllAreaItems('/v1/areas/teams', { gnId });
   }
 
-  async updateTeam(id: string, data: { maxMembers?: number; memberLimit?: number; leaderId?: string }): Promise<any> {
-    const payload: { maxMembers?: number; leaderId?: string } = {};
+  async updateTeam(
+    id: string,
+    data: { teamNo?: number; maxMembers?: number; memberLimit?: number; leaderId?: string },
+  ): Promise<any> {
+    const payload: { teamNo?: number; maxMembers?: number; leaderId?: string } = {};
+    if (data.teamNo !== undefined) {
+      payload.teamNo = data.teamNo;
+    }
     if (data.maxMembers !== undefined) {
       payload.maxMembers = data.maxMembers;
     } else if (data.memberLimit !== undefined) {
@@ -780,6 +826,10 @@ export class ApiClient {
       method: 'PATCH',
       body: JSON.stringify(payload),
     });
+  }
+
+  async deleteTeam(id: string): Promise<{ success: boolean; id: string }> {
+    return this.request(`/v1/areas/teams/${id}`, { method: 'DELETE' });
   }
 
   async importPilotAreaCsv(csvContent: string, dryRun: boolean = false): Promise<any> {
@@ -812,6 +862,20 @@ export class ApiClient {
     return this.request('/v1/houses', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  async updateHousehold(id: string, data: any): Promise<any> {
+    return this.request(`/v1/houses/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteHousehold(id: string, reason?: string): Promise<{ success: boolean; id: string }> {
+    return this.request(`/v1/houses/${id}`, {
+      method: 'DELETE',
+      ...(reason ? { body: JSON.stringify({ reason }) } : {}),
     });
   }
 
@@ -913,6 +977,13 @@ export class ApiClient {
     return this.request(`/v1/clients/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ ...rest, correctionReason: reason }),
+    });
+  }
+
+  async deleteClient(id: string, reason?: string): Promise<{ success: boolean; id: string }> {
+    return this.request(`/v1/clients/${id}`, {
+      method: 'DELETE',
+      ...(reason ? { body: JSON.stringify({ reason }) } : {}),
     });
   }
 

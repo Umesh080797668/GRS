@@ -10,6 +10,7 @@ import { ScopeContext, UserRole } from '../common/scope/scope.types';
 import { SRI_LANKA_25_DISTRICTS } from './districts.data';
 import {
   CreateDsDto,
+  UpdateDsDto,
   CreateGnDto,
   UpdateGnDto,
   CreateTeamDto,
@@ -113,6 +114,103 @@ export class AreaService {
         nameTa,
         sdoName,
       },
+    });
+  }
+
+  async updateDivisionalSecretariat(id: string, dto: UpdateDsDto) {
+    const ds = await this.prisma.divisionalSecretariat.findUnique({
+      where: { id },
+    });
+    if (!ds) {
+      throw new NotFoundException({
+        code: 'DS_NOT_FOUND',
+        message: 'DS division not found',
+      });
+    }
+
+    let nextNameEn: string | undefined;
+    if (dto.nameEn !== undefined) {
+      const trimmed = dto.nameEn.trim();
+      if (!trimmed) {
+        throw new BadRequestException({
+          code: 'INVALID_DS_NAME',
+          message: 'DS division English name cannot be empty',
+        });
+      }
+      const existing = await this.prisma.divisionalSecretariat.findFirst({
+        where: {
+          districtId: ds.districtId,
+          id: { not: id },
+          nameEn: { equals: trimmed, mode: 'insensitive' },
+        },
+      });
+      if (existing) {
+        throw new ConflictException({
+          code: 'DS_EXISTS',
+          message: `DS division '${trimmed}' already exists in this district`,
+        });
+      }
+      nextNameEn = trimmed;
+    }
+
+    return this.prisma.divisionalSecretariat.update({
+      where: { id },
+      data: {
+        nameEn: nextNameEn,
+        nameSi:
+          dto.nameSi !== undefined
+            ? dto.nameSi.trim() || nextNameEn || ds.nameEn
+            : undefined,
+        nameTa:
+          dto.nameTa !== undefined
+            ? dto.nameTa.trim() || nextNameEn || ds.nameEn
+            : undefined,
+        sdoName:
+          dto.sdoName !== undefined ? dto.sdoName.trim() || null : undefined,
+      },
+    });
+  }
+
+  async deleteDivisionalSecretariat(id: string) {
+    const ds = await this.prisma.divisionalSecretariat.findUnique({
+      where: { id },
+    });
+    if (!ds) {
+      throw new NotFoundException({
+        code: 'DS_NOT_FOUND',
+        message: 'DS division not found',
+      });
+    }
+
+    const [gnCount, profileCount, householdCount, clientCount, assignmentCount] =
+      await Promise.all([
+        this.prisma.gnDivision.count({ where: { dsId: id } }),
+        this.prisma.profile.count({ where: { dsId: id } }),
+        this.prisma.household.count({ where: { dsId: id } }),
+        this.prisma.client.count({ where: { dsId: id } }),
+        this.prisma.accountAssignment.count({ where: { dsId: id } }),
+      ]);
+
+    if (
+      gnCount > 0 ||
+      profileCount > 0 ||
+      householdCount > 0 ||
+      clientCount > 0 ||
+      assignmentCount > 0
+    ) {
+      throw new ConflictException({
+        code: 'DS_HAS_DEPENDENCIES',
+        message:
+          'Cannot delete DS division while GN divisions, accounts, assignments, households, or records reference it.',
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.areaStat.deleteMany({
+        where: { areaType: 'ds', areaId: id },
+      });
+      await tx.divisionalSecretariat.delete({ where: { id } });
+      return { success: true, id };
     });
   }
 
@@ -462,6 +560,17 @@ export class AreaService {
       });
     }
 
+    if (
+      caller.role === UserRole.cdc_secretary &&
+      (dto.gnNumber !== undefined || dto.gnName !== undefined)
+    ) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_FIELD',
+        message:
+          'CDC Secretary can only update GN office secretary contact details',
+      });
+    }
+
     const gn = await this.prisma.gnDivision.findUnique({
       where: { id },
     });
@@ -473,9 +582,39 @@ export class AreaService {
       });
     }
 
+    const nextGnNumber =
+      dto.gnNumber !== undefined ? dto.gnNumber.trim() : gn.gnNumber;
+    const nextGnName = dto.gnName !== undefined ? dto.gnName.trim() : gn.gnName;
+
+    if (!nextGnNumber || !nextGnName) {
+      throw new BadRequestException({
+        code: 'INVALID_GN_DATA',
+        message: 'GN number and GN name cannot be empty',
+      });
+    }
+
+    if (dto.gnNumber !== undefined || dto.gnName !== undefined) {
+      const duplicate = await this.prisma.gnDivision.findFirst({
+        where: {
+          dsId: gn.dsId,
+          id: { not: id },
+          gnNumber: { equals: nextGnNumber, mode: 'insensitive' },
+          gnName: { equals: nextGnName, mode: 'insensitive' },
+        },
+      });
+      if (duplicate) {
+        throw new ConflictException({
+          code: 'GN_EXISTS',
+          message: `GN division '${nextGnNumber} - ${nextGnName}' already exists in this DS division`,
+        });
+      }
+    }
+
     return this.prisma.gnDivision.update({
       where: { id },
       data: {
+        gnNumber: dto.gnNumber !== undefined ? nextGnNumber : undefined,
+        gnName: dto.gnName !== undefined ? nextGnName : undefined,
         secretaryName:
           dto.secretaryName !== undefined
             ? dto.secretaryName?.trim() || null
@@ -489,6 +628,57 @@ export class AreaService {
             ? dto.secretaryEmail?.trim() || null
             : undefined,
       },
+    });
+  }
+
+  async deleteGnDivision(id: string) {
+    const gn = await this.prisma.gnDivision.findUnique({
+      where: { id },
+    });
+    if (!gn) {
+      throw new NotFoundException({
+        code: 'GN_NOT_FOUND',
+        message: 'GN division not found',
+      });
+    }
+
+    const [
+      teamCount,
+      householdCount,
+      clientCount,
+      profileCount,
+      profileAssignCount,
+      accountAssignCount,
+    ] = await Promise.all([
+      this.prisma.team.count({ where: { gnId: id } }),
+      this.prisma.household.count({ where: { gnId: id } }),
+      this.prisma.client.count({ where: { gnId: id } }),
+      this.prisma.profile.count({ where: { gnId: id } }),
+      this.prisma.profileAssignment.count({ where: { gnId: id } }),
+      this.prisma.accountAssignment.count({ where: { gnId: id } }),
+    ]);
+
+    if (
+      teamCount > 0 ||
+      householdCount > 0 ||
+      clientCount > 0 ||
+      profileCount > 0 ||
+      profileAssignCount > 0 ||
+      accountAssignCount > 0
+    ) {
+      throw new ConflictException({
+        code: 'GN_HAS_DEPENDENCIES',
+        message:
+          'Cannot delete GN division while teams, households, accounts, assignments, or records reference it.',
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.areaStat.deleteMany({
+        where: { areaType: 'gn', areaId: id },
+      });
+      await tx.gnDivision.delete({ where: { id } });
+      return { success: true, id };
     });
   }
 
@@ -538,12 +728,92 @@ export class AreaService {
       });
     }
 
+    if (dto.teamNo !== undefined && dto.teamNo !== team.teamNo) {
+      const existing = await this.prisma.team.findUnique({
+        where: {
+          gnId_teamNo: {
+            gnId: team.gnId,
+            teamNo: dto.teamNo,
+          },
+        },
+      });
+      if (existing) {
+        throw new ConflictException({
+          code: 'TEAM_EXISTS',
+          message: `Team ${dto.teamNo} already exists in this GN division`,
+        });
+      }
+    }
+
+    if (dto.maxMembers !== undefined && dto.maxMembers < team.maxMembers) {
+      const activeMembers = await this.prisma.profile.count({
+        where: {
+          teamId,
+          role: UserRole.team_member,
+          isActive: true,
+        },
+      });
+      if (dto.maxMembers < activeMembers) {
+        throw new ConflictException({
+          code: 'TEAM_CAPACITY_BELOW_ACTIVE_MEMBERS',
+          message: `Cannot reduce member limit below ${activeMembers} active team member(s)`,
+        });
+      }
+    }
+
     return this.prisma.team.update({
       where: { id: teamId },
       data: {
+        teamNo: dto.teamNo !== undefined ? dto.teamNo : undefined,
         maxMembers: dto.maxMembers !== undefined ? dto.maxMembers : undefined,
         leaderId: dto.leaderId !== undefined ? dto.leaderId : undefined,
       },
+    });
+  }
+
+  async deleteTeam(teamId: string) {
+    const team = await this.prisma.team.findUnique({
+      where: { id: teamId },
+    });
+    if (!team) {
+      throw new NotFoundException({
+        code: 'TEAM_NOT_FOUND',
+        message: 'Team not found',
+      });
+    }
+
+    const [
+      profileCount,
+      householdCount,
+      clientCount,
+      profileAssignCount,
+      accountAssignCount,
+    ] = await Promise.all([
+      this.prisma.profile.count({ where: { teamId } }),
+      this.prisma.household.count({ where: { teamId } }),
+      this.prisma.client.count({ where: { teamId } }),
+      this.prisma.profileAssignment.count({ where: { teamId } }),
+      this.prisma.accountAssignment.count({ where: { teamId } }),
+    ]);
+
+    if (
+      profileCount > 0 ||
+      householdCount > 0 ||
+      clientCount > 0 ||
+      profileAssignCount > 0 ||
+      accountAssignCount > 0
+    ) {
+      throw new ConflictException({
+        code: 'TEAM_HAS_DEPENDENCIES',
+        message:
+          'Cannot delete team while members, households, assignments, or records reference it.',
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.teamStat.deleteMany({ where: { teamId } });
+      await tx.team.delete({ where: { id: teamId } });
+      return { success: true, id: teamId };
     });
   }
 

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -16,6 +17,7 @@ import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../common/scope/scope.types';
 import {
   CreateDsDto,
+  UpdateDsDto,
   CreateGnDto,
   UpdateGnDto,
   CreateTeamDto,
@@ -54,6 +56,21 @@ export class AreaController {
   @Roles(UserRole.super_admin, UserRole.admin)
   async createDs(@Body() dto: CreateDsDto) {
     return this.areaService.createDivisionalSecretariat(dto);
+  }
+
+  @Patch('ds/:id')
+  @Roles(UserRole.super_admin, UserRole.admin)
+  async updateDs(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateDsDto,
+  ) {
+    return this.areaService.updateDivisionalSecretariat(id, dto);
+  }
+
+  @Delete('ds/:id')
+  @Roles(UserRole.super_admin, UserRole.admin)
+  async deleteDs(@Param('id', ParseUUIDPipe) id: string) {
+    return this.areaService.deleteDivisionalSecretariat(id);
   }
 
   @Get('ds')
@@ -117,6 +134,12 @@ export class AreaController {
     return this.areaService.updateGnDivision(user, id, dto);
   }
 
+  @Delete('gn/:id')
+  @Roles(UserRole.super_admin, UserRole.admin)
+  async deleteGn(@Param('id', ParseUUIDPipe) id: string) {
+    return this.areaService.deleteGnDivision(id);
+  }
+
   @Post('teams')
   @Roles(UserRole.super_admin, UserRole.admin)
   async createTeam(@Body() dto: CreateTeamDto) {
@@ -146,6 +169,12 @@ export class AreaController {
     @Body() dto: UpdateTeamDto,
   ) {
     return this.areaService.updateTeam(teamId, dto);
+  }
+
+  @Delete('teams/:id')
+  @Roles(UserRole.super_admin, UserRole.admin)
+  async deleteTeam(@Param('id', ParseUUIDPipe) teamId: string) {
+    return this.areaService.deleteTeam(teamId);
   }
 
   @Post('import-csv')

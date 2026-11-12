@@ -1232,7 +1232,10 @@ export class ExportJobService {
 
   private mapDuplicateRow(item: any, lang: ReportLanguage): Record<string, any> {
     const factors = Array.isArray(item.reasons?.factors)
-      ? item.reasons.factors.map((f: any) => f.key || f.label).join(', ')
+      ? item.reasons.factors
+        .map((f: any) => (typeof f === 'string' ? f : f?.key || f?.label || ''))
+        .filter(Boolean)
+        .join(', ')
       : '';
     const gnA = item.clientARecord?.household?.gn
       ? `${item.clientARecord.household.gn.gnNumber} - ${item.clientARecord.household.gn.gnName}`

@@ -1,8 +1,20 @@
-import { IsOptional, IsString, IsUUID, IsBoolean } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsUUID,
+  IsBoolean,
+  IsNotEmpty,
+  MaxLength,
+  IsIn,
+} from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class UpdateAccountDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsOptional()
+  @IsNotEmpty()
+  @MaxLength(255)
   fullName?: string;
 
   @IsString()
@@ -16,4 +28,8 @@ export class UpdateAccountDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @IsIn(['si', 'ta', 'en'])
+  @IsOptional()
+  preferredLanguage?: 'si' | 'ta' | 'en';
 }

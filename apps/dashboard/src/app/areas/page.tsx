@@ -17,6 +17,7 @@ import {
   AlertCircle,
   X,
   Plus,
+  Trash2,
 } from 'lucide-react';
 
 export default function AreasPage() {
@@ -41,9 +42,29 @@ export default function AreasPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
 
-  // Team editing modal
+  // Edit / Delete modals
   const [editingTeam, setEditingTeam] = useState<any>(null);
+  const [editTeamNo, setEditTeamNo] = useState<number>(1);
   const [newTeamLimit, setNewTeamLimit] = useState<number>(10);
+
+  const [editingDs, setEditingDs] = useState<any>(null);
+  const [editDsNameEn, setEditDsNameEn] = useState('');
+  const [editDsNameSi, setEditDsNameSi] = useState('');
+  const [editDsNameTa, setEditDsNameTa] = useState('');
+  const [editDsSdoName, setEditDsSdoName] = useState('');
+
+  const [editingGn, setEditingGn] = useState<any>(null);
+  const [editGnNumber, setEditGnNumber] = useState('');
+  const [editGnName, setEditGnName] = useState('');
+  const [editGnSecName, setEditGnSecName] = useState('');
+  const [editGnSecContact, setEditGnSecContact] = useState('');
+  const [editGnSecEmail, setEditGnSecEmail] = useState('');
+
+  const [deletingTarget, setDeletingTarget] = useState<{
+    type: 'ds' | 'gn' | 'team';
+    item: any;
+    label: string;
+  } | null>(null);
 
   // New Creation Modals (Level 00)
   const [showDsModal, setShowDsModal] = useState(false);
@@ -296,19 +317,140 @@ export default function AreasPage() {
     }
   };
 
-  const handleSaveTeamLimit = async () => {
+  const handleSaveTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!editingTeam) return;
     setSubmitting(true);
     setModalError(null);
     setErrorBanner(null);
     setSuccessBanner(null);
     try {
-      await api.updateTeam(editingTeam.id, { maxMembers: Number(newTeamLimit) });
+      await api.updateTeam(editingTeam.id, {
+        teamNo: Number(editTeamNo),
+        maxMembers: Number(newTeamLimit),
+      });
       setEditingTeam(null);
-      setSuccessBanner('Team member capacity updated successfully.');
+      setSuccessBanner('Field team updated successfully.');
       await loadTeams(selectedGnId);
     } catch (err: any) {
-      setModalError(`Failed to update team limit: ${err.message}`);
+      setModalError(err.message || 'Failed to update field team.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEditDs = (ds: any) => {
+    setModalError(null);
+    setEditingDs(ds);
+    setEditDsNameEn(ds.nameEn || ds.name_en || ds.name || '');
+    setEditDsNameSi(ds.nameSi || ds.name_si || '');
+    setEditDsNameTa(ds.nameTa || ds.name_ta || '');
+    setEditDsSdoName(ds.sdoName || ds.sdo_name || '');
+  };
+
+  const handleUpdateDs = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDs) return;
+    setSubmitting(true);
+    setModalError(null);
+    setErrorBanner(null);
+    setSuccessBanner(null);
+    try {
+      await api.updateDsDivision(editingDs.id, {
+        nameEn: editDsNameEn.trim(),
+        nameSi: editDsNameSi.trim(),
+        nameTa: editDsNameTa.trim(),
+        sdoName: editDsSdoName.trim(),
+      });
+      const updatedId = editingDs.id;
+      setEditingDs(null);
+      setSuccessBanner('DS Division updated successfully.');
+      await loadDsDivisions(selectedDistrictId, updatedId);
+    } catch (err: any) {
+      setModalError(err.message || 'Failed to update DS Division.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEditGn = (gn: any) => {
+    setModalError(null);
+    setEditingGn(gn);
+    setEditGnNumber(gn.gnNumber || gn.gn_number || gn.code || '');
+    setEditGnName(gn.gnName || gn.gn_name || gn.nameEn || gn.name || '');
+    setEditGnSecName(gn.secretaryName || gn.secretary_name || '');
+    setEditGnSecContact(gn.secretaryContact || gn.secretary_contact || '');
+    setEditGnSecEmail(gn.secretaryEmail || gn.secretary_email || '');
+  };
+
+  const handleUpdateGn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingGn) return;
+    setSubmitting(true);
+    setModalError(null);
+    setErrorBanner(null);
+    setSuccessBanner(null);
+    try {
+      await api.updateGnDivision(editingGn.id, {
+        gnNumber: editGnNumber.trim(),
+        gnName: editGnName.trim(),
+        secretaryName: editGnSecName.trim(),
+        secretaryContact: editGnSecContact.trim(),
+        secretaryEmail: editGnSecEmail.trim(),
+      });
+      const updatedId = editingGn.id;
+      setEditingGn(null);
+      setSuccessBanner('GN Division updated successfully.');
+      await loadGnDivisions(selectedDsId, updatedId);
+    } catch (err: any) {
+      setModalError(err.message || 'Failed to update GN Division.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openDeleteConfirm = (type: 'ds' | 'gn' | 'team', item: any) => {
+    setModalError(null);
+    let label = '';
+    if (type === 'ds') {
+      label = item.nameEn || item.name || item.id;
+    } else if (type === 'gn') {
+      const gnNameVal = item.gnName || item.nameEn || item.name;
+      const gnNoVal = item.gnNumber || item.code;
+      label = gnNoVal && gnNameVal ? `${gnNoVal} — ${gnNameVal}` : gnNameVal || gnNoVal || item.id;
+    } else {
+      label = item.name || item.teamCode || `Team ${item.teamNo}`;
+    }
+    setDeletingTarget({ type, item, label });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingTarget) return;
+    setSubmitting(true);
+    setModalError(null);
+    setErrorBanner(null);
+    setSuccessBanner(null);
+    try {
+      if (deletingTarget.type === 'ds') {
+        await api.deleteDsDivision(deletingTarget.item.id);
+        const preferred = selectedDsId === deletingTarget.item.id ? undefined : selectedDsId;
+        setDeletingTarget(null);
+        setSuccessBanner('DS Division deleted successfully.');
+        await loadDsDivisions(selectedDistrictId, preferred);
+      } else if (deletingTarget.type === 'gn') {
+        await api.deleteGnDivision(deletingTarget.item.id);
+        const preferred = selectedGnId === deletingTarget.item.id ? undefined : selectedGnId;
+        setDeletingTarget(null);
+        setSuccessBanner('GN Division deleted successfully.');
+        await loadGnDivisions(selectedDsId, preferred);
+      } else {
+        await api.deleteTeam(deletingTarget.item.id);
+        setDeletingTarget(null);
+        setSuccessBanner('Field team deleted successfully.');
+        await loadTeams(selectedGnId);
+      }
+    } catch (err: any) {
+      setModalError(err.message || 'Delete operation failed.');
     } finally {
       setSubmitting(false);
     }
@@ -566,24 +708,16 @@ export default function AreasPage() {
               dsDivisions.map((ds) => {
                 const isSelected = selectedDsId === ds.id;
                 return (
-                  <button
+                  <div
                     key={ds.id}
-                    type="button"
-                    onClick={() => handleDsChange(ds.id)}
                     style={{
-                      padding: '9px 12px',
                       borderRadius: 'var(--radius-sm)',
                       border: '1px solid',
                       borderColor: isSelected ? 'var(--success-border)' : 'transparent',
                       background: isSelected ? 'var(--success-bg)' : 'transparent',
-                      color: isSelected ? 'var(--success-text)' : 'var(--slate-700)',
-                      fontWeight: isSelected ? 600 : 500,
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      fontSize: '13px',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
+                      gap: '4px',
                       transition: 'all 0.12s ease',
                     }}
                     onMouseEnter={(e) => {
@@ -593,9 +727,70 @@ export default function AreasPage() {
                       if (!isSelected) e.currentTarget.style.background = 'transparent';
                     }}
                   >
-                    <span>{ds.nameEn || ds.name}</span>
-                    {isSelected && <CheckCircle size={14} style={{ color: 'var(--success)' }} />}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDsChange(ds.id)}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        padding: '9px 10px 9px 12px',
+                        border: 'none',
+                        background: 'transparent',
+                        color: isSelected ? 'var(--success-text)' : 'var(--slate-700)',
+                        fontWeight: isSelected ? 600 : 500,
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '6px',
+                      }}
+                    >
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {ds.nameEn || ds.name}
+                      </span>
+                      {isSelected && <CheckCircle size={14} style={{ color: 'var(--success)', flexShrink: 0 }} />}
+                    </button>
+                    {canManageAreas && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px', paddingRight: '6px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => openEditDs(ds)}
+                          title={t('areas.edit_ds')}
+                          aria-label={t('areas.edit_ds')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: 'var(--slate-500)',
+                            padding: '4px',
+                            borderRadius: '4px',
+                            display: 'inline-flex',
+                          }}
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openDeleteConfirm('ds', ds)}
+                          title={t('areas.delete_ds')}
+                          aria-label={t('areas.delete_ds')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: 'var(--danger-text)',
+                            padding: '4px',
+                            borderRadius: '4px',
+                            display: 'inline-flex',
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 );
               })
             )}
@@ -650,24 +845,16 @@ export default function AreasPage() {
               gnDivisions.map((gn) => {
                 const isSelected = selectedGnId === gn.id;
                 return (
-                  <button
+                  <div
                     key={gn.id}
-                    type="button"
-                    onClick={() => handleGnChange(gn.id)}
                     style={{
-                      padding: '8px 12px',
                       borderRadius: 'var(--radius-sm)',
                       border: '1px solid',
                       borderColor: isSelected ? 'var(--warning-border)' : 'transparent',
                       background: isSelected ? 'var(--warning-bg)' : 'transparent',
-                      color: isSelected ? 'var(--warning-text)' : 'var(--slate-700)',
-                      fontWeight: isSelected ? 600 : 500,
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      fontSize: '13px',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
+                      gap: '4px',
                       transition: 'all 0.12s ease',
                     }}
                     onMouseEnter={(e) => {
@@ -677,16 +864,75 @@ export default function AreasPage() {
                       if (!isSelected) e.currentTarget.style.background = 'transparent';
                     }}
                   >
-                    <div>
-                      <div style={{ color: isSelected ? 'var(--warning-text)' : 'var(--slate-900)' }}>
-                        {gn.gnName || gn.nameEn || gn.name || gn.gnNumber}
+                    <button
+                      type="button"
+                      onClick={() => handleGnChange(gn.id)}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        padding: '8px 10px 8px 12px',
+                        border: 'none',
+                        background: 'transparent',
+                        color: isSelected ? 'var(--warning-text)' : 'var(--slate-700)',
+                        fontWeight: isSelected ? 600 : 500,
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '6px',
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ color: isSelected ? 'var(--warning-text)' : 'var(--slate-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {gn.gnName || gn.nameEn || gn.name || gn.gnNumber}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--slate-500)', marginTop: '1px' }}>
+                          GN No: {gn.gnNumber || gn.code || '—'}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--slate-500)', marginTop: '1px' }}>
-                        GN No: {gn.gnNumber || gn.code || '—'}
+                      {isSelected && <CheckCircle size={14} style={{ color: 'var(--warning)', flexShrink: 0 }} />}
+                    </button>
+                    {canManageAreas && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px', paddingRight: '6px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => openEditGn(gn)}
+                          title={t('areas.edit_gn')}
+                          aria-label={t('areas.edit_gn')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: 'var(--slate-500)',
+                            padding: '4px',
+                            borderRadius: '4px',
+                            display: 'inline-flex',
+                          }}
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openDeleteConfirm('gn', gn)}
+                          title={t('areas.delete_gn')}
+                          aria-label={t('areas.delete_gn')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: 'var(--danger-text)',
+                            padding: '4px',
+                            borderRadius: '4px',
+                            display: 'inline-flex',
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
-                    </div>
-                    {isSelected && <CheckCircle size={14} style={{ color: 'var(--warning)' }} />}
-                  </button>
+                    )}
+                  </div>
                 );
               })
             )}
@@ -775,20 +1021,39 @@ export default function AreasPage() {
                     </div>
 
                     {canManageAreas && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setModalError(null);
-                          setEditingTeam(tm);
-                          setNewTeamLimit(limit);
-                        }}
-                        className="btn-secondary"
-                        style={{ padding: '5px 8px', fontSize: '11px' }}
-                        title="Edit team capacity limit"
-                      >
-                        <Edit2 size={12} />
-                        <span>Limit</span>
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setModalError(null);
+                            setEditingTeam(tm);
+                            setEditTeamNo(tm.teamNo ?? tm.team_no ?? 1);
+                            setNewTeamLimit(limit);
+                          }}
+                          className="btn-secondary"
+                          style={{ padding: '5px 8px', fontSize: '11px' }}
+                          title={t('areas.edit_team')}
+                          aria-label={t('areas.edit_team')}
+                        >
+                          <Edit2 size={12} />
+                          <span>{t('common.edit')}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openDeleteConfirm('team', tm)}
+                          className="btn-secondary"
+                          style={{
+                            padding: '5px 7px',
+                            fontSize: '11px',
+                            color: 'var(--danger-text)',
+                            borderColor: 'var(--danger-border)',
+                          }}
+                          title={t('areas.delete_team')}
+                          aria-label={t('areas.delete_team')}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     )}
                   </div>
                 );
@@ -849,14 +1114,14 @@ export default function AreasPage() {
         </div>
       )}
 
-      {/* Edit Team Limit Modal */}
+      {/* Edit Field Team Modal */}
       {editingTeam && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <div className="modal-content" style={{ maxWidth: '420px' }}>
             <div className="modal-header">
               <div>
                 <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
-                  Edit Member Capacity
+                  {t('areas.edit_team')}
                 </h3>
                 <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
                   Team: {editingTeam.name || editingTeam.teamCode || `Team ${editingTeam.teamNo}`}
@@ -871,29 +1136,256 @@ export default function AreasPage() {
               </button>
             </div>
 
+            <form onSubmit={handleSaveTeam}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {renderModalError()}
+                <div>
+                  <label className="form-label">Team Number *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="999"
+                    className="input-field"
+                    value={editTeamNo}
+                    onChange={(e) => setEditTeamNo(parseInt(e.target.value) || 1)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Max Active Members *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    className="input-field"
+                    value={newTeamLimit}
+                    onChange={(e) => setNewTeamLimit(parseInt(e.target.value) || 1)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" onClick={() => { setEditingTeam(null); setModalError(null); }} className="btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={submitting} className="btn-primary">
+                  {submitting ? <Loader2 size={16} className="animate-spin" /> : t('common.save_changes')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit DS Division Modal */}
+      {editingDs && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                  {t('areas.edit_ds')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
+                  {editingDs.nameEn || editingDs.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setEditingDs(null); setModalError(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateDs}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {renderModalError()}
+                <div>
+                  <label className="form-label">English Name *</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={editDsNameEn}
+                    onChange={(e) => setEditDsNameEn(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Sinhala Name</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={editDsNameSi}
+                    onChange={(e) => setEditDsNameSi(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Tamil Name</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={editDsNameTa}
+                    onChange={(e) => setEditDsNameTa(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">SDO Officer Name</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={editDsSdoName}
+                    onChange={(e) => setEditDsSdoName(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => { setEditingDs(null); setModalError(null); }} className="btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={submitting} className="btn-primary">
+                  {submitting ? <Loader2 size={16} className="animate-spin" /> : t('common.save_changes')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit GN Division Modal */}
+      {editingGn && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                  {t('areas.edit_gn')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
+                  {editingGn.gnNumber || editingGn.code} — {editingGn.gnName || editingGn.nameEn || editingGn.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setEditingGn(null); setModalError(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateGn}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {renderModalError()}
+                <div>
+                  <label className="form-label">GN Number / Code *</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={editGnNumber}
+                    onChange={(e) => setEditGnNumber(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label">GN Division Name *</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={editGnName}
+                    onChange={(e) => setEditGnName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Secretary Name</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={editGnSecName}
+                    onChange={(e) => setEditGnSecName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Secretary Phone</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={editGnSecContact}
+                    onChange={(e) => setEditGnSecContact(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Secretary Email</label>
+                  <input
+                    type="email"
+                    className="input-field"
+                    value={editGnSecEmail}
+                    onChange={(e) => setEditGnSecEmail(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" onClick={() => { setEditingGn(null); setModalError(null); }} className="btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={submitting} className="btn-primary">
+                  {submitting ? <Loader2 size={16} className="animate-spin" /> : t('common.save_changes')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingTarget && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--danger-text)' }}>
+                  {deletingTarget.type === 'ds'
+                    ? t('areas.delete_ds')
+                    : deletingTarget.type === 'gn'
+                      ? t('areas.delete_gn')
+                      : t('areas.delete_team')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
+                  {deletingTarget.label}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setDeletingTarget(null); setModalError(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {renderModalError()}
-              <div>
-                <label className="form-label">
-                  Max Active Members *
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  className="input-field"
-                  value={newTeamLimit}
-                  onChange={(e) => setNewTeamLimit(parseInt(e.target.value) || 1)}
-                />
-              </div>
+              <p style={{ fontSize: '13.5px', color: 'var(--slate-700)', margin: 0, lineHeight: 1.5 }}>
+                Are you sure you want to permanently delete <strong>{deletingTarget.label}</strong>? Deletion is blocked if child divisions, teams, accounts, households, or survey records still reference it.
+              </p>
             </div>
-
             <div className="modal-footer">
-              <button type="button" onClick={() => { setEditingTeam(null); setModalError(null); }} className="btn-secondary">
+              <button type="button" onClick={() => { setDeletingTarget(null); setModalError(null); }} className="btn-secondary">
                 Cancel
               </button>
-              <button type="button" onClick={handleSaveTeamLimit} disabled={submitting} className="btn-primary">
-                {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Save Capacity'}
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={submitting}
+                className="btn-secondary"
+                style={{
+                  background: 'var(--danger-bg)',
+                  borderColor: 'var(--danger-border)',
+                  color: 'var(--danger-text)',
+                  fontWeight: 600,
+                }}
+              >
+                {submitting ? <Loader2 size={16} className="animate-spin" /> : t('common.delete')}
               </button>
             </div>
           </div>

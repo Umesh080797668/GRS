@@ -107,6 +107,9 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
     appSetting: {
       findUnique: jest.fn().mockResolvedValue(null),
     },
+    duplicateCandidate: {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
     $transaction: jest.fn().mockImplementation(async (cb) => {
       return cb(mockPrisma);
     }),
@@ -570,6 +573,58 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       expect(dto.limit).toBe(20);
       const errors = await validate(dto);
       expect(errors.length).toBe(0);
+    });
+
+    it('deleteClient: soft-deletes in scope, logs client_audit, dismisses open duplicates, and blocks L5/cross-team', async () => {
+      mockClients.push(
+        {
+          id: 'client-del-1',
+          householdId: mockHouseholdId,
+          teamId: mockTeamId,
+          collectedBy: 'user-member-1',
+          name: 'Delete Target',
+          deletedAt: null,
+          serverVersion: 1,
+        },
+        {
+          id: 'client-del-other',
+          householdId: 'house-002',
+          teamId: mockOtherTeamId,
+          collectedBy: 'user-other',
+          name: 'Other Team Target',
+          deletedAt: null,
+          serverVersion: 1,
+        },
+      );
+
+      await expect(
+        service.deleteClient(teamMemberScope, 'client-del-1', {
+          reason: 'Enumerator attempt',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.deleteClient(cdcSecretaryScope, 'client-del-other', {
+          reason: 'Cross team attempt',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      const res = await service.deleteClient(cdcSecretaryScope, 'client-del-1', {
+        reason: 'Duplicate manual cleanup',
+      });
+      expect(res).toEqual({ success: true, id: 'client-del-1' });
+      const deletedRow = mockClients.find((c) => c.id === 'client-del-1');
+      expect(deletedRow.deletedAt).toBeInstanceOf(Date);
+      expect(deletedRow.serverVersion).toBe(2);
+      expect(mockPrisma.duplicateCandidate.updateMany).toHaveBeenCalled();
+      expect(mockPrisma.team.update).toHaveBeenCalled();
+      expect(
+        mockAuditLogs.some(
+          (a) =>
+            a.clientId === 'client-del-1' &&
+            a.reason === 'Duplicate manual cleanup',
+        ),
+      ).toBe(true);
     });
   });
 });
