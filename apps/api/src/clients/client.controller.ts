@@ -64,7 +64,7 @@ export class ClientController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.cdc_secretary, UserRole.super_admin)
+  @Roles(UserRole.sda, UserRole.cdc_secretary, UserRole.super_admin)
   async updateClient(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) id: string,
@@ -74,7 +74,7 @@ export class ClientController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.cdc_secretary, UserRole.super_admin)
+  @Roles(UserRole.sda, UserRole.cdc_secretary, UserRole.super_admin)
   async deleteClient(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) id: string,

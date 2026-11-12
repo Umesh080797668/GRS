@@ -5,6 +5,7 @@ import { Shell } from '@/components/Shell';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
+import { getAreaScopeLocks, loadScopedAreaLists } from '@/lib/area-scope';
 import {
   getOfficialHouseholdTemplateCsv,
   downloadFile,
@@ -48,7 +49,8 @@ interface StagingRowView {
 
 export default function ImportPage() {
   const { t } = useLanguage();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const areaLocks = getAreaScopeLocks(user?.role);
 
   // Location selector for import
   const [districts, setDistricts] = useState<any[]>([]);
@@ -77,22 +79,26 @@ export default function ImportPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    loadDistricts();
-  }, []);
-
-  async function loadDistricts() {
-    try {
-      const data = await api.getDistricts();
-      setDistricts(data);
-      if (data.length > 0) {
-        const initialDist = user?.districtId || data[0].id;
-        setSelectedDistrict(initialDist);
-        loadDs(initialDist);
+    if (authLoading || !user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await loadScopedAreaLists(api, user, { autoSelectFirst: true });
+        if (cancelled) return;
+        setDistricts(res.districts);
+        setDsDivisions(res.dsDivisions);
+        setGnDivisions(res.gnDivisions);
+        setSelectedDistrict(res.selectedDistrict);
+        setSelectedDs(res.selectedDs);
+        setSelectedGn(res.selectedGn);
+      } catch (err: any) {
+        console.error(err);
       }
-    } catch (err: any) {
-      console.error(err);
-    }
-  }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user?.id, user?.role, user?.districtId, user?.dsId, user?.gnId]);
 
   async function loadDs(districtId: string) {
     try {
@@ -295,7 +301,7 @@ export default function ImportPage() {
                 setSelectedDistrict(e.target.value);
                 loadDs(e.target.value);
               }}
-              disabled={user?.role === 'cdc_secretary'}
+              disabled={areaLocks.isDistrictLocked}
             >
               {districts.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -314,7 +320,7 @@ export default function ImportPage() {
                 setSelectedDs(e.target.value);
                 loadGns(e.target.value);
               }}
-              disabled={dsDivisions.length === 0 || user?.role === 'cdc_secretary'}
+              disabled={dsDivisions.length === 0 || areaLocks.isDsLocked}
             >
               {dsDivisions.map((ds) => (
                 <option key={ds.id} value={ds.id}>
@@ -330,7 +336,7 @@ export default function ImportPage() {
               className="select-field"
               value={selectedGn}
               onChange={(e) => setSelectedGn(e.target.value)}
-              disabled={gnDivisions.length === 0 || user?.role === 'cdc_secretary'}
+              disabled={gnDivisions.length === 0 || areaLocks.isGnLocked}
             >
               {gnDivisions.map((gn) => (
                 <option key={gn.id} value={gn.id}>

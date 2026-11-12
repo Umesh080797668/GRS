@@ -45,7 +45,7 @@ export class DuplicatesController {
   }
 
   @Post(':id/confirm')
-  @Roles(UserRole.cdc_secretary, UserRole.super_admin)
+  @Roles(UserRole.sda, UserRole.cdc_secretary, UserRole.super_admin)
   async confirmDuplicate(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) id: string,
@@ -55,7 +55,7 @@ export class DuplicatesController {
   }
 
   @Post(':id/dismiss')
-  @Roles(UserRole.cdc_secretary, UserRole.super_admin)
+  @Roles(UserRole.sda, UserRole.cdc_secretary, UserRole.super_admin)
   async dismissDuplicate(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) id: string,

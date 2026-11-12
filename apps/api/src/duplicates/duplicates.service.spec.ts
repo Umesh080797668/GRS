@@ -17,8 +17,22 @@ describe('DuplicatesService (M6.2 & M6.4)', () => {
   const otherTeamId = '22222222-2222-2222-2222-222222222222';
   const gnId = '33333333-3333-3333-3333-333333333333';
   const dsId = '44444444-4444-4444-4444-444444444444';
+  const otherDsId = '44444444-4444-4444-4444-444444444449';
   const districtId = '55555555-5555-5555-5555-555555555555';
   const userId = '66666666-6666-6666-6666-666666666666';
+
+  const l3Caller: ScopeContext = {
+    userId: '77777777-7777-7777-7777-777777777777',
+    role: UserRole.sda,
+    dsId,
+    districtId,
+  };
+
+  const l3NoDsCaller: ScopeContext = {
+    userId: '88888888-8888-8888-8888-888888888888',
+    role: UserRole.sda,
+    districtId,
+  };
 
   const l4Caller: ScopeContext = {
     userId,
@@ -323,6 +337,134 @@ describe('DuplicatesService (M6.2 & M6.4)', () => {
           }),
         }),
       );
+    });
+
+    it('allows Level 3 SDA to confirm duplicate candidates across teams within their DS division', async () => {
+      prisma.duplicateCandidate.findUnique.mockResolvedValue(
+        makeCandidate({
+          clientBRecord: {
+            id: clientBId,
+            teamId: otherTeamId,
+            gnId,
+            dsId,
+            districtId,
+            duplicateOf: null,
+            createdAt: new Date('2026-11-11T00:00:00Z'),
+          },
+        }),
+      );
+      prisma.client.update.mockResolvedValue({
+        id: clientBId,
+        duplicateOf: clientAId,
+      });
+      prisma.duplicateCandidate.update.mockResolvedValue({
+        id: candId,
+        status: DuplicateStatus.confirmed,
+      });
+      prisma.clientAudit.create.mockResolvedValue({ id: 'audit-sda-1' });
+      prisma.team.updateMany.mockResolvedValue({ count: 2 });
+
+      const result = await service.confirmDuplicate(l3Caller, candId, {
+        canonicalClientId: clientAId,
+        reason: 'Verified across teams in same DS',
+      });
+
+      expect(result.status).toBe(DuplicateStatus.confirmed);
+      expect(prisma.client.update).toHaveBeenCalled();
+    });
+
+    it('rejects Level 3 SDA confirming duplicate candidates outside their DS division or with missing dsId', async () => {
+      prisma.duplicateCandidate.findUnique.mockResolvedValue(
+        makeCandidate({
+          clientARecord: {
+            id: clientAId,
+            teamId: otherTeamId,
+            gnId,
+            dsId: otherDsId,
+            districtId,
+            duplicateOf: null,
+            createdAt: new Date('2026-11-10T00:00:00Z'),
+          },
+          clientBRecord: {
+            id: clientBId,
+            teamId: otherTeamId,
+            gnId,
+            dsId: otherDsId,
+            districtId,
+            duplicateOf: null,
+            createdAt: new Date('2026-11-11T00:00:00Z'),
+          },
+        }),
+      );
+
+      await expect(
+        service.confirmDuplicate(l3Caller, candId, {}),
+      ).rejects.toThrow(ForbiddenException);
+
+      // Even if one client is in caller's DS, duplicate target belonging to another DS is rejected
+      prisma.duplicateCandidate.findUnique.mockResolvedValue(
+        makeCandidate({
+          clientBRecord: {
+            id: clientBId,
+            teamId: otherTeamId,
+            gnId,
+            dsId: otherDsId,
+            districtId,
+            duplicateOf: null,
+            createdAt: new Date('2026-11-11T00:00:00Z'),
+          },
+        }),
+      );
+      await expect(
+        service.confirmDuplicate(l3Caller, candId, {
+          canonicalClientId: clientAId,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      prisma.duplicateCandidate.findUnique.mockResolvedValue(makeCandidate());
+      await expect(
+        service.confirmDuplicate(l3NoDsCaller, candId, {}),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('allows Level 3 SDA to dismiss duplicate candidates within their DS division', async () => {
+      prisma.duplicateCandidate.findUnique.mockResolvedValue(makeCandidate());
+      prisma.duplicateCandidate.update.mockResolvedValue({
+        id: candId,
+        status: DuplicateStatus.dismissed,
+        reviewedBy: l3Caller.userId,
+      });
+
+      const res = await service.dismissDuplicate(l3Caller, candId, {
+        reason: 'Verified distinct persons in DS division',
+      });
+      expect(res.status).toBe(DuplicateStatus.dismissed);
+    });
+
+    it('rejects Level 3 SDA dismissing duplicate candidates outside their DS division or with missing dsId', async () => {
+      prisma.duplicateCandidate.findUnique.mockResolvedValue(
+        makeCandidate({
+          clientARecord: {
+            id: clientAId,
+            teamId: otherTeamId,
+            dsId: otherDsId,
+          },
+          clientBRecord: {
+            id: clientBId,
+            teamId: otherTeamId,
+            dsId: otherDsId,
+          },
+        }),
+      );
+
+      await expect(
+        service.dismissDuplicate(l3Caller, candId, {}),
+      ).rejects.toThrow(ForbiddenException);
+
+      prisma.duplicateCandidate.findUnique.mockResolvedValue(makeCandidate());
+      await expect(
+        service.dismissDuplicate(l3NoDsCaller, candId, {}),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

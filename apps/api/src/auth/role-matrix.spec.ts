@@ -92,6 +92,45 @@ describe('Role × Endpoint Authorization Matrix (M1.10)', () => {
       expect(result.reason).toBe('cross_team_forbidden_403');
     });
 
+    it('Level 3 SDA can act within own DS division and is DENIED across DS divisions', () => {
+      const dsA = 'ds-uuid-1111';
+      const dsB = 'ds-uuid-2222';
+      for (const [method, path] of [
+        ['POST', '/houses'],
+        ['PATCH', '/houses/:id'],
+        ['DELETE', '/houses/:id'],
+        ['POST', '/teams/:id/houses'],
+        ['DELETE', '/teams/:id/houses/:houseId'],
+        ['PATCH', '/clients/:id'],
+        ['DELETE', '/clients/:id'],
+        ['POST', '/duplicates/:id/confirm'],
+        ['POST', '/duplicates/:id/dismiss'],
+      ] as const) {
+        const allowedRes = RoleMatrixEvaluator.isAuthorized(
+          UserRole.sda,
+          method,
+          path,
+          {
+            callerScope: { userId: 'sda-a', dsId: dsA },
+            targetScope: { dsId: dsA },
+          },
+        );
+        expect(allowedRes.allowed).toBe(true);
+
+        const deniedRes = RoleMatrixEvaluator.isAuthorized(
+          UserRole.sda,
+          method,
+          path,
+          {
+            callerScope: { userId: 'sda-a', dsId: dsA },
+            targetScope: { dsId: dsB },
+          },
+        );
+        expect(deniedRes.allowed).toBe(false);
+        expect(deniedRes.reason).toBe('cross_ds_forbidden_403');
+      }
+    });
+
     it('Level 5 pushing into another team house is DENIED', () => {
       const result = RoleMatrixEvaluator.isAuthorized(
         UserRole.team_member,

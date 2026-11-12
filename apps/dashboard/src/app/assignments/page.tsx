@@ -395,7 +395,7 @@ function HistoryPanel({ profileId, profileName, onClose }: HistoryPanelProps) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AssignmentsPage() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -439,15 +439,17 @@ export default function AssignmentsPage() {
   }, []);
 
   useEffect(() => {
+    if (authLoading || !user) return;
     fetchAssignments();
-    const isSdo = user?.role === 'sda';
+    const isSdo = user.role === 'sda';
+    const isDc = user.role === 'dc';
     api.getDistricts().then((rows) => {
-      setDistricts(isSdo && user?.districtId ? rows.filter((d) => d.id === user.districtId) : rows);
+      setDistricts((isSdo || isDc) && user.districtId ? rows.filter((d) => d.id === user.districtId) : rows);
     }).catch(() => { });
-    api.getDsDivisions().then((rows) => {
-      setDsDivisions(isSdo && user?.dsId ? rows.filter((ds) => ds.id === user.dsId) : rows);
+    api.getDsDivisions(user.districtId || undefined).then((rows) => {
+      setDsDivisions(isSdo && user.dsId ? rows.filter((ds) => ds.id === user.dsId) : rows);
     }).catch(() => { });
-    api.getGnDivisions(isSdo && user?.dsId ? user.dsId : undefined).then(setGnDivisions).catch(() => { });
+    api.getGnDivisions(isSdo && user.dsId ? user.dsId : undefined).then(setGnDivisions).catch(() => { });
     api.getTeams().then(setTeams).catch(() => { });
 
     let cancelled = false;
@@ -471,7 +473,7 @@ export default function AssignmentsPage() {
     return () => {
       cancelled = true;
     };
-  }, [fetchAssignments, user?.role, user?.districtId, user?.dsId]);
+  }, [authLoading, fetchAssignments, user?.id, user?.role, user?.districtId, user?.dsId]);
 
   const handleDsChange = async (dsId: string) => {
     const gns = await api.getGnDivisions(dsId || undefined).catch(() => []);

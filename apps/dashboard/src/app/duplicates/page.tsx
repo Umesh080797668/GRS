@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle,
@@ -18,6 +18,7 @@ import { Shell } from '../../components/Shell';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { api } from '../../lib/api';
+import { getAreaScopeLocks, loadScopedAreaLists } from '../../lib/area-scope';
 
 interface DuplicateClientSummary {
   id: string;
@@ -67,7 +68,7 @@ interface DuplicateCandidateItem {
 }
 
 export default function DuplicatesPage() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { t } = useLanguage();
 
   const [items, setItems] = useState<DuplicateCandidateItem[]>([]);
@@ -75,6 +76,7 @@ export default function DuplicatesPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<{ type: 'success' | 'info'; message: string } | null>(null);
+  const [scopeReady, setScopeReady] = useState<boolean>(false);
 
   // Filters & keyset pagination
   const [statusFilter, setStatusFilter] = useState<'open' | 'confirmed' | 'dismissed' | 'all'>('open');
@@ -89,41 +91,50 @@ export default function DuplicatesPage() {
   const [selectedDistrict, setSelectedDistrict] = useState<string>('');
   const [selectedDs, setSelectedDs] = useState<string>('');
   const [selectedGn, setSelectedGn] = useState<string>('');
+  const fetchSeqRef = useRef(0);
 
   // Per-pair review state
   const [selectedCanonical, setSelectedCanonical] = useState<Record<string, string>>({});
   const [reasonNotes, setReasonNotes] = useState<Record<string, string>>({});
   const [actingId, setActingId] = useState<string | null>(null);
 
-  const canAct = user?.role === 'cdc_secretary' || user?.role === 'super_admin';
+  const canAct =
+    user?.role === 'sda' ||
+    user?.role === 'cdc_secretary' ||
+    user?.role === 'super_admin';
+  const areaLocks = getAreaScopeLocks(user?.role);
 
   useEffect(() => {
-    loadDistricts();
-  }, [user?.role, user?.districtId, user?.dsId, user?.gnId]);
+    if (authLoading || !user) return;
+    let cancelled = false;
+    setScopeReady(false);
 
-  async function loadDistricts() {
-    try {
-      const data = await api.getDistricts();
-      setDistricts(data);
-      if ((user?.role === 'cdc_secretary' || user?.role === 'sda') && user.districtId) {
-        setSelectedDistrict(user.districtId);
-        const dsList = await api.getDsDivisions(user.districtId);
-        setDsDivisions(dsList);
-        if (user.dsId) {
-          setSelectedDs(user.dsId);
-          const gnList = await api.getGnDivisions(user.dsId);
-          setGnDivisions(gnList);
-          if (user.gnId) {
-            setSelectedGn(user.gnId);
-          }
+    (async () => {
+      try {
+        const res = await loadScopedAreaLists(api, user);
+        if (cancelled) return;
+        setDistricts(res.districts);
+        setDsDivisions(res.dsDivisions);
+        setGnDivisions(res.gnDivisions);
+        setSelectedDistrict(res.selectedDistrict);
+        setSelectedDs(res.selectedDs);
+        setSelectedGn(res.selectedGn);
+      } catch {
+        // Geographic dropdown load failures fall back cleanly to open options.
+      } finally {
+        if (!cancelled) {
+          setScopeReady(true);
         }
       }
-    } catch {
-      // Geographic dropdown load failures fall back cleanly to open options.
-    }
-  }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user?.id, user?.role, user?.districtId, user?.dsId, user?.gnId]);
 
   async function handleDistrictChange(distId: string) {
+    if (areaLocks.isDistrictLocked) return;
     setSelectedDistrict(distId);
     setSelectedDs('');
     setSelectedGn('');
@@ -140,6 +151,7 @@ export default function DuplicatesPage() {
   }
 
   async function handleDsChange(dsId: string) {
+    if (areaLocks.isDsLocked) return;
     setSelectedDs(dsId);
     setSelectedGn('');
     setGnDivisions([]);
@@ -154,23 +166,28 @@ export default function DuplicatesPage() {
   }
 
   useEffect(() => {
+    if (authLoading || !user || !scopeReady) return;
     setCursorHistory([]);
     loadDuplicates();
-  }, [statusFilter, classificationFilter, selectedDistrict, selectedDs, selectedGn]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user?.id, user?.role, scopeReady, statusFilter, classificationFilter, selectedDistrict, selectedDs, selectedGn]);
 
   async function loadDuplicates(cursor?: string) {
+    if (authLoading || !user || !scopeReady) return;
+    const seq = ++fetchSeqRef.current;
     setLoading(true);
     setError(null);
     try {
       const res = await api.getDuplicates({
         status: statusFilter,
         classification: classificationFilter,
-        districtId: selectedDistrict || undefined,
-        dsId: selectedDs || undefined,
+        districtId: !areaLocks.isDsLocked ? (selectedDistrict || undefined) : undefined,
+        dsId: !areaLocks.isGnLocked ? (selectedDs || undefined) : undefined,
         gnId: selectedGn || undefined,
         cursor: cursor || undefined,
         limit: 20,
       });
+      if (seq !== fetchSeqRef.current) return;
 
       const list: DuplicateCandidateItem[] = Array.isArray(res?.items) ? res.items : [];
       setItems(list);
@@ -193,9 +210,13 @@ export default function DuplicatesPage() {
         return next;
       });
     } catch (err: any) {
-      setError(err?.message || 'Failed to load duplicate candidates.');
+      if (seq === fetchSeqRef.current) {
+        setError(err?.message || 'Failed to load duplicate candidates.');
+      }
     } finally {
-      setLoading(false);
+      if (seq === fetchSeqRef.current) {
+        setLoading(false);
+      }
     }
   }
 
@@ -590,9 +611,9 @@ export default function DuplicatesPage() {
             className="select-field"
             value={selectedDistrict}
             onChange={(e) => handleDistrictChange(e.target.value)}
-            disabled={user?.role === 'cdc_secretary' || user?.role === 'sda'}
+            disabled={areaLocks.isDistrictLocked}
           >
-            <option value="">{(user?.role === 'cdc_secretary' || user?.role === 'sda') ? 'Assigned District' : 'All Districts'}</option>
+            <option value="">{areaLocks.isDistrictLocked ? 'Assigned District' : 'All Districts'}</option>
             {districts.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.nameEn || d.name}
@@ -604,9 +625,9 @@ export default function DuplicatesPage() {
             className="select-field"
             value={selectedDs}
             onChange={(e) => handleDsChange(e.target.value)}
-            disabled={!selectedDistrict || dsDivisions.length === 0 || user?.role === 'cdc_secretary' || user?.role === 'sda'}
+            disabled={!selectedDistrict || dsDivisions.length === 0 || areaLocks.isDsLocked}
           >
-            <option value="">{(user?.role === 'cdc_secretary' || user?.role === 'sda') ? 'Assigned DS Division' : 'All DS Divisions'}</option>
+            <option value="">{areaLocks.isDsLocked ? 'Assigned DS Division' : 'All DS Divisions'}</option>
             {dsDivisions.map((ds) => (
               <option key={ds.id} value={ds.id}>
                 {ds.nameEn || ds.name}
@@ -618,9 +639,9 @@ export default function DuplicatesPage() {
             className="select-field"
             value={selectedGn}
             onChange={(e) => setSelectedGn(e.target.value)}
-            disabled={!selectedDs || gnDivisions.length === 0 || user?.role === 'cdc_secretary'}
+            disabled={!selectedDs || gnDivisions.length === 0 || areaLocks.isGnLocked}
           >
-            <option value="">{user?.role === 'cdc_secretary' ? 'Assigned GN Division' : 'All GN Divisions'}</option>
+            <option value="">{areaLocks.isGnLocked ? 'Assigned GN Division' : 'All GN Divisions'}</option>
             {gnDivisions.map((gn) => (
               <option key={gn.id} value={gn.id}>
                 {gn.nameEn || gn.name} ({gn.gnCode || gn.gnNumber})

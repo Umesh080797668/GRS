@@ -453,12 +453,13 @@ export class DuplicatesService {
     dto: ConfirmDuplicateDto,
   ) {
     if (
+      caller.role !== UserRole.sda &&
       caller.role !== UserRole.cdc_secretary &&
       caller.role !== UserRole.super_admin
     ) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_ROLE',
-        message: 'Only CDC Secretaries and Super Admins can confirm duplicates',
+        message: 'Only SDAs, CDC Secretaries, and Super Admins can confirm duplicates',
       });
     }
 
@@ -486,7 +487,18 @@ export class DuplicatesService {
       });
     }
 
-    if (caller.role === UserRole.cdc_secretary) {
+    if (caller.role === UserRole.sda) {
+      if (
+        !caller.dsId ||
+        (recordA.dsId !== caller.dsId && recordB.dsId !== caller.dsId)
+      ) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DS',
+          message:
+            'SDA can only resolve duplicate candidates within their assigned DS division',
+        });
+      }
+    } else if (caller.role === UserRole.cdc_secretary) {
       if (
         !caller.teamId ||
         (recordA.teamId !== caller.teamId && recordB.teamId !== caller.teamId)
@@ -527,6 +539,17 @@ export class DuplicatesService {
       canonicalClientId === recordA.id ? recordB.id : recordA.id;
     const duplicateRecord =
       duplicateClientId === recordA.id ? recordA : recordB;
+
+    if (
+      caller.role === UserRole.sda &&
+      duplicateRecord.dsId !== caller.dsId
+    ) {
+      throw new ForbiddenException({
+        code: 'OUT_OF_SCOPE_DS',
+        message:
+          'SDA cannot mark a client belonging to another DS division as duplicate',
+      });
+    }
 
     if (
       caller.role === UserRole.cdc_secretary &&
@@ -607,20 +630,21 @@ export class DuplicatesService {
     dto: DismissDuplicateDto,
   ) {
     if (
+      caller.role !== UserRole.sda &&
       caller.role !== UserRole.cdc_secretary &&
       caller.role !== UserRole.super_admin
     ) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_ROLE',
-        message: 'Only CDC Secretaries and Super Admins can dismiss duplicates',
+        message: 'Only SDAs, CDC Secretaries, and Super Admins can dismiss duplicates',
       });
     }
 
     const candidate = await this.prisma.duplicateCandidate.findUnique({
       where: { id: candidateId },
       include: {
-        clientARecord: { select: { id: true, teamId: true } },
-        clientBRecord: { select: { id: true, teamId: true } },
+        clientARecord: { select: { id: true, teamId: true, dsId: true } },
+        clientBRecord: { select: { id: true, teamId: true, dsId: true } },
       },
     });
 
@@ -631,7 +655,19 @@ export class DuplicatesService {
       });
     }
 
-    if (caller.role === UserRole.cdc_secretary) {
+    if (caller.role === UserRole.sda) {
+      if (
+        !caller.dsId ||
+        (candidate.clientARecord?.dsId !== caller.dsId &&
+          candidate.clientBRecord?.dsId !== caller.dsId)
+      ) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DS',
+          message:
+            'SDA can only dismiss duplicate candidates within their assigned DS division',
+        });
+      }
+    } else if (caller.role === UserRole.cdc_secretary) {
       if (
         !caller.teamId ||
         (candidate.clientARecord?.teamId !== caller.teamId &&

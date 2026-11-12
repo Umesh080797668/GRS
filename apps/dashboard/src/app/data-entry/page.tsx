@@ -5,6 +5,7 @@ import { Shell } from '@/components/Shell';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
+import { getAreaScopeLocks, loadScopedAreaLists } from '@/lib/area-scope';
 import {
   PenTool,
   ShieldAlert,
@@ -25,7 +26,8 @@ import {
 
 export default function DataEntryPage() {
   const { t, language } = useLanguage();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const areaLocks = getAreaScopeLocks(user?.role);
 
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [webEntryEnabled, setWebEntryEnabled] = useState(false);
@@ -94,14 +96,17 @@ export default function DataEntryPage() {
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
   useEffect(() => {
+    if (authLoading || !user) return;
     checkConfig();
     loadLookups();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user?.id, user?.role]);
 
   useEffect(() => {
+    if (authLoading || !user) return;
     loadDistricts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.role, user?.districtId, user?.dsId, user?.gnId]);
+  }, [authLoading, user?.id, user?.role, user?.districtId, user?.dsId, user?.gnId]);
 
   const getLookupLabel = (item: any) => {
     if (!item) return '';
@@ -200,28 +205,17 @@ export default function DataEntryPage() {
   }
 
   async function loadDistricts() {
+    if (authLoading || !user) return;
     try {
-      const isSdo = user?.role === 'sda';
-      const rawData = await api.getDistricts();
-      const data = isSdo && user?.districtId ? rawData.filter((d) => d.id === user.districtId) : rawData;
-      setDistricts(data);
-      if (data.length > 0) {
-        const initialDist = user?.districtId || data[0].id;
-        setSelectedDistrict(initialDist);
-        const rawDsList = await api.getDsDivisions(initialDist);
-        const dsList = isSdo && user?.dsId ? rawDsList.filter((ds) => ds.id === user.dsId) : rawDsList;
-        setDsDivisions(dsList);
-        if (dsList.length > 0) {
-          const initialDs = user?.dsId || dsList[0].id;
-          setSelectedDs(initialDs);
-          const gnList = await api.getGnDivisions(initialDs);
-          setGnDivisions(gnList);
-          if (gnList.length > 0) {
-            const initialGn = user?.gnId || gnList[0].id;
-            setSelectedGn(initialGn);
-            loadHouseholdsForGn(initialGn);
-          }
-        }
+      const res = await loadScopedAreaLists(api, user, { autoSelectFirst: true });
+      setDistricts(res.districts);
+      setDsDivisions(res.dsDivisions);
+      setGnDivisions(res.gnDivisions);
+      setSelectedDistrict(res.selectedDistrict);
+      setSelectedDs(res.selectedDs);
+      setSelectedGn(res.selectedGn);
+      if (res.selectedGn) {
+        loadHouseholdsForGn(res.selectedGn);
       }
     } catch (err: any) {
       console.error(err);
@@ -690,7 +684,7 @@ export default function DataEntryPage() {
                         className="select-field"
                         value={selectedDistrict}
                         onChange={(e) => handleDistrictChange(e.target.value)}
-                        disabled={user?.role === 'cdc_secretary' || user?.role === 'sda'}
+                        disabled={areaLocks.isDistrictLocked}
                       >
                         {districts.map((d) => (
                           <option key={d.id} value={d.id}>
@@ -708,7 +702,7 @@ export default function DataEntryPage() {
                         className="select-field"
                         value={selectedDs}
                         onChange={(e) => handleDsChange(e.target.value)}
-                        disabled={user?.role === 'cdc_secretary' || user?.role === 'sda'}
+                        disabled={areaLocks.isDsLocked}
                       >
                         {dsDivisions.map((ds) => (
                           <option key={ds.id} value={ds.id}>
@@ -726,7 +720,7 @@ export default function DataEntryPage() {
                         className="select-field"
                         value={selectedGn}
                         onChange={(e) => handleGnChange(e.target.value)}
-                        disabled={user?.role === 'cdc_secretary'}
+                        disabled={areaLocks.isGnLocked}
                       >
                         {gnDivisions.map((gn) => (
                           <option key={gn.id} value={gn.id}>

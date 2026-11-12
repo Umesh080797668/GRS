@@ -5,6 +5,7 @@ import Shell from '../../components/Shell';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
+import { getAreaScopeLocks } from '../../lib/area-scope';
 import {
   MapPin,
   Layers,
@@ -22,10 +23,11 @@ import {
 
 export default function AreasPage() {
   const { t } = useLanguage();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
   const canManageAreas = user?.role === 'super_admin' || user?.role === 'admin';
   const isSdo = user?.role === 'sda';
+  const areaLocks = getAreaScopeLocks(user?.role);
   const canManageGnMeta = canManageAreas || isSdo;
   const canManageTeams = canManageAreas || isSdo;
   const [districts, setDistricts] = useState<any[]>([]);
@@ -103,16 +105,17 @@ export default function AreasPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    if (authLoading || !user) return;
     loadDistricts(user?.districtId || undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.role, user?.districtId, user?.dsId]);
+  }, [authLoading, user?.id, user?.role, user?.districtId, user?.dsId]);
 
   const loadDistricts = async (preferredDistrictId?: string) => {
     try {
       setLoading(true);
       const rawData = await api.getDistricts();
       const data =
-        isSdo && user?.districtId
+        areaLocks.isDistrictLocked && user?.districtId
           ? rawData.filter((d) => d.id === user.districtId)
           : rawData;
       setDistricts(data);
@@ -122,7 +125,7 @@ export default function AreasPage() {
             ? preferredDistrictId
             : data[0].id;
         setSelectedDistrictId(nextDistrictId);
-        await loadDsDivisions(nextDistrictId, isSdo ? user?.dsId || undefined : undefined);
+        await loadDsDivisions(nextDistrictId, areaLocks.isDsLocked ? user?.dsId || undefined : undefined);
       } else {
         setSelectedDistrictId('');
         setSelectedDsId('');
@@ -142,7 +145,7 @@ export default function AreasPage() {
     try {
       const rawData = await api.getDsDivisions(districtId);
       const data =
-        isSdo && user?.dsId ? rawData.filter((ds) => ds.id === user.dsId) : rawData;
+        areaLocks.isDsLocked && user?.dsId ? rawData.filter((ds) => ds.id === user.dsId) : rawData;
       setDsDivisions(data);
       if (data.length > 0) {
         const nextDsId =

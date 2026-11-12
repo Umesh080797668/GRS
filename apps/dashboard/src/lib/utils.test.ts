@@ -47,9 +47,9 @@ describe('Dashboard activity duration & relative time formatting', () => {
     assert.ok(!formatted.includes('ago') && formatted.includes('2026'));
   });
 
-  it('formats internal roles into SDO Officer (Level 3) and compact display labels', () => {
-    assert.strictEqual(formatRoleLabel('sda'), 'SDO Officer (Level 3)');
-    assert.strictEqual(formatRoleLabel('sda', true), 'SDO Officer (L3)');
+  it('formats internal roles into SDA Officer (Level 3) and compact display labels', () => {
+    assert.strictEqual(formatRoleLabel('sda'), 'SDA Officer (Level 3)');
+    assert.strictEqual(formatRoleLabel('sda', true), 'SDA Officer (L3)');
     assert.strictEqual(formatRoleLabel('super_admin'), 'Super Admin (Level 00)');
     assert.strictEqual(formatRoleLabel('cdc_secretary'), 'CDC Secretary (Level 4)');
     assert.strictEqual(formatRoleLabel(undefined), '-');

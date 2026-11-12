@@ -30,6 +30,19 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
     teamId: mockTeamId,
   };
 
+  const sdaScope: ScopeContext = {
+    userId: 'user-sda-1',
+    role: UserRole.sda,
+    dsId: 'ds-1',
+    districtId: 'dist-1',
+  };
+
+  const sdaNoDsScope: ScopeContext = {
+    userId: 'user-sda-no-ds',
+    role: UserRole.sda,
+    districtId: 'dist-1',
+  };
+
   let mockClients: any[] = [];
   let mockAuditLogs: any[] = [];
 
@@ -625,6 +638,138 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
             a.reason === 'Duplicate manual cleanup',
         ),
       ).toBe(true);
+    });
+
+    it('SDA (Level 3): allows read, create, correct, and delete across teams in own DS division and blocks other DS divisions or missing dsId', async () => {
+      mockClients.push(
+        {
+          id: 'client-sda-own-ds',
+          householdId: 'h-1',
+          teamId: mockOtherTeamId,
+          gnId: 'gn-1',
+          dsId: 'ds-1',
+          districtId: 'dist-1',
+          collectedBy: 'user-other-agent',
+          name: 'Own DS Citizen',
+          age: 35,
+          gender: 'F',
+          contentHash: 'hash-sda-1',
+          deletedAt: null,
+          serverVersion: 1,
+        },
+        {
+          id: 'client-sda-other-ds',
+          householdId: 'h-other-ds',
+          teamId: 'team-other-ds',
+          gnId: 'gn-other-ds',
+          dsId: 'ds-2',
+          districtId: 'dist-1',
+          collectedBy: 'user-other-ds',
+          name: 'Other DS Citizen',
+          age: 40,
+          gender: 'M',
+          contentHash: 'hash-sda-2',
+          deletedAt: null,
+          serverVersion: 1,
+        },
+      );
+
+      // getClientById: same DS allowed, cross-DS & missing dsId blocked
+      const fetched = await service.getClientById(sdaScope, 'client-sda-own-ds');
+      expect(fetched.id).toBe('client-sda-own-ds');
+
+      await expect(
+        service.getClientById(sdaScope, 'client-sda-other-ds'),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.getClientById(sdaNoDsScope, 'client-sda-own-ds'),
+      ).rejects.toThrow(ForbiddenException);
+
+      // updateClient: same DS across teams allowed, audit reason reflects Level 3 SDA
+      const corrected = await service.updateClient(
+        sdaScope,
+        'client-sda-own-ds',
+        { age: 36 },
+      );
+      expect(corrected.age).toBe(36);
+      expect(
+        mockAuditLogs.some(
+          (a) =>
+            a.clientId === 'client-sda-own-ds' &&
+            a.reason === 'Correction by Level 3 SDA Officer',
+        ),
+      ).toBe(true);
+
+      await expect(
+        service.updateClient(sdaScope, 'client-sda-other-ds', { age: 41 }),
+      ).rejects.toThrow(ForbiddenException);
+
+      // createClient: same DS household allowed, cross-DS & missing dsId blocked
+      const created = await service.createClient(sdaScope, {
+        householdId: 'h-1',
+        name: 'SDA Created Citizen',
+        age: 29,
+        gender: 'M',
+        consentGiven: true,
+        consentVersion: 'consent.v0',
+        infoProvidedBy: 'self' as any,
+        hasSpecialNeeds: false,
+      } as any);
+      expect(created.dsId).toBe('ds-1');
+
+      mockPrisma.household.findUnique.mockResolvedValueOnce({
+        id: 'h-other-ds',
+        teamId: 'team-other-ds',
+        gnId: 'gn-other-ds',
+        dsId: 'ds-2',
+        districtId: 'dist-1',
+        address: 'Other DS Street',
+        deletedAt: null,
+      });
+      await expect(
+        service.createClient(sdaScope, {
+          householdId: 'h-other-ds',
+          name: 'Blocked Cross DS Citizen',
+          age: 29,
+          gender: 'M',
+          consentGiven: true,
+          consentVersion: 'consent.v0',
+          infoProvidedBy: 'self' as any,
+          hasSpecialNeeds: false,
+        } as any),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.createClient(sdaNoDsScope, {
+          householdId: 'h-1',
+          name: 'Blocked No DS Citizen',
+          age: 29,
+          gender: 'M',
+          consentGiven: true,
+          consentVersion: 'consent.v0',
+          infoProvidedBy: 'self' as any,
+          hasSpecialNeeds: false,
+        } as any),
+      ).rejects.toThrow(ForbiddenException);
+
+      // deleteClient: same DS allowed, cross-DS & missing dsId blocked
+      const delRes = await service.deleteClient(sdaScope, 'client-sda-own-ds', {
+        reason: 'SDA cleanup',
+      });
+      expect(delRes).toEqual({ success: true, id: 'client-sda-own-ds' });
+
+      await expect(
+        service.deleteClient(sdaScope, 'client-sda-other-ds', {
+          reason: 'Cross DS delete attempt',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.deleteClient(sdaNoDsScope, 'client-sda-other-ds', {
+          reason: 'Missing DS delete attempt',
+        }),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

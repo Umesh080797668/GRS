@@ -249,6 +249,26 @@ export class ClientService {
       });
     }
 
+    if (
+      caller.role === UserRole.sda &&
+      (!caller.dsId || client.dsId !== caller.dsId)
+    ) {
+      throw new ForbiddenException({
+        code: 'OUT_OF_SCOPE_DS',
+        message: 'You can only access records within your assigned DS division',
+      });
+    }
+
+    if (
+      caller.role === UserRole.dc &&
+      (!caller.districtId || client.districtId !== caller.districtId)
+    ) {
+      throw new ForbiddenException({
+        code: 'OUT_OF_SCOPE_DISTRICT',
+        message: 'You can only access records within your assigned district',
+      });
+    }
+
     return client;
   }
 
@@ -296,6 +316,22 @@ export class ClientService {
           code: 'OUT_OF_SCOPE_HOUSEHOLD',
           message:
             'Cannot create client in household not assigned to your team',
+        });
+      }
+    } else if (caller.role === UserRole.sda) {
+      if (!caller.dsId || household.dsId !== caller.dsId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_HOUSEHOLD',
+          message:
+            'Cannot create client in household outside your assigned DS division',
+        });
+      }
+    } else if (caller.role === UserRole.dc) {
+      if (!caller.districtId || household.districtId !== caller.districtId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_HOUSEHOLD',
+          message:
+            'Cannot create client in household outside your assigned district',
         });
       }
     }
@@ -561,6 +597,16 @@ export class ClientService {
       });
     }
 
+    if (
+      caller.role === UserRole.sda &&
+      (!caller.dsId || client.dsId !== caller.dsId)
+    ) {
+      throw new ForbiddenException({
+        code: 'OUT_OF_SCOPE_DS',
+        message: 'SDA can only correct records from their own DS division',
+      });
+    }
+
     let nameNorm = client.nameNorm;
     let validatedName = client.name;
     if (dto.name && dto.name !== client.name) {
@@ -819,7 +865,12 @@ export class ClientService {
           clientId: id,
           changedBy: caller.userId,
           reason:
-            dto.correctionReason?.trim() || 'Correction by Level 4 Team Leader',
+            dto.correctionReason?.trim() ||
+            (caller.role === UserRole.sda
+              ? 'Correction by Level 3 SDA Officer'
+              : caller.role === UserRole.super_admin
+                ? 'Correction by Super Admin'
+                : 'Correction by Level 4 Team Leader'),
           before: client,
           after: { ...client, ...dto },
         },
@@ -898,6 +949,16 @@ export class ClientService {
       throw new ForbiddenException({
         code: 'OUT_OF_SCOPE_TEAM',
         message: 'CDC Secretary can only delete records from their own team',
+      });
+    }
+
+    if (
+      caller.role === UserRole.sda &&
+      (!caller.dsId || client.dsId !== caller.dsId)
+    ) {
+      throw new ForbiddenException({
+        code: 'OUT_OF_SCOPE_DS',
+        message: 'SDA can only delete records from their own DS division',
       });
     }
 

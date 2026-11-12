@@ -63,7 +63,7 @@ const CREATABLE_ROLES: Record<string, { value: string; label: string }[]> = {
 
 export default function UsersPage() {
   const { t } = useLanguage();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [accounts, setAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -136,8 +136,9 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
+    if (authLoading || !user) return;
     api.getTeams().then(setTeams).catch(() => { });
-  }, []);
+  }, [authLoading, user?.id, user?.role, user?.dsId, user?.gnId]);
 
   const fetchAccounts = async (cursor?: string, isReset = false) => {
     try {
@@ -162,8 +163,10 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
+    if (authLoading || !user) return;
     fetchAccounts(undefined, true);
-  }, [search, roleFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user?.id, user?.role, search, roleFilter]);
 
   const handleCreateSingle = async (e: React.FormEvent) => {
     e.preventDefault();

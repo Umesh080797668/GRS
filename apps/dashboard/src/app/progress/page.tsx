@@ -1,11 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Shell from '../../components/Shell';
 import KPICard from '../../components/KPICard';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
+import {
+  getAreaScopeLocks,
+  loadScopedAreaLists,
+  resolveProgressAreaQuery,
+} from '../../lib/area-scope';
 import { formatDate } from '../../lib/utils';
 import {
   Home,
@@ -24,11 +29,12 @@ import {
 
 export default function ProgressPage() {
   const { t } = useLanguage();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [scopeReady, setScopeReady] = useState(false);
 
   // Area filtering
   const [districts, setDistricts] = useState<any[]>([]);
@@ -37,37 +43,41 @@ export default function ProgressPage() {
   const [selectedDistrict, setSelectedDistrict] = useState<string>('');
   const [selectedDs, setSelectedDs] = useState<string>('');
   const [selectedGn, setSelectedGn] = useState<string>('');
+  const fetchSeqRef = useRef(0);
+
+  const areaLocks = getAreaScopeLocks(user?.role);
 
   useEffect(() => {
-    loadDistricts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.role, user?.districtId, user?.dsId, user?.gnId]);
+    if (authLoading || !user) return;
+    let cancelled = false;
+    setScopeReady(false);
 
-  async function loadDistricts() {
-    try {
-      const data = await api.getDistricts();
-      setDistricts(data);
-      if (user?.role === 'cdc_secretary' || user?.role === 'sda') {
-        if (user.districtId) {
-          setSelectedDistrict(user.districtId);
-          const dsList = await api.getDsDivisions(user.districtId);
-          setDsDivisions(dsList);
-          if (user.dsId) {
-            setSelectedDs(user.dsId);
-            const gnList = await api.getGnDivisions(user.dsId);
-            setGnDivisions(gnList);
-            if (user.gnId) {
-              setSelectedGn(user.gnId);
-            }
-          }
+    (async () => {
+      try {
+        const res = await loadScopedAreaLists(api, user);
+        if (cancelled) return;
+        setDistricts(res.districts);
+        setDsDivisions(res.dsDivisions);
+        setGnDivisions(res.gnDivisions);
+        setSelectedDistrict(res.selectedDistrict);
+        setSelectedDs(res.selectedDs);
+        setSelectedGn(res.selectedGn);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (!cancelled) {
+          setScopeReady(true);
         }
       }
-    } catch (err) {
-      console.error(err);
-    }
-  }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user?.id, user?.role, user?.districtId, user?.dsId, user?.gnId]);
 
   async function handleDistrictChange(distId: string) {
+    if (areaLocks.isDistrictLocked) return;
     setSelectedDistrict(distId);
     setSelectedDs('');
     setSelectedGn('');
@@ -84,6 +94,7 @@ export default function ProgressPage() {
   }
 
   async function handleDsChange(dsId: string) {
+    if (areaLocks.isDsLocked) return;
     setSelectedDs(dsId);
     setSelectedGn('');
     setGnDivisions([]);
@@ -98,35 +109,37 @@ export default function ProgressPage() {
   }
 
   const fetchStats = async () => {
+    if (authLoading || !user || !scopeReady) return;
+    const seq = ++fetchSeqRef.current;
     try {
-      let areaType: string | undefined;
-      let areaId: string | undefined;
-
-      if (selectedGn) {
-        areaType = 'gn';
-        areaId = selectedGn;
-      } else if (selectedDs) {
-        areaType = 'ds';
-        areaId = selectedDs;
-      } else if (selectedDistrict) {
-        areaType = 'district';
-        areaId = selectedDistrict;
-      }
+      const { areaType, areaId } = resolveProgressAreaQuery(
+        user.role,
+        selectedDistrict,
+        selectedDs,
+        selectedGn,
+      );
 
       const res = await api.getProgressStats(areaType, areaId);
+      if (seq !== fetchSeqRef.current) return;
       setStats(res);
       setError(null);
     } catch (err: any) {
+      if (seq !== fetchSeqRef.current) return;
       setError(err.message || 'Failed to load progress metrics.');
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (seq === fetchSeqRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchStats();
-  }, [selectedDistrict, selectedDs, selectedGn]);
+    if (!authLoading && user && scopeReady) {
+      fetchStats();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user?.id, user?.role, scopeReady, selectedDistrict, selectedDs, selectedGn]);
 
   const handleManualRefresh = () => {
     setRefreshing(true);
@@ -238,9 +251,9 @@ export default function ProgressPage() {
           style={{ width: 'auto', minWidth: '180px', flex: '1 1 180px' }}
           value={selectedDistrict}
           onChange={(e) => handleDistrictChange(e.target.value)}
-          disabled={user?.role === 'cdc_secretary' || user?.role === 'sda'}
+          disabled={areaLocks.isDistrictLocked}
         >
-          <option value="">{(user?.role === 'cdc_secretary' || user?.role === 'sda') ? 'Assigned District' : 'National / All Districts'}</option>
+          <option value="">{areaLocks.isDistrictLocked ? 'Assigned District' : 'National / All Districts'}</option>
           {districts.map((d) => (
             <option key={d.id} value={d.id}>
               {d.nameEn || d.name}
@@ -253,9 +266,9 @@ export default function ProgressPage() {
           style={{ width: 'auto', minWidth: '180px', flex: '1 1 180px' }}
           value={selectedDs}
           onChange={(e) => handleDsChange(e.target.value)}
-          disabled={!selectedDistrict || dsDivisions.length === 0 || user?.role === 'cdc_secretary' || user?.role === 'sda'}
+          disabled={!selectedDistrict || dsDivisions.length === 0 || areaLocks.isDsLocked}
         >
-          <option value="">{(user?.role === 'cdc_secretary' || user?.role === 'sda') ? 'Assigned DS Division' : 'All DS Divisions'}</option>
+          <option value="">{areaLocks.isDsLocked ? 'Assigned DS Division' : 'All DS Divisions'}</option>
           {dsDivisions.map((ds) => (
             <option key={ds.id} value={ds.id}>
               {ds.nameEn || ds.name}
@@ -268,9 +281,9 @@ export default function ProgressPage() {
           style={{ width: 'auto', minWidth: '180px', flex: '1 1 180px' }}
           value={selectedGn}
           onChange={(e) => setSelectedGn(e.target.value)}
-          disabled={!selectedDs || gnDivisions.length === 0 || user?.role === 'cdc_secretary'}
+          disabled={!selectedDs || gnDivisions.length === 0 || areaLocks.isGnLocked}
         >
-          <option value="">{user?.role === 'cdc_secretary' ? 'Assigned GN Division' : 'All GN Divisions'}</option>
+          <option value="">{areaLocks.isGnLocked ? 'Assigned GN Division' : 'All GN Divisions'}</option>
           {gnDivisions.map((gn) => (
             <option key={gn.id} value={gn.id}>
               {gn.nameEn || gn.name} ({gn.gnCode || gn.gnNumber})

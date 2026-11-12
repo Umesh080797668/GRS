@@ -22,7 +22,7 @@ export class TeamHousesController {
   constructor(private readonly householdService: HouseholdService) {}
 
   @Post(':id/houses')
-  @Roles(UserRole.cdc_secretary, UserRole.super_admin)
+  @Roles(UserRole.sda, UserRole.cdc_secretary, UserRole.super_admin)
   async assignHousesToTeam(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) teamId: string,
@@ -32,7 +32,7 @@ export class TeamHousesController {
   }
 
   @Delete(':id/houses/:houseId')
-  @Roles(UserRole.cdc_secretary, UserRole.super_admin)
+  @Roles(UserRole.sda, UserRole.cdc_secretary, UserRole.super_admin)
   async unassignHouseFromTeam(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) teamId: string,

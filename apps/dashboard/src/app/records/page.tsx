@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Shell } from '@/components/Shell';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
+import { getAreaScopeLocks, loadScopedAreaLists } from '@/lib/area-scope';
 import { formatDate } from '@/lib/utils';
 import {
   Search,
@@ -23,7 +24,7 @@ import {
 
 export default function RecordsPage() {
   const { t } = useLanguage();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   const [records, setRecords] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -31,6 +32,7 @@ export default function RecordsPage() {
   const [cursorHistory, setCursorHistory] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [scopeReady, setScopeReady] = useState<boolean>(false);
 
   // Filters
   const [search, setSearch] = useState<string>('');
@@ -68,37 +70,40 @@ export default function RecordsPage() {
   const [editIsAswesuma, setEditIsAswesuma] = useState<boolean>(false);
   const [editIsSamurdhi, setEditIsSamurdhi] = useState<boolean>(false);
   const [editHasSpecialNeeds, setEditHasSpecialNeeds] = useState<boolean>(false);
+  const fetchSeqRef = useRef(0);
+  const areaLocks = getAreaScopeLocks(user?.role);
 
   useEffect(() => {
-    loadDistricts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.role, user?.districtId, user?.dsId, user?.gnId]);
+    if (authLoading || !user) return;
+    let cancelled = false;
+    setScopeReady(false);
 
-  async function loadDistricts() {
-    try {
-      const data = await api.getDistricts();
-      setDistricts(data);
-      if (user?.role === 'cdc_secretary' || user?.role === 'sda') {
-        if (user.districtId) {
-          setSelectedDistrict(user.districtId);
-          const dsList = await api.getDsDivisions(user.districtId);
-          setDsDivisions(dsList);
-          if (user.dsId) {
-            setSelectedDs(user.dsId);
-            const gnList = await api.getGnDivisions(user.dsId);
-            setGnDivisions(gnList);
-            if (user.gnId) {
-              setSelectedGn(user.gnId);
-            }
-          }
+    (async () => {
+      try {
+        const res = await loadScopedAreaLists(api, user);
+        if (cancelled) return;
+        setDistricts(res.districts);
+        setDsDivisions(res.dsDivisions);
+        setGnDivisions(res.gnDivisions);
+        setSelectedDistrict(res.selectedDistrict);
+        setSelectedDs(res.selectedDs);
+        setSelectedGn(res.selectedGn);
+      } catch (err) {
+        console.error('Failed to load districts:', err);
+      } finally {
+        if (!cancelled) {
+          setScopeReady(true);
         }
       }
-    } catch (err) {
-      console.error('Failed to load districts:', err);
-    }
-  }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user?.id, user?.role, user?.districtId, user?.dsId, user?.gnId]);
 
   async function handleDistrictChange(distId: string) {
+    if (areaLocks.isDistrictLocked) return;
     setSelectedDistrict(distId);
     setSelectedDs('');
     setSelectedGn('');
@@ -115,6 +120,7 @@ export default function RecordsPage() {
   }
 
   async function handleDsChange(dsId: string) {
+    if (areaLocks.isDsLocked) return;
     setSelectedDs(dsId);
     setSelectedGn('');
     setGnDivisions([]);
@@ -129,18 +135,22 @@ export default function RecordsPage() {
   }
 
   useEffect(() => {
+    if (authLoading || !user || !scopeReady) return;
     setCursorHistory([]);
     loadRecords();
-  }, [search, filterBeneficiary, filterGender, filterLanguage, selectedDistrict, selectedDs, selectedGn]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user?.id, user?.role, scopeReady, search, filterBeneficiary, filterGender, filterLanguage, selectedDistrict, selectedDs, selectedGn]);
 
   async function loadRecords(cursor?: string) {
+    if (authLoading || !user || !scopeReady) return;
+    const seq = ++fetchSeqRef.current;
     setLoading(true);
     setError(null);
     try {
       const res = await api.getClients({
         search: search.trim() || undefined,
-        districtId: selectedDistrict || undefined,
-        dsId: selectedDs || undefined,
+        districtId: !areaLocks.isDsLocked ? (selectedDistrict || undefined) : undefined,
+        dsId: !areaLocks.isGnLocked ? (selectedDs || undefined) : undefined,
         gnId: selectedGn || undefined,
         gender: filterGender !== 'all' ? filterGender : undefined,
         beneficiary: filterBeneficiary !== 'all' ? filterBeneficiary : undefined,
@@ -149,6 +159,7 @@ export default function RecordsPage() {
         cursor: cursor || undefined,
         includeCount: !cursor,
       });
+      if (seq !== fetchSeqRef.current) return;
 
       const items = res.clients || (Array.isArray(res) ? res : []);
       setRecords(items);
@@ -159,9 +170,13 @@ export default function RecordsPage() {
       }
       setNextCursor(res.nextCursor || null);
     } catch (err: any) {
-      setError(err.message || 'Failed to load records.');
+      if (seq === fetchSeqRef.current) {
+        setError(err.message || 'Failed to load records.');
+      }
     } finally {
-      setLoading(false);
+      if (seq === fetchSeqRef.current) {
+        setLoading(false);
+      }
     }
   }
 
@@ -250,7 +265,7 @@ export default function RecordsPage() {
     }
   }
 
-  const canEditRecords = ['super_admin', 'cdc_secretary'].includes(user?.role || '');
+  const canEditRecords = ['super_admin', 'sda', 'cdc_secretary'].includes(user?.role || '');
 
   return (
     <Shell activePath="/records">
@@ -286,22 +301,6 @@ export default function RecordsPage() {
           Total Registered: <strong style={{ color: 'var(--primary)', marginLeft: '4px' }}>{totalCount.toLocaleString()}</strong>
         </div>
       </div>
-
-      {!canEditRecords && user?.role === 'sda' && (
-        <div
-          style={{
-            background: '#fffbeb',
-            border: '1px solid #fde68a',
-            borderRadius: 'var(--radius-sm)',
-            padding: '10px 14px',
-            color: '#92400e',
-            marginBottom: '1rem',
-            fontSize: '13px',
-          }}
-        >
-          DS Division View-Only Mode: Reviewing citizen survey records within your assigned DS division. Record edits and deletions are restricted to CDC Secretaries and Super Admins.
-        </div>
-      )}
 
       {/* Success Notification */}
       {successBanner && (
@@ -406,9 +405,9 @@ export default function RecordsPage() {
             className="select-field"
             value={selectedDistrict}
             onChange={(e) => handleDistrictChange(e.target.value)}
-            disabled={user?.role === 'cdc_secretary' || user?.role === 'sda'}
+            disabled={areaLocks.isDistrictLocked}
           >
-            <option value="">{(user?.role === 'cdc_secretary' || user?.role === 'sda') ? 'Assigned District' : 'All Districts'}</option>
+            <option value="">{areaLocks.isDistrictLocked ? 'Assigned District' : 'All Districts'}</option>
             {districts.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.nameEn || d.name}
@@ -420,9 +419,9 @@ export default function RecordsPage() {
             className="select-field"
             value={selectedDs}
             onChange={(e) => handleDsChange(e.target.value)}
-            disabled={!selectedDistrict || dsDivisions.length === 0 || user?.role === 'cdc_secretary' || user?.role === 'sda'}
+            disabled={!selectedDistrict || dsDivisions.length === 0 || areaLocks.isDsLocked}
           >
-            <option value="">{(user?.role === 'cdc_secretary' || user?.role === 'sda') ? 'Assigned DS Division' : 'All DS Divisions'}</option>
+            <option value="">{areaLocks.isDsLocked ? 'Assigned DS Division' : 'All DS Divisions'}</option>
             {dsDivisions.map((ds) => (
               <option key={ds.id} value={ds.id}>
                 {ds.nameEn || ds.name}
@@ -434,9 +433,9 @@ export default function RecordsPage() {
             className="select-field"
             value={selectedGn}
             onChange={(e) => setSelectedGn(e.target.value)}
-            disabled={!selectedDs || gnDivisions.length === 0 || user?.role === 'cdc_secretary'}
+            disabled={!selectedDs || gnDivisions.length === 0 || areaLocks.isGnLocked}
           >
-            <option value="">{user?.role === 'cdc_secretary' ? 'Assigned GN Division' : 'All GN Divisions'}</option>
+            <option value="">{areaLocks.isGnLocked ? 'Assigned GN Division' : 'All GN Divisions'}</option>
             {gnDivisions.map((gn) => (
               <option key={gn.id} value={gn.id}>
                 {gn.nameEn || gn.name} ({gn.gnCode || gn.gnNumber})

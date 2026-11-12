@@ -13,7 +13,23 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
   const mockTeamId = '33333333-3333-3333-3333-333333333333';
   const mockOtherTeamId = '44444444-4444-4444-4444-444444444444';
   const mockDsId = '55555555-5555-5555-5555-555555555555';
+  const mockOtherDsId = '55555555-5555-5555-5555-555555555599';
+  const mockOtherDsGnId = '44444444-4444-4444-4444-444444444499';
+  const mockOtherDsTeamId = '11111111-1111-1111-1111-111111111199';
   const mockDistrictId = '66666666-6666-6666-6666-666666666666';
+
+  const sdaScope: ScopeContext = {
+    userId: 'user-sda-1',
+    role: UserRole.sda,
+    districtId: mockDistrictId,
+    dsId: mockDsId,
+  };
+
+  const sdaNoDsScope: ScopeContext = {
+    userId: 'user-sda-no-ds',
+    role: UserRole.sda,
+    districtId: mockDistrictId,
+  };
 
   const cdcSecretaryScope: ScopeContext = {
     userId: 'user-cdc-sec',
@@ -47,6 +63,16 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
             ds: { id: mockDsId, districtId: mockDistrictId },
           });
         }
+        if (where.id === mockOtherDsGnId) {
+          return Promise.resolve({
+            id: mockOtherDsGnId,
+            gnNumber: '202B',
+            gnName: 'Other DS GN',
+            dsId: mockOtherDsId,
+            nextSerial: gnNextSerial,
+            ds: { id: mockOtherDsId, districtId: mockDistrictId },
+          });
+        }
         return Promise.resolve(null);
       }),
     },
@@ -57,7 +83,7 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
             id: mockTeamId,
             teamNo: 1,
             gnId: mockGnId,
-            gn: { id: mockGnId },
+            gn: { id: mockGnId, dsId: mockDsId },
           });
         }
         if (where.id === mockOtherTeamId) {
@@ -65,7 +91,15 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
             id: mockOtherTeamId,
             teamNo: 2,
             gnId: mockGnId,
-            gn: { id: mockGnId },
+            gn: { id: mockGnId, dsId: mockDsId },
+          });
+        }
+        if (where.id === mockOtherDsTeamId) {
+          return Promise.resolve({
+            id: mockOtherDsTeamId,
+            teamNo: 3,
+            gnId: mockOtherDsGnId,
+            gn: { id: mockOtherDsGnId, dsId: mockOtherDsId },
           });
         }
         return Promise.resolve(null);
@@ -925,6 +959,132 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       const res = await service.reopenHousehold(cdcSecretaryScope, house.id);
       expect(res.visitStatus).toBe('not_started');
       expect(res.version).toBe(initialVersion);
+    });
+  });
+
+  describe('Level 3 SDA DS-scoped House & Team Operations', () => {
+    it('allows SDA to create, update, assign, unassign, finish, reopen, and delete households within their assigned DS division', async () => {
+      const created = await service.createHousehold(sdaScope, {
+        gnId: mockGnId,
+        houseNo: 'SDA-01',
+        houseLeaderName: 'SDA Created Leader',
+      });
+      expect(created.dsId).toBe(mockDsId);
+
+      const updated = await service.updateHousehold(sdaScope, created.id, {
+        houseLeaderName: 'SDA Updated Leader',
+      });
+      expect(updated.houseLeaderName).toBe('SDA Updated Leader');
+
+      const assignRes = await service.assignHousesToTeam(
+        sdaScope,
+        mockOtherTeamId,
+        [created.id],
+      );
+      expect(assignRes).toEqual({
+        success: true,
+        assignedCount: 1,
+        houseIds: [created.id],
+      });
+
+      const finished = await service.finishHousehold(sdaScope, created.id);
+      expect(finished.visitStatus).toBe('completed');
+
+      const reopened = await service.reopenHousehold(sdaScope, created.id);
+      expect(reopened.visitStatus).toBe('not_started');
+
+      const unassignRes = await service.unassignHouseFromTeam(
+        sdaScope,
+        mockOtherTeamId,
+        created.id,
+      );
+      expect(unassignRes).toEqual({
+        success: true,
+        unassignedHouseId: created.id,
+      });
+
+      const deleted = await service.deleteHousehold(sdaScope, created.id, {
+        reason: 'Cleanup by SDA',
+      });
+      expect(deleted).toEqual({ success: true, id: created.id });
+    });
+
+    it('rejects SDA house mutations and team assignments outside their assigned DS division or with missing dsId', async () => {
+      const otherDsHouse = await service.createHousehold(superAdminScope, {
+        gnId: mockOtherDsGnId,
+        houseNo: 'OTHER-DS-01',
+        houseLeaderName: 'Other DS Leader',
+      });
+
+      await expect(
+        service.createHousehold(sdaScope, {
+          gnId: mockOtherDsGnId,
+          houseNo: 'SDA-BLOCKED',
+          houseLeaderName: 'Blocked Leader',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.createHousehold(sdaNoDsScope, {
+          gnId: mockGnId,
+          houseNo: 'SDA-NO-DS',
+          houseLeaderName: 'No DS Leader',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.getHouseholdById(sdaScope, otherDsHouse.id),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.updateHousehold(sdaScope, otherDsHouse.id, {
+          houseLeaderName: 'Cross DS Attempt',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.deleteHousehold(sdaScope, otherDsHouse.id, {}),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.assignHousesToTeam(sdaScope, mockOtherDsTeamId, [
+          otherDsHouse.id,
+        ]),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.assignHousesToTeam(sdaNoDsScope, mockTeamId, [otherDsHouse.id]),
+      ).rejects.toThrow(ForbiddenException);
+
+      await service.assignHousesToTeam(superAdminScope, mockOtherDsTeamId, [
+        otherDsHouse.id,
+      ]);
+
+      await expect(
+        service.unassignHouseFromTeam(
+          sdaScope,
+          mockOtherDsTeamId,
+          otherDsHouse.id,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.finishHousehold(sdaScope, otherDsHouse.id),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.finishHousehold(sdaNoDsScope, otherDsHouse.id),
+      ).rejects.toThrow(ForbiddenException);
+
+      await service.finishHousehold(superAdminScope, otherDsHouse.id);
+
+      await expect(
+        service.reopenHousehold(sdaScope, otherDsHouse.id),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.reopenHousehold(sdaNoDsScope, otherDsHouse.id),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

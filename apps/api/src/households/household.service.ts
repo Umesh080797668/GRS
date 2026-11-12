@@ -51,6 +51,13 @@ export class HouseholdService {
             'CDC Secretary can only create households in their own assigned GN division',
         });
       }
+    } else if (creator.role === UserRole.sda) {
+      if (!creator.dsId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DS',
+          message: 'SDA is not assigned to a DS division',
+        });
+      }
     } else if (creator.role !== UserRole.super_admin) {
       throw new ForbiddenException({
         code: 'CANNOT_CREATE_HOUSEHOLD',
@@ -78,6 +85,14 @@ export class HouseholdService {
       throw new NotFoundException({
         code: 'GN_NOT_FOUND',
         message: 'GN division not found',
+      });
+    }
+
+    if (creator.role === UserRole.sda && gn.dsId !== creator.dsId) {
+      throw new ForbiddenException({
+        code: 'OUT_OF_SCOPE_DS',
+        message:
+          'SDA can only create households within their assigned DS division',
       });
     }
 
@@ -395,6 +410,20 @@ export class HouseholdService {
           isTaken: true,
         };
       }
+    } else if (caller.role === UserRole.sda) {
+      if (!caller.dsId || household.dsId !== caller.dsId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DS',
+          message: 'Household is outside your DS division',
+        });
+      }
+    } else if (caller.role === UserRole.dc) {
+      if (!caller.districtId || household.districtId !== caller.districtId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DISTRICT',
+          message: 'Household is outside your district',
+        });
+      }
     } else if (caller.role === UserRole.team_member) {
       if (
         household.teamId !== caller.teamId &&
@@ -614,12 +643,19 @@ export class HouseholdService {
       });
     }
 
-    // Scope check: Level 4 can only assign to their own team
+    // Scope check: Level 4 can only assign to their own team; Level 3 (SDA) within DS division
     if (caller.role === UserRole.cdc_secretary) {
       if (!caller.teamId || teamId !== caller.teamId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_TEAM',
           message: 'CDC Secretary can only assign houses to their own team',
+        });
+      }
+    } else if (caller.role === UserRole.sda) {
+      if (!caller.dsId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DS',
+          message: 'SDA is not assigned to a DS division',
         });
       }
     } else if (caller.role !== UserRole.super_admin) {
@@ -647,6 +683,14 @@ export class HouseholdService {
           code: 'OUT_OF_SCOPE_GN',
           message:
             'CDC Secretary can only assign houses in their own assigned GN division',
+        });
+      }
+    } else if (caller.role === UserRole.sda) {
+      if (team.gn?.dsId !== caller.dsId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DS',
+          message:
+            'SDA can only assign houses to teams within their assigned DS division',
         });
       }
     }
@@ -744,6 +788,13 @@ export class HouseholdService {
           message: 'CDC Secretary can only unassign houses from their own team',
         });
       }
+    } else if (caller.role === UserRole.sda) {
+      if (!caller.dsId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DS',
+          message: 'SDA is not assigned to a DS division',
+        });
+      }
     } else if (caller.role !== UserRole.super_admin) {
       throw new ForbiddenException({
         code: 'CANNOT_UNASSIGN_HOUSE',
@@ -768,6 +819,14 @@ export class HouseholdService {
           code: 'OUT_OF_SCOPE_GN',
           message:
             'CDC Secretary can only unassign houses in their own assigned GN division',
+        });
+      }
+    } else if (caller.role === UserRole.sda) {
+      if (house.dsId !== caller.dsId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_DS',
+          message:
+            'SDA can only unassign houses within their assigned DS division',
         });
       }
     }
@@ -966,7 +1025,7 @@ export class HouseholdService {
         });
       }
     } else if (caller.role === UserRole.sda) {
-      if (caller.dsId && household.dsId !== caller.dsId) {
+      if (!caller.dsId || household.dsId !== caller.dsId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_DS',
           message: 'Household is outside your division',
@@ -1063,7 +1122,7 @@ export class HouseholdService {
         });
       }
     } else if (caller.role === UserRole.sda) {
-      if (caller.dsId && household.dsId !== caller.dsId) {
+      if (!caller.dsId || household.dsId !== caller.dsId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_DS',
           message: 'Household is outside your division',

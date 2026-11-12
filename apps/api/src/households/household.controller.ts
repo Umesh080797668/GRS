@@ -64,7 +64,7 @@ export class HouseholdController {
   }
 
   @Post()
-  @Roles(UserRole.cdc_secretary, UserRole.super_admin)
+  @Roles(UserRole.sda, UserRole.cdc_secretary, UserRole.super_admin)
   async createHousehold(
     @CurrentUser() user: ScopeContext,
     @Body() dto: CreateHouseholdDto,
@@ -73,7 +73,7 @@ export class HouseholdController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.cdc_secretary, UserRole.super_admin)
+  @Roles(UserRole.sda, UserRole.cdc_secretary, UserRole.super_admin)
   async updateHousehold(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) id: string,
@@ -83,7 +83,7 @@ export class HouseholdController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.cdc_secretary, UserRole.super_admin)
+  @Roles(UserRole.sda, UserRole.cdc_secretary, UserRole.super_admin)
   async deleteHousehold(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) id: string,
@@ -93,7 +93,7 @@ export class HouseholdController {
   }
 
   @Post(':id/finish')
-  @Roles(UserRole.team_member, UserRole.cdc_secretary, UserRole.super_admin)
+  @Roles(UserRole.team_member, UserRole.cdc_secretary, UserRole.sda, UserRole.super_admin)
   async finishHousehold(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) id: string,
