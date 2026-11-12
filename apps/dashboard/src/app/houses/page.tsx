@@ -177,6 +177,7 @@ export default function HousesPage() {
   }
 
   async function handleDistrictChange(distId: string) {
+    if (areaLocks.isDistrictLocked) return;
     setSelectedDistrict(distId);
     try {
       const dsList = await api.getDsDivisions(distId);
@@ -205,6 +206,7 @@ export default function HousesPage() {
   }
 
   async function handleDsChange(dsId: string) {
+    if (areaLocks.isDsLocked) return;
     setSelectedDs(dsId);
     try {
       const gnList = await api.getGnDivisions(dsId);

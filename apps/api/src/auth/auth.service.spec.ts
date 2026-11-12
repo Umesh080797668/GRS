@@ -322,6 +322,26 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
       expect(result.accessToken).toBe('mock.jwt.token');
       expect(result.user.role).toBe(UserRole.sda);
     });
+
+    it('allows dc (Level 2 DC Officer) to log in via web client', async () => {
+      prisma.profile.findFirst.mockResolvedValue({
+        ...mockProfile,
+        role: UserRole.dc,
+      });
+      jest.spyOn(credentialService, 'verifyPassword').mockResolvedValue(true);
+
+      const result = await service.login(
+        {
+          identifier: 'GRS1234567890',
+          password: 'correctPassword',
+        },
+        undefined,
+        'web',
+      );
+
+      expect(result.accessToken).toBe('mock.jwt.token');
+      expect(result.user.role).toBe(UserRole.dc);
+    });
   });
 
   describe('Change Password Flow', () => {

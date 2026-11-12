@@ -80,12 +80,15 @@ export default function UsersPage() {
   const [reissueBatchId, setReissueBatchId] = useState('');
   const [latestCredentials, setLatestCredentials] = useState<CredentialSlipItem[] | null>(null);
   const [teams, setTeams] = useState<any[]>([]);
+  const [dsDivisions, setDsDivisions] = useState<any[]>([]);
+  const [gnDivisions, setGnDivisions] = useState<any[]>([]);
 
   // Form states
   const [formData, setFormData] = useState({
     fullName: '',
     role: 'team_member',
     phone: '',
+    dsId: '',
     teamId: '',
   });
 
@@ -120,6 +123,7 @@ export default function UsersPage() {
       fullName: '',
       role: initialRole,
       phone: '',
+      dsId: '',
       teamId: user?.role === 'cdc_secretary' ? (user.teamId || '') : '',
     });
     setShowSingleModal(true);
@@ -138,7 +142,23 @@ export default function UsersPage() {
   useEffect(() => {
     if (authLoading || !user) return;
     api.getTeams().then(setTeams).catch(() => { });
-  }, [authLoading, user?.id, user?.role, user?.dsId, user?.gnId]);
+    if (user.role !== 'cdc_secretary' && user.role !== 'team_member') {
+      api.getDsDivisions(user.districtId || undefined).then((rows) => {
+        setDsDivisions(user.role === 'sda' && user.dsId ? rows.filter((d) => d.id === user.dsId) : rows);
+      }).catch(() => { });
+      api.getGnDivisions(user.role === 'sda' && user.dsId ? user.dsId : undefined).then(setGnDivisions).catch(() => { });
+    }
+  }, [authLoading, user?.id, user?.role, user?.districtId, user?.dsId, user?.gnId]);
+
+  const formatTeamOption = (team: any, showLeaderFlag = true) => {
+    const gn = gnDivisions.find((g) => g.id === (team.gnId || team.gn_id));
+    const ds = gn ? dsDivisions.find((d) => d.id === (gn.dsId || gn.ds_id)) : null;
+    const gnName = gn ? (gn.gnName || gn.gn_name || '') : '';
+    const gnPart = gn ? ` — ${gn.gnNumber}${gnName ? ` ${gnName}` : ''}` : '';
+    const dsPart = ds && user?.role !== 'sda' ? ` (${ds.nameEn || ds.name_en})` : '';
+    const leaderPart = showLeaderFlag && (team.leaderId || team.leader_id) ? ' - Has Leader' : '';
+    return `Team ${team.teamNo}${gnPart}${dsPart} (Max: ${team.maxMembers})${leaderPart}`;
+  };
 
   const fetchAccounts = async (cursor?: string, isReset = false) => {
     try {
@@ -174,8 +194,17 @@ export default function UsersPage() {
     setError(null);
     setSuccessMessage(null);
     try {
-      if (formData.role === 'cdc_secretary' && !formData.teamId && !isSuperAdmin) {
-        setError('Team assignment is required for CDC secretary (team leader).');
+      if (formData.role === 'sda' && !formData.dsId && !isSuperAdmin) {
+        setError('DS division assignment is required for SDA Officer.');
+        setActionLoading(false);
+        return;
+      }
+      if (['cdc_secretary', 'team_member'].includes(formData.role) && !formData.teamId && !isSuperAdmin) {
+        setError(
+          formData.role === 'cdc_secretary'
+            ? 'Team assignment is required for CDC secretary (team leader).'
+            : 'Field team assignment is required for team members.',
+        );
         setActionLoading(false);
         return;
       }
@@ -183,7 +212,11 @@ export default function UsersPage() {
         fullName: formData.fullName.trim(),
         role: formData.role,
         phoneE164: formData.phone.trim() || undefined,
-        teamId: formData.teamId || undefined,
+        teamId: ['team_member', 'cdc_secretary'].includes(formData.role)
+          ? (formData.teamId || undefined)
+          : undefined,
+        dsId: formData.role === 'sda' ? (formData.dsId || undefined) : undefined,
+        districtId: user?.districtId || undefined,
       };
       const res = await api.createAccount(payload);
       setShowSingleModal(false);
@@ -201,7 +234,7 @@ export default function UsersPage() {
           initialPassword,
         },
       ]);
-      setFormData({ fullName: '', role: 'team_member', phone: '', teamId: '' });
+      setFormData({ fullName: '', role: 'team_member', phone: '', dsId: '', teamId: '' });
       fetchAccounts(undefined, true);
       api.getTeams().then(setTeams).catch(() => { });
       setSuccessMessage(`Account ${userCode || 'User'} created successfully.`);
@@ -567,6 +600,21 @@ export default function UsersPage() {
           >
             {user?.role === 'cdc_secretary' ? (
               <option value="team_member">Team Members (Assigned)</option>
+            ) : user?.role === 'sda' ? (
+              <>
+                <option value="">All Roles</option>
+                <option value="team_member">Team Member</option>
+                <option value="cdc_secretary">CDC Secretary</option>
+                <option value="sda">SDA Officer (Level 3)</option>
+              </>
+            ) : user?.role === 'dc' ? (
+              <>
+                <option value="">All Roles</option>
+                <option value="team_member">Team Member</option>
+                <option value="cdc_secretary">CDC Secretary</option>
+                <option value="sda">SDA Officer (Level 3)</option>
+                <option value="dc">DC (District)</option>
+              </>
             ) : (
               <>
                 <option value="">All Roles</option>
@@ -791,6 +839,35 @@ export default function UsersPage() {
                   </select>
                 </div>
 
+                {formData.role === 'sda' && (
+                  dsDivisions.length === 0 && !isSuperAdmin ? (
+                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', color: '#991b1b' }}>
+                      <span>No DS divisions are available in your district yet. Ask an Administrator to configure DS divisions first.</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="form-label">
+                        Assign to DS Division {isSuperAdmin ? '(Optional for Super Admin)' : '*'}
+                      </label>
+                      <select
+                        value={formData.dsId}
+                        onChange={(e) => setFormData({ ...formData, dsId: e.target.value })}
+                        className="select-field"
+                        required={!isSuperAdmin}
+                      >
+                        <option value="">
+                          {isSuperAdmin ? 'No DS assignment (assign later)' : 'Select a DS division...'}
+                        </option>
+                        {dsDivisions.map((ds) => (
+                          <option key={ds.id} value={ds.id}>
+                            {ds.nameEn || ds.name_en}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )
+                )}
+
                 {user?.role === 'cdc_secretary' ? (
                   <div style={{ background: 'var(--slate-50)', border: '1px solid var(--border-subtle)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', color: 'var(--slate-600)' }}>
                     <span>Assigned Field Team: <strong>Your Field Team (Pre-assigned)</strong></span>
@@ -804,39 +881,49 @@ export default function UsersPage() {
                         </div>
                       ) : (
                         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', color: '#991b1b' }}>
-                          <span>
-                            No field teams available{user?.role === 'sda' ? ' in your DS division yet' : ''}. Create a team first in{' '}
-                            <a href="/areas" style={{ fontWeight: 600, textDecoration: 'underline', color: 'inherit' }}>
-                              Areas &amp; Teams
-                            </a>{' '}
-                            before creating accounts.
-                          </span>
+                          {user?.role === 'dc' ? (
+                            <span>
+                              No field teams available in your district yet. Ask an SDA Officer (Level 3) or Admin to create a team in{' '}
+                              <a href="/areas" style={{ fontWeight: 600, textDecoration: 'underline', color: 'inherit' }}>
+                                Areas &amp; Teams
+                              </a>{' '}
+                              before creating team members.
+                            </span>
+                          ) : (
+                            <span>
+                              No field teams available{user?.role === 'sda' ? ' in your DS division yet' : ''}. Create a team first in{' '}
+                              <a href="/areas" style={{ fontWeight: 600, textDecoration: 'underline', color: 'inherit' }}>
+                                Areas &amp; Teams
+                              </a>{' '}
+                              before creating accounts.
+                            </span>
+                          )}
                         </div>
                       )
                     ) : (
                       <div>
                         <label className="form-label">
-                          Assign to Team {isSuperAdmin ? '(Optional for Super Admin)' : (formData.role === 'cdc_secretary' ? '*' : '(Optional)')}
+                          Assign to Team {isSuperAdmin ? '(Optional for Super Admin)' : '*'}
                         </label>
                         <select
                           value={formData.teamId}
                           onChange={(e) => setFormData({ ...formData, teamId: e.target.value })}
                           className="select-field"
-                          required={formData.role === 'cdc_secretary' && !isSuperAdmin}
+                          required={!isSuperAdmin}
                         >
                           <option value="">
                             {isSuperAdmin
                               ? 'No team assignment (assign later)'
                               : formData.role === 'cdc_secretary'
                                 ? 'Select a team without leader...'
-                                : 'No team assignment'}
+                                : 'Select a field team...'}
                           </option>
                           {(formData.role === 'cdc_secretary'
                             ? teams.filter((t) => !t.leaderId && !t.leader_id)
                             : teams
                           ).map((t) => (
                             <option key={t.id} value={t.id}>
-                              Team {t.teamNo} (Max: {t.maxMembers}){t.leaderId ? ' - Has Leader' : ''}
+                              {formatTeamOption(t)}
                             </option>
                           ))}
                         </select>
@@ -942,13 +1029,23 @@ export default function UsersPage() {
                         </div>
                       ) : (
                         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', color: '#991b1b' }}>
-                          <span>
-                            No field teams available{user?.role === 'sda' ? ' in your DS division yet' : ''}. Create a team first in{' '}
-                            <a href="/areas" style={{ fontWeight: 600, textDecoration: 'underline', color: 'inherit' }}>
-                              Areas &amp; Teams
-                            </a>{' '}
-                            before generating accounts.
-                          </span>
+                          {user?.role === 'dc' ? (
+                            <span>
+                              No field teams available in your district yet. Ask an SDA Officer (Level 3) or Admin to create a team in{' '}
+                              <a href="/areas" style={{ fontWeight: 600, textDecoration: 'underline', color: 'inherit' }}>
+                                Areas &amp; Teams
+                              </a>{' '}
+                              before generating accounts.
+                            </span>
+                          ) : (
+                            <span>
+                              No field teams available{user?.role === 'sda' ? ' in your DS division yet' : ''}. Create a team first in{' '}
+                              <a href="/areas" style={{ fontWeight: 600, textDecoration: 'underline', color: 'inherit' }}>
+                                Areas &amp; Teams
+                              </a>{' '}
+                              before generating accounts.
+                            </span>
+                          )}
                         </div>
                       )
                     ) : (
@@ -979,7 +1076,7 @@ export default function UsersPage() {
                             : teams
                           ).map((t) => (
                             <option key={t.id} value={t.id}>
-                              Team {t.teamNo} (Max: {t.maxMembers}){t.leaderId ? ' - Has Leader' : ''}
+                              {formatTeamOption(t)}
                             </option>
                           ))}
                         </select>
@@ -1165,7 +1262,7 @@ export default function UsersPage() {
                       <option value="">Keep current team</option>
                       {teams.map((tm) => (
                         <option key={tm.id} value={tm.id}>
-                          {tm.name || tm.teamCode || `Team ${tm.teamNo}`}
+                          {tm.name || tm.teamCode || formatTeamOption(tm, false)}
                         </option>
                       ))}
                     </select>

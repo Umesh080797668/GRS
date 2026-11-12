@@ -748,7 +748,6 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
       'team_member',
       'cdc_secretary',
       'sda',
-      'dc',
       'cg',
       'admin',
       'super_admin',

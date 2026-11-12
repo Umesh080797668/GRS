@@ -26,6 +26,7 @@ export default function AreasPage() {
   const { user, isLoading: authLoading } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
   const canManageAreas = user?.role === 'super_admin' || user?.role === 'admin';
+  const isDc = user?.role === 'dc';
   const isSdo = user?.role === 'sda';
   const areaLocks = getAreaScopeLocks(user?.role);
   const canManageGnMeta = canManageAreas || isSdo;
@@ -195,13 +196,13 @@ export default function AreasPage() {
   };
 
   const handleDistrictChange = (id: string) => {
-    if (isSdo) return;
+    if (areaLocks.isDistrictLocked) return;
     setSelectedDistrictId(id);
     loadDsDivisions(id);
   };
 
   const handleDsChange = (id: string) => {
-    if (isSdo) return;
+    if (areaLocks.isDsLocked) return;
     setSelectedDsId(id);
     loadGnDivisions(id);
   };
@@ -537,7 +538,9 @@ export default function AreasPage() {
           <p style={{ fontSize: '13px', color: 'var(--slate-500)', marginTop: '4px' }}>
             {isSdo
               ? 'Manage GN metadata and Field Teams within your assigned DS division (SDA Officer — Level 3).'
-              : 'Administrative boundaries, team allocations, capacity limits, and system releases (Level 00).'}
+              : isDc
+                ? 'Monitor DS divisions, GN divisions, and Field Teams within your assigned district (DC Officer — Level 2, Read-Only).'
+                : 'Administrative boundaries, team allocations, capacity limits, and system releases (Level 00).'}
           </p>
         </div>
 

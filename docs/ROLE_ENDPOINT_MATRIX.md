@@ -64,7 +64,7 @@
 | `/teams/:id/houses/:houseId` | **DELETE** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `team_only` |
 | `/teams/:id/houses/:houseId/reassign` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `team_only` |
 | `/clients` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
-| `/clients` | **POST** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `team_only` |
+| `/clients` | **POST** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | `team_only` |
 | `/clients/:id` | **PATCH** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `team_only` |
 | `/clients/:id` | **DELETE** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `team_only` |
 | `/sync/area` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | `hierarchical` |

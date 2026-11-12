@@ -383,6 +383,47 @@ void main() {
           equals('This role is web-only and does not have mobile app access.'),
         );
         expect(await fakeStorage.getAccessToken(), isNull);
+
+        // Also ensure dc (Level 2 DC Officer) is rejected by mobile role guard
+        final mockDcClient = MockClient((request) async {
+          if (request.url.path == '/v1/auth/login') {
+            return http.Response(
+              jsonEncode({
+                'mustChangePassword': false,
+                'accessToken': 'jwt-dc',
+                'refreshToken': 'rt-dc',
+                'profile': {
+                  'id': 'dc-001',
+                  'userCode': 'GRS0000000200',
+                  'role': 'dc',
+                  'fullName': 'DC Officer',
+                  'preferredLanguage': 'en',
+                  'isActive': true,
+                  'mustChangePassword': false,
+                },
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response('Not found', 404);
+        });
+        final apiClient3 = GrsApiClient(
+          baseUrl: 'http://localhost:3000',
+          client: mockDcClient,
+        );
+        final notifier3 = AuthNotifier(
+          apiClient: apiClient3,
+          storage: fakeStorage,
+        );
+        await notifier3.login('GRS0000000200', 'Password@123');
+
+        expect(notifier3.state.status, equals(AuthStatus.unauthenticated));
+        expect(
+          notifier3.state.errorMessage,
+          equals('This role is web-only and does not have mobile app access.'),
+        );
+        expect(await fakeStorage.getAccessToken(), isNull);
       },
     );
   });

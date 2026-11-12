@@ -90,7 +90,16 @@ function AssignDialog({
   onClose, onDsChange, onGnChange, onSubmit, submitting, error,
 }: AssignDialogProps) {
   const isSdo = callerRole === 'sda';
-  const [level, setLevel] = useState<'district' | 'ds' | 'gn' | 'team'>('gn');
+  const isDc = callerRole === 'dc';
+  const defaultLevel: 'district' | 'ds' | 'gn' | 'team' =
+    profile?.role === 'dc' && !isSdo && !isDc
+      ? 'district'
+      : profile?.role === 'sda' && !isSdo
+        ? 'ds'
+        : profile?.role === 'team_member'
+          ? 'team'
+          : 'gn';
+  const [level, setLevel] = useState<'district' | 'ds' | 'gn' | 'team'>(defaultLevel);
   const [districtId, setDistrictId] = useState('');
   const [dsId, setDsId] = useState(isSdo ? (callerDsId || dsDivisions[0]?.id || '') : '');
   const [gnId, setGnId] = useState('');
@@ -146,7 +155,7 @@ function AssignDialog({
                 <option value="gn">GN Division</option>
                 <option value="team">Team (within GN)</option>
                 {!isSdo && <option value="ds">DS Division</option>}
-                {!isSdo && <option value="district">District</option>}
+                {!isSdo && !isDc && <option value="district">District</option>}
               </select>
             </div>
 
@@ -173,7 +182,7 @@ function AssignDialog({
             {(level === 'gn' || level === 'team') && (
               <>
                 <div>
-                  <label className="form-label">DS Division (to filter GNs) *</label>
+                  <label className="form-label">DS Division (to filter GNs)</label>
                   <select
                     value={dsId}
                     onChange={(e) => { setDsId(e.target.value); onDsChange(e.target.value); setGnId(''); setTeamId(''); }}
@@ -199,7 +208,9 @@ function AssignDialog({
                 <label className="form-label">Team *</label>
                 <select value={teamId} onChange={(e) => setTeamId(e.target.value)} className="select-field" required>
                   <option value="">Select team…</option>
-                  {teams.map((t) => <option key={t.id} value={t.id}>Team {t.teamNo}</option>)}
+                  {(gnId ? teams.filter((t) => (t.gnId || t.gn_id) === gnId) : teams).map((t) => (
+                    <option key={t.id} value={t.id}>Team {t.teamNo}</option>
+                  ))}
                 </select>
               </div>
             )}

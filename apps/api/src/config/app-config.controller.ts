@@ -187,11 +187,11 @@ export class AppConfigController {
       if (canonicalKey === 'web_data_entry_enabled') {
         const currentRolesSetting = await this.configService.getSetting(
           'web_entry_roles',
-          ['cdc_secretary', 'sda', 'dc', 'admin'],
+          ['cdc_secretary', 'sda', 'admin'],
         );
         let roles: string[] = Array.isArray(currentRolesSetting)
           ? [...currentRolesSetting]
-          : ['cdc_secretary', 'sda', 'dc', 'admin'];
+          : ['cdc_secretary', 'sda', 'admin'];
         if (rawValue === true) {
           if (!roles.includes('super_admin')) roles.push('super_admin');
         } else {

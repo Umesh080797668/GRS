@@ -51,7 +51,6 @@ export class ClientController {
     UserRole.team_member,
     UserRole.cdc_secretary,
     UserRole.sda,
-    UserRole.dc,
     UserRole.cg,
     UserRole.admin,
     UserRole.super_admin,

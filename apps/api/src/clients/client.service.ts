@@ -285,7 +285,7 @@ export class ClientService {
         : null;
       const allowedRoles: string[] = Array.isArray(webRolesSetting?.value)
         ? (webRolesSetting.value as string[])
-        : ['cdc_secretary', 'sda', 'dc', 'admin'];
+        : ['cdc_secretary', 'sda', 'admin'];
 
       if (!allowedRoles.includes(caller.role)) {
         throw new ForbiddenException({

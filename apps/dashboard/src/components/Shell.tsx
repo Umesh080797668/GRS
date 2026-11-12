@@ -159,13 +159,13 @@ export function Shell({ children, activePath }: ShellProps) {
       key: 'nav.areas',
       href: '/areas',
       icon: <MapPin size={18} />,
-      roles: ['super_admin', 'admin', 'sda'],
+      roles: ['super_admin', 'admin', 'dc', 'sda'],
     },
     {
       key: 'nav.houses',
       href: '/houses',
       icon: <Home size={18} />,
-      roles: ['super_admin', 'admin', 'sda', 'cdc_secretary'],
+      roles: ['super_admin', 'admin', 'dc', 'sda', 'cdc_secretary'],
     },
     {
       key: 'nav.import',
@@ -195,8 +195,8 @@ export function Shell({ children, activePath }: ShellProps) {
       key: 'nav.data_entry',
       href: '/data-entry',
       icon: <FileText size={18} />,
-      // Decision C19: Super admin disabled by default, available to Level 4/3/2/Admin
-      roles: ['admin', 'dc', 'sda', 'cdc_secretary'],
+      // Decision C19: Super admin disabled by default, available to Level 4/3/Admin
+      roles: ['admin', 'sda', 'cdc_secretary'],
     },
     {
       key: 'nav.sync_health',

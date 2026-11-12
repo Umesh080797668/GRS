@@ -17,14 +17,14 @@ export interface AppConfig {
   };
 }
 
-const DEFAULT_WEB_ENTRY_ROLES = ['cdc_secretary', 'sda', 'dc', 'admin'];
+const DEFAULT_WEB_ENTRY_ROLES = ['cdc_secretary', 'sda', 'admin'];
 const CONFIG_CACHE_TTL_MS = 10_000;
 
 @Injectable()
 export class AppConfigService {
   private cachedConfig: { value: AppConfig; expiresAt: number } | null = null;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Returns current application configuration including sync pacing and version gates.
