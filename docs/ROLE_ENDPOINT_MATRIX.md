@@ -69,6 +69,8 @@
 | `/duplicates/:id/dismiss` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ❌ 403 | ❌ 403 | ❌ 403 | ❌ 403 | ✅ Allow | `team_only` |
 | `/stats/progress` | **GET** | ❌ 401 | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
 | `/exports` | **POST** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/exports/preview` | **GET** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
+| `/exports` | **GET** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
 | `/exports/:id` | **GET** | ❌ 401 | ❌ 401 | ❌ 403 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `hierarchical` |
 | `/releases/latest` | **GET** | ✅ Allow | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `none` |
 | `/releases/manifest` | **GET** | ✅ Allow | ❌ 401 | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | ✅ Allow | `none` |

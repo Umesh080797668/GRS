@@ -960,6 +960,63 @@ export class ApiClient {
       body: JSON.stringify(payload),
     });
   }
+
+  // Exports & Reports (M7)
+  async createExport(payload: {
+    kind: 'progress' | 'clients' | 'beneficiaries' | 'interests' | 'duplicates';
+    format?: 'xlsx' | 'csv';
+    lang?: 'en' | 'si' | 'ta';
+    filters?: {
+      districtId?: string;
+      dsId?: string;
+      gnId?: string;
+      teamId?: string;
+      gender?: 'M' | 'F';
+      status?: 'open' | 'confirmed' | 'dismissed';
+      classification?: 'probable' | 'possible';
+      includeDuplicates?: boolean;
+      dateFrom?: string;
+      dateTo?: string;
+    };
+    async?: boolean;
+  }): Promise<any> {
+    return this.request('/v1/exports', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async listExports(
+    params: { cursor?: string; limit?: number } = {},
+  ): Promise<{ items: any[]; nextCursor: string | null }> {
+    const sp = new URLSearchParams();
+    if (params.cursor) sp.set('cursor', params.cursor);
+    if (params.limit !== undefined) sp.set('limit', String(params.limit));
+    const q = sp.toString();
+    return this.request(`/v1/exports${q ? `?${q}` : ''}`);
+  }
+
+  async getExportJob(id: string): Promise<any> {
+    return this.request(`/v1/exports/${encodeURIComponent(id)}`);
+  }
+
+  async getReportPreview(params: {
+    kind: 'progress' | 'beneficiaries' | 'interests' | 'duplicates';
+    lang?: 'en' | 'si' | 'ta';
+    districtId?: string;
+    dsId?: string;
+    gnId?: string;
+    teamId?: string;
+  }): Promise<any> {
+    const sp = new URLSearchParams();
+    sp.set('kind', params.kind);
+    if (params.lang) sp.set('lang', params.lang);
+    if (params.districtId) sp.set('districtId', params.districtId);
+    if (params.dsId) sp.set('dsId', params.dsId);
+    if (params.gnId) sp.set('gnId', params.gnId);
+    if (params.teamId) sp.set('teamId', params.teamId);
+    return this.request(`/v1/exports/preview?${sp.toString()}`);
+  }
 }
 
 export const api = new ApiClient();

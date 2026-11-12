@@ -11,7 +11,7 @@ This document tracks items requiring client/owner clarification per Agent Build 
 | **B3** | Official pilot area hierarchy (District, DS, GN divisions, team limits) | Pending Owner Input | Synthetic test fixture `TEST-GN-001` with realistic constraints. | M1.7 |
 | **B4** | Production transactional email provider & verified sending domain (SPF/DKIM) | Pending Owner Input | Console mailer / test SMTP driver in local and dev environments. | M1.15 |
 | **B5** | Native-speaker review of Sinhala and Tamil UI/error strings | Pending Review | Machine-translated drafts flagged with `review: pending`. | M8.1 |
-| **B6** | Client sign-off on custom Excel & PDF report templates | Pending Sign-off | Default report layouts implemented per Plan §10 (R1–R5). | M7.3 |
+| **B6** | Client sign-off on custom Excel & PDF report templates | Pending Sign-off | Default R1–R5 report schemas, Excel/CSV exports (`POST /v1/exports`), and Chromium `@media print` trilingual PDF previews (`/reports` + `GET /v1/exports/preview`) implemented per Plan §10 v1 defaults; flagged in UI footer as pending B6 approval. | M7.3 |
 | **B7** | Sample Sri Lankan election name-list file for Excel template calibration | Pending Sample | Synthetic test file matching official format specifications. | M5.4 |
 | **B8** | Formal confirmation of required vs optional client form fields | Awaiting Confirmation | Appendix A defaults used as authoritative validation baseline. | M2.8 |
 | **B9** | Expected initial launch agent headcount and target records per agent per day | Pending Metric | Parameterized load test suites (k6) using configurable scale dials. | M9.2 |

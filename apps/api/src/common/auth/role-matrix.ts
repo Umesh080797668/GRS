@@ -823,7 +823,7 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
       'Read progress counts from team_stats / area_stats with refreshed_at',
   },
 
-  // Long Exports
+  // Long Exports & Reports (M7)
   {
     method: 'POST',
     path: '/exports',
@@ -831,7 +831,25 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     allowedRoles: ['cdc_secretary', 'sda', 'dc', 'cg', 'admin', 'super_admin'],
     scopeEnforcement: 'hierarchical',
     description:
-      'Queue asynchronous Excel export job (Level 5 has no export rights)',
+      'Queue or run inline Excel/CSV report export job R1-R5 (Level 5 forbidden; R5 duplicates L4/L00 only)',
+  },
+  {
+    method: 'GET',
+    path: '/exports/preview',
+    category: 'exports',
+    allowedRoles: ['cdc_secretary', 'sda', 'dc', 'cg', 'admin', 'super_admin'],
+    scopeEnforcement: 'hierarchical',
+    description:
+      'Fetch scoped report summary payload (R1/R3/R4/R5) for dashboard @media print PDF reports',
+  },
+  {
+    method: 'GET',
+    path: '/exports',
+    category: 'exports',
+    allowedRoles: ['cdc_secretary', 'sda', 'dc', 'cg', 'admin', 'super_admin'],
+    scopeEnforcement: 'hierarchical',
+    description:
+      'Keyset-paginated list of caller export jobs with fresh signed download URLs (Level 5 forbidden)',
   },
   {
     method: 'GET',

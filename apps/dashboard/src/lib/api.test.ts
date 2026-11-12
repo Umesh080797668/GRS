@@ -369,4 +369,52 @@ describe('ApiClient - Single-flight refresh (Bug 4)', () => {
       reason: 'Twins in household',
     });
   });
+
+  it('export & report preview endpoints serialize payloads and query filters properly', async () => {
+    const requests: Array<{ url: string; method?: string; body?: any }> = [];
+    (globalThis as any).fetch = async (url: string, options: any = {}) => {
+      requests.push({
+        url,
+        method: options.method || 'GET',
+        body: options.body ? JSON.parse(options.body) : undefined,
+      });
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: async () => JSON.stringify({ items: [], status: 'done' }),
+      };
+    };
+
+    client.setAccessToken('admin-token');
+    await client.createExport({
+      kind: 'clients',
+      format: 'csv',
+      lang: 'si',
+      filters: { districtId: 'dist-1' },
+    });
+    await client.listExports({ limit: 10 });
+    await client.getExportJob('job-1');
+    await client.getReportPreview({
+      kind: 'interests',
+      lang: 'ta',
+      dsId: 'ds-9',
+    });
+
+    assert.strictEqual(requests.length, 4);
+    assert.strictEqual(requests[0].url.endsWith('/v1/exports'), true);
+    assert.strictEqual(requests[0].method, 'POST');
+    assert.deepStrictEqual(requests[0].body, {
+      kind: 'clients',
+      format: 'csv',
+      lang: 'si',
+      filters: { districtId: 'dist-1' },
+    });
+    assert.strictEqual(requests[1].url.includes('/v1/exports?limit=10'), true);
+    assert.strictEqual(requests[2].url.endsWith('/v1/exports/job-1'), true);
+    assert.strictEqual(requests[3].url.includes('/v1/exports/preview?'), true);
+    assert.strictEqual(requests[3].url.includes('kind=interests'), true);
+    assert.strictEqual(requests[3].url.includes('lang=ta'), true);
+    assert.strictEqual(requests[3].url.includes('dsId=ds-9'), true);
+  });
 });

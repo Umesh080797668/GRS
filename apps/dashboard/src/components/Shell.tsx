@@ -173,6 +173,12 @@ export function Shell({ children, activePath }: ShellProps) {
       roles: ['super_admin', 'admin', 'cg', 'dc', 'sda', 'cdc_secretary'],
     },
     {
+      key: 'nav.reports',
+      href: '/reports',
+      icon: <FileSpreadsheet size={18} />,
+      roles: ['super_admin', 'admin', 'cg', 'dc', 'sda', 'cdc_secretary'],
+    },
+    {
       key: 'nav.data_entry',
       href: '/data-entry',
       icon: <FileText size={18} />,
