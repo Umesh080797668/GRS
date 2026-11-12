@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   BarChart3,
@@ -24,6 +24,12 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { formatRoleLabel } from '../lib/utils';
+import {
+  getServerSidebarCollapsed,
+  readSidebarCollapsed,
+  subscribeSidebarCollapsed,
+  writeSidebarCollapsed,
+} from '../lib/sidebar-state';
 import LanguageSwitch from './LanguageSwitch';
 import { api } from '../lib/api';
 
@@ -40,8 +46,14 @@ export interface ShellProps {
 }
 
 export function Shell({ children, activePath }: ShellProps) {
-  const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const desktopCollapsed = useSyncExternalStore(
+    subscribeSidebarCollapsed,
+    readSidebarCollapsed,
+    getServerSidebarCollapsed,
+  );
+  // Preserve desktop collapse preference across page navigations while keeping mobile drawer expanded.
+  const collapsed = desktopCollapsed && !mobileMenuOpen;
   const routerPath = usePathname();
   const pathname = activePath || routerPath;
 
@@ -468,8 +480,8 @@ export function Shell({ children, activePath }: ShellProps) {
         >
           <button
             type="button"
-            onClick={() => setCollapsed(!collapsed)}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            onClick={() => writeSidebarCollapsed(!desktopCollapsed)}
+            aria-label={desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             style={{
               background: 'rgba(255, 255, 255, 0.05)',
               border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -492,7 +504,7 @@ export function Shell({ children, activePath }: ShellProps) {
               e.currentTarget.style.color = 'var(--slate-400)';
             }}
           >
-            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            {desktopCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
         </div>
       </aside>
