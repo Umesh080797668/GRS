@@ -28,6 +28,9 @@ class GrsApiException implements Exception {
       messageKey == 'errors.auth.initial_password_expired';
   bool get isAccountLocked =>
       code == 'ACCOUNT_LOCKED' || messageKey == 'errors.auth.account_locked';
+  bool get isMobileRestricted =>
+      code == 'MOBILE_ACCESS_RESTRICTED' ||
+      messageKey == 'errors.auth.mobile_restricted';
 
   @override
   String toString() =>

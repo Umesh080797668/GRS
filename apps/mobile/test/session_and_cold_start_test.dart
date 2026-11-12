@@ -42,6 +42,19 @@ class FakeSecureStorageService extends SecureStorageService {
     _data.remove('grs_access_token');
     _data.remove('grs_refresh_token');
   }
+
+  @override
+  Future<void> clearActiveProfile() async {
+    _data.remove('grs_active_profile');
+  }
+
+  @override
+  Future<String?> getLastUserId() async => _data['grs_last_user_id'];
+
+  @override
+  Future<void> saveLastUserId(String userId) async {
+    _data['grs_last_user_id'] = userId;
+  }
 }
 
 void main() {
@@ -249,6 +262,127 @@ void main() {
           await fakeStorage.getRefreshToken(),
           equals('fresh-new-refresh-token'),
         );
+      },
+    );
+
+    test(
+      'Blocks web-only role (sda / Level 3 SDO) on cold start and clears cached session',
+      () async {
+        const sdoProfile = ProfileModel(
+          id: 'sdo-001',
+          userCode: 'GRS0000000300',
+          role: 'sda',
+          fullName: 'Nimal Perera',
+          preferredLanguage: 'en',
+          isActive: true,
+          mustChangePassword: false,
+        );
+
+        final mockClient = MockClient(
+          (request) async => http.Response('{}', 200),
+        );
+        final apiClient = GrsApiClient(
+          baseUrl: 'http://localhost:3000',
+          client: mockClient,
+        );
+        final fakeStorage = FakeSecureStorageService();
+        await fakeStorage.saveActiveProfile(sdoProfile);
+        await fakeStorage.saveTokens(
+          accessToken: 'stale-sdo-token',
+          refreshToken: 'stale-sdo-refresh',
+        );
+
+        final notifier = AuthNotifier(
+          apiClient: apiClient,
+          storage: fakeStorage,
+        );
+        await notifier.checkColdStart();
+
+        expect(notifier.state.status, equals(AuthStatus.unauthenticated));
+        expect(
+          notifier.state.errorMessage,
+          equals('This role is web-only and does not have mobile app access.'),
+        );
+        expect(await fakeStorage.getAccessToken(), isNull);
+        expect(await fakeStorage.getActiveProfile(), isNull);
+      },
+    );
+
+    test(
+      'Blocks web-only role (sda / super_admin) on login both for 403 MOBILE_ACCESS_RESTRICTED and role guard',
+      () async {
+        final mockForbiddenClient = MockClient((request) async {
+          if (request.url.path == '/v1/auth/login') {
+            return http.Response(
+              jsonEncode({
+                'code': 'MOBILE_ACCESS_RESTRICTED',
+                'message_key': 'errors.auth.mobile_restricted',
+                'message': 'Web-only role',
+              }),
+              403,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response('Not found', 404);
+        });
+
+        final apiClient1 = GrsApiClient(
+          baseUrl: 'http://localhost:3000',
+          client: mockForbiddenClient,
+        );
+        final fakeStorage = FakeSecureStorageService();
+        final notifier1 = AuthNotifier(
+          apiClient: apiClient1,
+          storage: fakeStorage,
+        );
+        await notifier1.login('GRS0000000300', 'Password@123');
+
+        expect(notifier1.state.status, equals(AuthStatus.unauthenticated));
+        expect(
+          notifier1.state.errorMessage,
+          equals('This role is web-only and does not have mobile app access.'),
+        );
+
+        // Even if server returned 200 with a web-only role, mobile client rejects it cleanly
+        final mockRoleClient = MockClient((request) async {
+          if (request.url.path == '/v1/auth/login') {
+            return http.Response(
+              jsonEncode({
+                'mustChangePassword': false,
+                'accessToken': 'jwt-sdo',
+                'refreshToken': 'rt-sdo',
+                'profile': {
+                  'id': 'sdo-001',
+                  'userCode': 'GRS0000000300',
+                  'role': 'sda',
+                  'fullName': 'SDO User',
+                  'preferredLanguage': 'en',
+                  'isActive': true,
+                  'mustChangePassword': false,
+                },
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response('Not found', 404);
+        });
+        final apiClient2 = GrsApiClient(
+          baseUrl: 'http://localhost:3000',
+          client: mockRoleClient,
+        );
+        final notifier2 = AuthNotifier(
+          apiClient: apiClient2,
+          storage: fakeStorage,
+        );
+        await notifier2.login('GRS0000000300', 'Password@123');
+
+        expect(notifier2.state.status, equals(AuthStatus.unauthenticated));
+        expect(
+          notifier2.state.errorMessage,
+          equals('This role is web-only and does not have mobile app access.'),
+        );
+        expect(await fakeStorage.getAccessToken(), isNull);
       },
     );
   });

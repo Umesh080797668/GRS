@@ -105,7 +105,7 @@ export default function DuplicatesPage() {
     try {
       const data = await api.getDistricts();
       setDistricts(data);
-      if (user?.role === 'cdc_secretary' && user.districtId) {
+      if ((user?.role === 'cdc_secretary' || user?.role === 'sda') && user.districtId) {
         setSelectedDistrict(user.districtId);
         const dsList = await api.getDsDivisions(user.districtId);
         setDsDivisions(dsList);
@@ -590,9 +590,9 @@ export default function DuplicatesPage() {
             className="select-field"
             value={selectedDistrict}
             onChange={(e) => handleDistrictChange(e.target.value)}
-            disabled={user?.role === 'cdc_secretary'}
+            disabled={user?.role === 'cdc_secretary' || user?.role === 'sda'}
           >
-            <option value="">{user?.role === 'cdc_secretary' ? 'Assigned District' : 'All Districts'}</option>
+            <option value="">{(user?.role === 'cdc_secretary' || user?.role === 'sda') ? 'Assigned District' : 'All Districts'}</option>
             {districts.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.nameEn || d.name}
@@ -604,9 +604,9 @@ export default function DuplicatesPage() {
             className="select-field"
             value={selectedDs}
             onChange={(e) => handleDsChange(e.target.value)}
-            disabled={!selectedDistrict || dsDivisions.length === 0 || user?.role === 'cdc_secretary'}
+            disabled={!selectedDistrict || dsDivisions.length === 0 || user?.role === 'cdc_secretary' || user?.role === 'sda'}
           >
-            <option value="">{user?.role === 'cdc_secretary' ? 'Assigned DS Division' : 'All DS Divisions'}</option>
+            <option value="">{(user?.role === 'cdc_secretary' || user?.role === 'sda') ? 'Assigned DS Division' : 'All DS Divisions'}</option>
             {dsDivisions.map((ds) => (
               <option key={ds.id} value={ds.id}>
                 {ds.nameEn || ds.name}

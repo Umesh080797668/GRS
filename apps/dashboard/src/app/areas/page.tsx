@@ -25,6 +25,9 @@ export default function AreasPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
   const canManageAreas = user?.role === 'super_admin' || user?.role === 'admin';
+  const isSdo = user?.role === 'sda';
+  const canManageGnMeta = canManageAreas || isSdo;
+  const canManageTeams = canManageAreas || isSdo;
   const [districts, setDistricts] = useState<any[]>([]);
   const [dsDivisions, setDsDivisions] = useState<any[]>([]);
   const [gnDivisions, setGnDivisions] = useState<any[]>([]);
@@ -100,13 +103,18 @@ export default function AreasPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    loadDistricts();
-  }, []);
+    loadDistricts(user?.districtId || undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role, user?.districtId, user?.dsId]);
 
   const loadDistricts = async (preferredDistrictId?: string) => {
     try {
       setLoading(true);
-      const data = await api.getDistricts();
+      const rawData = await api.getDistricts();
+      const data =
+        isSdo && user?.districtId
+          ? rawData.filter((d) => d.id === user.districtId)
+          : rawData;
       setDistricts(data);
       if (data.length > 0) {
         const nextDistrictId =
@@ -114,7 +122,7 @@ export default function AreasPage() {
             ? preferredDistrictId
             : data[0].id;
         setSelectedDistrictId(nextDistrictId);
-        await loadDsDivisions(nextDistrictId);
+        await loadDsDivisions(nextDistrictId, isSdo ? user?.dsId || undefined : undefined);
       } else {
         setSelectedDistrictId('');
         setSelectedDsId('');
@@ -132,7 +140,9 @@ export default function AreasPage() {
 
   const loadDsDivisions = async (districtId: string, preferredDsId?: string) => {
     try {
-      const data = await api.getDsDivisions(districtId);
+      const rawData = await api.getDsDivisions(districtId);
+      const data =
+        isSdo && user?.dsId ? rawData.filter((ds) => ds.id === user.dsId) : rawData;
       setDsDivisions(data);
       if (data.length > 0) {
         const nextDsId =
@@ -182,11 +192,13 @@ export default function AreasPage() {
   };
 
   const handleDistrictChange = (id: string) => {
+    if (isSdo) return;
     setSelectedDistrictId(id);
     loadDsDivisions(id);
   };
 
   const handleDsChange = (id: string) => {
+    if (isSdo) return;
     setSelectedDsId(id);
     loadGnDivisions(id);
   };
@@ -520,7 +532,9 @@ export default function AreasPage() {
             {t('areas.title')}
           </h1>
           <p style={{ fontSize: '13px', color: 'var(--slate-500)', marginTop: '4px' }}>
-            Administrative boundaries, team allocations, capacity limits, and system releases (Level 00).
+            {isSdo
+              ? 'Manage GN metadata and Field Teams within your assigned DS division (SDA Officer — Level 3).'
+              : 'Administrative boundaries, team allocations, capacity limits, and system releases (Level 00).'}
           </p>
         </div>
 
@@ -894,7 +908,7 @@ export default function AreasPage() {
                       </div>
                       {isSelected && <CheckCircle size={14} style={{ color: 'var(--warning)', flexShrink: 0 }} />}
                     </button>
-                    {canManageAreas && (
+                    {canManageGnMeta && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '2px', paddingRight: '6px', flexShrink: 0 }}>
                         <button
                           type="button"
@@ -913,23 +927,25 @@ export default function AreasPage() {
                         >
                           <Edit2 size={13} />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => openDeleteConfirm('gn', gn)}
-                          title={t('areas.delete_gn')}
-                          aria-label={t('areas.delete_gn')}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: 'var(--danger-text)',
-                            padding: '4px',
-                            borderRadius: '4px',
-                            display: 'inline-flex',
-                          }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {canManageAreas && (
+                          <button
+                            type="button"
+                            onClick={() => openDeleteConfirm('gn', gn)}
+                            title={t('areas.delete_gn')}
+                            aria-label={t('areas.delete_gn')}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: 'var(--danger-text)',
+                              padding: '4px',
+                              borderRadius: '4px',
+                              display: 'inline-flex',
+                            }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -959,7 +975,7 @@ export default function AreasPage() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span className="badge badge-neutral">{teams.length}</span>
-              {canManageAreas && (
+              {canManageTeams && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1020,7 +1036,7 @@ export default function AreasPage() {
                       </div>
                     </div>
 
-                    {canManageAreas && (
+                    {canManageTeams && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                         <button
                           type="button"

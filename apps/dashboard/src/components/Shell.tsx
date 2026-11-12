@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { formatRoleLabel } from '../lib/utils';
 import LanguageSwitch from './LanguageSwitch';
 import { api } from '../lib/api';
 
@@ -146,13 +147,13 @@ export function Shell({ children, activePath }: ShellProps) {
       key: 'nav.areas',
       href: '/areas',
       icon: <MapPin size={18} />,
-      roles: ['super_admin', 'admin'], // Level 00 only
+      roles: ['super_admin', 'admin', 'sda'],
     },
     {
       key: 'nav.houses',
       href: '/houses',
       icon: <Home size={18} />,
-      roles: ['super_admin', 'admin', 'cdc_secretary'], // Level 4 & Level 00
+      roles: ['super_admin', 'admin', 'sda', 'cdc_secretary'],
     },
     {
       key: 'nav.import',
@@ -633,7 +634,7 @@ export function Shell({ children, activePath }: ShellProps) {
                       letterSpacing: '0.03em',
                     }}
                   >
-                    {user.role}
+                    {formatRoleLabel(user.role)}
                   </span>
                 </div>
 

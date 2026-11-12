@@ -1,6 +1,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { formatActiveDuration, formatRelativeTime } from './utils.ts';
+import {
+  formatActiveDuration,
+  formatRelativeTime,
+  formatRoleLabel,
+} from './utils.ts';
 
 describe('Dashboard activity duration & relative time formatting', () => {
   it('formats durations into < 1 min, minutes, hours, and hours+minutes cleanly', () => {
@@ -41,5 +45,13 @@ describe('Dashboard activity duration & relative time formatting', () => {
     const tenDaysAgo = new Date(now - 10 * 86400_000).toISOString();
     const formatted = formatRelativeTime(tenDaysAgo, now);
     assert.ok(!formatted.includes('ago') && formatted.includes('2026'));
+  });
+
+  it('formats internal roles into SDO Officer (Level 3) and compact display labels', () => {
+    assert.strictEqual(formatRoleLabel('sda'), 'SDO Officer (Level 3)');
+    assert.strictEqual(formatRoleLabel('sda', true), 'SDO Officer (L3)');
+    assert.strictEqual(formatRoleLabel('super_admin'), 'Super Admin (Level 00)');
+    assert.strictEqual(formatRoleLabel('cdc_secretary'), 'CDC Secretary (Level 4)');
+    assert.strictEqual(formatRoleLabel(undefined), '-');
   });
 });

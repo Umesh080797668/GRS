@@ -71,3 +71,32 @@ export function canCreateRole(
   const allowed = CREATION_MATRIX[creatorRole] || [];
   return allowed.includes(targetRole);
 }
+
+/**
+ * Administrative / supervisory roles restricted to the web dashboard only (no mobile login or /sync access).
+ * Levels 00, 0, 1 (CG), 2 (DC), and 3 (SDA / SDO Officer).
+ */
+export const WEB_ONLY_ROLES: readonly UserRole[] = [
+  UserRole.super_admin,
+  UserRole.admin,
+  UserRole.cg,
+  UserRole.dc,
+  UserRole.sda,
+];
+
+/**
+ * Field roles permitted to use the mobile application and offline sync endpoints (/v1/sync/*).
+ * Level 4 (CDC Secretary) and Level 5 (Team Member).
+ */
+export const MOBILE_ALLOWED_ROLES: readonly UserRole[] = [
+  UserRole.cdc_secretary,
+  UserRole.team_member,
+];
+
+export function isWebOnlyRole(role: UserRole): boolean {
+  return WEB_ONLY_ROLES.includes(role);
+}
+
+export function isMobileAllowedRole(role: UserRole): boolean {
+  return MOBILE_ALLOWED_ROLES.includes(role);
+}

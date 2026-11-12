@@ -33,15 +33,7 @@ export class SyncController {
   constructor(private readonly syncService: SyncService) { }
 
   @Get('area')
-  @Roles(
-    UserRole.team_member,
-    UserRole.cdc_secretary,
-    UserRole.super_admin,
-    UserRole.admin,
-    UserRole.cg,
-    UserRole.dc,
-    UserRole.sda,
-  )
+  @Roles(UserRole.team_member, UserRole.cdc_secretary)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
@@ -64,15 +56,7 @@ export class SyncController {
   }
 
   @Get('changes')
-  @Roles(
-    UserRole.team_member,
-    UserRole.cdc_secretary,
-    UserRole.sda,
-    UserRole.dc,
-    UserRole.cg,
-    UserRole.admin,
-    UserRole.super_admin,
-  )
+  @Roles(UserRole.team_member, UserRole.cdc_secretary)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
@@ -95,15 +79,7 @@ export class SyncController {
   }
 
   @Post('push')
-  @Roles(
-    UserRole.team_member,
-    UserRole.cdc_secretary,
-    UserRole.sda,
-    UserRole.dc,
-    UserRole.cg,
-    UserRole.admin,
-    UserRole.super_admin,
-  )
+  @Roles(UserRole.team_member, UserRole.cdc_secretary)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Bulk upsert client records (per-record results, revision guard)',

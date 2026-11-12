@@ -5,6 +5,13 @@ import '../data/local/secure_storage_service.dart';
 import 'api_client_provider.dart';
 import 'database_provider.dart';
 
+const Set<String> _mobileAllowedRoles = {'cdc_secretary', 'team_member'};
+const String _mobileRestrictedMessage =
+    'This role is web-only and does not have mobile app access.';
+
+bool isMobileAllowedRole(String? role) =>
+    role != null && _mobileAllowedRoles.contains(role);
+
 enum AuthStatus {
   initial,
   unauthenticated,
@@ -113,6 +120,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return;
     }
 
+    if (!isMobileAllowedRole(profile.role)) {
+      await _rejectMobileRestricted();
+      return;
+    }
+
     // Forced password change cannot be bypassed via app restart (Invariant 8.2)
     if (profile.mustChangePassword) {
       _apiClient.setTokens(
@@ -136,6 +148,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final res = await _apiClient.refreshSession().timeout(
           const Duration(milliseconds: 2500),
         );
+        if (!isMobileAllowedRole(res.profile.role)) {
+          await _rejectMobileRestricted();
+          return;
+        }
+
         await _storage.saveTokens(
           accessToken: res.accessToken,
           refreshToken: res.refreshToken,
@@ -175,11 +192,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = AuthState(status: AuthStatus.deactivated, profile: profile);
         return;
       }
+      if (e is GrsApiException && e.isMobileRestricted) {
+        await _rejectMobileRestricted();
+        return;
+      }
       // If server explicitly returned 401/400 while online, refresh was rejected
       // For network errors/timeouts, device is in offline mode
     }
 
     // Airplane-mode / Offline cold start (per Blueprint §7.6)
+    // Reject cached web-only roles even offline
+    if (!isMobileAllowedRole(profile.role)) {
+      await _rejectMobileRestricted();
+      return;
+    }
+
     // If the token has expired and there is no internet, the app shows a clear message
     // and still lets the agent keep recording data.
     final hasNoValidToken =
@@ -212,6 +239,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
           deviceId: deviceId,
         ),
       );
+
+      if (!isMobileAllowedRole(res.profile.role)) {
+        await _rejectMobileRestricted();
+        return;
+      }
 
       if (!res.profile.isActive) {
         state = AuthState(status: AuthStatus.deactivated, profile: res.profile);
@@ -269,6 +301,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
           errorMessage:
               'Your account has been deactivated. Contact your administrator.',
         );
+      } else if (e.isMobileRestricted) {
+        state = const AuthState(
+          status: AuthStatus.unauthenticated,
+          errorMessage: _mobileRestrictedMessage,
+        );
       } else if (e.isPasswordExpired) {
         state = const AuthState(
           status: AuthStatus.unauthenticated,
@@ -322,6 +359,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
           newPassword: newPassword,
         ),
       );
+
+      if (!isMobileAllowedRole(res.profile.role)) {
+        await _rejectMobileRestricted();
+        return;
+      }
 
       await _storage.saveTokens(
         accessToken: res.accessToken,
@@ -394,6 +436,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }) async {
     try {
       final res = await _apiClient.switchArea(gnId, deviceId: deviceId);
+      if (!isMobileAllowedRole(res.profile.role)) {
+        await _rejectMobileRestricted();
+        return;
+      }
+
       await _storage.saveTokens(
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
@@ -418,6 +465,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
       profile: state.profile,
       errorMessage:
           'Your account has been deactivated. Contact your administrator.',
+    );
+  }
+
+  Future<void> _rejectMobileRestricted() async {
+    await _storage.clearTokens();
+    await _storage.clearActiveProfile();
+    _apiClient.clearTokens();
+    state = const AuthState(
+      status: AuthStatus.unauthenticated,
+      errorMessage: _mobileRestrictedMessage,
     );
   }
 

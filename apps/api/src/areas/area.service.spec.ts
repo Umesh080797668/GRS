@@ -903,5 +903,106 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
       expect(inMemoryGn).toHaveLength(0);
       expect(inMemoryDs.find((d) => d.id === ds1.id)).toBeUndefined();
     });
+
+    it('enforces DS-scoped permissions for Level 3 (sda) on AreaController and AreaService', async () => {
+      const proto = AreaController.prototype;
+      for (const allowedMethod of [
+        'updateGn',
+        'createTeam',
+        'updateTeam',
+        'deleteTeam',
+      ] as const) {
+        const roles: UserRole[] = Reflect.getMetadata(
+          ROLES_KEY,
+          proto[allowedMethod],
+        );
+        expect(roles).toContain(UserRole.sda);
+      }
+      for (const restrictedMethod of [
+        'seedDistricts',
+        'createDs',
+        'updateDs',
+        'deleteDs',
+        'createGn',
+        'deleteGn',
+        'importPilotArea',
+      ] as const) {
+        const roles: UserRole[] = Reflect.getMetadata(
+          ROLES_KEY,
+          proto[restrictedMethod],
+        );
+        expect(roles).not.toContain(UserRole.sda);
+      }
+
+      await service.seedDistricts();
+      const colombo = inMemoryDistricts.find((d) => d.nameEn === 'Colombo');
+      const dsOwn = await service.createDivisionalSecretariat({
+        districtId: colombo.id,
+        nameEn: 'Kesbewa',
+      });
+      const dsOther = await service.createDivisionalSecretariat({
+        districtId: colombo.id,
+        nameEn: 'Moratuwa',
+      });
+      const gnOwn = await service.createGnDivision({
+        dsId: dsOwn.id,
+        gnNumber: '520A',
+        gnName: 'Piliyandala',
+      });
+      const gnOther = await service.createGnDivision({
+        dsId: dsOther.id,
+        gnNumber: '530A',
+        gnName: 'Katubedda',
+      });
+
+      const sdoScope = {
+        userId: 'sdo-1',
+        role: UserRole.sda,
+        districtId: colombo.id,
+        dsId: dsOwn.id,
+      };
+
+      const editedGn = await service.updateGnDivision(sdoScope, gnOwn.id, {
+        gnName: 'Piliyandala Central',
+        secretaryName: 'M. Jayasinghe',
+      });
+      expect(editedGn.gnName).toBe('Piliyandala Central');
+
+      const team = await service.createTeam(
+        { gnId: gnOwn.id, teamNo: 1, maxMembers: 8 },
+        sdoScope,
+      );
+      expect(team.teamNo).toBe(1);
+
+      const editedTeam = await service.updateTeam(
+        team.id,
+        { teamNo: 3, maxMembers: 10 },
+        sdoScope,
+      );
+      expect(editedTeam.teamNo).toBe(3);
+
+      // Cross-DS mutations must be rejected
+      await expect(
+        service.updateGnDivision(sdoScope, gnOther.id, { gnName: 'Hack' }),
+      ).rejects.toThrow('outside your assigned DS division');
+      await expect(
+        service.createTeam({ gnId: gnOther.id, teamNo: 1 }, sdoScope),
+      ).rejects.toThrow('outside your assigned DS division');
+
+      const otherTeam = await service.createTeam({
+        gnId: gnOther.id,
+        teamNo: 1,
+      });
+      await expect(
+        service.updateTeam(otherTeam.id, { teamNo: 2 }, sdoScope),
+      ).rejects.toThrow('outside your assigned DS division');
+      await expect(
+        service.deleteTeam(otherTeam.id, sdoScope),
+      ).rejects.toThrow('outside your assigned DS division');
+
+      // Deleting own team succeeds cleanly
+      await service.deleteTeam(team.id, sdoScope);
+      expect(inMemoryTeams.find((t) => t.id === team.id)).toBeUndefined();
+    });
   });
 });

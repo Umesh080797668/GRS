@@ -546,6 +546,8 @@ export class AreaService {
       });
     }
 
+    this.assertDsScope(caller, gn.dsId);
+
     return gn;
   }
 
@@ -581,6 +583,8 @@ export class AreaService {
         message: 'GN division not found',
       });
     }
+
+    this.assertDsScope(caller, gn.dsId);
 
     const nextGnNumber =
       dto.gnNumber !== undefined ? dto.gnNumber.trim() : gn.gnNumber;
@@ -682,7 +686,7 @@ export class AreaService {
     });
   }
 
-  async createTeam(dto: CreateTeamDto) {
+  async createTeam(dto: CreateTeamDto, caller?: ScopeContext) {
     const gn = await this.prisma.gnDivision.findUnique({
       where: { id: dto.gnId },
     });
@@ -692,6 +696,8 @@ export class AreaService {
         message: 'GN division not found',
       });
     }
+
+    this.assertDsScope(caller, gn.dsId);
 
     const existing = await this.prisma.team.findUnique({
       where: {
@@ -717,7 +723,7 @@ export class AreaService {
     });
   }
 
-  async updateTeam(teamId: string, dto: UpdateTeamDto) {
+  async updateTeam(teamId: string, dto: UpdateTeamDto, caller?: ScopeContext) {
     const team = await this.prisma.team.findUnique({
       where: { id: teamId },
     });
@@ -727,6 +733,8 @@ export class AreaService {
         message: 'Team not found',
       });
     }
+
+    await this.assertGnInCallerDs(caller, team.gnId);
 
     if (dto.teamNo !== undefined && dto.teamNo !== team.teamNo) {
       const existing = await this.prisma.team.findUnique({
@@ -771,7 +779,7 @@ export class AreaService {
     });
   }
 
-  async deleteTeam(teamId: string) {
+  async deleteTeam(teamId: string, caller?: ScopeContext) {
     const team = await this.prisma.team.findUnique({
       where: { id: teamId },
     });
@@ -781,6 +789,8 @@ export class AreaService {
         message: 'Team not found',
       });
     }
+
+    await this.assertGnInCallerDs(caller, team.gnId);
 
     const [
       profileCount,
@@ -815,6 +825,37 @@ export class AreaService {
       await tx.team.delete({ where: { id: teamId } });
       return { success: true, id: teamId };
     });
+  }
+
+  private assertDsScope(
+    caller: ScopeContext | undefined,
+    targetDsId: string | null | undefined,
+  ): void {
+    if (!caller || caller.role !== UserRole.sda) return;
+    if (!caller.dsId) {
+      throw new ForbiddenException({
+        code: 'OUT_OF_SCOPE_DS',
+        message: 'SDO user missing assigned DS division scope',
+      });
+    }
+    if (targetDsId !== caller.dsId) {
+      throw new ForbiddenException({
+        code: 'OUT_OF_SCOPE_DS',
+        message: 'Cannot modify resources outside your assigned DS division',
+      });
+    }
+  }
+
+  private async assertGnInCallerDs(
+    caller: ScopeContext | undefined,
+    gnId: string,
+  ): Promise<void> {
+    if (!caller || caller.role !== UserRole.sda) return;
+    const gn = await this.prisma.gnDivision.findUnique({
+      where: { id: gnId },
+      select: { dsId: true },
+    });
+    this.assertDsScope(caller, gn?.dsId);
   }
 
   async getTeams(caller: ScopeContext, query: ListTeamsDto = {}) {

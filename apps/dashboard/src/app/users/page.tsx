@@ -39,7 +39,7 @@ const CREATABLE_ROLES: Record<string, { value: string; label: string }[]> = {
     { value: 'admin', label: 'Administrator' },
     { value: 'cg', label: 'CG (Level 1 Central)' },
     { value: 'dc', label: 'DC (Level 2 District)' },
-    { value: 'sda', label: 'SDA (Level 3 Divisional)' },
+    { value: 'sda', label: 'SDA Officer (Level 3)' },
     { value: 'cdc_secretary', label: 'CDC Secretary (Level 4)' },
     { value: 'team_member', label: 'Team Member (Enumerator)' },
   ],
@@ -49,7 +49,7 @@ const CREATABLE_ROLES: Record<string, { value: string; label: string }[]> = {
     { value: 'team_member', label: 'Team Member (Enumerator)' },
   ],
   dc: [
-    { value: 'sda', label: 'SDA (Level 3 Divisional)' },
+    { value: 'sda', label: 'SDA Officer (Level 3)' },
     { value: 'team_member', label: 'Team Member (Enumerator)' },
   ],
   sda: [
@@ -569,7 +569,7 @@ export default function UsersPage() {
                 <option value="">All Roles</option>
                 <option value="team_member">Team Member</option>
                 <option value="cdc_secretary">CDC Secretary</option>
-                <option value="sda">SDA (Divisional)</option>
+                <option value="sda">SDA Officer (Level 3)</option>
                 <option value="dc">DC (District)</option>
                 <option value="cg">CG (Central)</option>
                 <option value="admin">Administrator</option>
@@ -801,7 +801,13 @@ export default function UsersPage() {
                         </div>
                       ) : (
                         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', color: '#991b1b' }}>
-                          <span>No field teams available. You must create a team first in Areas management before creating accounts.</span>
+                          <span>
+                            No field teams available{user?.role === 'sda' ? ' in your DS division yet' : ''}. Create a team first in{' '}
+                            <a href="/areas" style={{ fontWeight: 600, textDecoration: 'underline', color: 'inherit' }}>
+                              Areas &amp; Teams
+                            </a>{' '}
+                            before creating accounts.
+                          </span>
                         </div>
                       )
                     ) : (
@@ -933,7 +939,13 @@ export default function UsersPage() {
                         </div>
                       ) : (
                         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', color: '#991b1b' }}>
-                          <span>No field teams available. You must create a team first in Areas management before generating accounts.</span>
+                          <span>
+                            No field teams available{user?.role === 'sda' ? ' in your DS division yet' : ''}. Create a team first in{' '}
+                            <a href="/areas" style={{ fontWeight: 600, textDecoration: 'underline', color: 'inherit' }}>
+                              Areas &amp; Teams
+                            </a>{' '}
+                            before generating accounts.
+                          </span>
                         </div>
                       )
                     ) : (

@@ -159,3 +159,32 @@ export function formatRelativeTime(
   }
   return formatDate(isoString);
 }
+
+const ROLE_LABELS_FULL: Record<string, string> = {
+  super_admin: 'Super Admin (Level 00)',
+  admin: 'Admin (Level 0)',
+  cg: 'Commissioner General (Level 1)',
+  dc: 'District Coordinator (Level 2)',
+  sda: 'SDA Officer (Level 3)',
+  cdc_secretary: 'CDC Secretary (Level 4)',
+  team_member: 'Team Member (Level 5)',
+};
+
+const ROLE_LABELS_COMPACT: Record<string, string> = {
+  super_admin: 'Super Admin (L00)',
+  admin: 'Admin (L0)',
+  cg: 'CG Officer (L1)',
+  dc: 'DC Officer (L2)',
+  sda: 'SDA Officer (L3)',
+  cdc_secretary: 'CDC Secretary (L4)',
+  team_member: 'Team Member (L5)',
+};
+
+/**
+ * Formats an internal backend role code into a user-facing label.
+ */
+export function formatRoleLabel(role?: string | null, compact = false): string {
+  if (!role) return '-';
+  const map = compact ? ROLE_LABELS_COMPACT : ROLE_LABELS_FULL;
+  return map[role] || role;
+}

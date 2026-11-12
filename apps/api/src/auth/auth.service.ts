@@ -16,6 +16,7 @@ import { EmailService } from '../email/email.service';
 import { RateLimitService } from '../config/rate-limit.service';
 import { SessionActivityService } from './session-activity.service';
 import { GrsValidators } from '../common/validators/grs-validators';
+import { isWebOnlyRole, UserRole } from '../common/scope/scope.types';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -265,21 +266,11 @@ export class AuthService {
       });
     }
 
-    // UX Barrier: Restrict Level 5 team members from logging into the web dashboard.
-    // Note: This client-sent header check is a UX convenience rule (directing enumerators to
-    // the mobile app), NOT a security boundary. Authoritative access control is strictly enforced
-    // per endpoint via `@Roles(...)` decorators, `RolesGuard`, and `ScopeService` row-level scoping.
-    // Web administrative endpoints (accounts, imports, config, areas) forbid `team_member`.
-    if (
-      (clientType === 'web' || (dto as any).clientType === 'web') &&
-      profile.role === 'team_member'
-    ) {
-      throw new ForbiddenException({
-        code: 'WEB_ACCESS_RESTRICTED',
-        message:
-          'Team members (Level 5) are restricted to the mobile application and cannot access the web dashboard.',
-      });
-    }
+    this.assertClientChannelAllowed(
+      profile.role,
+      clientType,
+      (dto as any).clientType,
+    );
 
     // Check initial password expiry (Decision C14)
     if (
@@ -533,6 +524,7 @@ export class AuthService {
         message_key: 'errors.auth.deactivated',
       });
     }
+    this.assertClientChannelAllowed(profile.role, clientType);
 
     // Revoke current token and issue new pair (preserve deviceId if not explicitly provided)
     const deviceId = dto.deviceId || tokenRecord.deviceId;
@@ -590,6 +582,36 @@ export class AuthService {
   }
 
   /**
+   * UX / channel guard enforcing web-only vs mobile-only role boundaries.
+   * Authoritative API access control is still enforced via `@Roles(...)` and `ScopeService`.
+   */
+  private assertClientChannelAllowed(
+    role: UserRole,
+    clientType?: string,
+    dtoClientType?: string,
+  ): void {
+    const isWeb = clientType === 'web' || dtoClientType === 'web';
+    const isMobile = clientType === 'mobile' || dtoClientType === 'mobile';
+
+    if (isWeb && role === UserRole.team_member) {
+      throw new ForbiddenException({
+        code: 'WEB_ACCESS_RESTRICTED',
+        message:
+          'Team members (Level 5) are restricted to the mobile application and cannot access the web dashboard.',
+      });
+    }
+
+    if (isMobile && isWebOnlyRole(role)) {
+      throw new ForbiddenException({
+        code: 'MOBILE_ACCESS_RESTRICTED',
+        message_key: 'errors.auth.mobile_restricted',
+        message:
+          'This administrative role is restricted to the web dashboard and does not have mobile app access.',
+      });
+    }
+  }
+
+  /**
    * Switches active GN division for multi-GN Level 4 CDC secretaries.
    * Reissues access token and refresh token scoped to the selected GN and team.
    */
@@ -608,6 +630,7 @@ export class AuthService {
         message_key: 'errors.auth.invalid_user',
       });
     }
+    this.assertClientChannelAllowed(profile.role, clientType);
 
     // Verify active assignment for this GN division in profile_assignments
     const assignment = await this.prisma.profileAssignment.findFirst({

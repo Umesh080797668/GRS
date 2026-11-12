@@ -71,13 +71,14 @@ export default function RecordsPage() {
 
   useEffect(() => {
     loadDistricts();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role, user?.districtId, user?.dsId, user?.gnId]);
 
   async function loadDistricts() {
     try {
       const data = await api.getDistricts();
       setDistricts(data);
-      if (user?.role === 'cdc_secretary') {
+      if (user?.role === 'cdc_secretary' || user?.role === 'sda') {
         if (user.districtId) {
           setSelectedDistrict(user.districtId);
           const dsList = await api.getDsDivisions(user.districtId);
@@ -286,6 +287,22 @@ export default function RecordsPage() {
         </div>
       </div>
 
+      {!canEditRecords && user?.role === 'sda' && (
+        <div
+          style={{
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: 'var(--radius-sm)',
+            padding: '10px 14px',
+            color: '#92400e',
+            marginBottom: '1rem',
+            fontSize: '13px',
+          }}
+        >
+          DS Division View-Only Mode: Reviewing citizen survey records within your assigned DS division. Record edits and deletions are restricted to CDC Secretaries and Super Admins.
+        </div>
+      )}
+
       {/* Success Notification */}
       {successBanner && (
         <div
@@ -389,9 +406,9 @@ export default function RecordsPage() {
             className="select-field"
             value={selectedDistrict}
             onChange={(e) => handleDistrictChange(e.target.value)}
-            disabled={user?.role === 'cdc_secretary'}
+            disabled={user?.role === 'cdc_secretary' || user?.role === 'sda'}
           >
-            <option value="">{user?.role === 'cdc_secretary' ? 'Assigned District' : 'All Districts'}</option>
+            <option value="">{(user?.role === 'cdc_secretary' || user?.role === 'sda') ? 'Assigned District' : 'All Districts'}</option>
             {districts.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.nameEn || d.name}
@@ -403,9 +420,9 @@ export default function RecordsPage() {
             className="select-field"
             value={selectedDs}
             onChange={(e) => handleDsChange(e.target.value)}
-            disabled={!selectedDistrict || dsDivisions.length === 0 || user?.role === 'cdc_secretary'}
+            disabled={!selectedDistrict || dsDivisions.length === 0 || user?.role === 'cdc_secretary' || user?.role === 'sda'}
           >
-            <option value="">{user?.role === 'cdc_secretary' ? 'Assigned DS Division' : 'All DS Divisions'}</option>
+            <option value="">{(user?.role === 'cdc_secretary' || user?.role === 'sda') ? 'Assigned DS Division' : 'All DS Divisions'}</option>
             {dsDivisions.map((ds) => (
               <option key={ds.id} value={ds.id}>
                 {ds.nameEn || ds.name}

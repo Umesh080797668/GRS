@@ -72,6 +72,9 @@ export default function HousesPage() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const canMutateHouse = user?.role === 'super_admin' || user?.role === 'cdc_secretary';
+  const isSdo = user?.role === 'sda';
+  const isReadOnlyHouses = isSdo;
+  const isAreaScopeLocked = user?.role === 'cdc_secretary' || user?.role === 'sda';
 
   // Banners
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
@@ -95,17 +98,26 @@ export default function HousesPage() {
 
   useEffect(() => {
     loadDistricts();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role, user?.districtId, user?.dsId, user?.gnId]);
 
   async function loadDistricts() {
     try {
       setLoading(true);
-      const data = await api.getDistricts();
+      const rawData = await api.getDistricts();
+      const data =
+        isSdo && user?.districtId
+          ? rawData.filter((d) => d.id === user.districtId)
+          : rawData;
       setDistricts(data);
       if (data.length > 0) {
         const initialDist = user?.districtId || data[0].id;
         setSelectedDistrict(initialDist);
-        const dsList = await api.getDsDivisions(initialDist);
+        const rawDsList = await api.getDsDivisions(initialDist);
+        const dsList =
+          isSdo && user?.dsId
+            ? rawDsList.filter((ds) => ds.id === user.dsId)
+            : rawDsList;
         setDsDivisions(dsList);
         if (dsList.length > 0) {
           const initialDs = user?.dsId || dsList[0].id;
@@ -489,30 +501,50 @@ export default function HousesPage() {
             {t('houses.title')}
           </h1>
           <p style={{ fontSize: '13px', color: 'var(--slate-500)', marginTop: '4px' }}>
-            Field household assignment, unassignment, survey completion marking, and GN office contact setup.
+            {isReadOnlyHouses
+              ? 'View households and team assignment progress within your assigned DS division (SDA Officer — Level 3).'
+              : 'Field household assignment, unassignment, survey completion marking, and GN office contact setup.'}
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() => setShowGnModal(true)}
-            className="btn-secondary"
-          >
-            <Settings size={15} style={{ color: 'var(--warning)' }} />
-            <span>{t('houses.gn_setup')}</span>
-          </button>
+        {!isReadOnlyHouses && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setShowGnModal(true)}
+              className="btn-secondary"
+            >
+              <Settings size={15} style={{ color: 'var(--warning)' }} />
+              <span>{t('houses.gn_setup')}</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setShowAddModal(true)}
-            className="btn-primary"
-          >
-            <Plus size={15} />
-            <span>{t('houses.add_house')}</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              className="btn-primary"
+            >
+              <Plus size={15} />
+              <span>{t('houses.add_house')}</span>
+            </button>
+          </div>
+        )}
       </div>
+
+      {isReadOnlyHouses && (
+        <div
+          style={{
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: 'var(--radius-sm)',
+            padding: '10px 14px',
+            color: '#92400e',
+            marginBottom: '1rem',
+            fontSize: '13px',
+          }}
+        >
+          DS Division View-Only Mode: Reviewing households across your assigned DS division. Household mutations and team assignments are managed by CDC Secretaries / Super Admins.
+        </div>
+      )}
 
       {/* Alerts */}
       {errorBanner && (
@@ -571,7 +603,7 @@ export default function HousesPage() {
               className="select-field"
               value={selectedDistrict}
               onChange={(e) => handleDistrictChange(e.target.value)}
-              disabled={user?.role === 'cdc_secretary'}
+              disabled={isAreaScopeLocked}
             >
               {districts.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -587,7 +619,7 @@ export default function HousesPage() {
               className="select-field"
               value={selectedDs}
               onChange={(e) => handleDsChange(e.target.value)}
-              disabled={user?.role === 'cdc_secretary'}
+              disabled={isAreaScopeLocked}
             >
               {dsDivisions.map((ds) => (
                 <option key={ds.id} value={ds.id}>
@@ -646,85 +678,87 @@ export default function HousesPage() {
       </div>
 
       {/* Batch Assignment Action Bar */}
-      <div
-        className="panel"
-        style={{
-          padding: '0.875rem 1.25rem',
-          marginBottom: '1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          background: 'var(--slate-50)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--slate-800)' }}>
-            Selected: <span style={{ color: 'var(--primary)' }}>{selectedHouseIds.length}</span> houses
-          </span>
-          <button
-            type="button"
-            onClick={handleSelectAllUnassigned}
-            className="btn-secondary"
-            style={{ padding: '4px 10px', fontSize: '12px' }}
-          >
-            Select All Unassigned
-          </button>
-          {selectedHouseIds.length > 0 && (
+      {!isReadOnlyHouses && (
+        <div
+          className="panel"
+          style={{
+            padding: '0.875rem 1.25rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            background: 'var(--slate-50)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--slate-800)' }}>
+              Selected: <span style={{ color: 'var(--primary)' }}>{selectedHouseIds.length}</span> houses
+            </span>
             <button
               type="button"
-              onClick={handleClearSelection}
-              className="btn-ghost"
+              onClick={handleSelectAllUnassigned}
+              className="btn-secondary"
               style={{ padding: '4px 10px', fontSize: '12px' }}
             >
-              Clear Selection
+              Select All Unassigned
             </button>
-          )}
-          {selectedHouseIds.length > 200 && (
-            <span
-              className="badge badge-warning"
-              style={{ fontSize: '11px', padding: '3px 8px' }}
-            >
-              ⚠️ {selectedHouseIds.length} houses selected (will be chunked in {Math.ceil(selectedHouseIds.length / 200)} batches)
-            </span>
-          )}
-        </div>
+            {selectedHouseIds.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearSelection}
+                className="btn-ghost"
+                style={{ padding: '4px 10px', fontSize: '12px' }}
+              >
+                Clear Selection
+              </button>
+            )}
+            {selectedHouseIds.length > 200 && (
+              <span
+                className="badge badge-warning"
+                style={{ fontSize: '11px', padding: '3px 8px' }}
+              >
+                ⚠️ {selectedHouseIds.length} houses selected (will be chunked in {Math.ceil(selectedHouseIds.length / 200)} batches)
+              </span>
+            )}
+          </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: 'auto' }}>
-          <select
-            className="select-field"
-            style={{ width: 'auto', minWidth: '220px', padding: '0.45rem 0.75rem', fontSize: '12.5px' }}
-            value={targetTeamId}
-            onChange={(e) => setTargetTeamId(e.target.value)}
-            disabled={teams.length === 0 || user?.role === 'cdc_secretary'}
-          >
-            {teams.length === 0 ? (
-              <option value="">No teams available in GN</option>
-            ) : (
-              teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  Team {t.teamNo} ({t.activeMembers ?? t.memberLimit ?? 0}/{t.maxMembers} members)
-                </option>
-              ))
-            )}
-          </select>
-          <button
-            type="button"
-            onClick={handleAssignSelected}
-            disabled={assigning || selectedHouseIds.length === 0 || !targetTeamId}
-            className="btn-primary"
-            style={{ padding: '0.45rem 1rem', fontSize: '12.5px' }}
-          >
-            {assigning ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <ArrowRight size={14} />
-            )}
-            <span>{t('houses.assign_btn')}</span>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: 'auto' }}>
+            <select
+              className="select-field"
+              style={{ width: 'auto', minWidth: '220px', padding: '0.45rem 0.75rem', fontSize: '12.5px' }}
+              value={targetTeamId}
+              onChange={(e) => setTargetTeamId(e.target.value)}
+              disabled={teams.length === 0 || user?.role === 'cdc_secretary'}
+            >
+              {teams.length === 0 ? (
+                <option value="">No teams available in GN</option>
+              ) : (
+                teams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    Team {t.teamNo} ({t.activeMembers ?? t.memberLimit ?? 0}/{t.maxMembers} members)
+                  </option>
+                ))
+              )}
+            </select>
+            <button
+              type="button"
+              onClick={handleAssignSelected}
+              disabled={assigning || selectedHouseIds.length === 0 || !targetTeamId}
+              className="btn-primary"
+              style={{ padding: '0.45rem 1rem', fontSize: '12.5px' }}
+            >
+              {assigning ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <ArrowRight size={14} />
+              )}
+              <span>{t('houses.assign_btn')}</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Household Table with Status Filters */}
       <div className="panel" style={{ overflow: 'hidden' }}>
@@ -845,21 +879,23 @@ export default function HousesPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th style={{ width: '40px', textAlign: 'center' }}>
-                  <span className="sr-only">Select</span>
-                </th>
+                {!isReadOnlyHouses && (
+                  <th style={{ width: '40px', textAlign: 'center' }}>
+                    <span className="sr-only">Select</span>
+                  </th>
+                )}
                 <th>{t('houses.house_no')}</th>
                 <th>{t('houses.head_name')}</th>
                 <th>{t('houses.village_name')}</th>
                 <th>{t('houses.team_assigned')}</th>
                 <th>{t('houses.status')}</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                {!isReadOnlyHouses && <th style={{ textAlign: 'right' }}>Actions</th>}
               </tr>
             </thead>
             <tbody>
               {displayedHouseholds.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', color: 'var(--slate-400)', padding: '2.5rem' }}>
+                  <td colSpan={isReadOnlyHouses ? 5 : 7} style={{ textAlign: 'center', color: 'var(--slate-400)', padding: '2.5rem' }}>
                     {loading ? 'Loading households...' : 'No households matching criteria.'}
                   </td>
                 </tr>
@@ -872,30 +908,32 @@ export default function HousesPage() {
 
                   return (
                     <tr key={h.id}>
-                      <td style={{ textAlign: 'center' }}>
-                        {!isAssigned ? (
-                          <button
-                            type="button"
-                            onClick={() => handleToggleSelectHouse(h.id)}
-                            aria-label={`Select house ${h.houseNo}`}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              color: isSelected ? 'var(--primary)' : 'var(--slate-400)',
-                              display: 'inline-flex',
-                            }}
-                          >
-                            {isSelected ? (
-                              <CheckSquare size={16} />
-                            ) : (
-                              <Square size={16} />
-                            )}
-                          </button>
-                        ) : (
-                          <span style={{ color: 'var(--slate-300)' }}>—</span>
-                        )}
-                      </td>
+                      {!isReadOnlyHouses && (
+                        <td style={{ textAlign: 'center' }}>
+                          {!isAssigned ? (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSelectHouse(h.id)}
+                              aria-label={`Select house ${h.houseNo}`}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: isSelected ? 'var(--primary)' : 'var(--slate-400)',
+                                display: 'inline-flex',
+                              }}
+                            >
+                              {isSelected ? (
+                                <CheckSquare size={16} />
+                              ) : (
+                                <Square size={16} />
+                              )}
+                            </button>
+                          ) : (
+                            <span style={{ color: 'var(--slate-300)' }}>—</span>
+                          )}
+                        </td>
+                      )}
                       <td style={{ fontWeight: 600, fontFamily: 'monospace', color: 'var(--slate-900)' }}>
                         #{h.houseNo}
                       </td>
@@ -931,77 +969,79 @@ export default function HousesPage() {
                           </span>
                         )}
                       </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                          {isAssigned && !isFinished && (
-                            <button
-                              type="button"
-                              onClick={() => handleFinish(h)}
-                              className="btn-secondary"
-                              style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--success)' }}
-                              title={t('houses.finish_house')}
-                            >
-                              {t('houses.finish_house')}
-                            </button>
-                          )}
-                          {isAssigned && isFinished && (
-                            <button
-                              type="button"
-                              onClick={() => handleReopen(h)}
-                              className="btn-secondary"
-                              style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--warning)' }}
-                              title={t('houses.reopen_house')}
-                            >
-                              <RotateCcw size={12} />
-                              <span>{t('houses.reopen_house')}</span>
-                            </button>
-                          )}
-                          {isAssigned && (
-                            <button
-                              type="button"
-                              onClick={() => handleUnassign(h)}
-                              className="btn-danger"
-                              style={{ padding: '4px 8px', fontSize: '11px' }}
-                              title={t('houses.unassign')}
-                            >
-                              {t('houses.unassign')}
-                            </button>
-                          )}
-                          {canMutateHouse && (
-                            <>
+                      {!isReadOnlyHouses && (
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                            {isAssigned && !isFinished && (
                               <button
                                 type="button"
-                                onClick={() => openEditHouse(h)}
+                                onClick={() => handleFinish(h)}
                                 className="btn-secondary"
+                                style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--success)' }}
+                                title={t('houses.finish_house')}
+                              >
+                                {t('houses.finish_house')}
+                              </button>
+                            )}
+                            {isAssigned && isFinished && (
+                              <button
+                                type="button"
+                                onClick={() => handleReopen(h)}
+                                className="btn-secondary"
+                                style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--warning)' }}
+                                title={t('houses.reopen_house')}
+                              >
+                                <RotateCcw size={12} />
+                                <span>{t('houses.reopen_house')}</span>
+                              </button>
+                            )}
+                            {isAssigned && (
+                              <button
+                                type="button"
+                                onClick={() => handleUnassign(h)}
+                                className="btn-danger"
                                 style={{ padding: '4px 8px', fontSize: '11px' }}
-                                title={t('houses.edit_house')}
-                                aria-label={t('houses.edit_house')}
+                                title={t('houses.unassign')}
                               >
-                                <Edit2 size={12} />
+                                {t('houses.unassign')}
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setModalError(null);
-                                  setDeleteHouseReason('');
-                                  setDeletingHouse(h);
-                                }}
-                                className="btn-secondary"
-                                style={{
-                                  padding: '4px 8px',
-                                  fontSize: '11px',
-                                  color: 'var(--danger-text)',
-                                  borderColor: 'var(--danger-border)',
-                                }}
-                                title={t('houses.delete_house')}
-                                aria-label={t('houses.delete_house')}
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
+                            )}
+                            {canMutateHouse && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => openEditHouse(h)}
+                                  className="btn-secondary"
+                                  style={{ padding: '4px 8px', fontSize: '11px' }}
+                                  title={t('houses.edit_house')}
+                                  aria-label={t('houses.edit_house')}
+                                >
+                                  <Edit2 size={12} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setModalError(null);
+                                    setDeleteHouseReason('');
+                                    setDeletingHouse(h);
+                                  }}
+                                  className="btn-secondary"
+                                  style={{
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    color: 'var(--danger-text)',
+                                    borderColor: 'var(--danger-border)',
+                                  }}
+                                  title={t('houses.delete_house')}
+                                  aria-label={t('houses.delete_house')}
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })

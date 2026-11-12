@@ -42,7 +42,7 @@ function roleLabel(role: string) {
     admin: 'Admin',
     cg: 'CG (L1)',
     dc: 'DC (L2)',
-    sda: 'SDA (L3)',
+    sda: 'SDA Officer (L3)',
     cdc_secretary: 'CDC Secretary (L4)',
     team_member: 'Team Member (L5)',
   };
@@ -74,6 +74,8 @@ interface AssignDialogProps {
   dsDivisions: any[];
   gnDivisions: any[];
   teams: any[];
+  callerRole?: string;
+  callerDsId?: string | null;
   onClose: () => void;
   onDsChange: (dsId: string) => void;
   onGnChange: (gnId: string) => void;
@@ -84,11 +86,13 @@ interface AssignDialogProps {
 
 function AssignDialog({
   profile, districts, dsDivisions, gnDivisions, teams,
+  callerRole, callerDsId,
   onClose, onDsChange, onGnChange, onSubmit, submitting, error,
 }: AssignDialogProps) {
+  const isSdo = callerRole === 'sda';
   const [level, setLevel] = useState<'district' | 'ds' | 'gn' | 'team'>('gn');
   const [districtId, setDistrictId] = useState('');
-  const [dsId, setDsId] = useState('');
+  const [dsId, setDsId] = useState(isSdo ? (callerDsId || dsDivisions[0]?.id || '') : '');
   const [gnId, setGnId] = useState('');
   const [teamId, setTeamId] = useState('');
   const [note, setNote] = useState('');
@@ -141,8 +145,8 @@ function AssignDialog({
               <select value={level} onChange={(e) => setLevel(e.target.value as any)} className="select-field">
                 <option value="gn">GN Division</option>
                 <option value="team">Team (within GN)</option>
-                <option value="ds">DS Division</option>
-                <option value="district">District</option>
+                {!isSdo && <option value="ds">DS Division</option>}
+                {!isSdo && <option value="district">District</option>}
               </select>
             </div>
 
@@ -170,8 +174,13 @@ function AssignDialog({
               <>
                 <div>
                   <label className="form-label">DS Division (to filter GNs) *</label>
-                  <select value={dsId} onChange={(e) => { setDsId(e.target.value); onDsChange(e.target.value); setGnId(''); setTeamId(''); }} className="select-field">
-                    <option value="">All DS divisions</option>
+                  <select
+                    value={dsId}
+                    onChange={(e) => { setDsId(e.target.value); onDsChange(e.target.value); setGnId(''); setTeamId(''); }}
+                    disabled={isSdo}
+                    className="select-field"
+                  >
+                    {!isSdo && <option value="">All DS divisions</option>}
                     {dsDivisions.map((d) => <option key={d.id} value={d.id}>{d.nameEn || d.name_en}</option>)}
                   </select>
                 </div>
@@ -431,9 +440,14 @@ export default function AssignmentsPage() {
 
   useEffect(() => {
     fetchAssignments();
-    api.getDistricts().then(setDistricts).catch(() => { });
-    api.getDsDivisions().then(setDsDivisions).catch(() => { });
-    api.getGnDivisions().then(setGnDivisions).catch(() => { });
+    const isSdo = user?.role === 'sda';
+    api.getDistricts().then((rows) => {
+      setDistricts(isSdo && user?.districtId ? rows.filter((d) => d.id === user.districtId) : rows);
+    }).catch(() => { });
+    api.getDsDivisions().then((rows) => {
+      setDsDivisions(isSdo && user?.dsId ? rows.filter((ds) => ds.id === user.dsId) : rows);
+    }).catch(() => { });
+    api.getGnDivisions(isSdo && user?.dsId ? user.dsId : undefined).then(setGnDivisions).catch(() => { });
     api.getTeams().then(setTeams).catch(() => { });
 
     let cancelled = false;
@@ -457,7 +471,7 @@ export default function AssignmentsPage() {
     return () => {
       cancelled = true;
     };
-  }, [fetchAssignments]);
+  }, [fetchAssignments, user?.role, user?.districtId, user?.dsId]);
 
   const handleDsChange = async (dsId: string) => {
     const gns = await api.getGnDivisions(dsId || undefined).catch(() => []);
@@ -747,6 +761,8 @@ export default function AssignmentsPage() {
           dsDivisions={dsDivisions}
           gnDivisions={gnDivisions}
           teams={teams}
+          callerRole={user?.role}
+          callerDsId={user?.dsId}
           onClose={() => { setAssignTarget(null); setModalError(null); }}
           onDsChange={handleDsChange}
           onGnChange={handleGnChange}

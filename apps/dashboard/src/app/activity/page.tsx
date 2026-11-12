@@ -40,7 +40,7 @@ const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
   cg: 'Commissioner General',
   dc: 'District Coordinator (DC)',
-  sda: 'Divisional Assistant (SDA)',
+  sda: 'SDA Officer (Level 3)',
   cdc_secretary: 'CDC Secretary',
   team_member: 'Team Member',
 };

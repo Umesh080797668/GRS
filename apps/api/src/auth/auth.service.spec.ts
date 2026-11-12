@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  UnauthorizedException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
@@ -270,6 +274,54 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
       expect(result.refreshToken).toBeDefined();
       expect(prisma.refreshToken.create).toHaveBeenCalled();
     });
+
+    it.each([
+      UserRole.sda,
+      UserRole.dc,
+      UserRole.cg,
+      UserRole.admin,
+      UserRole.super_admin,
+    ])(
+      'blocks web-only role %s from logging in via mobile client (MOBILE_ACCESS_RESTRICTED)',
+      async (webOnlyRole) => {
+        prisma.profile.findFirst.mockResolvedValue({
+          ...mockProfile,
+          role: webOnlyRole,
+        });
+        jest.spyOn(credentialService, 'verifyPassword').mockResolvedValue(true);
+
+        await expect(
+          service.login(
+            {
+              identifier: 'GRS1234567890',
+              password: 'correctPassword',
+            },
+            undefined,
+            'mobile',
+          ),
+        ).rejects.toThrow(ForbiddenException);
+      },
+    );
+
+    it('allows sda (Level 3 SDO) to log in via web client', async () => {
+      prisma.profile.findFirst.mockResolvedValue({
+        ...mockProfile,
+        role: UserRole.sda,
+      });
+      jest.spyOn(credentialService, 'verifyPassword').mockResolvedValue(true);
+
+      const result = await service.login(
+        {
+          identifier: 'GRS1234567890',
+          password: 'correctPassword',
+        },
+        undefined,
+        'web',
+      );
+
+      expect(result.accessToken).toBe('mock.jwt.token');
+      expect(result.user.role).toBe(UserRole.sda);
+    });
   });
 
   describe('Change Password Flow', () => {
@@ -403,6 +455,23 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
       ).rejects.toThrow(UnauthorizedException);
 
       expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('blocks web-only role sda from refreshing tokens via mobile client', async () => {
+      prisma.refreshToken.findFirst.mockResolvedValue({
+        id: 'rt-active',
+        profileId: mockProfile.id,
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        profile: { ...mockProfile, role: UserRole.sda },
+      });
+
+      await expect(
+        service.refreshTokens(
+          { refreshToken: 'validRefreshToken' },
+          'mobile',
+        ),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 

@@ -96,8 +96,12 @@ export default function DataEntryPage() {
   useEffect(() => {
     checkConfig();
     loadLookups();
-    loadDistricts();
   }, []);
+
+  useEffect(() => {
+    loadDistricts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role, user?.districtId, user?.dsId, user?.gnId]);
 
   const getLookupLabel = (item: any) => {
     if (!item) return '';
@@ -197,12 +201,15 @@ export default function DataEntryPage() {
 
   async function loadDistricts() {
     try {
-      const data = await api.getDistricts();
+      const isSdo = user?.role === 'sda';
+      const rawData = await api.getDistricts();
+      const data = isSdo && user?.districtId ? rawData.filter((d) => d.id === user.districtId) : rawData;
       setDistricts(data);
       if (data.length > 0) {
         const initialDist = user?.districtId || data[0].id;
         setSelectedDistrict(initialDist);
-        const dsList = await api.getDsDivisions(initialDist);
+        const rawDsList = await api.getDsDivisions(initialDist);
+        const dsList = isSdo && user?.dsId ? rawDsList.filter((ds) => ds.id === user.dsId) : rawDsList;
         setDsDivisions(dsList);
         if (dsList.length > 0) {
           const initialDs = user?.dsId || dsList[0].id;
@@ -683,7 +690,7 @@ export default function DataEntryPage() {
                         className="select-field"
                         value={selectedDistrict}
                         onChange={(e) => handleDistrictChange(e.target.value)}
-                        disabled={user?.role === 'cdc_secretary'}
+                        disabled={user?.role === 'cdc_secretary' || user?.role === 'sda'}
                       >
                         {districts.map((d) => (
                           <option key={d.id} value={d.id}>
@@ -701,7 +708,7 @@ export default function DataEntryPage() {
                         className="select-field"
                         value={selectedDs}
                         onChange={(e) => handleDsChange(e.target.value)}
-                        disabled={user?.role === 'cdc_secretary'}
+                        disabled={user?.role === 'cdc_secretary' || user?.role === 'sda'}
                       >
                         {dsDivisions.map((ds) => (
                           <option key={ds.id} value={ds.id}>

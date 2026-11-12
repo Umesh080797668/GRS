@@ -125,7 +125,12 @@ export class AreaController {
   }
 
   @Patch('gn/:id')
-  @Roles(UserRole.cdc_secretary, UserRole.admin, UserRole.super_admin)
+  @Roles(
+    UserRole.cdc_secretary,
+    UserRole.sda,
+    UserRole.admin,
+    UserRole.super_admin,
+  )
   async updateGn(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) id: string,
@@ -141,9 +146,12 @@ export class AreaController {
   }
 
   @Post('teams')
-  @Roles(UserRole.super_admin, UserRole.admin)
-  async createTeam(@Body() dto: CreateTeamDto) {
-    return this.areaService.createTeam(dto);
+  @Roles(UserRole.super_admin, UserRole.admin, UserRole.sda)
+  async createTeam(
+    @CurrentUser() user: ScopeContext,
+    @Body() dto: CreateTeamDto,
+  ) {
+    return this.areaService.createTeam(dto, user);
   }
 
   @Get('teams')
@@ -163,18 +171,22 @@ export class AreaController {
   }
 
   @Patch('teams/:id')
-  @Roles(UserRole.super_admin, UserRole.admin)
+  @Roles(UserRole.super_admin, UserRole.admin, UserRole.sda)
   async updateTeam(
+    @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) teamId: string,
     @Body() dto: UpdateTeamDto,
   ) {
-    return this.areaService.updateTeam(teamId, dto);
+    return this.areaService.updateTeam(teamId, dto, user);
   }
 
   @Delete('teams/:id')
-  @Roles(UserRole.super_admin, UserRole.admin)
-  async deleteTeam(@Param('id', ParseUUIDPipe) teamId: string) {
-    return this.areaService.deleteTeam(teamId);
+  @Roles(UserRole.super_admin, UserRole.admin, UserRole.sda)
+  async deleteTeam(
+    @CurrentUser() user: ScopeContext,
+    @Param('id', ParseUUIDPipe) teamId: string,
+  ) {
+    return this.areaService.deleteTeam(teamId, user);
   }
 
   @Post('import-csv')
