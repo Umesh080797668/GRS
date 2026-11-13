@@ -74,6 +74,8 @@
   "@skipForNowButton": {},
   "resendCodeButton": "නැවත කේතය එවන්න",
   "@resendCodeButton": {},
+  "changeEmailButton": "ඊමේල් වෙනස් කරන්න",
+  "@changeEmailButton": {},
   "home": "මුල් පිටුව",
   "@home": {},
   "houses": "නිවාස",

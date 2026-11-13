@@ -96,7 +96,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isAuthRoute =
           location == '/login' ||
           location == '/forgot-password' ||
-          location == '/splash';
+          location == '/splash' ||
+          location == '/change-password' ||
+          location == '/add-email';
 
       if (status == AuthStatus.unauthenticated) {
         return (location == '/login' || location == '/forgot-password')

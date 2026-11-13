@@ -438,10 +438,16 @@ export class ApiClient {
   }
 
   async verifyEmail(code: string): Promise<{ success: boolean; email: string }> {
-    return this.request('/v1/auth/email/verify', {
+    const res = await this.request<{ success: boolean; email: string }>('/v1/auth/email/verify', {
       method: 'POST',
       body: JSON.stringify({ code }),
     });
+    const stored = this.getStoredUser();
+    if (stored && res.email) {
+      stored.email = res.email;
+      localStorage.setItem('grs_auth_user', JSON.stringify(stored));
+    }
+    return res;
   }
 
   async refreshSession(): Promise<boolean> {

@@ -95,10 +95,11 @@ export class EmailService {
       const remainingSeconds = Math.ceil(
         (EmailService.COOLDOWN_SECONDS * 1000 -
           (now.getTime() - recentCode.createdAt.getTime())) /
-          1000,
+        1000,
       );
       throw new BadRequestException({
         code: 'EMAIL_COOLDOWN',
+        message_key: 'errors.auth.email_cooldown',
         message: `Please wait ${remainingSeconds} seconds before requesting a new code`,
         cooldownSeconds: remainingSeconds,
       });
@@ -171,6 +172,7 @@ export class EmailService {
     if (!record) {
       throw new UnauthorizedException({
         code: 'CODE_EXPIRED_OR_NOT_FOUND',
+        message_key: 'errors.auth.code_expired',
         message: 'Verification code has expired or was not requested',
       });
     }
@@ -189,6 +191,7 @@ export class EmailService {
     if (updateResult.count === 0) {
       throw new UnauthorizedException({
         code: 'TOO_MANY_ATTEMPTS',
+        message_key: 'errors.auth.too_many_attempts',
         message: 'Too many incorrect attempts. Please request a new code.',
       });
     }
@@ -203,6 +206,7 @@ export class EmailService {
       const attemptsDone = refreshed?.attempts ?? record.attempts + 1;
       throw new UnauthorizedException({
         code: 'INVALID_CODE',
+        message_key: 'errors.auth.invalid_code',
         message: 'Incorrect verification code',
         remainingAttempts: Math.max(
           0,

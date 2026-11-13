@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:grs_core/grs_core.dart';
 import 'package:grs_ui/grs_ui.dart';
 import '../../l10n/l10n.dart';
 import '../../providers/auth_provider.dart';
@@ -21,15 +24,81 @@ class _AddEmailScreenState extends ConsumerState<AddEmailScreen> {
   bool _codeSent = false;
   bool _isLoading = false;
   String? _error;
+  Timer? _cooldownTimer;
+  int _cooldownSeconds = 0;
 
   @override
   void dispose() {
+    _cooldownTimer?.cancel();
     _emailController.dispose();
     _codeController.dispose();
     super.dispose();
   }
 
+  void _startCooldown([int seconds = 60]) {
+    _cooldownTimer?.cancel();
+    if (!mounted) return;
+    setState(() => _cooldownSeconds = seconds);
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_cooldownSeconds <= 1) {
+        timer.cancel();
+        setState(() => _cooldownSeconds = 0);
+      } else {
+        setState(() => _cooldownSeconds--);
+      }
+    });
+  }
+
+  void _finish() {
+    if (!mounted) return;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/home');
+    }
+  }
+
+  String _mapErrorMessage(dynamic err, GrsL10n l10n) {
+    if (err is GrsApiException) {
+      if (err.code == 'EMAIL_COOLDOWN') {
+        final secs =
+            err.details['cooldownSeconds'] as num? ??
+            err.retryAfterSeconds ??
+            60;
+        return 'Please wait ${secs.toInt()} seconds before requesting a new code.';
+      }
+      if (err.code == 'EMAIL_ALREADY_IN_USE') {
+        return 'This email address is already in use by another account.';
+      }
+      if (err.code == 'TOO_MANY_ATTEMPTS') {
+        return 'Too many incorrect attempts. Please request a new code.';
+      }
+      if (err.code == 'CODE_EXPIRED_OR_NOT_FOUND') {
+        return 'Verification code has expired. Please request a new code.';
+      }
+      if (err.code == 'INVALID_CODE') {
+        final remaining = err.details['remainingAttempts'];
+        if (remaining != null) {
+          return 'Incorrect verification code. $remaining attempts remaining.';
+        }
+        return 'Incorrect verification code. Please try again.';
+      }
+      if (err.messageKey.isNotEmpty && err.messageKey != 'null') {
+        final translated = l10n.translate(err.messageKey);
+        if (translated != err.messageKey) {
+          return translated;
+        }
+      }
+    }
+    return 'An error occurred. Please try again.';
+  }
+
   Future<void> _sendCode() async {
+    if (_cooldownSeconds > 0) return;
     final email = _emailController.text.trim();
     if (!email.contains('@') || !email.contains('.')) {
       setState(() => _error = 'Please enter a valid email address');
@@ -41,13 +110,22 @@ class _AddEmailScreenState extends ConsumerState<AddEmailScreen> {
     });
     try {
       await ref.read(authProvider.notifier).addEmail(email);
+      if (!mounted) return;
       setState(() {
         _codeSent = true;
         _isLoading = false;
       });
-    } catch (_) {
+      _startCooldown(60);
+    } catch (e) {
+      if (!mounted) return;
+      if (e is GrsApiException && e.code == 'EMAIL_COOLDOWN') {
+        final secs =
+            e.details['cooldownSeconds'] as num? ?? e.retryAfterSeconds ?? 60;
+        _startCooldown(secs.toInt());
+      }
+      final l10n = GrsL10n.of(context);
       setState(() {
-        _error = 'Failed to send verification code. Please try again.';
+        _error = _mapErrorMessage(e, l10n);
         _isLoading = false;
       });
     }
@@ -67,12 +145,27 @@ class _AddEmailScreenState extends ConsumerState<AddEmailScreen> {
       await ref
           .read(authProvider.notifier)
           .verifyEmail(_emailController.text.trim(), code);
-    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _finish();
+    } catch (e) {
+      if (!mounted) return;
+      final l10n = GrsL10n.of(context);
       setState(() {
-        _error = 'Invalid or expired code. Please try again.';
+        _error = _mapErrorMessage(e, l10n);
         _isLoading = false;
       });
     }
+  }
+
+  void _changeEmailAddress() {
+    _cooldownTimer?.cancel();
+    setState(() {
+      _codeSent = false;
+      _cooldownSeconds = 0;
+      _error = null;
+      _codeController.clear();
+    });
   }
 
   @override
@@ -190,14 +283,30 @@ class _AddEmailScreenState extends ConsumerState<AddEmailScreen> {
                     onPressed: _verifyCode,
                   ),
                   const SizedBox(height: 12),
-                  Center(
-                    child: TextButton(
-                      onPressed: _isLoading ? null : _sendCode,
-                      child: Text(
-                        l10n.get('resendCodeButton'),
-                        style: TextStyle(color: primary),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: _isLoading ? null : _changeEmailAddress,
+                        child: Text(
+                          l10n.get('changeEmailButton'),
+                          style: TextStyle(color: secondary),
+                        ),
                       ),
-                    ),
+                      TextButton(
+                        onPressed: (_isLoading || _cooldownSeconds > 0)
+                            ? null
+                            : _sendCode,
+                        child: Text(
+                          _cooldownSeconds > 0
+                              ? '${l10n.get('resendCodeButton')} (${_cooldownSeconds}s)'
+                              : l10n.get('resendCodeButton'),
+                          style: TextStyle(
+                            color: _cooldownSeconds > 0 ? secondary : primary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
 
@@ -208,8 +317,10 @@ class _AddEmailScreenState extends ConsumerState<AddEmailScreen> {
                   label: l10n.get('skipForNowButton'),
                   variant: GrsButtonVariant.outline,
                   isFullWidth: true,
-                  onPressed: () =>
-                      ref.read(authProvider.notifier).skipAddEmail(),
+                  onPressed: () {
+                    ref.read(authProvider.notifier).skipAddEmail();
+                    _finish();
+                  },
                 ),
               ],
             ),

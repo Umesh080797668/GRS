@@ -74,6 +74,8 @@
   "@skipForNowButton": {},
   "resendCodeButton": "Resend Code",
   "@resendCodeButton": {},
+  "changeEmailButton": "Change Email",
+  "@changeEmailButton": {},
   "home": "Home",
   "@home": {},
   "houses": "Houses",

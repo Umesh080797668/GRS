@@ -74,6 +74,8 @@
   "@skipForNowButton": {},
   "resendCodeButton": "குறியீட்டை மீண்டும் அனுப்பவும்",
   "@resendCodeButton": {},
+  "changeEmailButton": "மின்னஞ்சலை மாற்றவும்",
+  "@changeEmailButton": {},
   "home": "முகப்பு",
   "@home": {},
   "houses": "வீடுகள்",

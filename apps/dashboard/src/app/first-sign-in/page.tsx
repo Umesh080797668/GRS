@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -17,6 +17,7 @@ export default function FirstSignInPage() {
   // Email recovery step
   const [email, setEmail] = useState('');
   const [emailCode, setEmailCode] = useState('');
+  const [cooldown, setCooldown] = useState(0);
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -24,6 +25,14 @@ export default function FirstSignInPage() {
   const { refreshUser } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +60,8 @@ export default function FirstSignInPage() {
     setLoading(true);
     try {
       await api.changePassword(currentPassword, newPassword);
-      refreshUser();
+      // Note: Do not call refreshUser() here, as AuthContext would detect mustChangePassword=false
+      // and immediately redirect away to /progress before the user can complete the email step.
       setSuccess(t('auth.success.password_updated'));
       setStep('email_input');
     } catch (err: any) {
@@ -61,9 +71,9 @@ export default function FirstSignInPage() {
     }
   };
 
-  const handleSendEmailCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
+  const handleSendEmailCode = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!email.trim() || cooldown > 0) return;
     setError(null);
     setSuccess(null);
     setLoading(true);
@@ -71,11 +81,22 @@ export default function FirstSignInPage() {
       await api.addPendingEmail(email.trim());
       setSuccess(t('auth.success.email_code_sent'));
       setStep('email_verify');
+      setCooldown(60);
     } catch (err: any) {
+      if (err.cooldownSeconds) {
+        setCooldown(err.cooldownSeconds);
+      }
       setError(err.messageKey ? t(err.messageKey) : (err.message || t('auth.error.email_code_failed')));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleChangeEmail = () => {
+    setError(null);
+    setSuccess(null);
+    setEmailCode('');
+    setStep('email_input');
   };
 
   const handleVerifyEmailCode = async (e: React.FormEvent) => {
@@ -302,6 +323,10 @@ export default function FirstSignInPage() {
 
         {step === 'email_verify' && (
           <form onSubmit={handleVerifyEmailCode} style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
+            <p style={{ fontSize: '12.5px', color: 'var(--slate-600)', margin: 0 }}>
+              Enter the 6-digit code sent to <strong>{email}</strong>
+            </p>
+
             <div>
               <label className="form-label">
                 {t('auth.otp_code')} *
@@ -315,6 +340,41 @@ export default function FirstSignInPage() {
                 placeholder="e.g. 123456"
                 required
               />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={handleChangeEmail}
+                disabled={loading}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--slate-500)',
+                  fontSize: '12.5px',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  padding: 0,
+                }}
+              >
+                {t('auth.change_email')}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendEmailCode()}
+                disabled={loading || cooldown > 0}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: cooldown > 0 ? 'var(--slate-400)' : 'var(--primary)',
+                  fontSize: '12.5px',
+                  cursor: cooldown > 0 ? 'not-allowed' : 'pointer',
+                  fontWeight: 500,
+                  padding: 0,
+                }}
+              >
+                {cooldown > 0 ? `${t('auth.resend_code')} (${cooldown}s)` : t('auth.resend_code')}
+              </button>
             </div>
 
             <div style={{ display: 'flex', gap: '8px', marginTop: '0.5rem' }}>

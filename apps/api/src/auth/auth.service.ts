@@ -903,6 +903,7 @@ export class AuthService {
     if (existing) {
       throw new ConflictException({
         code: 'EMAIL_ALREADY_IN_USE',
+        message_key: 'errors.auth.email_already_in_use',
         message: 'This email is already associated with another account',
       });
     }
