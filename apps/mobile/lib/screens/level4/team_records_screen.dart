@@ -67,9 +67,12 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
 
         final visitedCursors = <String>{};
         String? cursor = response['nextCursor'] as String?;
+        int pageCount = 0;
         while (cursor != null &&
             cursor.isNotEmpty &&
-            !visitedCursors.contains(cursor)) {
+            !visitedCursors.contains(cursor) &&
+            pageCount < 50) {
+          pageCount++;
           visitedCursors.add(cursor);
           final nextRes = await apiClient.getClients(
             teamId: teamId,

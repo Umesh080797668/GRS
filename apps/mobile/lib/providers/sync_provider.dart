@@ -364,12 +364,12 @@ class SyncNotifier extends StateNotifier<SyncState> {
         return false;
       }
 
-      // Invariant §8.2 #11: Account deactivation stops sync, shows Contact your admin
+      // Invariant §8.2 #11: Explicit Account deactivation stops sync, shows Contact your admin
       if (e.isAccountDeactivated ||
           (e.statusCode == 401 &&
               (e.code == 'ACCOUNT_DEACTIVATED' ||
-                  e.messageKey.contains('deactivated')))) {
-        // Set authProvider state to deactivated
+                  e.messageKey == 'errors.auth.deactivated'))) {
+        // Set authProvider state to deactivated ONLY when explicitly confirmed by server
         _ref.read(authProvider.notifier).setDeactivatedState();
         state = state.copyWith(
           isSyncing: false,

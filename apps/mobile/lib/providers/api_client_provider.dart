@@ -16,7 +16,7 @@ final apiClientProvider = Provider<GrsApiClient>((ref) {
   final baseUrl = ApiEndpointResolver.sanitize(rawUrl);
   final storage = ref.watch(secureStorageProvider);
 
-  return GrsApiClient(
+  final client = GrsApiClient(
     baseUrl: baseUrl,
     appVersion: AppEnv.appVersion,
     onTokenRefreshed: (newAccess, newRefresh) async {
@@ -26,4 +26,21 @@ final apiClientProvider = Provider<GrsApiClient>((ref) {
       );
     },
   );
+
+  // Restore tokens from storage immediately to prevent unauthenticated requests
+  storage
+      .getAccessToken()
+      .then((access) {
+        if (access != null && access.isNotEmpty) {
+          storage
+              .getRefreshToken()
+              .then((refresh) {
+                client.setTokens(accessToken: access, refreshToken: refresh);
+              })
+              .catchError((_) {});
+        }
+      })
+      .catchError((_) {});
+
+  return client;
 });

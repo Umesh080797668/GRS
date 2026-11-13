@@ -745,6 +745,7 @@ class AppDatabase {
     required Client client,
     SyncStatus status = SyncStatus.pending,
     int baseVersion = 0,
+    String? consentVersion,
   }) async {
     final now = DateTime.now().toUtc().toIso8601String();
     final futureHopesJson = jsonEncode(client.futureHopes);
@@ -814,7 +815,7 @@ class AppDatabase {
         client.infoProvidedByOther,
         client.consentGiven ? 1 : 0,
         client.consentAt?.toIso8601String() ?? now,
-        client.consentGiven ? 'consent.v0' : '',
+        client.consentGiven ? (consentVersion ?? 'consent.v0') : '',
         status.name,
         1,
         baseVersion,

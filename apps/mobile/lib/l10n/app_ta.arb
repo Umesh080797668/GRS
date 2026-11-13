@@ -787,5 +787,7 @@
   "statusDismissedLabel": "நிராகரிக்கப்பட்டது",
   "@statusDismissedLabel": {},
   "loadMore": "மேலும் ஏற்று",
-  "@loadMore": {}
+  "@loadMore": {},
+  "selectAtLeastOneLanguage": "குறைந்தது ஒரு விருப்ப மொழியைத் தேர்ந்தெடுக்கவும்.",
+  "@selectAtLeastOneLanguage": {}
 }

@@ -51,10 +51,13 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
 
     final isOnline = ref.read(connectivityProvider);
     if (!isOnline) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Internet connection required to load GN setup.';
-      });
+      if (mounted) {
+        final l10n = GrsL10n.of(context);
+        setState(() {
+          _isLoading = false;
+          _errorMessage = l10n.get('internetRequiredAction');
+        });
+      }
       return;
     }
 
@@ -62,10 +65,13 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
       final auth = ref.read(authProvider);
       final gnId = auth.profile?.gnId;
       if (gnId == null || gnId.isEmpty) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'No GN division assigned to the current user.';
-        });
+        if (mounted) {
+          final l10n = GrsL10n.of(context);
+          setState(() {
+            _isLoading = false;
+            _errorMessage = l10n.get('noGnDivisionAssigned');
+          });
+        }
         return;
       }
 
@@ -84,9 +90,12 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final l10n = GrsL10n.of(context);
         setState(() {
           _isLoading = false;
-          _errorMessage = 'Failed to load GN details: ${e.toString()}';
+          _errorMessage = l10n.translate('failedWithError', {
+            'error': e.toString(),
+          });
         });
       }
     }
@@ -266,12 +275,12 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
                 GrsTextField(
                   controller: _nameController,
                   label: l10n.get('fullName'),
-                  hint: 'Enter CDC Secretary full name',
+                  hint: l10n.get('fullName'),
                   enabled: isOnline && !_isSaving,
                   prefixIcon: const Icon(Icons.person_outline),
                   validator: (val) {
                     if (val == null || val.trim().isEmpty) {
-                      return 'Secretary name is required.';
+                      return l10n.get('pleaseEnterLeaderName');
                     }
                     return null;
                   },
@@ -288,7 +297,7 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
                 const SizedBox(height: GrsSpacing.md),
                 GrsTextField(
                   controller: _emailController,
-                  label: 'Email',
+                  label: l10n.get('emailLabel'),
                   hint: 'e.g. secretary@gn.gov.lk',
                   keyboardType: TextInputType.emailAddress,
                   enabled: isOnline && !_isSaving,
@@ -299,7 +308,7 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
                         r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
                       );
                       if (!emailRegex.hasMatch(val.trim())) {
-                        return 'Invalid email address format.';
+                        return l10n.get('invalidCredentialsError');
                       }
                     }
                     return null;

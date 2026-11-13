@@ -787,5 +787,7 @@
   "statusDismissedLabel": "Dismissed",
   "@statusDismissedLabel": {},
   "loadMore": "Load More",
-  "@loadMore": {}
+  "@loadMore": {},
+  "selectAtLeastOneLanguage": "Please select at least one preferred language.",
+  "@selectAtLeastOneLanguage": {}
 }

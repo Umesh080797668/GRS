@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grs_ui/grs_ui.dart';
+import 'data/local/secure_storage_service.dart';
 import 'l10n/l10n.dart';
 import 'providers/api_client_provider.dart';
 import 'providers/auth_provider.dart';
-import 'providers/database_provider.dart';
 import 'providers/theme_provider.dart';
 import 'router/app_router.dart';
 import 'services/background_sync_service.dart';
@@ -19,21 +20,23 @@ class GrsHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     final client = super.createHttpClient(context);
-    client
-        .badCertificateCallback = (X509Certificate cert, String host, int port) {
-      // Allow verified endpoints and local development IPs so device-specific
-      // CA trust store mismatches (e.g. Android 14 APEX module vs BoringSSL) do not block traffic.
-      if (host.endsWith('vercel.app') ||
-          host.endsWith('supabase.co') ||
-          host.endsWith('gov.lk') ||
-          host == 'localhost' ||
-          host == '127.0.0.1' ||
-          host.startsWith('192.168.') ||
-          host.startsWith('10.')) {
-        return true;
-      }
-      return false;
-    };
+    client.badCertificateCallback =
+        (X509Certificate cert, String host, int port) {
+          if (kDebugMode) {
+            if (host == 'localhost' ||
+                host == '127.0.0.1' ||
+                host.startsWith('192.168.') ||
+                host.startsWith('10.')) {
+              return true;
+            }
+          }
+          if (host.endsWith('gov.lk') ||
+              host.endsWith('vercel.app') ||
+              host.endsWith('supabase.co')) {
+            return true;
+          }
+          return false;
+        };
     return client;
   }
 }
@@ -42,7 +45,27 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = GrsHttpOverrides();
   await BackgroundSyncService.initialize();
-  runApp(const ProviderScope(child: GrsMobileApp()));
+
+  // Restore saved API server URL before creating ProviderScope to eliminate post-startup rebuilds
+  final storage = SecureStorageService();
+  final savedUrl = await storage.getApiBaseUrl();
+  String initialUrl = ApiEndpointResolver.resolveDefault();
+  if (savedUrl != null &&
+      savedUrl.trim().isNotEmpty &&
+      !savedUrl.contains('localhost') &&
+      !savedUrl.contains('127.0.0.1')) {
+    initialUrl = savedUrl.trim();
+  } else if (savedUrl != null &&
+      (savedUrl.contains('localhost') || savedUrl.contains('127.0.0.1'))) {
+    await storage.saveApiBaseUrl('');
+  }
+
+  runApp(
+    ProviderScope(
+      overrides: [apiBaseUrlProvider.overrideWith((ref) => initialUrl)],
+      child: const GrsMobileApp(),
+    ),
+  );
 }
 
 class GrsMobileApp extends ConsumerStatefulWidget {
@@ -104,26 +127,6 @@ class _GrsMobileAppState extends ConsumerState<GrsMobileApp>
         }
       });
     }
-
-    // Concurrently restore saved API server URL
-    Future.microtask(() async {
-      final storage = ref.read(secureStorageProvider);
-      final savedUrl = await storage.getApiBaseUrl();
-      if (savedUrl != null &&
-          savedUrl.trim().isNotEmpty &&
-          !savedUrl.contains('localhost') &&
-          !savedUrl.contains('127.0.0.1')) {
-        ref.read(apiBaseUrlProvider.notifier).state = savedUrl.trim();
-      } else {
-        if (savedUrl != null &&
-            (savedUrl.contains('localhost') ||
-                savedUrl.contains('127.0.0.1'))) {
-          await storage.saveApiBaseUrl('');
-        }
-        ref.read(apiBaseUrlProvider.notifier).state =
-            ApiEndpointResolver.resolveDefault();
-      }
-    });
   }
 
   @override

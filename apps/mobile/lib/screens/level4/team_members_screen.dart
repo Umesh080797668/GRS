@@ -189,6 +189,7 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
             'count': count,
             'teamId': teamId,
             'gnId': gnId,
+            'preferredLanguage': lang,
           };
 
           final res = await apiClient.createBulkAccounts(payload);
@@ -715,7 +716,7 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
-                                      l10n.get('deactivate'),
+                                      l10n.get('deactivatedTitle'),
                                       style: const TextStyle(
                                         fontSize: 10,
                                         color: GrsColors.textSecondaryLight,

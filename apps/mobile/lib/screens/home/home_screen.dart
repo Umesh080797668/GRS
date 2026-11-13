@@ -95,6 +95,122 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
+  Future<void> _startAssessmentFlow() async {
+    final l10n = GrsL10n.of(context);
+    final db = await ref.read(databaseProvider.future);
+    final authState = ref.read(authProvider);
+    final houses = await db.getHouseholds(gnId: authState.profile?.gnId);
+
+    if (!mounted) return;
+
+    if (houses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.get('noHousesFound').isNotEmpty
+                ? l10n.get('noHousesFound')
+                : 'No households found. Please download area data first.',
+          ),
+          backgroundColor: GrsColors.syncPending,
+        ),
+      );
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (sheetCtx, scrollCtrl) {
+            return Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Text(
+                    l10n.get('chooseHouses'),
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: isDark
+                          ? GrsColors.textPrimaryDark
+                          : GrsColors.textPrimaryLight,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.separated(
+                    controller: scrollCtrl,
+                    itemCount: houses.length,
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 1),
+                    itemBuilder: (itemCtx, i) {
+                      final h = houses[i];
+                      final id = h['id'] as String;
+                      final houseNo = h['house_no'] as String;
+                      final leader = h['house_leader_name'] as String;
+                      final serialNo = h['serial_no'] as int;
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: isDark
+                              ? GrsColors.primaryContainerDark
+                              : GrsColors.primaryContainerLight,
+                          child: Text(
+                            '$serialNo',
+                            style: TextStyle(
+                              color: isDark
+                                  ? GrsColors.primaryDark
+                                  : GrsColors.primaryLight,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        title: Text('${l10n.get('houseNumber')}: $houseNo'),
+                        subtitle: Text(leader),
+                        trailing: const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 16,
+                        ),
+                        onTap: () async {
+                          Navigator.of(ctx).pop();
+                          await context.push('/houses/$id/consent');
+                          ref
+                              .read(recordsRevisionProvider.notifier)
+                              .increment();
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _triggerSync() async {
     final ok = await ref.read(syncProvider.notifier).sync();
     await ref.read(syncProvider.notifier).pullChanges();
@@ -209,10 +325,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               heroPulse: _heroPulse,
               isOnline: isOnline,
               pendingCount: pendingCount,
-              onStartAssessment: () async {
-                await context.push('/client/consent');
-                ref.read(recordsRevisionProvider.notifier).increment();
-              },
+              onStartAssessment: _startAssessmentFlow,
             ),
           ),
 

@@ -40,6 +40,7 @@ void callbackDispatcher() {
 
         try {
           final token = await storage.getAccessToken();
+          final refreshToken = await storage.getRefreshToken();
           final baseUrl =
               await storage.getApiBaseUrl() ??
               ApiEndpointResolver.resolveDefault();
@@ -47,6 +48,13 @@ void callbackDispatcher() {
             baseUrl: baseUrl,
             appVersion: AppEnv.appVersion,
             accessToken: token,
+            refreshToken: refreshToken,
+            onTokenRefreshed: (newAccess, newRefresh) async {
+              await storage.saveTokens(
+                accessToken: newAccess,
+                refreshToken: newRefresh,
+              );
+            },
           );
 
           final result = await SyncEngine.executePushLoop(

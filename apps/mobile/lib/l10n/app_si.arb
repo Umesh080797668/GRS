@@ -787,5 +787,7 @@
   "statusDismissedLabel": "ඉවතලන ලද",
   "@statusDismissedLabel": {},
   "loadMore": "තවත් පූරණය කරන්න",
-  "@loadMore": {}
+  "@loadMore": {},
+  "selectAtLeastOneLanguage": "කරුණාකර අවම වශයෙන් එක් භාෂාවක් තෝරන්න.",
+  "@selectAtLeastOneLanguage": {}
 }

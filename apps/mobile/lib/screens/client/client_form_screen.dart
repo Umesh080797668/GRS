@@ -73,6 +73,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   bool _isDraft = true;
   bool _isConsentConfirmed = false;
   bool _isLoading = true;
+  DateTime? _originalCreatedAt;
   Map<String, dynamic>? _household;
 
   List<DuplicateCandidateInput> _houseMembers = const [];
@@ -201,6 +202,10 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
         _infoOtherController.text =
             client['info_provided_by_other'] as String? ?? '';
         _isConsentConfirmed = (client['consent_given'] as int) == 1;
+        _originalCreatedAt = DateTime.tryParse(
+          client['created_at'] as String? ?? '',
+        );
+        _originalCreatedAt = DateTime.tryParse(client['created_at'] as String? ?? '');
 
         final syncStatus = client['sync_status'] as String;
         _isDraft = syncStatus == 'draft';
@@ -208,8 +213,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
 
         if (_isPreviouslySynced) {
           final profile = ref.read(authProvider).profile;
-          final isLevel5 = profile?.role == 'team_member';
-          if (isLevel5) {
+          final isTeamMember = profile?.role == 'team_member';
+          if (isTeamMember) {
             final canEdit = await ref.read(agentCanEditSyncedProvider.future);
             _isLocked = !canEdit;
           } else {
@@ -284,11 +289,16 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
           : null,
       consentGiven: _isConsentConfirmed,
       consentAt: _isConsentConfirmed ? now : null,
-      createdAt: now,
+      createdAt: widget.clientId != null ? (_originalCreatedAt ?? now) : now,
       updatedAt: now,
     );
 
-    await db.saveClient(client: client, status: status);
+    final config = await ref.read(appConfigProvider.future);
+    await db.saveClient(
+      client: client,
+      status: status,
+      consentVersion: config.consentVersion,
+    );
     ref.read(recordsRevisionProvider.notifier).increment();
     if (status == SyncStatus.pending) {
       ref.read(syncProvider.notifier).triggerDebouncedSync();

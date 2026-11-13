@@ -142,11 +142,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     final isExpired = _isJwtExpired(accessToken);
 
-    // Try refreshing or verifying online status in the background (fast timeout: 2.5s)
+    // Try refreshing or verifying online status in the background (timeout: 8s for cellular/2G)
     try {
       if (refreshToken != null && refreshToken.trim().isNotEmpty) {
         final res = await _apiClient.refreshSession().timeout(
-          const Duration(milliseconds: 2500),
+          const Duration(milliseconds: 8000),
         );
         if (!isMobileAllowedRole(res.profile.role)) {
           await _rejectMobileRestricted();

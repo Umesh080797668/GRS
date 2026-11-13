@@ -57,6 +57,21 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
   Future<void> _submitHouse() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (!_langSinhala && !_langTamil && !_langEnglish) {
+      final l10n = GrsL10n.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.get('selectAtLeastOneLanguage').isNotEmpty
+                ? l10n.get('selectAtLeastOneLanguage')
+                : 'Please select at least one preferred language.',
+          ),
+          backgroundColor: GrsColors.syncRejected,
+        ),
+      );
+      return;
+    }
+
     final isOnline = ref.read(connectivityProvider);
     if (!isOnline) {
       final l10n = GrsL10n.of(context);
@@ -374,6 +389,14 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                       prefixIcon: const Icon(Icons.woman),
                       keyboardType: TextInputType.number,
                       enabled: isOnline && !_isSaving,
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) return null;
+                        final parsed = int.tryParse(val.trim());
+                        if (parsed == null || parsed < 0) {
+                          return 'Enter valid count';
+                        }
+                        return null;
+                      },
                     ),
                   ),
                   const SizedBox(width: GrsSpacing.md),
@@ -385,6 +408,14 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                       prefixIcon: const Icon(Icons.man),
                       keyboardType: TextInputType.number,
                       enabled: isOnline && !_isSaving,
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) return null;
+                        final parsed = int.tryParse(val.trim());
+                        if (parsed == null || parsed < 0) {
+                          return 'Enter valid count';
+                        }
+                        return null;
+                      },
                     ),
                   ),
                 ],
@@ -396,6 +427,25 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 hint: l10n.get('ageGroupHint'),
                 prefixIcon: const Icon(Icons.calendar_month_outlined),
                 enabled: isOnline && !_isSaving,
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) return null;
+                  final parts = val.trim().split('-');
+                  if (parts.length != 2) {
+                    return 'Format must be e.g. 18-35';
+                  }
+                  final min = int.tryParse(parts[0].trim());
+                  final max = int.tryParse(parts[1].trim());
+                  if (min == null || max == null) {
+                    return 'Please enter valid numbers';
+                  }
+                  if (min < 0 || max < 0) {
+                    return 'Age cannot be negative';
+                  }
+                  if (min >= max) {
+                    return 'Minimum age must be less than maximum age';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: GrsSpacing.lg),
               Text(

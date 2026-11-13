@@ -77,14 +77,14 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
       int notStH = totalH - compH - inProgH;
 
       int totalC = localClients.length;
-      int maleC = localClients
-          .where((c) => (c['gender'] ?? '').toString().toLowerCase() == 'male')
-          .length;
-      int femaleC = localClients
-          .where(
-            (c) => (c['gender'] ?? '').toString().toLowerCase() == 'female',
-          )
-          .length;
+      int maleC = localClients.where((c) {
+        final g = (c['gender'] ?? '').toString().trim().toLowerCase();
+        return g == 'm' || g == 'male';
+      }).length;
+      int femaleC = localClients.where((c) {
+        final g = (c['gender'] ?? '').toString().trim().toLowerCase();
+        return g == 'f' || g == 'female';
+      }).length;
       int specialC = localClients
           .where((c) => c['has_special_needs'] == 1)
           .length;
@@ -118,17 +118,14 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
 
           if (serverClients.isNotEmpty) {
             totalC = serverClients.length;
-            maleC = serverClients
-                .where(
-                  (c) => (c['gender'] ?? '').toString().toLowerCase() == 'male',
-                )
-                .length;
-            femaleC = serverClients
-                .where(
-                  (c) =>
-                      (c['gender'] ?? '').toString().toLowerCase() == 'female',
-                )
-                .length;
+            maleC = serverClients.where((c) {
+              final g = (c['gender'] ?? '').toString().trim().toLowerCase();
+              return g == 'm' || g == 'male';
+            }).length;
+            femaleC = serverClients.where((c) {
+              final g = (c['gender'] ?? '').toString().trim().toLowerCase();
+              return g == 'f' || g == 'female';
+            }).length;
             specialC = serverClients
                 .where(
                   (c) =>
