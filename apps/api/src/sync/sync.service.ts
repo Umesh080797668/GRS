@@ -1,4 +1,9 @@
-import { Injectable, Logger, ForbiddenException, Optional } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ForbiddenException,
+  Optional,
+} from '@nestjs/common';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { LookupService } from '../lookups/lookup.service';
@@ -1051,8 +1056,7 @@ export class SyncService {
         continue;
       }
 
-      const job =
-        data.interested_job || data.interestedJob || data.job;
+      const job = data.interested_job || data.interestedJob || data.job;
       if (job && !activeLookups.get('job')?.has(job)) {
         results[i] = {
           id: record.id,
@@ -1109,10 +1113,7 @@ export class SyncService {
           data.vocationalStream ||
           null,
         interestedJob:
-          data.interested_job ||
-          data.interestedJob ||
-          data.job ||
-          null,
+          data.interested_job || data.interestedJob || data.job || null,
         isEpf: !!(data.is_epf ?? data.isEpf),
         isEtf: !!(data.is_etf ?? data.isEtf),
         isAswesuma: !!(data.is_aswesuma ?? data.isAswesuma),
@@ -1135,9 +1136,7 @@ export class SyncService {
           phoneE164,
           whatsappE164,
           highestEducation:
-            data.highest_education ||
-            data.highestEducation ||
-            data.education,
+            data.highest_education || data.highestEducation || data.education,
           highestVocational:
             data.highest_vocational ||
             data.highestVocational ||
@@ -1149,10 +1148,7 @@ export class SyncService {
             data.interestedVocationalStream ||
             data.vocational_stream ||
             data.vocationalStream,
-          interestedJob:
-            data.interested_job ||
-            data.interestedJob ||
-            data.job,
+          interestedJob: data.interested_job || data.interestedJob || data.job,
           isEpf: !!(data.is_epf ?? data.isEpf),
           isEtf: !!(data.is_etf ?? data.isEtf),
           isAswesuma: !!(data.is_aswesuma ?? data.isAswesuma),

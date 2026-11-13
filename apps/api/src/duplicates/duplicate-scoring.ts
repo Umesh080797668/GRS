@@ -179,9 +179,7 @@ export function nameSimilarityNormalized(normA: string, normB: string): number {
   if (!tokensA.length || !tokensB.length) return 0;
 
   const [shorter, longer] =
-    tokensA.length <= tokensB.length
-      ? [tokensA, tokensB]
-      : [tokensB, tokensA];
+    tokensA.length <= tokensB.length ? [tokensA, tokensB] : [tokensB, tokensA];
 
   const used = new Array<boolean>(longer.length).fill(false);
   const scores: number[] = [];

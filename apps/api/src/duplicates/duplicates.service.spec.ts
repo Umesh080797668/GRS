@@ -1,4 +1,8 @@
-import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { DuplicateStatus } from '@prisma/client';
 import { ScopeService } from '../common/scope/scope.service';
 import { ScopeContext, UserRole } from '../common/scope/scope.types';
@@ -85,9 +89,9 @@ describe('DuplicatesService (M6.2 & M6.4)', () => {
 
   describe('Access & Scope Enforcement', () => {
     it('blocks Level 5 team_member from listing duplicates', async () => {
-      await expect(
-        service.listDuplicates(l5Caller, {}),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.listDuplicates(l5Caller, {})).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('blocks Level 4 from filtering another teamId', async () => {
@@ -468,4 +472,3 @@ describe('DuplicatesService (M6.2 & M6.4)', () => {
     });
   });
 });
-

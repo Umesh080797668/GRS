@@ -264,7 +264,9 @@ export class StatsRefreshService {
       );
       return rows?.[0]?.result ?? null;
     } catch {
-      await this.prisma.$executeRawUnsafe(`SELECT public.purge_expired_data();`);
+      await this.prisma.$executeRawUnsafe(
+        `SELECT public.purge_expired_data();`,
+      );
       return null;
     }
   }

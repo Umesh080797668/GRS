@@ -7,6 +7,8 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { JwtStrategy, JwtPayload } from './jwt.strategy';
+import { RolesGuard } from './roles.guard';
+import { Reflector } from '@nestjs/core';
 import { CredentialService } from './credential.service';
 import { AccountService } from '../accounts/account.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -66,6 +68,49 @@ describe('Security Vulnerability Fixes Verification', () => {
       );
     });
 
+    it('rejects scope: change-password token when bypass attempted via query parameter (GET /v1/accounts?x=/auth/change-password)', async () => {
+      const mockConfig = {
+        get: jest
+          .fn()
+          .mockImplementation((key) =>
+            key === 'JWT_ACCESS_SECRET' ? 'test-secret' : undefined,
+          ),
+      } as unknown as ConfigService;
+      const mockPrisma = {
+        profile: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'u1',
+            role: UserRole.team_member,
+            districtId: 'd1',
+            dsId: 'ds1',
+            gnId: 'gn1',
+            teamId: 't1',
+            tokenVersion: 1,
+            isActive: true,
+          }),
+        },
+      } as unknown as PrismaService;
+
+      const strategy = new JwtStrategy(mockConfig, mockPrisma);
+
+      // Attempt to access /v1/accounts with query param trick
+      const req = {
+        url: '/v1/accounts?x=/auth/change-password',
+        originalUrl: '/v1/accounts?x=/auth/change-password',
+      };
+      const payload: JwtPayload = {
+        sub: 'u1',
+        userCode: 'GRS0000000001',
+        role: UserRole.team_member,
+        scope: 'change-password',
+        tokenVersion: 1,
+      };
+
+      await expect(strategy.validate(req, payload)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
     it('allows scope: change-password token on /v1/auth/change-password endpoint', async () => {
       const mockConfig = {
         get: jest
@@ -107,6 +152,54 @@ describe('Security Vulnerability Fixes Verification', () => {
       expect(result).toBeDefined();
       expect(result.userId).toBe('u1');
       expect(result.scope).toBe('change-password');
+    });
+
+    it('RolesGuard blocks scope: change-password token from accessing endpoints via query string bypass', () => {
+      const reflector = {
+        getAllAndOverride: jest.fn().mockReturnValue([UserRole.team_member]),
+      } as unknown as Reflector;
+      const guard = new RolesGuard(reflector);
+
+      const mockContext = {
+        getHandler: jest.fn(),
+        getClass: jest.fn(),
+        switchToHttp: () => ({
+          getRequest: () => ({
+            originalUrl: '/v1/accounts?x=/auth/change-password',
+            user: {
+              userId: 'u1',
+              role: UserRole.team_member,
+              scope: 'change-password',
+            },
+          }),
+        }),
+      } as any;
+
+      expect(() => guard.canActivate(mockContext)).toThrow(ForbiddenException);
+    });
+
+    it('RolesGuard allows scope: change-password token strictly on /v1/auth/change-password', () => {
+      const reflector = {
+        getAllAndOverride: jest.fn().mockReturnValue(undefined),
+      } as unknown as Reflector;
+      const guard = new RolesGuard(reflector);
+
+      const mockContext = {
+        getHandler: jest.fn(),
+        getClass: jest.fn(),
+        switchToHttp: () => ({
+          getRequest: () => ({
+            originalUrl: '/v1/auth/change-password',
+            user: {
+              userId: 'u1',
+              role: UserRole.team_member,
+              scope: 'change-password',
+            },
+          }),
+        }),
+      } as any;
+
+      expect(guard.canActivate(mockContext)).toBe(true);
     });
   });
 
@@ -670,11 +763,14 @@ describe('Security Vulnerability Fixes Verification', () => {
       const { VersionGateGuard } = require('../config/version-gate.guard');
       const guard = new VersionGateGuard(mockConfigService);
 
-      // Create a mobile role JWT payload
-      const payloadBase64 = Buffer.from(
-        JSON.stringify({ sub: 'user-1', role: 'team_member' }),
-      ).toString('base64');
-      const mockToken = `header.${payloadBase64}.signature`;
+      // Create a verified mobile role JWT token
+      const jwt = require('jsonwebtoken');
+      const testSecret = process.env.JWT_ACCESS_SECRET || 'test-jwt-secret';
+      process.env.JWT_ACCESS_SECRET = testSecret;
+      const mockToken = jwt.sign(
+        { sub: 'user-1', role: 'team_member' },
+        testSecret,
+      );
 
       const mockContext = {
         switchToHttp: () => ({
@@ -911,7 +1007,7 @@ describe('Security Vulnerability Fixes Verification', () => {
           },
           '192.168.1.50',
         );
-      } catch (_) {}
+      } catch (_) { }
 
       // Key must include device ID to prevent an attacker from locking out real user
       expect(checkedKeys).toContain('login:id:GRS1000000001:real-user-phone-1');
@@ -968,9 +1064,9 @@ describe('Security Vulnerability Fixes Verification', () => {
         setHeader: (name: string, val: string) => {
           headers[name.toLowerCase()] = val;
         },
-        removeHeader: () => {},
+        removeHeader: () => { },
       };
-      middleware(req, res, () => {});
+      middleware(req, res, () => { });
       expect(headers['x-content-type-options']).toBe('nosniff');
       expect(headers['x-frame-options']).toBe('SAMEORIGIN');
     });

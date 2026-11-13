@@ -73,13 +73,7 @@ export class AuthController {
     description: 'Invalid credentials or account locked',
   })
   async login(@Body() dto: LoginDto, @Req() req?: any) {
-    const rawIp =
-      req?.headers?.['x-forwarded-for'] ||
-      req?.socket?.remoteAddress ||
-      req?.ip ||
-      '127.0.0.1';
-    const clientIp =
-      typeof rawIp === 'string' ? rawIp.split(',')[0].trim() : '127.0.0.1';
+    const clientIp = req?.ip || req?.socket?.remoteAddress || '127.0.0.1';
     const { clientType, deviceId } = this.extractClientMeta(req, dto.deviceId);
     if (!dto.deviceId && deviceId) {
       dto.deviceId = deviceId;
@@ -121,7 +115,8 @@ export class AuthController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Switch active GN area session for multi-GN CDC secretary (Decision C20)',
+    summary:
+      'Switch active GN area session for multi-GN CDC secretary (Decision C20)',
   })
   async switchArea(
     @CurrentUser() user: ScopeContext,
@@ -147,7 +142,9 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Keep active user session alive and update lastActiveAt' })
+  @ApiOperation({
+    summary: 'Keep active user session alive and update lastActiveAt',
+  })
   async heartbeat(
     @CurrentUser() user: ScopeContext,
     @Body() dto?: HeartbeatDto,
@@ -199,15 +196,17 @@ export class AuthController {
   @ApiOperation({
     summary: 'Request password reset code via email (uniform 200)',
   })
-  async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(dto.email);
+  async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req?: any) {
+    const clientIp = req?.ip || req?.socket?.remoteAddress || '127.0.0.1';
+    return this.authService.forgotPassword(dto.email, clientIp);
   }
 
   @Post('reset')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password using verified 6-digit email code' })
-  async resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.authService.resetPassword(dto.email, dto.code, dto.newPassword);
+  async resetPassword(@Body() dto: ResetPasswordDto, @Req() req?: any) {
+    const clientIp = req?.ip || req?.socket?.remoteAddress || '127.0.0.1';
+    return this.authService.resetPassword(dto.email, dto.code, dto.newPassword, clientIp);
   }
 
   @Patch('profile')

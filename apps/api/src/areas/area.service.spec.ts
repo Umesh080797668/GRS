@@ -107,7 +107,8 @@ describe('AreaService (M1.7)', () => {
         return Promise.resolve(
           inMemoryGn.find((gn) => {
             if (where?.id?.not && gn.id === where.id.not) return false;
-            if (where?.dsId !== undefined && gn.dsId !== where.dsId) return false;
+            if (where?.dsId !== undefined && gn.dsId !== where.dsId)
+              return false;
             if (
               num !== undefined &&
               gn.gnNumber.toLowerCase() !== String(num).toLowerCase()
@@ -156,16 +157,14 @@ describe('AreaService (M1.7)', () => {
         }
         return Promise.resolve(inMemoryGn);
       }),
-      count: jest
-        .fn()
-        .mockImplementation(({ where } = {}) => {
-          if (where?.dsId) {
-            return Promise.resolve(
-              inMemoryGn.filter((g) => g.dsId === where.dsId).length,
-            );
-          }
-          return Promise.resolve(inMemoryGn.length);
-        }),
+      count: jest.fn().mockImplementation(({ where } = {}) => {
+        if (where?.dsId) {
+          return Promise.resolve(
+            inMemoryGn.filter((g) => g.dsId === where.dsId).length,
+          );
+        }
+        return Promise.resolve(inMemoryGn.length);
+      }),
       create: jest.fn().mockImplementation(({ data }) => {
         const gn = { id: `gn-${Date.now()}-${Math.random()}`, ...data };
         inMemoryGn.push(gn);
@@ -219,16 +218,14 @@ describe('AreaService (M1.7)', () => {
         }
         return Promise.resolve(inMemoryTeams);
       }),
-      count: jest
-        .fn()
-        .mockImplementation(({ where } = {}) => {
-          if (where?.gnId) {
-            return Promise.resolve(
-              inMemoryTeams.filter((t) => t.gnId === where.gnId).length,
-            );
-          }
-          return Promise.resolve(inMemoryTeams.length);
-        }),
+      count: jest.fn().mockImplementation(({ where } = {}) => {
+        if (where?.gnId) {
+          return Promise.resolve(
+            inMemoryTeams.filter((t) => t.gnId === where.gnId).length,
+          );
+        }
+        return Promise.resolve(inMemoryTeams.length);
+      }),
       create: jest.fn().mockImplementation(({ data }) => {
         const t = { id: `team-${Date.now()}-${Math.random()}`, ...data };
         inMemoryTeams.push(t);
@@ -842,7 +839,9 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
       expect(updatedDs.sdoName).toBe('SDO Silva');
 
       await expect(
-        service.updateDivisionalSecretariat(ds2.id, { nameEn: 'homagama north' }),
+        service.updateDivisionalSecretariat(ds2.id, {
+          nameEn: 'homagama north',
+        }),
       ).rejects.toThrow('already exists in this district');
 
       const gn = await service.createGnDivision({
@@ -891,9 +890,9 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
       await expect(service.deleteGnDivision(gn.id)).rejects.toThrow(
         'Cannot delete GN division',
       );
-      await expect(
-        service.deleteDivisionalSecretariat(ds1.id),
-      ).rejects.toThrow('Cannot delete DS division');
+      await expect(service.deleteDivisionalSecretariat(ds1.id)).rejects.toThrow(
+        'Cannot delete DS division',
+      );
 
       // Delete bottom-up succeeds cleanly
       await service.deleteTeam(team.id);
@@ -996,9 +995,9 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
       await expect(
         service.updateTeam(otherTeam.id, { teamNo: 2 }, sdoScope),
       ).rejects.toThrow('outside your assigned DS division');
-      await expect(
-        service.deleteTeam(otherTeam.id, sdoScope),
-      ).rejects.toThrow('outside your assigned DS division');
+      await expect(service.deleteTeam(otherTeam.id, sdoScope)).rejects.toThrow(
+        'outside your assigned DS division',
+      );
 
       // Deleting own team succeeds cleanly
       await service.deleteTeam(team.id, sdoScope);

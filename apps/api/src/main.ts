@@ -12,6 +12,7 @@ import { StructuredLoggerService } from './common/logging/structured-logger.serv
 import { PrismaClientExceptionFilter } from './common/filters/prisma-client-exception.filter';
 
 const expressApp: Express = express();
+expressApp.set('trust proxy', 1);
 let initPromise: Promise<void> | null = null;
 
 // Initialize Sentry with PII scrubber (M1.11 / Section 12)
@@ -27,6 +28,7 @@ if (process.env.SENTRY_DSN) {
 }
 
 export async function createNestServer(server: Express) {
+  server.set('trust proxy', 1);
   const logger = new StructuredLoggerService();
   const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
     logger,
@@ -43,15 +45,20 @@ export async function createNestServer(server: Express) {
       'http://localhost:8080',
     ];
 
+  // Disallow bare wildcard '*' when credentials: true is enabled to prevent origin reflection
+  const effectiveOrigins = allowedOrigins.filter((o) => o !== '*');
+
+  const escapeRegex = (str: string) =>
+    str.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+
   const isOriginAllowed = (origin: string): boolean => {
-    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+    if (effectiveOrigins.includes(origin)) {
       return true;
     }
-    for (const pattern of allowedOrigins) {
-      if (pattern.startsWith('*.') || pattern.includes('*')) {
-        const regex = new RegExp(
-          '^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$',
-        );
+    for (const pattern of effectiveOrigins) {
+      if (pattern.includes('*')) {
+        const escaped = escapeRegex(pattern).replace(/\\\*/g, '.*');
+        const regex = new RegExp('^' + escaped + '$');
         if (regex.test(origin)) return true;
       }
     }
@@ -72,7 +79,7 @@ export async function createNestServer(server: Express) {
           'https://fonts.googleapis.com',
         ],
         imgSrc: ["'self'", 'data:', 'blob:'],
-        connectSrc: ["'self'", ...allowedOrigins],
+        connectSrc: ["'self'", ...effectiveOrigins],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
@@ -113,15 +120,17 @@ export async function createNestServer(server: Express) {
 
   app.useGlobalFilters(new PrismaClientExceptionFilter());
 
-  // OpenAPI Swagger Documentation (Section 6)
-  const config = new DocumentBuilder()
-    .setTitle('GRS API')
-    .setDescription('Global Research & Survey App API Specification')
-    .setVersion('1.0.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  // OpenAPI Swagger Documentation (Section 6) - only exposed in non-production environments
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('GRS API')
+      .setDescription('Global Research & Survey App API Specification')
+      .setVersion('1.0.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   await app.init();
   return app;

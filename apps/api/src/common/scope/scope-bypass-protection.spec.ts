@@ -464,7 +464,9 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
         }),
       };
 
-      const unhandledErr = new Error('Database connection unexpectedly severed');
+      const unhandledErr = new Error(
+        'Database connection unexpectedly severed',
+      );
       filter.catch(unhandledErr, mockHost);
 
       expect(statusCalledWith).toBe(500);
@@ -495,7 +497,9 @@ describe('Scope Bypass Protection across List Endpoints × Roles × Filters', ()
 
       // Error without code P2023
       filter.catch(
-        new Error('General internal DB warning: Inconsistent column data on table X'),
+        new Error(
+          'General internal DB warning: Inconsistent column data on table X',
+        ),
         mockHost,
       );
 

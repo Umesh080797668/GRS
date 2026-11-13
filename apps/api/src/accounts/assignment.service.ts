@@ -6,7 +6,11 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { UserRole, ScopeContext, getRoleRank } from '../common/scope/scope.types';
+import {
+  UserRole,
+  ScopeContext,
+  getRoleRank,
+} from '../common/scope/scope.types';
 import { AssignAccountDto } from './dto/assign-account.dto';
 import { EndAssignmentDto } from './dto/end-assignment.dto';
 import { TransferAccountDto } from './dto/transfer-account.dto';
@@ -35,11 +39,7 @@ export class AssignmentService {
    * assignment per person.
    * Bumps tokenVersion so stale access tokens pick up the change on next refresh.
    */
-  async assign(
-    actor: ScopeContext,
-    profileId: string,
-    dto: AssignAccountDto,
-  ) {
+  async assign(actor: ScopeContext, profileId: string, dto: AssignAccountDto) {
     const territory = this.extractTerritory(dto);
 
     // Fast role-level gate: cdc_secretary / team_member can never assign.
@@ -97,12 +97,12 @@ export class AssignmentService {
       async (tx) => {
         const existing = dto?.assignmentId
           ? await (tx as any).accountAssignment.findFirst({
-              where: { id: dto.assignmentId, profileId, validTo: null },
-            })
+            where: { id: dto.assignmentId, profileId, validTo: null },
+          })
           : await (tx as any).accountAssignment.findFirst({
-              where: { profileId, validTo: null },
-              orderBy: { validFrom: 'desc' },
-            });
+            where: { profileId, validTo: null },
+            orderBy: { validFrom: 'desc' },
+          });
 
         if (!existing) {
           throw new NotFoundException({
@@ -199,25 +199,29 @@ export class AssignmentService {
       async (tx) => {
         const existing = dto.assignmentId
           ? await (tx as any).accountAssignment.findFirst({
-              where: {
-                id: dto.assignmentId,
-                profileId: fromProfileId,
-                validTo: null,
-              },
-            })
+            where: {
+              id: dto.assignmentId,
+              profileId: fromProfileId,
+              validTo: null,
+            },
+          })
           : await (tx as any).accountAssignment.findFirst({
-              where: { profileId: fromProfileId, validTo: null },
-              orderBy: { validFrom: 'desc' },
-            });
+            where: { profileId: fromProfileId, validTo: null },
+            orderBy: { validFrom: 'desc' },
+          });
 
         if (dto.assignmentId && !existing) {
           throw new NotFoundException({
             code: 'NO_ACTIVE_ASSIGNMENT',
-            message: 'Specified active assignment was not found for source profile',
+            message:
+              'Specified active assignment was not found for source profile',
           });
         }
 
-        if (existing && (actor.role === UserRole.dc || actor.role === UserRole.sda)) {
+        if (
+          existing &&
+          (actor.role === UserRole.dc || actor.role === UserRole.sda)
+        ) {
           this.assertCanAssign(actor, {
             districtId: existing.districtId ?? null,
             dsId: existing.dsId ?? null,
@@ -297,8 +301,16 @@ export class AssignmentService {
 
         await tx.accountAudit.createMany({
           data: [
-            { actorId: actor.userId, targetId: fromProfileId, action: 'assignment_transferred_from' },
-            { actorId: actor.userId, targetId: toProfileId, action: 'assignment_transferred_to' },
+            {
+              actorId: actor.userId,
+              targetId: fromProfileId,
+              action: 'assignment_transferred_from',
+            },
+            {
+              actorId: actor.userId,
+              targetId: toProfileId,
+              action: 'assignment_transferred_to',
+            },
           ],
         });
 
@@ -325,21 +337,29 @@ export class AssignmentService {
       case UserRole.cg:
         break; // national — no filter
       case UserRole.dc:
-        if (!actor.districtId) throw new ForbiddenException({ code: 'FORBIDDEN_SCOPE', message_key: 'errors.scope.missing_district' });
+        if (!actor.districtId)
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message_key: 'errors.scope.missing_district',
+          });
         where.OR = [
           { districtId: actor.districtId },
           { profile: { districtId: actor.districtId } },
         ];
         break;
       case UserRole.sda:
-        if (!actor.dsId) throw new ForbiddenException({ code: 'FORBIDDEN_SCOPE', message_key: 'errors.scope.missing_ds' });
-        where.OR = [
-          { dsId: actor.dsId },
-          { profile: { dsId: actor.dsId } },
-        ];
+        if (!actor.dsId)
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message_key: 'errors.scope.missing_ds',
+          });
+        where.OR = [{ dsId: actor.dsId }, { profile: { dsId: actor.dsId } }];
         break;
       default:
-        throw new ForbiddenException({ code: 'FORBIDDEN_SCOPE', message_key: 'errors.scope.unauthorized_role' });
+        throw new ForbiddenException({
+          code: 'FORBIDDEN_SCOPE',
+          message_key: 'errors.scope.unauthorized_role',
+        });
     }
 
     // Optional caller-supplied filters (AND'd — cannot widen scope)
@@ -351,12 +371,16 @@ export class AssignmentService {
     const rows = await (this.prisma as any).accountAssignment.findMany({
       where,
       include: {
-        profile: { select: { id: true, userCode: true, fullName: true, role: true } },
+        profile: {
+          select: { id: true, userCode: true, fullName: true, role: true },
+        },
         district: { select: { id: true, nameEn: true } },
         ds: { select: { id: true, nameEn: true } },
         gn: { select: { id: true, gnName: true, gnNumber: true } },
         team: { select: { id: true, teamNo: true } },
-        assignedByProfile: { select: { id: true, userCode: true, fullName: true } },
+        assignedByProfile: {
+          select: { id: true, userCode: true, fullName: true },
+        },
       },
       orderBy: { validFrom: 'desc' },
       take: 200,
@@ -379,8 +403,12 @@ export class AssignmentService {
         ds: { select: { id: true, nameEn: true } },
         gn: { select: { id: true, gnName: true, gnNumber: true } },
         team: { select: { id: true, teamNo: true } },
-        assignedByProfile: { select: { id: true, userCode: true, fullName: true } },
-        endedByProfile: { select: { id: true, userCode: true, fullName: true } },
+        assignedByProfile: {
+          select: { id: true, userCode: true, fullName: true },
+        },
+        endedByProfile: {
+          select: { id: true, userCode: true, fullName: true },
+        },
       },
       orderBy: { validFrom: 'desc' },
     });
@@ -449,7 +477,8 @@ export class AssignmentService {
         if (!actor.dsId || !actor.districtId) {
           throw new ForbiddenException({
             code: 'FORBIDDEN_SCOPE',
-            message: 'SDA must have an assigned DS division to assign territory',
+            message:
+              'SDA must have an assigned DS division to assign territory',
           });
         }
         if (territory.districtId && territory.districtId !== actor.districtId) {
@@ -477,11 +506,17 @@ export class AssignmentService {
    * Checks that the actor has sufficient rank to manage the target's assignments.
    */
   private assertCanManage(actor: ScopeContext, target: { role: UserRole }) {
-    if (actor.role === UserRole.super_admin || actor.role === UserRole.admin || actor.role === UserRole.cg) return;
+    if (
+      actor.role === UserRole.super_admin ||
+      actor.role === UserRole.admin ||
+      actor.role === UserRole.cg
+    )
+      return;
     if (getRoleRank(actor.role) <= getRoleRank(target.role)) {
       throw new ForbiddenException({
         code: 'INSUFFICIENT_RANK',
-        message: 'Cannot manage assignments for accounts at or above your own role rank',
+        message:
+          'Cannot manage assignments for accounts at or above your own role rank',
       });
     }
   }
@@ -489,12 +524,20 @@ export class AssignmentService {
   /**
    * Extracts the territory object from a DTO, validates exactly one field is set.
    */
-  private extractTerritory(dto: { districtId?: string; dsId?: string; gnId?: string; teamId?: string }): Territory {
-    const fields = [dto.districtId, dto.dsId, dto.gnId, dto.teamId].filter(Boolean);
+  private extractTerritory(dto: {
+    districtId?: string;
+    dsId?: string;
+    gnId?: string;
+    teamId?: string;
+  }): Territory {
+    const fields = [dto.districtId, dto.dsId, dto.gnId, dto.teamId].filter(
+      Boolean,
+    );
     if (fields.length === 0) {
       throw new BadRequestException({
         code: 'TERRITORY_REQUIRED',
-        message: 'Exactly one territory field (districtId, dsId, gnId, or teamId) must be provided',
+        message:
+          'Exactly one territory field (districtId, dsId, gnId, or teamId) must be provided',
       });
     }
     if (fields.length > 1) {
@@ -521,7 +564,11 @@ export class AssignmentService {
         where: { id: territory.gnId },
         include: { ds: true },
       });
-      if (!gn) throw new NotFoundException({ code: 'GN_NOT_FOUND', message: 'GN division not found' });
+      if (!gn)
+        throw new NotFoundException({
+          code: 'GN_NOT_FOUND',
+          message: 'GN division not found',
+        });
       return {
         gnId: gn.id,
         dsId: gn.dsId,
@@ -534,7 +581,11 @@ export class AssignmentService {
         where: { id: territory.teamId },
         include: { gn: { include: { ds: true } } },
       });
-      if (!team) throw new NotFoundException({ code: 'TEAM_NOT_FOUND', message: 'Team not found' });
+      if (!team)
+        throw new NotFoundException({
+          code: 'TEAM_NOT_FOUND',
+          message: 'Team not found',
+        });
       return {
         gnId: team.gnId,
         dsId: team.gn.dsId,
@@ -543,16 +594,36 @@ export class AssignmentService {
       };
     }
     if (territory.dsId) {
-      const ds = await this.prisma.divisionalSecretariat.findUnique({ where: { id: territory.dsId } });
-      if (!ds) throw new NotFoundException({ code: 'DS_NOT_FOUND', message: 'DS division not found' });
-      return { dsId: ds.id, districtId: ds.districtId, gnId: null, teamId: null };
+      const ds = await this.prisma.divisionalSecretariat.findUnique({
+        where: { id: territory.dsId },
+      });
+      if (!ds)
+        throw new NotFoundException({
+          code: 'DS_NOT_FOUND',
+          message: 'DS division not found',
+        });
+      return {
+        dsId: ds.id,
+        districtId: ds.districtId,
+        gnId: null,
+        teamId: null,
+      };
     }
     if (territory.districtId) {
-      const district = await this.prisma.district.findUnique({ where: { id: territory.districtId } });
-      if (!district) throw new NotFoundException({ code: 'DISTRICT_NOT_FOUND', message: 'District not found' });
+      const district = await this.prisma.district.findUnique({
+        where: { id: territory.districtId },
+      });
+      if (!district)
+        throw new NotFoundException({
+          code: 'DISTRICT_NOT_FOUND',
+          message: 'District not found',
+        });
       return { districtId: district.id, dsId: null, gnId: null, teamId: null };
     }
-    throw new BadRequestException({ code: 'TERRITORY_REQUIRED', message: 'No territory specified' });
+    throw new BadRequestException({
+      code: 'TERRITORY_REQUIRED',
+      message: 'No territory specified',
+    });
   }
 
   /**
@@ -719,7 +790,11 @@ export class AssignmentService {
       if (aa.teamId) displacedTeamIds.add(aa.teamId);
     }
 
-    if (displacedTeamIds.size > 0 && tx.team && typeof tx.team.updateMany === 'function') {
+    if (
+      displacedTeamIds.size > 0 &&
+      tx.team &&
+      typeof tx.team.updateMany === 'function'
+    ) {
       const displacedIds = Array.from(displacedByAccount.keys());
       for (const teamId of displacedTeamIds) {
         await tx.team.updateMany({
@@ -800,13 +875,20 @@ export class AssignmentService {
     });
   }
 
-  private async findOpenRows(repo: any, where: any, include?: any): Promise<any[]> {
+  private async findOpenRows(
+    repo: any,
+    where: any,
+    include?: any,
+  ): Promise<any[]> {
     if (!repo) return [];
     if (typeof repo.findMany === 'function') {
       return repo.findMany({ where, ...(include ? { include } : {}) });
     }
     if (typeof repo.findFirst === 'function') {
-      const one = await repo.findFirst({ where, ...(include ? { include } : {}) });
+      const one = await repo.findFirst({
+        where,
+        ...(include ? { include } : {}),
+      });
       return one ? [one] : [];
     }
     return [];
@@ -834,7 +916,9 @@ export class AssignmentService {
   }
 
   private async requireActiveProfile(profileId: string) {
-    const profile = await this.prisma.profile.findUnique({ where: { id: profileId } });
+    const profile = await this.prisma.profile.findUnique({
+      where: { id: profileId },
+    });
     if (!profile || !profile.isActive) {
       throw new NotFoundException({
         code: 'USER_NOT_FOUND',

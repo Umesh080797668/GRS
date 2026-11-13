@@ -51,7 +51,10 @@ export class DuplicatesService {
   private getClientScopeForDuplicates(
     caller: ScopeContext,
     query: ListDuplicatesDto,
-  ): { scopeClientWhere: Record<string, any>; queryClientWhere: Record<string, any> } {
+  ): {
+    scopeClientWhere: Record<string, any>;
+    queryClientWhere: Record<string, any>;
+  } {
     if (caller.role === UserRole.team_member) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_ROLE',
@@ -136,7 +139,9 @@ export class DuplicatesService {
       scoreCondition = {
         score: { gte: Math.max(minScore, DUPLICATE_THRESHOLDS.probable) },
       };
-    } else if (query.classification === DuplicateClassificationFilter.possible) {
+    } else if (
+      query.classification === DuplicateClassificationFilter.possible
+    ) {
       scoreCondition = {
         score: {
           gte: Math.max(minScore, DUPLICATE_THRESHOLDS.possible),
@@ -459,7 +464,8 @@ export class DuplicatesService {
     ) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_ROLE',
-        message: 'Only SDAs, CDC Secretaries, and Super Admins can confirm duplicates',
+        message:
+          'Only SDAs, CDC Secretaries, and Super Admins can confirm duplicates',
       });
     }
 
@@ -540,10 +546,7 @@ export class DuplicatesService {
     const duplicateRecord =
       duplicateClientId === recordA.id ? recordA : recordB;
 
-    if (
-      caller.role === UserRole.sda &&
-      duplicateRecord.dsId !== caller.dsId
-    ) {
+    if (caller.role === UserRole.sda && duplicateRecord.dsId !== caller.dsId) {
       throw new ForbiddenException({
         code: 'OUT_OF_SCOPE_DS',
         message:
@@ -636,7 +639,8 @@ export class DuplicatesService {
     ) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_ROLE',
-        message: 'Only SDAs, CDC Secretaries, and Super Admins can dismiss duplicates',
+        message:
+          'Only SDAs, CDC Secretaries, and Super Admins can dismiss duplicates',
       });
     }
 

@@ -52,10 +52,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // Restricted scope check: tokens issued for password change cannot access other endpoints
     if (payload.scope === 'change-password') {
-      const url = req ? req.originalUrl || req.path || req.url || '' : '';
+      const rawUrl = req ? req.originalUrl || req.path || req.url || '' : '';
+      const path = rawUrl.split('?')[0].replace(/\/+$/, '');
       const isChangePassword =
-        url.includes('/auth/change-password') ||
-        url.endsWith('/change-password');
+        path === '/v1/auth/change-password' ||
+        path === '/auth/change-password';
       if (!isChangePassword) {
         throw new UnauthorizedException({
           code: 'SCOPE_RESTRICTED',

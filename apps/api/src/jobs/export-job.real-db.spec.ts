@@ -258,7 +258,9 @@ describe('ExportJobService Real-DB & Private Storage Integration (M7.1)', () => 
     await prisma.household
       .deleteMany({ where: { id: householdId } })
       .catch(() => undefined);
-    await prisma.team.deleteMany({ where: { id: teamId } }).catch(() => undefined);
+    await prisma.team
+      .deleteMany({ where: { id: teamId } })
+      .catch(() => undefined);
     await prisma.profile
       .deleteMany({ where: { id: requesterId } })
       .catch(() => undefined);
@@ -347,7 +349,10 @@ describe('ExportJobService Real-DB & Private Storage Integration (M7.1)', () => 
 
     const claimed = await service.claimAndProcessNextJob(queuedDup.id);
     expect(claimed).toBe(true);
-    const completed = await service.getExportJobForCaller(l4Caller, queuedDup.id);
+    const completed = await service.getExportJobForCaller(
+      l4Caller,
+      queuedDup.id,
+    );
     if (completed.filePath) uploadedPaths.push(completed.filePath);
     expect(completed.status).toBe(JobStatus.done);
     expect(completed.signedUrl).toBeTruthy();

@@ -245,7 +245,7 @@ describe('Releases (Self-Hosted APK Update System)', () => {
 
       const jwt = require('jsonwebtoken');
       const superAdminToken = jwt.sign(
-        { sub: 'admin-1', role: 'super_admin', tokenVersion: 1 },
+        { sub: 'admin-1', role: 'super_admin', scope: 'full', tokenVersion: 1 },
         process.env.JWT_ACCESS_SECRET,
       );
 
@@ -289,7 +289,7 @@ describe('Releases (Self-Hosted APK Update System)', () => {
 
       const jwt = require('jsonwebtoken');
       const superAdminToken = jwt.sign(
-        { sub: 'admin-1', role: 'super_admin', tokenVersion: 1 },
+        { sub: 'admin-1', role: 'super_admin', scope: 'full', tokenVersion: 1 },
         process.env.JWT_ACCESS_SECRET,
       );
 
@@ -329,7 +329,7 @@ describe('Releases (Self-Hosted APK Update System)', () => {
 
       const jwt = require('jsonwebtoken');
       const superAdminToken = jwt.sign(
-        { sub: 'admin-1', role: 'super_admin', tokenVersion: 1 },
+        { sub: 'admin-1', role: 'super_admin', scope: 'full', tokenVersion: 1 },
         process.env.JWT_ACCESS_SECRET,
       );
 
@@ -358,6 +358,39 @@ describe('Releases (Self-Hosted APK Update System)', () => {
       ).rejects.toMatchObject({
         response: {
           code: 'AUTH_INVALID',
+        },
+      });
+    });
+
+    it('POST /v1/releases rejects super_admin JWT if scope is restricted (e.g. change-password)', async () => {
+      delete process.env.RELEASE_SECRET;
+      process.env.JWT_ACCESS_SECRET =
+        'test-jwt-secret-key-for-release-tests-1234';
+
+      const jwt = require('jsonwebtoken');
+      const restrictedToken = jwt.sign(
+        { sub: 'admin-1', role: 'super_admin', scope: 'change-password', tokenVersion: 1 },
+        process.env.JWT_ACCESS_SECRET,
+      );
+
+      const dto: CreateReleaseDto = {
+        version: '1.0.4',
+        minSupportedVersion: '1.0.0',
+        apkUrl: validGithubApk,
+        sha256: validSha256,
+      };
+
+      const mockReq = {
+        headers: {
+          authorization: `Bearer ${restrictedToken}`,
+        },
+      } as unknown as Request;
+
+      await expect(
+        controller.createRelease(dto, mockReq),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'FORBIDDEN_SCOPE',
         },
       });
     });

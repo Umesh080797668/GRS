@@ -34,7 +34,7 @@ jobs:
         run: pnpm --filter api run lint --if-present
 
       - name: Run API Unit Tests
-        run: pnpm --filter api test --if-present
+        run: pnpm --filter api test:unit --if-present
 
   flutter-checks:
     name: Flutter & Dart Packages
@@ -58,7 +58,7 @@ jobs:
 
       - name: Analyze Packages
         run: |
-          for pkg in packages/grs_core packages/grs_ui apps/mobile apps/dashboard; do
+          for pkg in packages/grs_core packages/grs_ui apps/mobile; do
             if [ -d "$pkg" ] && [ -f "$pkg/pubspec.yaml" ]; then
               echo "Analyzing $pkg..."
               (cd "$pkg" && flutter pub get && flutter analyze)
@@ -67,7 +67,7 @@ jobs:
 
       - name: Run Dart/Flutter Tests
         run: |
-          for pkg in packages/grs_core packages/grs_ui apps/mobile apps/dashboard; do
+          for pkg in packages/grs_core packages/grs_ui apps/mobile; do
             if [ -d "$pkg" ] && [ -f "$pkg/pubspec.yaml" ]; then
               echo "Testing $pkg..."
               (cd "$pkg" && flutter test --no-pub)

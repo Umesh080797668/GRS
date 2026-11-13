@@ -655,7 +655,8 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     category: 'houses',
     allowedRoles: ['sda', 'cdc_secretary', 'super_admin'],
     scopeEnforcement: 'gn_only',
-    description: 'Create household in scope (L4: own GN; L3: own DS; allocates serial)',
+    description:
+      'Create household in scope (L4: own GN; L3: own DS; allocates serial)',
   },
   {
     method: 'PATCH',
@@ -703,7 +704,8 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     category: 'houses',
     allowedRoles: ['sda', 'cdc_secretary', 'super_admin'],
     scopeEnforcement: 'team_only',
-    description: 'Assign batch of houses to team in scope (atomic, one team per house)',
+    description:
+      'Assign batch of houses to team in scope (atomic, one team per house)',
   },
   {
     method: 'DELETE',
@@ -818,7 +820,8 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     category: 'duplicates',
     allowedRoles: ['sda', 'cdc_secretary', 'super_admin'],
     scopeEnforcement: 'team_only',
-    description: 'Confirm duplicate candidate pair within scope (L4: team; L3: DS)',
+    description:
+      'Confirm duplicate candidate pair within scope (L4: team; L3: DS)',
   },
   {
     method: 'POST',
@@ -826,7 +829,8 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
     category: 'duplicates',
     allowedRoles: ['sda', 'cdc_secretary', 'super_admin'],
     scopeEnforcement: 'team_only',
-    description: 'Dismiss duplicate candidate pair within scope (L4: team; L3: DS)',
+    description:
+      'Dismiss duplicate candidate pair within scope (L4: team; L3: DS)',
   },
 
   // Summary Stats & Dashboard

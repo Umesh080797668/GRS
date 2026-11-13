@@ -182,14 +182,19 @@ export class AreaService {
       });
     }
 
-    const [gnCount, profileCount, householdCount, clientCount, assignmentCount] =
-      await Promise.all([
-        this.prisma.gnDivision.count({ where: { dsId: id } }),
-        this.prisma.profile.count({ where: { dsId: id } }),
-        this.prisma.household.count({ where: { dsId: id } }),
-        this.prisma.client.count({ where: { dsId: id } }),
-        this.prisma.accountAssignment.count({ where: { dsId: id } }),
-      ]);
+    const [
+      gnCount,
+      profileCount,
+      householdCount,
+      clientCount,
+      assignmentCount,
+    ] = await Promise.all([
+      this.prisma.gnDivision.count({ where: { dsId: id } }),
+      this.prisma.profile.count({ where: { dsId: id } }),
+      this.prisma.household.count({ where: { dsId: id } }),
+      this.prisma.client.count({ where: { dsId: id } }),
+      this.prisma.accountAssignment.count({ where: { dsId: id } }),
+    ]);
 
     if (
       gnCount > 0 ||

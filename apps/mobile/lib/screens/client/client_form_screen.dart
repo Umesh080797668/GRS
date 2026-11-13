@@ -205,7 +205,6 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
         _originalCreatedAt = DateTime.tryParse(
           client['created_at'] as String? ?? '',
         );
-        _originalCreatedAt = DateTime.tryParse(client['created_at'] as String? ?? '');
 
         final syncStatus = client['sync_status'] as String;
         _isDraft = syncStatus == 'draft';

@@ -89,7 +89,7 @@ export class ReleasesController {
     private readonly releasesService: ReleasesService,
     private readonly prisma: PrismaService,
     @Optional() private readonly jwtService?: JwtService,
-  ) {}
+  ) { }
 
   /**
    * Validates that the request comes from an authorized publisher:
@@ -143,10 +143,14 @@ export class ReleasesController {
       });
     }
 
-    if (!payload || payload.role !== UserRole.super_admin) {
+    if (
+      !payload ||
+      payload.role !== UserRole.super_admin ||
+      payload.scope !== 'full'
+    ) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_SCOPE',
-        message: 'Only super_admin can publish or sync app releases',
+        message: 'Only super_admin with full scope can publish or sync app releases',
       });
     }
 

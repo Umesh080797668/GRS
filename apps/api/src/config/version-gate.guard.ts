@@ -3,13 +3,19 @@ import {
   CanActivate,
   ExecutionContext,
   HttpException,
-  HttpStatus,
+  Optional
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { AppConfigService } from './app-config.service';
 
 @Injectable()
 export class VersionGateGuard implements CanActivate {
-  constructor(private readonly configService: AppConfigService) {}
+  private readonly fallbackJwtService = new JwtService();
+
+  constructor(
+    private readonly configService: AppConfigService,
+    @Optional() private readonly jwtService?: JwtService,
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -29,20 +35,23 @@ export class VersionGateGuard implements CanActivate {
       authHeader.startsWith('Bearer ')
     ) {
       try {
-        const tokenParts = authHeader.substring(7).trim().split('.');
-        if (tokenParts.length === 3) {
-          const payload = JSON.parse(
-            Buffer.from(tokenParts[1], 'base64').toString('utf8'),
-          );
-          if (
-            payload?.role === 'team_member' ||
-            payload?.role === 'cdc_secretary'
-          ) {
-            isMobileCaller = true;
-          }
+        const token = authHeader.substring(7).trim();
+        const jwtSecret = process.env.JWT_ACCESS_SECRET;
+        const verifier = this.jwtService || this.fallbackJwtService;
+        let payload: any = null;
+        if (jwtSecret) {
+          payload = verifier.verify(token, { secret: jwtSecret });
+        } else {
+          payload = verifier.decode(token);
+        }
+        if (
+          payload?.role === 'team_member' ||
+          payload?.role === 'cdc_secretary'
+        ) {
+          isMobileCaller = true;
         }
       } catch {
-        // Ignore parsing errors; invalid tokens will be rejected by JwtAuthGuard
+        // Verification failed or invalid token; ignore
       }
     }
 
@@ -59,15 +68,19 @@ export class VersionGateGuard implements CanActivate {
       !isSyncEndpoint &&
       !clientVersion;
 
+    const isDocsEndpoint =
+      process.env.NODE_ENV !== 'production' &&
+      (path.startsWith('/api/docs') ||
+        path.startsWith('/docs') ||
+        path === '/swagger' ||
+        path.startsWith('/swagger/'));
+
     if (
       path === '/' ||
       path === '/health' ||
       path.startsWith('/v1/config') ||
       path.startsWith('/v1/releases') ||
-      path.startsWith('/api/docs') ||
-      path.startsWith('/docs') ||
-      path.startsWith('/swagger') ||
-      path.includes('swagger') ||
+      isDocsEndpoint ||
       isExemptWebClient
     ) {
       return true;

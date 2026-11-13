@@ -275,9 +275,7 @@ export class ExportJobService {
   async queueExport(dto: CreateExportDto) {
     const kind = this.assertValidKind(dto.kind);
     const expiresAt = new Date(Date.now() + EXPORT_TTL_MS);
-    const lang = normalizeReportLanguage(
-      dto.lang || dto.filters?.lang || 'en',
-    );
+    const lang = normalizeReportLanguage(dto.lang || dto.filters?.lang || 'en');
     const format: ExportFormat =
       dto.format || dto.filters?.format === 'csv' ? 'csv' : 'xlsx';
 
@@ -584,10 +582,7 @@ export class ExportJobService {
       data: { status: JobStatus.running, error: null },
     });
 
-    const tmpFilePath = path.join(
-      os.tmpdir(),
-      `grs-export-${jobId}.${format}`,
-    );
+    const tmpFilePath = path.join(os.tmpdir(), `grs-export-${jobId}.${format}`);
 
     try {
       const rowCount =
@@ -745,9 +740,14 @@ export class ExportJobService {
         width: EXPORT_COLUMNS_REGISTRY[key]?.width || 20,
       }));
       const lookupMap = await this.loadLookupMap();
-      rowCount = await this.streamClientRows(filters, lang, lookupMap, (row) => {
-        sheet.addRow(row).commit();
-      });
+      rowCount = await this.streamClientRows(
+        filters,
+        lang,
+        lookupMap,
+        (row) => {
+          sheet.addRow(row).commit();
+        },
+      );
     } else if (kind === 'progress' || kind === 'beneficiaries') {
       const specs = REPORT_COLUMN_HEADERS_I18N[kind];
       sheet.columns = specs.map((col) => ({
@@ -842,9 +842,7 @@ export class ExportJobService {
           lookupMap,
           async (rowObj) => {
             await writeChunk(
-              formatCsvRow(
-                R2_CLIENT_COLUMN_KEYS.map((key) => rowObj[key]),
-              ),
+              formatCsvRow(R2_CLIENT_COLUMN_KEYS.map((key) => rowObj[key])),
             );
           },
         );
@@ -887,9 +885,7 @@ export class ExportJobService {
           filters,
           lang,
           async (rowObj) => {
-            await writeChunk(
-              formatCsvRow(specs.map((col) => rowObj[col.key])),
-            );
+            await writeChunk(formatCsvRow(specs.map((col) => rowObj[col.key])));
           },
         );
       }
@@ -1089,7 +1085,12 @@ export class ExportJobService {
       whatsapp_e164: sanitizeSpreadsheetCell(client.whatsappE164 || ''),
       highest_education: sanitizeSpreadsheetCell(
         lookupMap
-          ? translateOrRaw(lookupMap, 'education', client.highestEducation, lang)
+          ? translateOrRaw(
+            lookupMap,
+            'education',
+            client.highestEducation,
+            lang,
+          )
           : client.highestEducation || '',
       ),
       highest_vocational: sanitizeSpreadsheetCell(
@@ -1230,10 +1231,15 @@ export class ExportJobService {
     });
   }
 
-  private mapDuplicateRow(item: any, lang: ReportLanguage): Record<string, any> {
+  private mapDuplicateRow(
+    item: any,
+    lang: ReportLanguage,
+  ): Record<string, any> {
     const factors = Array.isArray(item.reasons?.factors)
       ? item.reasons.factors
-        .map((f: any) => (typeof f === 'string' ? f : f?.key || f?.label || ''))
+        .map((f: any) =>
+          typeof f === 'string' ? f : f?.key || f?.label || '',
+        )
         .filter(Boolean)
         .join(', ')
       : '';
@@ -1329,10 +1335,9 @@ export class ExportJobService {
       targetType === 'gn' && this.prisma.gnDivision?.findUnique
         ? await this.prisma.gnDivision.findUnique({ where: { id: targetId } })
         : null;
-    const summaryAreaName =
-      gnRecord
-        ? `${gnRecord.gnNumber} - ${gnRecord.gnName}`
-        : await this.resolveAreaLabel(targetType, targetId, lang);
+    const summaryAreaName = gnRecord
+      ? `${gnRecord.gnNumber} - ${gnRecord.gnName}`
+      : await this.resolveAreaLabel(targetType, targetId, lang);
     const summaryRow: ProgressBreakdownRow = {
       scopeLevel: formatScopeLevelLabel(targetType, lang),
       areaId: targetId,
@@ -1549,7 +1554,10 @@ export class ExportJobService {
       includeDuplicates: false,
     });
 
-    const totalClients = await this.getScopedActiveClientTotal(filters, baseWhere);
+    const totalClients = await this.getScopedActiveClientTotal(
+      filters,
+      baseWhere,
+    );
     const rows: InterestRow[] = [];
 
     const appendGroupRows = (
@@ -1888,7 +1896,11 @@ export class ExportJobService {
     filters: ExportFilterParams,
     inlineCap: number,
   ): Promise<number> {
-    if (kind === 'progress' || kind === 'beneficiaries' || kind === 'interests') {
+    if (
+      kind === 'progress' ||
+      kind === 'beneficiaries' ||
+      kind === 'interests'
+    ) {
       return 100; // Always compact summaries
     }
 
@@ -1967,7 +1979,7 @@ export class ExportJobService {
     if (filters.dsId) where.dsId = filters.dsId;
     if (filters.gnId) where.gnId = filters.gnId;
     if (filters.teamId) where.teamId = filters.teamId;
-    if (filters.gender) where.gender = filters.gender as any;
+    if (filters.gender) where.gender = filters.gender;
 
     if (filters.dateFrom || filters.dateTo) {
       where.createdAt = {
@@ -1984,7 +1996,7 @@ export class ExportJobService {
   ): Prisma.DuplicateCandidateWhereInput {
     const where: Prisma.DuplicateCandidateWhereInput = {};
     if (filters.status) {
-      where.status = filters.status as any;
+      where.status = filters.status;
     }
     if (filters.classification === 'probable') {
       where.score = { gte: 90 };
@@ -2018,7 +2030,11 @@ export class ExportJobService {
     userId: string,
     explicitLang?: string,
   ): Promise<ReportLanguage> {
-    if (explicitLang === 'en' || explicitLang === 'si' || explicitLang === 'ta') {
+    if (
+      explicitLang === 'en' ||
+      explicitLang === 'si' ||
+      explicitLang === 'ta'
+    ) {
       return explicitLang;
     }
     if (this.prisma.profile?.findUnique) {
@@ -2057,12 +2073,18 @@ export class ExportJobService {
   ): Promise<string> {
     if (areaType === 'national') {
       return pickTrilingual(
-        { en: 'Sri Lanka (National)', si: 'ශ්‍රී ලංකාව (ජාතික)', ta: 'இலங்கை (தேசியம்)' },
+        {
+          en: 'Sri Lanka (National)',
+          si: 'ශ්‍රී ලංකාව (ජාතික)',
+          ta: 'இலங்கை (தேசியம்)',
+        },
         lang,
       );
     }
     if (areaType === 'district') {
-      const d = await this.prisma.district.findUnique({ where: { id: areaId } });
+      const d = await this.prisma.district.findUnique({
+        where: { id: areaId },
+      });
       return d ? pickLocalizedGeo(d, lang) : areaId;
     }
     if (areaType === 'ds') {

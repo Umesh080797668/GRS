@@ -300,7 +300,7 @@ describe('AppConfigService & VersionGateGuard & RateLimiter (M1.8)', () => {
         min_supported_version: undefined,
         latest_version: undefined,
         sync_jitter_max_s: undefined,
-      } as any);
+      });
       expect(res.features.webDataEntry).toBe(true);
     });
 

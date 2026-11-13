@@ -123,4 +123,3 @@ export class ReportPreviewQueryDto {
   @IsUUID()
   teamId?: string;
 }
-

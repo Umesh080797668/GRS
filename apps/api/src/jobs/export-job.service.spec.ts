@@ -153,10 +153,12 @@ describe('ExportJobService (M7.1 & Spike S7)', () => {
         uploadedBuffers.set(objectPath, buf);
         return { path: objectPath, byteLength: buf.byteLength };
       }),
-      createSignedUrl: jest.fn(async (objectPath: string, expiresIn = 86400) => ({
-        signedUrl: `https://storage.local/sign/grs-exports/${objectPath}?expiresIn=${expiresIn}`,
-        expiresInSeconds: expiresIn,
-      })),
+      createSignedUrl: jest.fn(
+        async (objectPath: string, expiresIn = 86400) => ({
+          signedUrl: `https://storage.local/sign/grs-exports/${objectPath}?expiresIn=${expiresIn}`,
+          expiresInSeconds: expiresIn,
+        }),
+      ),
       deleteObject: jest.fn(async () => undefined),
     };
 
@@ -179,7 +181,9 @@ describe('ExportJobService (M7.1 & Spike S7)', () => {
       gnDivision: {
         findMany: jest.fn(async () => [sampleGn]),
         findUnique: jest.fn(async ({ where }: any) =>
-          where.id === sampleGn.id ? { ...sampleGn, ds: { districtId: sampleDistrict.id } } : null,
+          where.id === sampleGn.id
+            ? { ...sampleGn, ds: { districtId: sampleDistrict.id } }
+            : null,
         ),
       },
       team: {
@@ -396,7 +400,9 @@ describe('ExportJobService (M7.1 & Spike S7)', () => {
 
     expect(created.runner).toBe('inline');
     expect(created.status).toBe(JobStatus.done);
-    expect(created.signedUrl).toContain('https://storage.local/sign/grs-exports/');
+    expect(created.signedUrl).toContain(
+      'https://storage.local/sign/grs-exports/',
+    );
     expect(created.rowCount).toBe(1);
     expect(storageMock.uploadFromFile).toHaveBeenCalledTimes(1);
 
@@ -422,7 +428,9 @@ describe('ExportJobService (M7.1 & Spike S7)', () => {
 
     // Sinhala/Tamil NFC preservation & translated labels
     expect(dataRow.getCell(1).value).toBe('කොළඹ');
-    expect(dataRow.getCell(27).value).toBe('සඳුනි தமிழ் ஸ்ரீ ක්‍ෂ'.normalize('NFC'));
+    expect(dataRow.getCell(27).value).toBe(
+      'සඳුනි தமிழ் ஸ்ரீ ක්‍ෂ'.normalize('NFC'),
+    );
     expect(dataRow.getCell(29).value).toBe('ස්ත්‍රී'); // Gender in Sinhala
     expect(dataRow.getCell(47).value).toBe('ඔව්'); // consent_given in Sinhala
   });
@@ -463,7 +471,9 @@ describe('ExportJobService (M7.1 & Spike S7)', () => {
     expect(r3.status).toBe(JobStatus.done);
     const r3Wb = new ExcelJS.Workbook();
     await r3Wb.xlsx.load(storageMock.uploadedBuffers.get(r3.filePath!) as any);
-    expect(r3Wb.worksheets[0].getRow(1).getCell(6).value).toBe('EPF Beneficiaries');
+    expect(r3Wb.worksheets[0].getRow(1).getCell(6).value).toBe(
+      'EPF Beneficiaries',
+    );
     expect(r3Wb.worksheets[0].getRow(2).getCell(6).value).toBe(25);
 
     const r4 = await service.createExportForCaller(superAdminCaller, {
@@ -559,7 +569,9 @@ describe('ExportJobService (M7.1 & Spike S7)', () => {
       queued.id,
     );
     expect(fetched.status).toBe(JobStatus.done);
-    expect(fetched.signedUrl).toContain('https://storage.local/sign/grs-exports/');
+    expect(fetched.signedUrl).toContain(
+      'https://storage.local/sign/grs-exports/',
+    );
 
     // Ensure ZERO OFFSET (`skip`) was ever passed in any Prisma client query
     for (const call of prismaMock.client.findMany.mock.calls) {

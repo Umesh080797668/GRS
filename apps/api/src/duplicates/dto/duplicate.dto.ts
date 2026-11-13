@@ -1,4 +1,12 @@
-import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
 export enum DuplicateFilterStatus {
@@ -76,4 +84,3 @@ export class DismissDuplicateDto {
   @IsString()
   reason?: string;
 }
-

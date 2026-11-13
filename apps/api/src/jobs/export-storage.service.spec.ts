@@ -79,7 +79,9 @@ describe('ExportStorageService (M7.1)', () => {
 
       // Verify bucket creation requested public: false
       const createCall = fetchMock.mock.calls[1];
-      expect(createCall[0]).toBe('https://example.supabase.co/storage/v1/bucket');
+      expect(createCall[0]).toBe(
+        'https://example.supabase.co/storage/v1/bucket',
+      );
       expect(JSON.parse(String(createCall[1]?.body))).toEqual({
         id: 'grs-exports',
         name: 'grs-exports',
@@ -122,4 +124,3 @@ describe('ExportStorageService (M7.1)', () => {
     });
   });
 });
-

@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   ForbiddenException,
+  ConflictException
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -19,6 +20,7 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
   let credentialService: CredentialService;
   let jwtService: JwtService;
   let emailService: EmailService;
+  let rateLimitService: RateLimitService;
 
   const mockProfile = {
     id: 'user-uuid-1',
@@ -112,6 +114,7 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
     credentialService = module.get<CredentialService>(CredentialService);
     jwtService = module.get<JwtService>(JwtService);
     emailService = module.get<EmailService>(EmailService);
+    rateLimitService = module.get<RateLimitService>(RateLimitService);
   });
 
   describe('Identifier Normalization', () => {
@@ -487,10 +490,7 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
       });
 
       await expect(
-        service.refreshTokens(
-          { refreshToken: 'validRefreshToken' },
-          'mobile',
-        ),
+        service.refreshTokens({ refreshToken: 'validRefreshToken' }, 'mobile'),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -542,6 +542,86 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
       ).rejects.toMatchObject({
         response: {
           code: 'INVALID_CODE',
+        },
+      });
+    });
+
+    it('uses clientIp in rateLimitKey for forgotPassword and resetPassword', async () => {
+      const rlSpy = jest.spyOn(rateLimitService, 'checkRateLimit');
+      prisma.profile.findFirst.mockResolvedValue(null);
+
+      await service.forgotPassword('test@example.com', '192.168.1.100');
+      expect(rlSpy).toHaveBeenCalledWith(
+        'auth_forgot_192.168.1.100_test@example.com',
+        5,
+        300,
+      );
+
+      await expect(
+        service.resetPassword(
+          'test@example.com',
+          '123456',
+          'NewPassword123!',
+          '192.168.1.100',
+        ),
+      ).rejects.toThrow();
+      expect(rlSpy).toHaveBeenCalledWith(
+        'auth_reset_192.168.1.100_test@example.com',
+        10,
+        300,
+      );
+    });
+  });
+
+  describe('Session Termination (logout)', () => {
+    it('revokes only device tokens when deviceId is provided', async () => {
+      await service.logout(mockProfile.id, 'device-123', 'mobile');
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: {
+          profileId: mockProfile.id,
+          deviceId: 'device-123',
+          revokedAt: null,
+        },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(prisma.profile.update).not.toHaveBeenCalled();
+    });
+
+    it('revokes all active tokens and bumps tokenVersion when deviceId is omitted', async () => {
+      await service.logout(mockProfile.id, undefined, 'web');
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: {
+          profileId: mockProfile.id,
+          revokedAt: null,
+        },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(prisma.profile.update).toHaveBeenCalledWith({
+        where: { id: mockProfile.id },
+        data: { tokenVersion: { increment: 1 } },
+      });
+    });
+  });
+
+  describe('Pending Email Conflict Detection (addPendingEmail)', () => {
+    it('throws ConflictException if email matches an existing account email or pendingEmail', async () => {
+      prisma.profile.findFirst.mockResolvedValue({
+        id: 'other-user',
+        email: 'other@grs.gov.lk',
+        pendingEmail: 'conflict@grs.gov.lk',
+      });
+
+      await expect(
+        service.addPendingEmail(mockProfile.id, 'conflict@grs.gov.lk'),
+      ).rejects.toThrow(ConflictException);
+
+      expect(prisma.profile.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: { not: mockProfile.id },
+          OR: [
+            { email: { equals: 'conflict@grs.gov.lk' } },
+            { pendingEmail: { equals: 'conflict@grs.gov.lk' } },
+          ],
         },
       });
     });

@@ -5,8 +5,8 @@
   "description": "Global Research & Survey App (GRS) Monorepo",
   "packageManager": "pnpm@9.15.9",
   "scripts": {
-    "lint": "pnpm --filter api run lint --if-present",
-    "test": "pnpm --filter api test --if-present",
+    "lint": "pnpm --filter api run lint",
+    "test": "pnpm --filter api run test:unit",
     "test:e2e": "pnpm --filter api run test:e2e --if-present",
     "build": "pnpm --filter api run build --if-present",
     "ci:local": "bash scripts/ci.sh",

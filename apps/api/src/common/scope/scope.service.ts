@@ -200,7 +200,11 @@ export class ScopeService {
    */
   canEditSyncedClient(
     scope: ScopeContext,
-    client: { teamId?: string | null; dsId?: string | null; collectedBy: string },
+    client: {
+      teamId?: string | null;
+      dsId?: string | null;
+      collectedBy: string;
+    },
   ): boolean {
     if (scope.role === UserRole.super_admin) return true;
     if (

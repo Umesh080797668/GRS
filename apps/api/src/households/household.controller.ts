@@ -27,7 +27,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 @Controller('v1/houses')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class HouseholdController {
-  constructor(private readonly householdService: HouseholdService) {}
+  constructor(private readonly householdService: HouseholdService) { }
 
   @Get()
   @Roles(
@@ -93,7 +93,12 @@ export class HouseholdController {
   }
 
   @Post(':id/finish')
-  @Roles(UserRole.team_member, UserRole.cdc_secretary, UserRole.sda, UserRole.super_admin)
+  @Roles(
+    UserRole.team_member,
+    UserRole.cdc_secretary,
+    UserRole.sda,
+    UserRole.super_admin,
+  )
   async finishHousehold(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) id: string,

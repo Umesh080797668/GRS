@@ -49,9 +49,11 @@ describe('Account Creation & Bulk Generation for Level 4 CDC Admin & Team Member
         ),
         findFirst: jest.fn().mockResolvedValue(null),
         findUnique: jest.fn().mockResolvedValue(null),
-        update: jest.fn().mockImplementation(({ where, data }) =>
-          Promise.resolve({ id: where.id, ...data }),
-        ),
+        update: jest
+          .fn()
+          .mockImplementation(({ where, data }) =>
+            Promise.resolve({ id: where.id, ...data }),
+          ),
         delete: jest.fn().mockResolvedValue({}),
       },
       accountBatch: {
@@ -288,10 +290,12 @@ describe('Account Creation & Bulk Generation for Level 4 CDC Admin & Team Member
       const result = await service.createBulkAccounts(superAdminScope, {
         role: UserRole.team_member,
         count: 1,
-        members: [{
-          phoneE164: '0771234567',
-          fullName: ''
-        }],
+        members: [
+          {
+            phoneE164: '0771234567',
+            fullName: '',
+          },
+        ],
       });
 
       expect(result.users).toHaveLength(1);
@@ -309,10 +313,12 @@ describe('Account Creation & Bulk Generation for Level 4 CDC Admin & Team Member
         service.createBulkAccounts(superAdminScope, {
           role: UserRole.team_member,
           count: 1,
-          members: [{
-            phoneE164: 'not-a-valid-phone',
-            fullName: ''
-          }],
+          members: [
+            {
+              phoneE164: 'not-a-valid-phone',
+              fullName: '',
+            },
+          ],
         }),
       ).rejects.toThrow(BadRequestException);
     });
@@ -392,11 +398,15 @@ describe('Account Creation & Bulk Generation for Level 4 CDC Admin & Team Member
         isActive: true,
       });
 
-      const res = await service.updateAccount(superAdminScope, 'target-user-2', {
-        fullName: 'New Member Name',
-        phoneE164: '0779876543',
-        preferredLanguage: 'en',
-      });
+      const res = await service.updateAccount(
+        superAdminScope,
+        'target-user-2',
+        {
+          fullName: 'New Member Name',
+          phoneE164: '0779876543',
+          preferredLanguage: 'en',
+        },
+      );
       expect(res.fullName).toBe('New Member Name');
       expect(res.phoneE164).toBe('+94779876543');
       expect(res.preferredLanguage).toBe('en');

@@ -12,4 +12,3 @@ export class SwitchAreaDto {
   @IsString()
   deviceId?: string;
 }
-

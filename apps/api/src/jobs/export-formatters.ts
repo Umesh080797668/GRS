@@ -2,11 +2,7 @@ import { LookupItem } from '../lookups/lookup.data';
 
 export type ReportLanguage = 'en' | 'si' | 'ta';
 export type ExportKind =
-  | 'progress'
-  | 'clients'
-  | 'beneficiaries'
-  | 'interests'
-  | 'duplicates';
+  'progress' | 'clients' | 'beneficiaries' | 'interests' | 'duplicates';
 export type ExportFormat = 'xlsx' | 'csv';
 
 export interface TrilingualText {
@@ -160,7 +156,11 @@ export function formatDuplicateTierLabel(
 ): string {
   if (score >= 90) {
     return pickTrilingual(
-      { en: 'Probable Duplicate', si: 'බොහෝ විට අනුපිටපත්', ta: 'அதிக சாத்தியமான நகல்' },
+      {
+        en: 'Probable Duplicate',
+        si: 'බොහෝ විට අනුපිටපත්',
+        ta: 'அதிக சாத்தியமான நகல்',
+      },
       lang,
     );
   }
@@ -594,27 +594,47 @@ export const REPORT_COLUMN_HEADERS_I18N: Record<
     },
     {
       key: 'houses_assigned',
-      labels: { en: 'Houses Assigned', si: 'පවරන ලද නිවාස', ta: 'ஒதுக்கப்பட்ட வீடுகள்' },
+      labels: {
+        en: 'Houses Assigned',
+        si: 'පවරන ලද නිවාස',
+        ta: 'ஒதுக்கப்பட்ட வீடுகள்',
+      },
       width: 16,
     },
     {
       key: 'houses_started',
-      labels: { en: 'Houses Started', si: 'ආරම්භ කළ නිවාස', ta: 'தொடங்கிய வீடுகள்' },
+      labels: {
+        en: 'Houses Started',
+        si: 'ආරම්භ කළ නිවාස',
+        ta: 'தொடங்கிய வீடுகள்',
+      },
       width: 16,
     },
     {
       key: 'houses_done',
-      labels: { en: 'Houses Done', si: 'අවසන් කළ නිවාස', ta: 'முடிந்த வீடுகள்' },
+      labels: {
+        en: 'Houses Done',
+        si: 'අවසන් කළ නිවාස',
+        ta: 'முடிந்த வீடுகள்',
+      },
       width: 16,
     },
     {
       key: 'completion_rate',
-      labels: { en: 'Completion Rate (%)', si: 'සම්පූර්ණ ප්‍රතිශතය (%)', ta: 'முடிவு விகிதம் (%)' },
+      labels: {
+        en: 'Completion Rate (%)',
+        si: 'සම්පූර්ණ ප්‍රතිශතය (%)',
+        ta: 'முடிவு விகிதம் (%)',
+      },
       width: 18,
     },
     {
       key: 'clients_count',
-      labels: { en: 'Clients Collected', si: 'රැස් කළ සාමාජිකයන්', ta: 'சேகரிக்கப்பட்ட பயனாளிகள்' },
+      labels: {
+        en: 'Clients Collected',
+        si: 'රැස් කළ සාමාජිකයන්',
+        ta: 'சேகரிக்கப்பட்ட பயனாளிகள்',
+      },
       width: 18,
     },
     {
@@ -629,22 +649,38 @@ export const REPORT_COLUMN_HEADERS_I18N: Record<
     },
     {
       key: 'aswesuma_count',
-      labels: { en: 'Aswesuma Count', si: 'අස්වැසුම ගණන', ta: 'அஸ்வெசும எண்ணிக்கை' },
+      labels: {
+        en: 'Aswesuma Count',
+        si: 'අස්වැසුම ගණන',
+        ta: 'அஸ்வெசும எண்ணிக்கை',
+      },
       width: 16,
     },
     {
       key: 'samurdhi_count',
-      labels: { en: 'Samurdhi Count', si: 'සමෘද්ධි ගණන', ta: 'சமுர்த்தி எண்ணிக்கை' },
+      labels: {
+        en: 'Samurdhi Count',
+        si: 'සමෘද්ධි ගණන',
+        ta: 'சமுர்த்தி எண்ணிக்கை',
+      },
       width: 16,
     },
     {
       key: 'special_needs_count',
-      labels: { en: 'Special Needs Count', si: 'විශේෂ අවශ්‍යතා ගණන', ta: 'சிறப்பு தேவைகள் எண்ணிக்கை' },
+      labels: {
+        en: 'Special Needs Count',
+        si: 'විශේෂ අවශ්‍යතා ගණන',
+        ta: 'சிறப்பு தேவைகள் எண்ணிக்கை',
+      },
       width: 18,
     },
     {
       key: 'refreshed_at',
-      labels: { en: 'Refreshed At (IST)', si: 'යාවත්කාලීන කළ වේලාව', ta: 'புதுப்பிக்கப்பட்ட நேரம்' },
+      labels: {
+        en: 'Refreshed At (IST)',
+        si: 'යාවත්කාලීන කළ වේලාව',
+        ta: 'புதுப்பிக்கப்பட்ட நேரம்',
+      },
       width: 22,
     },
   ],
@@ -666,42 +702,74 @@ export const REPORT_COLUMN_HEADERS_I18N: Record<
     },
     {
       key: 'houses_assigned',
-      labels: { en: 'Houses Assigned', si: 'පවරන ලද නිවාස', ta: 'ஒதுக்கப்பட்ட வீடுகள்' },
+      labels: {
+        en: 'Houses Assigned',
+        si: 'පවරන ලද නිවාස',
+        ta: 'ஒதுக்கப்பட்ட வீடுகள்',
+      },
       width: 16,
     },
     {
       key: 'clients_count',
-      labels: { en: 'Clients Collected', si: 'මුළු සාමාජිකයන්', ta: 'மொத்த பயனாளிகள்' },
+      labels: {
+        en: 'Clients Collected',
+        si: 'මුළු සාමාජිකයන්',
+        ta: 'மொத்த பயனாளிகள்',
+      },
       width: 18,
     },
     {
       key: 'epf_count',
-      labels: { en: 'EPF Beneficiaries', si: 'EPF ප්‍රතිලාභීන්', ta: 'EPF பயனாளிகள்' },
+      labels: {
+        en: 'EPF Beneficiaries',
+        si: 'EPF ප්‍රතිලාභීන්',
+        ta: 'EPF பயனாளிகள்',
+      },
       width: 18,
     },
     {
       key: 'etf_count',
-      labels: { en: 'ETF Beneficiaries', si: 'ETF ප්‍රතිලාභීන්', ta: 'ETF பயனாளிகள்' },
+      labels: {
+        en: 'ETF Beneficiaries',
+        si: 'ETF ප්‍රතිලාභීන්',
+        ta: 'ETF பயனாளிகள்',
+      },
       width: 18,
     },
     {
       key: 'aswesuma_count',
-      labels: { en: 'Aswesuma Beneficiaries', si: 'අස්වැසුම ප්‍රතිලාභීන්', ta: 'அஸ்வெசும பயனாளிகள்' },
+      labels: {
+        en: 'Aswesuma Beneficiaries',
+        si: 'අස්වැසුම ප්‍රතිලාභීන්',
+        ta: 'அஸ்வெசும பயனாளிகள்',
+      },
       width: 20,
     },
     {
       key: 'samurdhi_count',
-      labels: { en: 'Samurdhi Beneficiaries', si: 'සමෘද්ධි ප්‍රතිලාභීන්', ta: 'சமுர்த்தி பயனாளிகள்' },
+      labels: {
+        en: 'Samurdhi Beneficiaries',
+        si: 'සමෘද්ධි ප්‍රතිලාභීන්',
+        ta: 'சமுர்த்தி பயனாளிகள்',
+      },
       width: 20,
     },
     {
       key: 'special_needs_count',
-      labels: { en: 'Special Needs', si: 'විශේෂ අවශ්‍යතා', ta: 'சிறப்பு தேவைகள்' },
+      labels: {
+        en: 'Special Needs',
+        si: 'විශේෂ අවශ්‍යතා',
+        ta: 'சிறப்பு தேவைகள்',
+      },
       width: 18,
     },
     {
       key: 'refreshed_at',
-      labels: { en: 'Refreshed At (IST)', si: 'යාවත්කාලීන කළ වේලාව', ta: 'புதுப்பிக்கப்பட்ட நேரம்' },
+      labels: {
+        en: 'Refreshed At (IST)',
+        si: 'යාවත්කාලීන කළ වේලාව',
+        ta: 'புதுப்பிக்கப்பட்ட நேரம்',
+      },
       width: 22,
     },
   ],
@@ -723,7 +791,11 @@ export const REPORT_COLUMN_HEADERS_I18N: Record<
     },
     {
       key: 'clients_count',
-      labels: { en: 'Clients Count', si: 'සාමාජික ගණන', ta: 'பயனாளிகள் எண்ணிக்கை' },
+      labels: {
+        en: 'Clients Count',
+        si: 'සාමාජික ගණන',
+        ta: 'பயனாளிகள் எண்ணிக்கை',
+      },
       width: 18,
     },
     {
@@ -740,7 +812,11 @@ export const REPORT_COLUMN_HEADERS_I18N: Record<
     },
     {
       key: 'score',
-      labels: { en: 'Match Score', si: 'ගැලපුම් ලකුණු', ta: 'பொருத்த மதிப்பெண்' },
+      labels: {
+        en: 'Match Score',
+        si: 'ගැලපුම් ලකුණු',
+        ta: 'பொருத்த மதிப்பெண்',
+      },
       width: 14,
     },
     {
@@ -755,7 +831,11 @@ export const REPORT_COLUMN_HEADERS_I18N: Record<
     },
     {
       key: 'reasons',
-      labels: { en: 'Match Signals', si: 'ගැලපුම් සංඥා', ta: 'பொருத்த சமிக்ஞைகள்' },
+      labels: {
+        en: 'Match Signals',
+        si: 'ගැලපුම් සංඥා',
+        ta: 'பொருத்த சமிக்ஞைகள்',
+      },
       width: 32,
     },
     {
@@ -775,22 +855,38 @@ export const REPORT_COLUMN_HEADERS_I18N: Record<
     },
     {
       key: 'client_a_gender',
-      labels: { en: 'Client A Gender', si: 'සාමාජික A ස්ත්‍රී/පුරුෂ', ta: 'பயனாளி A பாலினம்' },
+      labels: {
+        en: 'Client A Gender',
+        si: 'සාමාජික A ස්ත්‍රී/පුරුෂ',
+        ta: 'பயனாளி A பாலினம்',
+      },
       width: 16,
     },
     {
       key: 'client_a_phone',
-      labels: { en: 'Client A Phone', si: 'සාමාජික A දුරකථන', ta: 'பயனாளி A தொலைபேசி' },
+      labels: {
+        en: 'Client A Phone',
+        si: 'සාමාජික A දුරකථන',
+        ta: 'பயனாளி A தொலைபேசி',
+      },
       width: 20,
     },
     {
       key: 'client_a_gn',
-      labels: { en: 'Client A GN Division', si: 'සාමාජික A වසම', ta: 'பயனாளி A பிரிவு' },
+      labels: {
+        en: 'Client A GN Division',
+        si: 'සාමාජික A වසම',
+        ta: 'பயனாளி A பிரிவு',
+      },
       width: 24,
     },
     {
       key: 'client_a_house_no',
-      labels: { en: 'Client A House No', si: 'සාමාජික A නිවාස අංකය', ta: 'பயனாளி A வீட்டு எண்' },
+      labels: {
+        en: 'Client A House No',
+        si: 'සාමාජික A නිවාස අංකය',
+        ta: 'பயனாளி A வீட்டு எண்',
+      },
       width: 16,
     },
     {
@@ -810,37 +906,65 @@ export const REPORT_COLUMN_HEADERS_I18N: Record<
     },
     {
       key: 'client_b_gender',
-      labels: { en: 'Client B Gender', si: 'සාමාජික B ස්ත්‍රී/පුරුෂ', ta: 'பயனாளி B பாலினம்' },
+      labels: {
+        en: 'Client B Gender',
+        si: 'සාමාජික B ස්ත්‍රී/පුරුෂ',
+        ta: 'பயனாளி B பாலினம்',
+      },
       width: 16,
     },
     {
       key: 'client_b_phone',
-      labels: { en: 'Client B Phone', si: 'සාමාජික B දුරකථන', ta: 'பயனாளி B தொலைபேசி' },
+      labels: {
+        en: 'Client B Phone',
+        si: 'සාමාජික B දුරකථන',
+        ta: 'பயனாளி B தொலைபேசி',
+      },
       width: 20,
     },
     {
       key: 'client_b_gn',
-      labels: { en: 'Client B GN Division', si: 'සාමාජික B වසම', ta: 'பயனாளி B பிரிவு' },
+      labels: {
+        en: 'Client B GN Division',
+        si: 'සාමාජික B වසම',
+        ta: 'பயனாளி B பிரிவு',
+      },
       width: 24,
     },
     {
       key: 'client_b_house_no',
-      labels: { en: 'Client B House No', si: 'සාමාජික B නිවාස අංකය', ta: 'பயனாளி B வீட்டு எண்' },
+      labels: {
+        en: 'Client B House No',
+        si: 'සාමාජික B නිවාස අංකය',
+        ta: 'பயனாளி B வீட்டு எண்',
+      },
       width: 16,
     },
     {
       key: 'reviewed_by',
-      labels: { en: 'Reviewed By', si: 'සමාලෝචනය කළ අය', ta: 'மதிப்பாய்வு செய்தவர்' },
+      labels: {
+        en: 'Reviewed By',
+        si: 'සමාලෝචනය කළ අය',
+        ta: 'மதிப்பாய்வு செய்தவர்',
+      },
       width: 18,
     },
     {
       key: 'reviewed_at',
-      labels: { en: 'Reviewed At (IST)', si: 'සමාලෝචනය කළ වේලාව', ta: 'மதிப்பாய்வு நேரம்' },
+      labels: {
+        en: 'Reviewed At (IST)',
+        si: 'සමාලෝචනය කළ වේලාව',
+        ta: 'மதிப்பாய்வு நேரம்',
+      },
       width: 22,
     },
     {
       key: 'created_at',
-      labels: { en: 'Flagged At (IST)', si: 'සටහන් කළ වේලාව', ta: 'பதிவு செய்யப்பட்ட நேரம்' },
+      labels: {
+        en: 'Flagged At (IST)',
+        si: 'සටහන් කළ වේලාව',
+        ta: 'பதிவு செய்யப்பட்ட நேரம்',
+      },
       width: 22,
     },
   ],

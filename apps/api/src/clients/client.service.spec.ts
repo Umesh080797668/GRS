@@ -622,9 +622,13 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
         }),
       ).rejects.toThrow(ForbiddenException);
 
-      const res = await service.deleteClient(cdcSecretaryScope, 'client-del-1', {
-        reason: 'Duplicate manual cleanup',
-      });
+      const res = await service.deleteClient(
+        cdcSecretaryScope,
+        'client-del-1',
+        {
+          reason: 'Duplicate manual cleanup',
+        },
+      );
       expect(res).toEqual({ success: true, id: 'client-del-1' });
       const deletedRow = mockClients.find((c) => c.id === 'client-del-1');
       expect(deletedRow.deletedAt).toBeInstanceOf(Date);
@@ -675,7 +679,10 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       );
 
       // getClientById: same DS allowed, cross-DS & missing dsId blocked
-      const fetched = await service.getClientById(sdaScope, 'client-sda-own-ds');
+      const fetched = await service.getClientById(
+        sdaScope,
+        'client-sda-own-ds',
+      );
       expect(fetched.id).toBe('client-sda-own-ds');
 
       await expect(

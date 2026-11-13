@@ -224,7 +224,10 @@ export class ExportStorageService {
     expiresInSeconds = 86400,
   ): Promise<SignedUrlResult> {
     this.ensureConfigured();
-    const clampedSeconds = Math.max(60, Math.min(86400, Math.floor(expiresInSeconds)));
+    const clampedSeconds = Math.max(
+      60,
+      Math.min(86400, Math.floor(expiresInSeconds)),
+    );
     const encodedPath = this.encodeObjectPath(objectPath);
     const signUrl = `${this.supabaseUrl}/storage/v1/object/sign/${encodeURIComponent(this.bucketName)}/${encodedPath}`;
 
@@ -277,4 +280,3 @@ export class ExportStorageService {
     }).catch(() => undefined);
   }
 }
-

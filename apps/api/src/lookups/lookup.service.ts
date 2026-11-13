@@ -89,10 +89,12 @@ export class LookupService implements OnModuleInit {
       if (dbItems.length > 0) {
         items = dbItems;
       } else {
-        items = CANONICAL_LOOKUPS.filter((l) => l.isActive ?? true).map((l) => ({
-          category: l.category,
-          code: l.code,
-        }));
+        items = CANONICAL_LOOKUPS.filter((l) => l.isActive ?? true).map(
+          (l) => ({
+            category: l.category,
+            code: l.code,
+          }),
+        );
       }
     } catch {
       items = CANONICAL_LOOKUPS.filter((l) => l.isActive ?? true).map((l) => ({

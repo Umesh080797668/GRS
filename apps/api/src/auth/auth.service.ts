@@ -530,7 +530,9 @@ export class AuthService {
     const deviceId = dto.deviceId || tokenRecord.deviceId;
 
     // Preserve active area assignment on refresh (Decision C20 / Multi-GN architecture)
-    let activeAreaOverride: { gnId?: string; teamId?: string; dsId?: string; districtId?: string } | undefined = undefined;
+    let activeAreaOverride:
+      | { gnId?: string; teamId?: string; dsId?: string; districtId?: string }
+      | undefined = undefined;
     const activeGnId = (tokenRecord as any).activeGnId;
     const activeTeamId = (tokenRecord as any).activeTeamId;
     if (activeGnId) {
@@ -548,13 +550,7 @@ export class AuthService {
       }
     }
 
-    const session = await this.generateAuthSession(
-      profile,
-      deviceId ?? undefined,
-      activeAreaOverride,
-    );
-
-    // Atomically revoke current token to prevent rotation races
+    // Atomically revoke current token first to prevent rotation races and orphan sessions
     const revokeResult = await this.prisma.refreshToken.updateMany({
       where: { id: tokenRecord.id, revokedAt: null },
       data: {
@@ -568,6 +564,12 @@ export class AuthService {
         message_key: 'errors.auth.refresh_token_revoked',
       });
     }
+
+    const session = await this.generateAuthSession(
+      profile,
+      deviceId ?? undefined,
+      activeAreaOverride,
+    );
 
     await this.runActivitySafe('touchActivityOnRefresh', () =>
       this.sessionActivityService?.touchActivity({
@@ -658,7 +660,8 @@ export class AuthService {
 
     const activeArea = {
       gnId: assignment.gnId,
-      teamId: assignment.teamId || assignment.team?.id || profile.teamId || undefined,
+      teamId:
+        assignment.teamId || assignment.team?.id || profile.teamId || undefined,
       dsId: assignment.gn.dsId,
       districtId: assignment.gn.ds.districtId,
     };
@@ -719,8 +722,9 @@ export class AuthService {
   }
 
   /**
-   * Terminates active session. If deviceId is omitted, only terminates unassigned sessions
-   * rather than revoking all active devices.
+   * Terminates active session. If deviceId is provided, terminates sessions for that device.
+   * If deviceId is omitted, revokes all active refresh tokens for the profile and bumps tokenVersion
+   * to immediately invalidate all existing access tokens.
    */
   async logout(profileId: string, deviceId?: string, clientType?: string) {
     if (deviceId) {
@@ -736,10 +740,14 @@ export class AuthService {
       await this.prisma.refreshToken.updateMany({
         where: {
           profileId,
-          deviceId: null,
           revokedAt: null,
         },
         data: { revokedAt: new Date() },
+      });
+      // Invalidate active access tokens immediately by incrementing tokenVersion
+      await this.prisma.profile.update({
+        where: { id: profileId },
+        data: { tokenVersion: { increment: 1 } },
       });
     }
     await this.runActivitySafe('endSessionsOnLogout', () =>
@@ -884,7 +892,13 @@ export class AuthService {
     const cleanUserId = userId.trim();
     const cleanEmail = email.trim().toLowerCase();
     const existing = await this.prisma.profile.findFirst({
-      where: { email: { equals: cleanEmail }, id: { not: cleanUserId } },
+      where: {
+        id: { not: cleanUserId },
+        OR: [
+          { email: { equals: cleanEmail } },
+          { pendingEmail: { equals: cleanEmail } },
+        ],
+      },
     });
     if (existing) {
       throw new ConflictException({

@@ -881,11 +881,10 @@ export class AccountService {
         }
 
         const data: Prisma.ProfileUpdateInput = {
-          fullName: dto.fullName !== undefined ? dto.fullName.trim() : undefined,
+          fullName:
+            dto.fullName !== undefined ? dto.fullName.trim() : undefined,
           phoneE164:
-            normalizedPhoneE164 !== undefined
-              ? normalizedPhoneE164
-              : undefined,
+            normalizedPhoneE164 !== undefined ? normalizedPhoneE164 : undefined,
           teamId: dto.teamId !== undefined ? dto.teamId : undefined,
           isActive: dto.isActive ?? undefined,
           preferredLanguage: dto.preferredLanguage ?? undefined,
@@ -960,11 +959,7 @@ export class AccountService {
       });
     }
 
-    await this.assertCanManageTargetProfile(
-      adminScope,
-      targetUserId,
-      'delete',
-    );
+    await this.assertCanManageTargetProfile(adminScope, targetUserId, 'delete');
 
     const [
       clientsCount,
@@ -975,10 +970,14 @@ export class AccountService {
       otherActorAuditsCount,
     ] = await Promise.all([
       this.prisma.client.count({
-        where: { OR: [{ collectedBy: targetUserId }, { createdBy: targetUserId }] },
+        where: {
+          OR: [{ collectedBy: targetUserId }, { createdBy: targetUserId }],
+        },
       }),
       this.prisma.household.count({
-        where: { OR: [{ createdBy: targetUserId }, { finishedBy: targetUserId }] },
+        where: {
+          OR: [{ createdBy: targetUserId }, { finishedBy: targetUserId }],
+        },
       }),
       this.prisma.accountBatch.count({ where: { createdBy: targetUserId } }),
       this.prisma.exportJob.count({ where: { requestedBy: targetUserId } }),
@@ -1020,9 +1019,13 @@ export class AccountService {
           data: { endedBy: null },
         });
         await tx.accountAudit.deleteMany({
-          where: { OR: [{ targetId: targetUserId }, { actorId: targetUserId }] },
+          where: {
+            OR: [{ targetId: targetUserId }, { actorId: targetUserId }],
+          },
         });
-        await tx.refreshToken.deleteMany({ where: { profileId: targetUserId } });
+        await tx.refreshToken.deleteMany({
+          where: { profileId: targetUserId },
+        });
         await tx.userSession.deleteMany({ where: { profileId: targetUserId } });
         await tx.emailCode.deleteMany({ where: { profileId: targetUserId } });
         await tx.profileAssignment.deleteMany({
@@ -1278,7 +1281,8 @@ export class AccountService {
       if (!creator.teamId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_TEAM',
-          message: 'CDC Secretary must have an assigned team to create accounts',
+          message:
+            'CDC Secretary must have an assigned team to create accounts',
         });
       }
     } else if (creator.role === UserRole.sda) {
@@ -1433,13 +1437,12 @@ export class AccountService {
           }
         }
 
-        const activeGnAssignment =
-          this.prisma.profileAssignment
-            ? await this.prisma.profileAssignment.findFirst({
-              where: { gnId: team.gnId, validTo: null },
-              include: { profile: true },
-            })
-            : null;
+        const activeGnAssignment = this.prisma.profileAssignment
+          ? await this.prisma.profileAssignment.findFirst({
+            where: { gnId: team.gnId, validTo: null },
+            include: { profile: true },
+          })
+          : null;
         if (activeGnAssignment && activeGnAssignment.profile?.isActive) {
           throw new ConflictException({
             code: 'GN_ALREADY_HAS_LEADER',
