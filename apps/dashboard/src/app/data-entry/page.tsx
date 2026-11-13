@@ -64,6 +64,14 @@ export default function DataEntryPage() {
   const [loadingHouses, setLoadingHouses] = useState(false);
   const [hasMoreHouses, setHasMoreHouses] = useState(false);
 
+  const canCreateHousehold = user?.role !== 'admin';
+
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      setHouseholdMode('existing');
+    }
+  }, [user?.role]);
+
   const [houseNo, setHouseNo] = useState('');
   const [headName, setHeadName] = useState('');
   const [address, setAddress] = useState('');
@@ -77,7 +85,7 @@ export default function DataEntryPage() {
   // Client fields (DD/S/002)
   const [clientName, setClientName] = useState('');
   const [clientAge, setClientAge] = useState<number>(25);
-  const [clientGender, setClientGender] = useState<'male' | 'female' | 'other'>('male');
+  const [clientGender, setClientGender] = useState<'M' | 'F'>('M');
   const [clientPhone, setClientPhone] = useState('');
   const [clientWhatsapp, setClientWhatsapp] = useState('');
   const [highestEducation, setHighestEducation] = useState('EDU_OL_PASSED');
@@ -151,7 +159,7 @@ export default function DataEntryPage() {
     try {
       const cfg = await api.getConfig();
       setAppConfig(cfg);
-      const allowedRoles: string[] = cfg?.webEntryRoles || cfg?.web_entry_roles || ['cdc_secretary', 'sda', 'dc', 'admin'];
+      const allowedRoles: string[] = cfg?.webEntryRoles || cfg?.web_entry_roles || ['cdc_secretary', 'sda', 'admin'];
       const userAllowed = user?.role ? allowedRoles.includes(user.role) : false;
       setWebEntryEnabled(userAllowed);
       if (cfg?.consentVersion || cfg?.consent_version) {
@@ -173,6 +181,7 @@ export default function DataEntryPage() {
     try {
       const res = await api.getHouseholds({
         gnId,
+        teamId: user?.role === 'cdc_secretary' ? user.teamId : undefined,
         search: search.trim() || undefined,
         limit: 30,
         cursor: reset ? undefined : (houseCursor || undefined),
@@ -279,7 +288,7 @@ export default function DataEntryPage() {
     setTogglingConfig(true);
     try {
       const newStatus = !webEntryEnabled;
-      const currentRoles: string[] = appConfig?.webEntryRoles || appConfig?.web_entry_roles || ['cdc_secretary', 'sda', 'dc', 'admin'];
+      const currentRoles: string[] = appConfig?.webEntryRoles || appConfig?.web_entry_roles || ['cdc_secretary', 'sda', 'admin'];
       const updatedRoles = newStatus
         ? Array.from(new Set([...currentRoles, 'super_admin']))
         : currentRoles.filter((r) => r !== 'super_admin');
@@ -306,6 +315,14 @@ export default function DataEntryPage() {
     setSubmitError(null);
     setSubmitSuccess(null);
 
+    if (!canCreateHousehold && !selectedHouseholdId) {
+      setSubmitError('Admin role can only enter data by attaching to an existing household. Please select an existing household.');
+      return;
+    }
+    if (householdMode === 'existing' && !selectedHouseholdId) {
+      setSubmitError('Please select an existing household to attach this survey entry.');
+      return;
+    }
     if (!selectedGn) {
       setSubmitError(t('entry.error.select_gn'));
       return;
@@ -334,9 +351,15 @@ export default function DataEntryPage() {
 
       // 1. Resolve or Create household
       if (!householdId) {
+        if (!canCreateHousehold) {
+          setSubmitError('Admin role can only enter data by attaching to an existing household. Please select an existing household.');
+          setSubmitting(false);
+          return;
+        }
         try {
           const houseRes = await api.createHousehold({
             gnId: selectedGn,
+            teamId: user?.role === 'cdc_secretary' ? user.teamId : undefined,
             houseNo: houseNo.trim(),
             houseLeaderName: headName.trim(),
             address: address.trim() || undefined,
@@ -354,7 +377,12 @@ export default function DataEntryPage() {
             err.message?.includes('already exists') ||
             err.message?.includes('DUPLICATE_HOUSE_NUMBER')
           ) {
-            const listRes = await api.getHouseholds({ gnId: selectedGn, search: houseNo.trim(), limit: 50 });
+            const listRes = await api.getHouseholds({
+              gnId: selectedGn,
+              teamId: user?.role === 'cdc_secretary' ? user.teamId : undefined,
+              search: houseNo.trim(),
+              limit: 50,
+            });
             const list = Array.isArray(listRes) ? listRes : listRes?.households || [];
             const existing = list.find(
               (h: any) =>
@@ -568,25 +596,27 @@ export default function DataEntryPage() {
 
                 {/* Mode Switcher */}
                 <div className="de-segmented">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setHouseholdMode('new');
-                      setSelectedHouseholdId('');
-                      setHouseNo('');
-                      setHeadName('');
-                      setAddress('');
-                      setVillageName('');
-                      setIsEpf(false);
-                      setIsEtf(false);
-                      setIsAswesuma(false);
-                      setIsSamurdhi(false);
-                      setHasSpecialNeeds(false);
-                    }}
-                    className={`de-seg-btn ${householdMode === 'new' ? 'is-active' : ''}`}
-                  >
-                    + Register New Household
-                  </button>
+                  {canCreateHousehold && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHouseholdMode('new');
+                        setSelectedHouseholdId('');
+                        setHouseNo('');
+                        setHeadName('');
+                        setAddress('');
+                        setVillageName('');
+                        setIsEpf(false);
+                        setIsEtf(false);
+                        setIsAswesuma(false);
+                        setIsSamurdhi(false);
+                        setHasSpecialNeeds(false);
+                      }}
+                      className={`de-seg-btn ${householdMode === 'new' ? 'is-active' : ''}`}
+                    >
+                      + Register New Household
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setHouseholdMode('existing')}
@@ -921,11 +951,10 @@ export default function DataEntryPage() {
                     <select
                       className="select-field"
                       value={clientGender}
-                      onChange={(e) => setClientGender(e.target.value as any)}
+                      onChange={(e) => setClientGender(e.target.value as 'M' | 'F')}
                     >
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
+                      <option value="M">Male</option>
+                      <option value="F">Female</option>
                     </select>
                   </div>
 

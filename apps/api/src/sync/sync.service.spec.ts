@@ -500,6 +500,54 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     expect(res.results[0].code).toBe('HOUSEHOLD_OUT_OF_SCOPE');
   });
 
+  it('Role Scope Matrix: CDC Secretary cannot write into an unassigned house (pool)', async () => {
+    const secretaryCaller = {
+      userId: 'sec-001',
+      role: UserRole.cdc_secretary,
+      gnId: 'gn-001',
+      teamId: 'team-sec-1',
+      districtId: 'dist-001',
+      dsId: 'ds-001',
+    };
+
+    const unassignedHouseId = 'f0000000-0000-0000-0000-000000000099';
+    mockPrisma.household.findMany.mockResolvedValueOnce([
+      {
+        id: unassignedHouseId,
+        gnId: 'gn-001', // Same GN, but unassigned (in pool)!
+        teamId: null,
+        districtId: 'dist-001',
+        dsId: 'ds-001',
+        deletedAt: null,
+      },
+    ]);
+
+    const dto: SyncPushDto = {
+      device_id: 'sec-device',
+      app_version: '2.0.0',
+      schema_version: 2,
+      records: [
+        {
+          id: 'f0000000-0000-0000-0000-000000000002',
+          base_version: 0,
+          data: {
+            household_id: unassignedHouseId,
+            name: 'Unassigned House Member',
+            age: 30,
+            gender: 'F',
+            consent_given: true,
+            consent_version: 'consent.v0',
+          },
+        },
+      ],
+    };
+
+    const res = await service.pushRecords(secretaryCaller, dto);
+    expect(res.results.length).toBe(1);
+    expect(res.results[0].status).toBe('forbidden');
+    expect(res.results[0].code).toBe('HOUSEHOLD_OUT_OF_SCOPE');
+  });
+
   it('Role Scope Matrix: SDA and DC can push within their administrative divisions (Blueprint §10.3)', async () => {
     const sdaCaller = {
       userId: 'sda-001',

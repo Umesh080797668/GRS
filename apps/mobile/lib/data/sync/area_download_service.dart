@@ -106,9 +106,7 @@ class AreaDownloadService {
         );
       } else {
         // Prune houses deleted or reassigned on the server
-        if (downloadedIds.isNotEmpty) {
-          await _db.removeHouseholdsNotIn(downloadedIds);
-        }
+        await _db.removeHouseholdsNotIn(downloadedIds);
         // Download complete: clear cursor, reset count, and record completion timestamp
         await _db.setMeta('area_sync_cursor', '');
         await _db.setMeta('area_sync_count', '0');

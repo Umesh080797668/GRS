@@ -854,9 +854,10 @@ export class ApiClient {
 
   // --- HOUSEHOLDS & IMPORT (M5.4) ---
 
-  async getHouseholds(params: { gnId?: string; search?: string; limit?: number; cursor?: string } = {}): Promise<any> {
+  async getHouseholds(params: { gnId?: string; teamId?: string; search?: string; limit?: number; cursor?: string } = {}): Promise<any> {
     const p = new URLSearchParams();
     if (params.gnId) p.append('gnId', params.gnId);
+    if (params.teamId) p.append('teamId', params.teamId);
     if (params.search) p.append('search', params.search);
     if (params.limit) p.append('limit', params.limit.toString());
     if (params.cursor) p.append('cursor', params.cursor);

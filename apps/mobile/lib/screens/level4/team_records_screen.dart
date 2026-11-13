@@ -721,10 +721,8 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
     _addressCtrl = TextEditingController(text: r['address'] ?? '');
     _reasonCtrl = TextEditingController();
 
-    _selectedGender = (r['gender'] ?? 'male').toString().toLowerCase();
-    if (_selectedGender != 'male' && _selectedGender != 'female') {
-      _selectedGender = 'male';
-    }
+    final rawGender = (r['gender'] ?? 'M').toString().toUpperCase();
+    _selectedGender = (rawGender == 'F' || rawGender == 'FEMALE') ? 'F' : 'M';
 
     _specialNeeds = r['hasSpecialNeeds'] == true || r['hasSpecialNeeds'] == 1;
     _samurdhi = r['isSamurdhi'] == true || r['isSamurdhi'] == 1;
@@ -799,11 +797,11 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                         ),
                         items: [
                           DropdownMenuItem(
-                            value: 'male',
+                            value: 'M',
                             child: Text(l10n.get('male')),
                           ),
                           DropdownMenuItem(
-                            value: 'female',
+                            value: 'F',
                             child: Text(l10n.get('female')),
                           ),
                         ],

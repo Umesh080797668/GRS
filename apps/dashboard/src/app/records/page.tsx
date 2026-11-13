@@ -63,7 +63,7 @@ export default function RecordsPage() {
   // Edit form fields
   const [editName, setEditName] = useState<string>('');
   const [editAge, setEditAge] = useState<number>(18);
-  const [editGender, setEditGender] = useState<string>('male');
+  const [editGender, setEditGender] = useState<string>('M');
   const [editAddress, setEditAddress] = useState<string>('');
   const [editPhone, setEditPhone] = useState<string>('');
   const [editIsEpf, setEditIsEpf] = useState<boolean>(false);
@@ -199,7 +199,7 @@ export default function RecordsPage() {
     setEditingRecord(record);
     setEditName(record.name || '');
     setEditAge(record.age || 18);
-    setEditGender(record.gender || 'male');
+    setEditGender(record.gender || 'M');
     setEditAddress(record.address || record.household?.address || '');
     setEditPhone(record.phoneE164 || record.phoneRaw || '');
     setEditIsEpf(record.isEpf || false);
@@ -779,9 +779,8 @@ export default function RecordsPage() {
                     value={editGender}
                     onChange={(e) => setEditGender(e.target.value)}
                   >
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
+                    <option value="M">Male</option>
+                    <option value="F">Female</option>
                   </select>
                 </div>
                 <div style={{ gridColumn: 'span 2' }}>

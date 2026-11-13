@@ -125,6 +125,7 @@ export class SyncService {
       const cleanGnId = targetGnId.trim();
       if (user.role === UserRole.cdc_secretary) {
         let isAssigned = user.gnId === cleanGnId;
+        let effectiveTeamId = user.teamId;
         if (!isAssigned) {
           const assignment = await this.prisma.profileAssignment.findFirst({
             where: {
@@ -133,7 +134,10 @@ export class SyncService {
               validTo: null,
             },
           });
-          if (assignment) isAssigned = true;
+          if (assignment) {
+            isAssigned = true;
+            if (assignment.teamId) effectiveTeamId = assignment.teamId;
+          }
         }
         if (!isAssigned) {
           throw new ForbiddenException({
@@ -141,12 +145,16 @@ export class SyncService {
             message: 'GN division is outside your assigned scope',
           });
         }
-        delete where.teamId;
-        if (where.OR) {
-          where.OR = where.OR.map((cond: any) => {
-            const { teamId, ...rest } = cond;
-            return { ...rest, gnId: cleanGnId };
-          });
+        if (effectiveTeamId) {
+          where.teamId = effectiveTeamId;
+          where.gnId = cleanGnId;
+          if (where.OR) {
+            where.OR = where.OR.map((cond: any) => ({
+              ...cond,
+              gnId: cleanGnId,
+              teamId: effectiveTeamId,
+            }));
+          }
         } else {
           where.gnId = cleanGnId;
         }
@@ -635,17 +643,20 @@ export class SyncService {
 
     const finishedHouseholdsResults: SyncHouseholdResultItem[] = [];
 
-    // Query all actively assigned GN divisions for Level 4 multi-GN write permissions (Decision C20)
+    // Query all actively assigned GN divisions and teams for Level 4 write permissions
     const assignedGns = new Set<string>();
+    const assignedTeams = new Set<string>();
     if (user.role === UserRole.cdc_secretary) {
       if (user.gnId) assignedGns.add(user.gnId);
+      if (user.teamId) assignedTeams.add(user.teamId);
       try {
         const assignments = await this.prisma.profileAssignment.findMany({
           where: { profileId: user.userId, validTo: null },
-          select: { gnId: true },
+          select: { gnId: true, teamId: true },
         });
         for (const a of assignments) {
-          assignedGns.add(a.gnId);
+          if (a.gnId) assignedGns.add(a.gnId);
+          if (a.teamId) assignedTeams.add(a.teamId);
         }
       } catch { }
     }
@@ -691,14 +702,14 @@ export class SyncService {
             continue;
           }
         } else if (user.role === UserRole.cdc_secretary) {
-          const matchesTeam = user.teamId && household.teamId === user.teamId;
-          const matchesGn = assignedGns.has(household.gnId);
-          if (!matchesTeam && !matchesGn) {
+          const matchesTeam =
+            household.teamId && assignedTeams.has(household.teamId);
+          if (!matchesTeam) {
             finishedHouseholdsResults.push({
               id: hid,
               status: 'forbidden',
-              code: 'OUT_OF_SCOPE_GN',
-              message: 'Household is outside your assigned GN divisions',
+              code: 'OUT_OF_SCOPE_TEAM',
+              message: 'Household is not assigned to your team',
             });
             continue;
           }
@@ -1267,15 +1278,15 @@ export class SyncService {
           continue;
         }
       } else if (user.role === 'cdc_secretary') {
-        // Level 4 (secretary): accepts any actively assigned GN division or own team
-        const matchesTeam = user.teamId && household.teamId === user.teamId;
-        const matchesGn = assignedGns.has(household.gnId);
-        if (!matchesTeam && !matchesGn) {
+        // Level 4 (secretary): strictly own team's households
+        const matchesTeam =
+          household.teamId && assignedTeams.has(household.teamId);
+        if (!matchesTeam) {
           results[idx] = {
             id: rec.id,
             status: 'forbidden',
             code: 'HOUSEHOLD_OUT_OF_SCOPE',
-            message: 'Household is outside caller assigned GN divisions',
+            message: 'Household is outside caller team scope',
           };
           continue;
         }

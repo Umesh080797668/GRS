@@ -260,5 +260,58 @@ void main() {
         expect(await db.getMeta('area_sync_count'), equals('0'));
       },
     );
+
+    test(
+      'Prunes all server households when server returns zero houses while preserving protected drafts',
+      () async {
+        await db.upsertHousehold(makeHousehold(1));
+        await db.upsertHousehold(makeHousehold(2));
+
+        // Insert draft client for house-2
+        await db.saveClient(
+          client: Client(
+            id: 'client-draft-1',
+            householdId: 'house-2',
+            name: 'Local Draft Person',
+            age: 25,
+            gender: 'M',
+            infoProvidedBy: 'Self',
+            consentGiven: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+          status: SyncStatus.draft,
+        );
+
+        // Server returns empty list (all houses unassigned or taken away)
+        final mockApi = MockGrsApiClient(
+          responses: [
+            AreaDownloadResponse(
+              items: [],
+              nextCursor: null,
+              hasMore: false,
+              total: 0,
+            ),
+          ],
+        );
+
+        final service = AreaDownloadService(apiClient: mockApi, db: db);
+        await service.downloadArea();
+
+        final remainingHouses = await db.getHouseholds();
+        final remainingIds = remainingHouses.map((h) => h['id']).toSet();
+
+        expect(
+          remainingIds,
+          isNot(contains('house-1')),
+          reason: 'house-1 should be pruned when server returns zero houses',
+        );
+        expect(
+          remainingIds,
+          contains('house-2'),
+          reason: 'house-2 has local draft client and must be preserved',
+        );
+      },
+    );
   });
 }

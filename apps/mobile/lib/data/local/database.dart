@@ -562,8 +562,6 @@ class AppDatabase {
   /// Removes households from local SQLite database that were deleted or reassigned
   /// on the server, while protecting any households that contain local unsynced clients.
   Future<void> removeHouseholdsNotIn(Set<String> validIds) async {
-    if (validIds.isEmpty) return;
-
     final allLocal = await _executor.runSelect(
       'SELECT id FROM households;',
       [],

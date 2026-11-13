@@ -306,7 +306,7 @@ export default function AreasPage() {
       setAppConfig(cfg);
       setConfigMinVersion(cfg.minimumAppVersion || cfg.minimum_app_version || '1.0.0');
       setConfigJitter(cfg.syncJitterSeconds || cfg.sync_jitter_seconds || 30);
-      setConfigWebRoles(cfg.webEntryRoles || cfg.web_entry_roles || ['cdc_secretary', 'sda', 'dc', 'admin']);
+      setConfigWebRoles(cfg.webEntryRoles || cfg.web_entry_roles || ['cdc_secretary', 'sda', 'admin']);
     } catch (err: any) {
       setModalError(`Failed to load config: ${err.message}`);
     }
@@ -1709,7 +1709,7 @@ export default function AreasPage() {
                     Roles Authorized for Direct Web Entry (Decision C19)
                   </label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', marginTop: '4px' }}>
-                    {['super_admin', 'admin', 'dc', 'sda', 'cdc_secretary'].map((r) => (
+                    {['super_admin', 'admin', 'sda', 'cdc_secretary'].map((r) => (
                       <label key={r} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                         <input
                           type="checkbox"
