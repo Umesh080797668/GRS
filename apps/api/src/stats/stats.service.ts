@@ -2,10 +2,12 @@ import {
   Injectable,
   ForbiddenException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScopeService } from '../common/scope/scope.service';
 import { ScopeContext, UserRole } from '../common/scope/scope.types';
+import { StatsRefreshService } from '../jobs/stats-refresh.service';
 
 const VALID_AREA_TYPES = ['national', 'district', 'ds', 'gn', 'team'] as const;
 
@@ -14,17 +16,25 @@ export class StatsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: ScopeService,
-  ) {}
+    @Optional()
+    private readonly statsRefreshService?: StatsRefreshService,
+  ) { }
 
   async getProgress(
     caller: ScopeContext,
-    query?: { areaType?: string; areaId?: string },
+    query?: { areaType?: string; areaId?: string; refresh?: string },
   ) {
     if (query?.areaType && !VALID_AREA_TYPES.includes(query.areaType as any)) {
       throw new BadRequestException({
         code: 'INVALID_AREA_TYPE',
         message: 'areaType must be one of: national, district, ds, gn, team',
       });
+    }
+
+    if (query?.refresh === 'true' && this.statsRefreshService) {
+      try {
+        await this.statsRefreshService.refreshStats();
+      } catch { }
     }
 
     let targetAreaType = query?.areaType;
@@ -37,6 +47,14 @@ export class StatsService {
       } else if (caller.role === UserRole.cdc_secretary) {
         targetAreaType = 'gn';
         targetAreaId = caller.gnId || '';
+        if (!targetAreaId && this.prisma.profileAssignment?.findFirst) {
+          const assign = await this.prisma.profileAssignment.findFirst({
+            where: { profileId: caller.userId, validTo: null },
+            select: { gnId: true },
+            orderBy: { createdAt: 'asc' },
+          });
+          if (assign?.gnId) targetAreaId = assign.gnId;
+        }
       } else if (caller.role === UserRole.sda) {
         targetAreaType = 'ds';
         targetAreaId = caller.dsId || '';
@@ -66,18 +84,69 @@ export class StatsService {
             'CDC Secretary can only view GN or team statistics within their GN division',
         });
       }
-      if (targetAreaType === 'gn' && targetAreaId !== caller.gnId) {
-        throw new ForbiddenException({
-          code: 'OUT_OF_SCOPE',
-          message: 'Cannot view statistics for another GN division',
-        });
+      if (targetAreaType === 'gn') {
+        let isAllowed = targetAreaId === caller.gnId;
+        if (!isAllowed && this.prisma.profileAssignment?.findFirst) {
+          const assign = await this.prisma.profileAssignment.findFirst({
+            where: {
+              profileId: caller.userId,
+              gnId: targetAreaId,
+              validTo: null,
+            },
+          });
+          if (assign) isAllowed = true;
+        }
+        if (!isAllowed && (this.prisma as any).accountAssignment?.findFirst) {
+          const assign = await (this.prisma as any).accountAssignment.findFirst({
+            where: {
+              profileId: caller.userId,
+              gnId: targetAreaId,
+              status: 'active',
+            },
+          });
+          if (assign) isAllowed = true;
+        }
+        if (!isAllowed) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE',
+            message: 'Cannot view statistics for another GN division',
+          });
+        }
       }
       if (targetAreaType === 'team') {
         const team = await this.prisma.team.findUnique({
           where: { id: targetAreaId },
           select: { gnId: true },
         });
-        if (!team || team.gnId !== caller.gnId) {
+        if (!team) {
+          throw new ForbiddenException({
+            code: 'OUT_OF_SCOPE',
+            message:
+              'Cannot view statistics for a team outside your GN division',
+          });
+        }
+        let isAllowed = team.gnId === caller.gnId;
+        if (!isAllowed && this.prisma.profileAssignment?.findFirst) {
+          const assign = await this.prisma.profileAssignment.findFirst({
+            where: {
+              profileId: caller.userId,
+              gnId: team.gnId,
+              validTo: null,
+            },
+          });
+          if (assign) isAllowed = true;
+        }
+        if (!isAllowed && (this.prisma as any).accountAssignment?.findFirst) {
+          const assign = await (this.prisma as any).accountAssignment.findFirst({
+            where: {
+              profileId: caller.userId,
+              gnId: team.gnId,
+              status: 'active',
+            },
+          });
+          if (assign) isAllowed = true;
+        }
+        if (!isAllowed) {
           throw new ForbiddenException({
             code: 'OUT_OF_SCOPE',
             message:
@@ -223,6 +292,98 @@ export class StatsService {
       }
     }
 
+    // Live data fallback if pre-aggregated stat row is missing or uninitialized while live data exists
+    if (
+      (!summary || (summary.housesAssigned === 0 && summary.clientsCount === 0)) &&
+      this.prisma.household?.count
+    ) {
+      const whereHouseholds: any = { deletedAt: null };
+      const whereClients: any = { deletedAt: null, duplicateOf: null };
+
+      if (targetAreaType === 'team') {
+        whereHouseholds.teamId = targetAreaId;
+        whereClients.teamId = targetAreaId;
+      } else if (targetAreaType === 'gn') {
+        whereHouseholds.gnId = targetAreaId;
+        whereClients.gnId = targetAreaId;
+      } else if (targetAreaType === 'ds') {
+        whereHouseholds.dsId = targetAreaId;
+        whereClients.dsId = targetAreaId;
+      } else if (targetAreaType === 'district') {
+        whereHouseholds.districtId = targetAreaId;
+        whereClients.districtId = targetAreaId;
+      }
+
+      try {
+        const liveHouses = await this.prisma.household.count({
+          where: whereHouseholds,
+        });
+        const liveClients = this.prisma.client?.count
+          ? await this.prisma.client.count({ where: whereClients })
+          : 0;
+
+        if (liveHouses > 0 || liveClients > 0) {
+          const liveDone = await this.prisma.household.count({
+            where: {
+              ...whereHouseholds,
+              OR: [{ visitStatus: 'completed' }, { finishedAt: { not: null } }],
+            },
+          });
+          const liveStarted = await this.prisma.household.count({
+            where: {
+              ...whereHouseholds,
+              OR: [
+                { visitStatus: { in: ['in_progress', 'completed'] } },
+                { finishedAt: { not: null } },
+                { clients: { some: { deletedAt: null, duplicateOf: null } } },
+              ],
+            },
+          });
+
+          let epfCount = 0;
+          let etfCount = 0;
+          let aswesumaCount = 0;
+          let samurdhiCount = 0;
+          let specialNeedsCount = 0;
+
+          if (this.prisma.client?.count) {
+            [
+              epfCount,
+              etfCount,
+              aswesumaCount,
+              samurdhiCount,
+              specialNeedsCount,
+            ] = await Promise.all([
+              this.prisma.client.count({ where: { ...whereClients, isEpf: true } }),
+              this.prisma.client.count({ where: { ...whereClients, isEtf: true } }),
+              this.prisma.client.count({
+                where: { ...whereClients, isAswesuma: true },
+              }),
+              this.prisma.client.count({
+                where: { ...whereClients, isSamurdhi: true },
+              }),
+              this.prisma.client.count({
+                where: { ...whereClients, hasSpecialNeeds: true },
+              }),
+            ]);
+          }
+
+          summary = {
+            housesAssigned: liveHouses,
+            housesStarted: liveStarted,
+            housesDone: liveDone,
+            clientsCount: liveClients,
+            epfCount,
+            etfCount,
+            aswesumaCount,
+            samurdhiCount,
+            specialNeedsCount,
+          };
+          refreshedAt = new Date();
+        }
+      } catch { }
+    }
+
     if (!summary) {
       summary = {
         housesAssigned: 0,
@@ -251,20 +412,77 @@ export class StatsService {
         where: { areaType: 'district' },
       });
       const statMap = new Map(districtStats.map((s) => [s.areaId, s]));
+
+      let liveAssignedByDist = new Map<string, number>();
+      let liveDoneByDist = new Map<string, number>();
+      let liveStartedByDist = new Map<string, number>();
+      let liveClientsByDist = new Map<string, number>();
+
+      if (
+        this.prisma.household?.groupBy &&
+        (!districtStats.length || districtStats.every((s) => s.housesAssigned === 0))
+      ) {
+        try {
+          const [assignedGroups, doneGroups, startedGroups, clientGroups] =
+            await Promise.all([
+              this.prisma.household.groupBy({
+                by: ['districtId'],
+                where: { deletedAt: null },
+                _count: { id: true },
+              }),
+              this.prisma.household.groupBy({
+                by: ['districtId'],
+                where: {
+                  deletedAt: null,
+                  OR: [{ visitStatus: 'completed' }, { finishedAt: { not: null } }],
+                },
+                _count: { id: true },
+              }),
+              this.prisma.household.groupBy({
+                by: ['districtId'],
+                where: {
+                  deletedAt: null,
+                  OR: [
+                    { visitStatus: { in: ['in_progress', 'completed'] } },
+                    { finishedAt: { not: null } },
+                    { clients: { some: { deletedAt: null, duplicateOf: null } } },
+                  ],
+                },
+                _count: { id: true },
+              }),
+              this.prisma.client?.groupBy
+                ? this.prisma.client.groupBy({
+                  by: ['districtId'],
+                  where: { deletedAt: null, duplicateOf: null },
+                  _count: { id: true },
+                })
+                : Promise.resolve([]),
+            ]);
+          for (const g of assignedGroups) liveAssignedByDist.set(g.districtId, g._count.id);
+          for (const g of doneGroups) liveDoneByDist.set(g.districtId, g._count.id);
+          for (const g of startedGroups) liveStartedByDist.set(g.districtId, g._count.id);
+          for (const g of clientGroups) liveClientsByDist.set(g.districtId, g._count.id);
+        } catch { }
+      }
+
       for (const d of districts) {
         const s = statMap.get(d.id);
+        const housesAssigned = s?.housesAssigned || liveAssignedByDist.get(d.id) || 0;
+        const housesStarted = s?.housesStarted || liveStartedByDist.get(d.id) || 0;
+        const housesDone = s?.housesDone || liveDoneByDist.get(d.id) || 0;
+        const clientsCount = s?.clientsCount || liveClientsByDist.get(d.id) || 0;
         breakdown.push({
           id: d.id,
           name: d.nameEn,
           nameSi: d.nameSi,
           nameTa: d.nameTa,
-          housesAssigned: s?.housesAssigned ?? 0,
-          housesStarted: s?.housesStarted ?? 0,
-          housesDone: s?.housesDone ?? 0,
-          clientsCount: s?.clientsCount ?? 0,
+          housesAssigned,
+          housesStarted,
+          housesDone,
+          clientsCount,
           completionRate:
-            s && s.housesAssigned > 0
-              ? Math.round((s.housesDone / s.housesAssigned) * 1000) / 10
+            housesAssigned > 0
+              ? Math.round((housesDone / housesAssigned) * 1000) / 10
               : 0,
         });
       }
@@ -277,20 +495,80 @@ export class StatsService {
         where: { areaType: 'ds', areaId: { in: dsList.map((ds) => ds.id) } },
       });
       const statMap = new Map(dsStats.map((s) => [s.areaId, s]));
+
+
+      let liveAssignedByDs = new Map<string, number>();
+      let liveDoneByDs = new Map<string, number>();
+      let liveStartedByDs = new Map<string, number>();
+      let liveClientsByDs = new Map<string, number>();
+
+      if (
+        this.prisma.household?.groupBy &&
+        (!dsStats.length || dsStats.every((s) => s.housesAssigned === 0))
+      ) {
+        try {
+          const [assignedGroups, doneGroups, startedGroups, clientGroups] =
+            await Promise.all([
+              this.prisma.household.groupBy({
+                by: ['dsId'],
+                where: { districtId: targetAreaId, deletedAt: null },
+                _count: { id: true },
+              }),
+              this.prisma.household.groupBy({
+                by: ['dsId'],
+                where: {
+                  districtId: targetAreaId,
+                  deletedAt: null,
+                  OR: [{ visitStatus: 'completed' }, { finishedAt: { not: null } }],
+                },
+                _count: { id: true },
+              }),
+              this.prisma.household.groupBy({
+                by: ['dsId'],
+                where: {
+                  districtId: targetAreaId,
+                  deletedAt: null,
+                  OR: [
+                    { visitStatus: { in: ['in_progress', 'completed'] } },
+                    { finishedAt: { not: null } },
+                    { clients: { some: { deletedAt: null, duplicateOf: null } } },
+                  ],
+                },
+                _count: { id: true },
+              }),
+              this.prisma.client?.groupBy
+                ? this.prisma.client.groupBy({
+                  by: ['dsId'],
+                  where: { districtId: targetAreaId, deletedAt: null, duplicateOf: null },
+                  _count: { id: true },
+                })
+                : Promise.resolve([]),
+            ]);
+          for (const g of assignedGroups) liveAssignedByDs.set(g.dsId, g._count.id);
+          for (const g of doneGroups) liveDoneByDs.set(g.dsId, g._count.id);
+          for (const g of startedGroups) liveStartedByDs.set(g.dsId, g._count.id);
+          for (const g of clientGroups) liveClientsByDs.set(g.dsId, g._count.id);
+        } catch { }
+      }
+
       for (const ds of dsList) {
         const s = statMap.get(ds.id);
+        const housesAssigned = s?.housesAssigned || liveAssignedByDs.get(ds.id) || 0;
+        const housesStarted = s?.housesStarted || liveStartedByDs.get(ds.id) || 0;
+        const housesDone = s?.housesDone || liveDoneByDs.get(ds.id) || 0;
+        const clientsCount = s?.clientsCount || liveClientsByDs.get(ds.id) || 0;
         breakdown.push({
           id: ds.id,
           name: ds.nameEn,
           nameSi: ds.nameSi,
           nameTa: ds.nameTa,
-          housesAssigned: s?.housesAssigned ?? 0,
-          housesStarted: s?.housesStarted ?? 0,
-          housesDone: s?.housesDone ?? 0,
-          clientsCount: s?.clientsCount ?? 0,
+          housesAssigned,
+          housesStarted,
+          housesDone,
+          clientsCount,
           completionRate:
-            s && s.housesAssigned > 0
-              ? Math.round((s.housesDone / s.housesAssigned) * 1000) / 10
+            housesAssigned > 0
+              ? Math.round((housesDone / housesAssigned) * 1000) / 10
               : 0,
         });
       }
@@ -303,19 +581,79 @@ export class StatsService {
         where: { areaType: 'gn', areaId: { in: gnList.map((gn) => gn.id) } },
       });
       const statMap = new Map(gnStats.map((s) => [s.areaId, s]));
+
+
+      let liveAssignedByGn = new Map<string, number>();
+      let liveDoneByGn = new Map<string, number>();
+      let liveStartedByGn = new Map<string, number>();
+      let liveClientsByGn = new Map<string, number>();
+
+      if (
+        this.prisma.household?.groupBy &&
+        (!gnStats.length || gnStats.every((s) => s.housesAssigned === 0))
+      ) {
+        try {
+          const [assignedGroups, doneGroups, startedGroups, clientGroups] =
+            await Promise.all([
+              this.prisma.household.groupBy({
+                by: ['gnId'],
+                where: { dsId: targetAreaId, deletedAt: null },
+                _count: { id: true },
+              }),
+              this.prisma.household.groupBy({
+                by: ['gnId'],
+                where: {
+                  dsId: targetAreaId,
+                  deletedAt: null,
+                  OR: [{ visitStatus: 'completed' }, { finishedAt: { not: null } }],
+                },
+                _count: { id: true },
+              }),
+              this.prisma.household.groupBy({
+                by: ['gnId'],
+                where: {
+                  dsId: targetAreaId,
+                  deletedAt: null,
+                  OR: [
+                    { visitStatus: { in: ['in_progress', 'completed'] } },
+                    { finishedAt: { not: null } },
+                    { clients: { some: { deletedAt: null, duplicateOf: null } } },
+                  ],
+                },
+                _count: { id: true },
+              }),
+              this.prisma.client?.groupBy
+                ? this.prisma.client.groupBy({
+                  by: ['gnId'],
+                  where: { dsId: targetAreaId, deletedAt: null, duplicateOf: null },
+                  _count: { id: true },
+                })
+                : Promise.resolve([]),
+            ]);
+          for (const g of assignedGroups) liveAssignedByGn.set(g.gnId, g._count.id);
+          for (const g of doneGroups) liveDoneByGn.set(g.gnId, g._count.id);
+          for (const g of startedGroups) liveStartedByGn.set(g.gnId, g._count.id);
+          for (const g of clientGroups) liveClientsByGn.set(g.gnId, g._count.id);
+        } catch { }
+      }
+
       for (const gn of gnList) {
         const s = statMap.get(gn.id);
+        const housesAssigned = s?.housesAssigned || liveAssignedByGn.get(gn.id) || 0;
+        const housesStarted = s?.housesStarted || liveStartedByGn.get(gn.id) || 0;
+        const housesDone = s?.housesDone || liveDoneByGn.get(gn.id) || 0;
+        const clientsCount = s?.clientsCount || liveClientsByGn.get(gn.id) || 0;
         breakdown.push({
           id: gn.id,
           name: `${gn.gnNumber} - ${gn.gnName}`,
           gnNumber: gn.gnNumber,
-          housesAssigned: s?.housesAssigned ?? 0,
-          housesStarted: s?.housesStarted ?? 0,
-          housesDone: s?.housesDone ?? 0,
-          clientsCount: s?.clientsCount ?? 0,
+          housesAssigned,
+          housesStarted,
+          housesDone,
+          clientsCount,
           completionRate:
-            s && s.housesAssigned > 0
-              ? Math.round((s.housesDone / s.housesAssigned) * 1000) / 10
+            housesAssigned > 0
+              ? Math.round((housesDone / housesAssigned) * 1000) / 10
               : 0,
         });
       }
@@ -328,22 +666,226 @@ export class StatsService {
         where: { gnId: targetAreaId },
       });
       const statMap = new Map(teamStats.map((s) => [s.teamId, s]));
+
+
+      let liveAssignedByTeam = new Map<string, number>();
+      let liveDoneByTeam = new Map<string, number>();
+      let liveStartedByTeam = new Map<string, number>();
+      let liveClientsByTeam = new Map<string, number>();
+
+      if (
+        this.prisma.household?.groupBy &&
+        (!teamStats.length || teamStats.every((s) => s.housesAssigned === 0))
+      ) {
+        try {
+          const [assignedGroups, doneGroups, startedGroups, clientGroups] =
+            await Promise.all([
+              this.prisma.household.groupBy({
+                by: ['teamId'],
+                where: { gnId: targetAreaId, deletedAt: null },
+                _count: { id: true },
+              }),
+              this.prisma.household.groupBy({
+                by: ['teamId'],
+                where: {
+                  gnId: targetAreaId,
+                  deletedAt: null,
+                  OR: [{ visitStatus: 'completed' }, { finishedAt: { not: null } }],
+                },
+                _count: { id: true },
+              }),
+              this.prisma.household.groupBy({
+                by: ['teamId'],
+                where: {
+                  gnId: targetAreaId,
+                  deletedAt: null,
+                  OR: [
+                    { visitStatus: { in: ['in_progress', 'completed'] } },
+                    { finishedAt: { not: null } },
+                    { clients: { some: { deletedAt: null, duplicateOf: null } } },
+                  ],
+                },
+                _count: { id: true },
+              }),
+              this.prisma.client?.groupBy
+                ? this.prisma.client.groupBy({
+                  by: ['teamId'],
+                  where: { gnId: targetAreaId, deletedAt: null, duplicateOf: null },
+                  _count: { id: true },
+                })
+                : Promise.resolve([]),
+            ]);
+          for (const g of assignedGroups) if (g.teamId) liveAssignedByTeam.set(g.teamId, g._count.id);
+          for (const g of doneGroups) if (g.teamId) liveDoneByTeam.set(g.teamId, g._count.id);
+          for (const g of startedGroups) if (g.teamId) liveStartedByTeam.set(g.teamId, g._count.id);
+          for (const g of clientGroups) if (g.teamId) liveClientsByTeam.set(g.teamId, g._count.id);
+        } catch { }
+      }
+
       for (const t of teams) {
         const s = statMap.get(t.id);
+        const housesAssigned = s?.housesAssigned || liveAssignedByTeam.get(t.id) || 0;
+        const housesStarted = s?.housesStarted || liveStartedByTeam.get(t.id) || 0;
+        const housesDone = s?.housesDone || liveDoneByTeam.get(t.id) || 0;
+        const clientsCount = s?.clientsCount || liveClientsByTeam.get(t.id) || 0;
         breakdown.push({
           id: t.id,
           name: `Team ${t.teamNo}`,
           teamNo: t.teamNo,
           maxMembers: t.maxMembers,
-          housesAssigned: s?.housesAssigned ?? 0,
-          housesStarted: s?.housesStarted ?? 0,
-          housesDone: s?.housesDone ?? 0,
-          clientsCount: s?.clientsCount ?? 0,
+          housesAssigned,
+          housesStarted,
+          housesDone,
+          clientsCount,
           completionRate:
-            s && s.housesAssigned > 0
-              ? Math.round((s.housesDone / s.housesAssigned) * 1000) / 10
+            housesAssigned > 0
+              ? Math.round((housesDone / housesAssigned) * 1000) / 10
               : 0,
         });
+      }
+
+      // Check for unassigned households (pool) in this GN
+      if (this.prisma.household?.count) {
+        try {
+          const unassignedHouses = await this.prisma.household.count({
+            where: { gnId: targetAreaId, teamId: null, deletedAt: null },
+          });
+          if (unassignedHouses > 0) {
+            const unassignedDone = await this.prisma.household.count({
+              where: {
+                gnId: targetAreaId,
+                teamId: null,
+                deletedAt: null,
+                OR: [{ visitStatus: 'completed' }, { finishedAt: { not: null } }],
+              },
+            });
+            const unassignedStarted = await this.prisma.household.count({
+              where: {
+                gnId: targetAreaId,
+                teamId: null,
+                deletedAt: null,
+                OR: [
+                  { visitStatus: { in: ['in_progress', 'completed'] } },
+                  { finishedAt: { not: null } },
+                  { clients: { some: { deletedAt: null, duplicateOf: null } } },
+                ],
+              },
+            });
+            const unassignedClients = this.prisma.client?.count
+              ? await this.prisma.client.count({
+                where: {
+                  gnId: targetAreaId,
+                  teamId: null,
+                  deletedAt: null,
+                  duplicateOf: null,
+                },
+              })
+              : 0;
+
+            breakdown.push({
+              id: 'unassigned',
+              name: 'Unassigned Households (Pool)',
+              teamNo: 0,
+              maxMembers: 0,
+              housesAssigned: unassignedHouses,
+              housesStarted: unassignedStarted,
+              housesDone: unassignedDone,
+              clientsCount: unassignedClients,
+              completionRate:
+                unassignedHouses > 0
+                  ? Math.round((unassignedDone / unassignedHouses) * 1000) / 10
+                  : 0,
+            });
+          } else if (teams.length === 0) {
+            const gnInfo = await this.prisma.gnDivision.findUnique({
+              where: { id: targetAreaId },
+              select: { gnNumber: true, gnName: true },
+            });
+            breakdown.push({
+              id: targetAreaId,
+              name: gnInfo ? `${gnInfo.gnNumber} - ${gnInfo.gnName} (General)` : 'GN Division (General)',
+              teamNo: 0,
+              maxMembers: 0,
+              housesAssigned: 0,
+              housesStarted: 0,
+              housesDone: 0,
+              clientsCount: 0,
+              completionRate: 0,
+            });
+          }
+        } catch { }
+      }
+
+      // Check for unassigned households (pool) in this GN
+      if (this.prisma.household?.count) {
+        try {
+          const unassignedHouses = await this.prisma.household.count({
+            where: { gnId: targetAreaId, teamId: null, deletedAt: null },
+          });
+          if (unassignedHouses > 0) {
+            const unassignedDone = await this.prisma.household.count({
+              where: {
+                gnId: targetAreaId,
+                teamId: null,
+                deletedAt: null,
+                OR: [{ visitStatus: 'completed' }, { finishedAt: { not: null } }],
+              },
+            });
+            const unassignedStarted = await this.prisma.household.count({
+              where: {
+                gnId: targetAreaId,
+                teamId: null,
+                deletedAt: null,
+                OR: [
+                  { visitStatus: { in: ['in_progress', 'completed'] } },
+                  { finishedAt: { not: null } },
+                  { clients: { some: { deletedAt: null, duplicateOf: null } } },
+                ],
+              },
+            });
+            const unassignedClients = this.prisma.client?.count
+              ? await this.prisma.client.count({
+                where: {
+                  gnId: targetAreaId,
+                  teamId: null,
+                  deletedAt: null,
+                  duplicateOf: null,
+                },
+              })
+              : 0;
+
+            breakdown.push({
+              id: 'unassigned',
+              name: 'Unassigned Households (Pool)',
+              teamNo: 0,
+              maxMembers: 0,
+              housesAssigned: unassignedHouses,
+              housesStarted: unassignedStarted,
+              housesDone: unassignedDone,
+              clientsCount: unassignedClients,
+              completionRate:
+                unassignedHouses > 0
+                  ? Math.round((unassignedDone / unassignedHouses) * 1000) / 10
+                  : 0,
+            });
+          } else if (teams.length === 0) {
+            const gnInfo = await this.prisma.gnDivision.findUnique({
+              where: { id: targetAreaId },
+              select: { gnNumber: true, gnName: true },
+            });
+            breakdown.push({
+              id: targetAreaId,
+              name: gnInfo ? `${gnInfo.gnNumber} - ${gnInfo.gnName} (General)` : 'GN Division (General)',
+              teamNo: 0,
+              maxMembers: 0,
+              housesAssigned: 0,
+              housesStarted: 0,
+              housesDone: 0,
+              clientsCount: 0,
+              completionRate: 0,
+            });
+          }
+        } catch { }
       }
     }
 

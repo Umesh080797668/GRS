@@ -18,4 +18,8 @@ export class GetProgressDto {
   @IsOptional()
   @IsString()
   areaId?: string;
+
+  @IsOptional()
+  @IsString()
+  refresh?: string;
 }

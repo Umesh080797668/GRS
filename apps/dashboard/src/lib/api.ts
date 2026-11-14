@@ -541,10 +541,11 @@ export class ApiClient {
 
   // --- PROGRESS & SYNC HEALTH (M5.6 & M5.7) ---
 
-  async getProgressStats(areaType?: string, areaId?: string): Promise<any> {
+  async getProgressStats(areaType?: string, areaId?: string, refresh?: boolean): Promise<any> {
     const params = new URLSearchParams();
     if (areaType) params.append('areaType', areaType);
     if (areaId) params.append('areaId', areaId);
+    if (refresh) params.append('refresh', 'true');
     const query = params.toString() ? `?${params.toString()}` : '';
     return this.request(`/v1/stats/progress${query}`);
   }

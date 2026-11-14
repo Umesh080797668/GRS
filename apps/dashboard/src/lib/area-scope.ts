@@ -3,6 +3,11 @@ export interface ScopedAreaUser {
   districtId?: string | null;
   dsId?: string | null;
   gnId?: string | null;
+  assignments?: Array<{
+    gnId?: string;
+    teamId?: string;
+    isActiveArea?: boolean;
+  }>;
 }
 
 export interface AreaScopeLocks {
@@ -86,11 +91,11 @@ export async function loadScopedAreaLists(
       : rawDistricts;
 
   const selectedDistrict =
-    (locks.isDistrictLocked ? user?.districtId : undefined) ||
+    (locks.isDistrictLocked && user?.districtId ? user.districtId : undefined) ||
     (options?.preferredDistrictId && districts.some((d) => d.id === options.preferredDistrictId)
       ? options.preferredDistrictId
       : undefined) ||
-    (autoSelectFirst ? user?.districtId || districts[0]?.id || '' : '');
+    (autoSelectFirst || locks.isDistrictLocked ? user?.districtId || districts[0]?.id || '' : '');
 
   let dsDivisions: any[] = [];
   let selectedDs = '';
@@ -103,11 +108,11 @@ export async function loadScopedAreaLists(
         : rawDs;
 
     selectedDs =
-      (locks.isDsLocked ? user?.dsId : undefined) ||
+      (locks.isDsLocked && user?.dsId ? user.dsId : undefined) ||
       (options?.preferredDsId && dsDivisions.some((ds) => ds.id === options.preferredDsId)
         ? options.preferredDsId
         : undefined) ||
-      (autoSelectFirst ? user?.dsId || dsDivisions[0]?.id || '' : '');
+      (autoSelectFirst || locks.isDsLocked ? user?.dsId || dsDivisions[0]?.id || '' : '');
   }
 
   let gnDivisions: any[] = [];
@@ -115,26 +120,33 @@ export async function loadScopedAreaLists(
 
   if (selectedDs) {
     const rawGns = await apiClient.getGnDivisions(selectedDs);
-    gnDivisions =
-      locks.isGnLocked && user?.gnId
-        ? rawGns.filter((gn) => gn.id === user.gnId)
-        : rawGns;
+    const assignedGns = (user?.assignments?.map((a) => a.gnId).filter(Boolean) as string[]) || [];
+    if (assignedGns.length > 0 && locks.isGnLocked) {
+      const assignedSet = new Set(assignedGns);
+      if (user?.gnId) assignedSet.add(user.gnId);
+      gnDivisions = rawGns.filter((gn) => assignedSet.has(gn.id));
+    } else {
+      gnDivisions =
+        locks.isGnLocked && user?.gnId
+          ? rawGns.filter((gn) => gn.id === user.gnId)
+          : rawGns;
+    }
 
     selectedGn =
-      (locks.isGnLocked ? user?.gnId : undefined) ||
+      (locks.isGnLocked && user?.gnId ? user.gnId : undefined) ||
       (options?.preferredGnId && gnDivisions.some((gn) => gn.id === options.preferredGnId)
         ? options.preferredGnId
         : undefined) ||
-      (autoSelectFirst ? user?.gnId || gnDivisions[0]?.id || '' : '');
+      (autoSelectFirst || locks.isGnLocked ? user?.gnId || gnDivisions[0]?.id || '' : '');
   }
 
   return {
     districts,
     dsDivisions,
     gnDivisions,
-    selectedDistrict,
-    selectedDs,
-    selectedGn,
+    selectedDistrict: selectedDistrict || '',
+    selectedDs: selectedDs || '',
+    selectedGn: selectedGn || '',
     locks,
   };
 }

@@ -127,5 +127,43 @@ describe('area-scope helpers', () => {
     assert.equal(res.selectedGn, '');
     assert.equal(res.dsDivisions.length, 2);
   });
+
+  it('loads CDC secretary with multi-GN assignments and auto-selects primary GN', async () => {
+    const res = await loadScopedAreaLists(mockApi, {
+      role: 'cdc_secretary',
+      districtId: 'dist-2',
+      dsId: 'ds-1',
+      gnId: 'gn-1',
+      assignments: [
+        { gnId: 'gn-1', isActiveArea: true },
+        { gnId: 'gn-2', isActiveArea: false },
+      ],
+    });
+    assert.equal(res.selectedDistrict, 'dist-2');
+    assert.equal(res.selectedDs, 'ds-1');
+    assert.equal(res.selectedGn, 'gn-1');
+    assert.deepEqual(
+      res.gnDivisions.map((g) => g.id),
+      ['gn-1', 'gn-2'],
+    );
+  });
+
+  it('safely falls back to available district and DS when districtId is missing for cdc_secretary', async () => {
+    const fallbackApi = {
+      getDistricts: async () => [{ id: 'dist-2', nameEn: 'Nuwara Eliya' }],
+      getDsDivisions: async () => [{ id: 'ds-1', districtId: 'dist-2', nameEn: 'Walapane' }],
+      getGnDivisions: async () => [{ id: 'gn-1', dsId: 'ds-1', gnName: 'Harasbedda' }],
+    };
+
+    const res = await loadScopedAreaLists(fallbackApi, {
+      role: 'cdc_secretary',
+      districtId: null,
+      dsId: null,
+      gnId: 'gn-1',
+    });
+    assert.equal(res.selectedDistrict, 'dist-2');
+    assert.equal(res.selectedDs, 'ds-1');
+    assert.equal(res.selectedGn, 'gn-1');
+  });
 });
 

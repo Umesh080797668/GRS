@@ -671,6 +671,8 @@ export class AuthService {
       where: { id: userId },
       data: {
         gnId: activeArea.gnId,
+        dsId: activeArea.dsId,
+        districtId: activeArea.districtId,
         ...(activeArea.teamId ? { teamId: activeArea.teamId } : {}),
       },
     });
@@ -801,8 +803,21 @@ export class AuthService {
   ) {
     const effectiveGnId = activeArea?.gnId ?? profile.gnId;
     const effectiveTeamId = activeArea?.teamId ?? profile.teamId;
-    const effectiveDsId = activeArea?.dsId ?? profile.dsId;
-    const effectiveDistrictId = activeArea?.districtId ?? profile.districtId;
+    let effectiveDsId = activeArea?.dsId ?? profile.dsId;
+    let effectiveDistrictId = activeArea?.districtId ?? profile.districtId;
+
+    if ((!effectiveDsId || !effectiveDistrictId) && effectiveGnId) {
+      try {
+        const gn = await this.prisma.gnDivision.findUnique({
+          where: { id: effectiveGnId },
+          select: { dsId: true, ds: { select: { districtId: true } } },
+        });
+        if (gn) {
+          effectiveDsId = effectiveDsId ?? gn.dsId;
+          effectiveDistrictId = effectiveDistrictId ?? gn.ds?.districtId;
+        }
+      } catch { }
+    }
 
     const payload = {
       sub: profile.id,

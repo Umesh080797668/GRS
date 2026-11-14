@@ -215,4 +215,89 @@ describe('StatsService (M5.6 & M5.7)', () => {
       service.getProgress(caller, { areaType: 'team', areaId: 'team-other' }),
     ).rejects.toThrow();
   });
+
+  it('allows cdc_secretary to view stats for an assigned GN division via profileAssignment', async () => {
+    const caller: ScopeContext = {
+      userId: 'sec-multi-uuid',
+      role: UserRole.cdc_secretary,
+      gnId: 'gn-primary',
+    };
+
+    prisma.profileAssignment = {
+      findFirst: jest.fn().mockResolvedValueOnce({
+        profileId: 'sec-multi-uuid',
+        gnId: 'gn-assigned-secondary',
+      }),
+    };
+
+    prisma.areaStat.findUnique.mockResolvedValueOnce({
+      areaType: 'gn',
+      areaId: 'gn-assigned-secondary',
+      housesAssigned: 50,
+      housesStarted: 30,
+      housesDone: 20,
+      clientsCount: 75,
+      epfCount: 10,
+      etfCount: 8,
+      aswesumaCount: 5,
+      samurdhiCount: 4,
+      specialNeedsCount: 2,
+      refreshedAt: new Date('2026-11-02T10:00:00Z'),
+    });
+
+    const result = await service.getProgress(caller, {
+      areaType: 'gn',
+      areaId: 'gn-assigned-secondary',
+    });
+    expect(result.areaId).toBe('gn-assigned-secondary');
+    expect(result.summary.housesAssigned).toBe(50);
+  });
+
+  it('falls back to live household & client data when areaStat is missing and live data exists', async () => {
+    const caller: ScopeContext = {
+      userId: 'sec-live-uuid',
+      role: UserRole.cdc_secretary,
+      gnId: 'gn-live',
+    };
+
+    prisma.areaStat.findUnique.mockResolvedValueOnce(null);
+    prisma.household = {
+      count: jest
+        .fn()
+        .mockResolvedValueOnce(25) // housesAssigned
+        .mockResolvedValueOnce(10) // housesDone
+        .mockResolvedValueOnce(15) // housesStarted
+        .mockResolvedValueOnce(0), // unassignedHouses in breakdown
+      groupBy: jest.fn().mockResolvedValue([]),
+    };
+    prisma.client = {
+      count: jest
+        .fn()
+        .mockResolvedValueOnce(45) // clientsCount
+        .mockResolvedValueOnce(12) // epf
+        .mockResolvedValueOnce(10) // etf
+        .mockResolvedValueOnce(8)  // aswesuma
+        .mockResolvedValueOnce(6)  // samurdhi
+        .mockResolvedValueOnce(3), // special needs
+      groupBy: jest.fn().mockResolvedValue([]),
+    };
+    prisma.team.findMany.mockResolvedValueOnce([]);
+    prisma.teamStat.findMany.mockResolvedValueOnce([]);
+    prisma.gnDivision.findUnique.mockResolvedValueOnce({
+      gnNumber: '101A',
+      gnName: 'Live GN',
+    });
+
+    const result = await service.getProgress(caller);
+    expect(result.summary.housesAssigned).toBe(25);
+    expect(result.summary.housesDone).toBe(10);
+    expect(result.summary.housesStarted).toBe(15);
+    expect(result.summary.clientsCount).toBe(45);
+    expect(result.summary.epfCount).toBe(12);
+    expect(result.summary.completionRate).toBe(40.0);
+    expect(result.refreshedAt).not.toBeNull();
+    // Breakdown should include GN Division row when teams is empty
+    expect(result.breakdown.length).toBe(1);
+    expect(result.breakdown[0].name).toContain('Live GN');
+  });
 });

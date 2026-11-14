@@ -54,7 +54,7 @@ export default function ProgressPage() {
 
     (async () => {
       try {
-        const res = await loadScopedAreaLists(api, user);
+        const res = await loadScopedAreaLists(api, user, { autoSelectFirst: true });
         if (cancelled) return;
         setDistricts(res.districts);
         setDsDivisions(res.dsDivisions);
@@ -108,7 +108,7 @@ export default function ProgressPage() {
     }
   }
 
-  const fetchStats = async () => {
+  const fetchStats = async (forceRefresh = false) => {
     if (authLoading || !user || !scopeReady) return;
     const seq = ++fetchSeqRef.current;
     try {
@@ -119,7 +119,7 @@ export default function ProgressPage() {
         selectedGn,
       );
 
-      const res = await api.getProgressStats(areaType, areaId);
+      const res = await api.getProgressStats(areaType, areaId, forceRefresh);
       if (seq !== fetchSeqRef.current) return;
       setStats(res);
       setError(null);
@@ -141,9 +141,9 @@ export default function ProgressPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.id, user?.role, scopeReady, selectedDistrict, selectedDs, selectedGn]);
 
-  const handleManualRefresh = () => {
+  const handleManualRefresh = async () => {
     setRefreshing(true);
-    fetchStats();
+    await fetchStats(true);
   };
 
   const summary = stats?.summary || {
@@ -281,7 +281,7 @@ export default function ProgressPage() {
           style={{ width: 'auto', minWidth: '180px', flex: '1 1 180px' }}
           value={selectedGn}
           onChange={(e) => setSelectedGn(e.target.value)}
-          disabled={!selectedDs || gnDivisions.length === 0 || areaLocks.isGnLocked}
+          disabled={!selectedDs || gnDivisions.length <= 1}
         >
           <option value="">{areaLocks.isGnLocked ? 'Assigned GN Division' : 'All GN Divisions'}</option>
           {gnDivisions.map((gn) => (
