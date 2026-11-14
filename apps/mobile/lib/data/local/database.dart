@@ -866,6 +866,19 @@ class AppDatabase {
     );
   }
 
+  Future<List<Map<String, dynamic>>> getAllClientsWithHouseInfo({SyncStatus? status}) async {
+    final statusClause = status != null ? 'WHERE c.sync_status = ?' : '';
+    final args = status != null ? [status.name] : <dynamic>[];
+    return await _executor.runSelect(
+      'SELECT c.*, h.house_no AS house_no, h.house_leader_name AS house_leader_name '
+      'FROM clients c '
+      'LEFT JOIN households h ON c.household_id = h.id '
+      '$statusClause '
+      'ORDER BY c.client_updated_at DESC',
+      args,
+    );
+  }
+
   Future<Map<String, dynamic>?> getClientById(String id) async {
     final rows = await _executor.runSelect(
       'SELECT * FROM clients WHERE id = ?',

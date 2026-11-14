@@ -48,12 +48,18 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
     final isOnline = ref.read(connectivityProvider);
     final auth = ref.read(authProvider);
     final teamId = auth.user?.teamId;
+    final gnId = auth.user?.gnId;
+    final hasRemoteScope = (teamId != null && teamId.isNotEmpty) ||
+        (gnId != null && gnId.isNotEmpty);
 
-    if (isOnline && teamId != null && teamId.isNotEmpty) {
+    String? serverWarning;
+
+    if (isOnline && hasRemoteScope) {
       try {
         final apiClient = ref.read(apiClientProvider);
         final response = await apiClient.getClients(
-          teamId: teamId,
+          teamId: (teamId != null && teamId.isNotEmpty) ? teamId : null,
+          gnId: (teamId == null || teamId.isEmpty) ? gnId : null,
           search: _searchCtrl.text.trim().isNotEmpty
               ? _searchCtrl.text.trim()
               : null,
@@ -75,7 +81,8 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
           pageCount++;
           visitedCursors.add(cursor);
           final nextRes = await apiClient.getClients(
-            teamId: teamId,
+            teamId: (teamId != null && teamId.isNotEmpty) ? teamId : null,
+            gnId: (teamId == null || teamId.isEmpty) ? gnId : null,
             search: _searchCtrl.text.trim().isNotEmpty
                 ? _searchCtrl.text.trim()
                 : null,
@@ -90,27 +97,70 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
           cursor = nextRes['nextCursor'] as String?;
         }
 
+        // Merge local unsynced records (drafts, pending, rejected) so they remain visible online
+        List<Map<String, dynamic>> localClients = [];
+        try {
+          final db = await ref.read(databaseProvider.future);
+          localClients = await db.getAllClientsWithHouseInfo();
+        } catch (_) {}
+
+        final serverIds = clientList.map((c) => c['id']?.toString()).toSet();
+        final localUnsynced = localClients.where((c) {
+          final status = c['sync_status']?.toString();
+          final id = c['id']?.toString();
+          final isUnsynced =
+              status == 'draft' || status == 'pending' || status == 'rejected';
+          return isUnsynced || (id != null && !serverIds.contains(id));
+        }).map((c) {
+          return {
+            'id': c['id'],
+            'householdId': c['household_id'],
+            'houseNo': c['house_no'],
+            'houseLeaderName': c['house_leader_name'],
+            'name': c['name'],
+            'age': c['age'],
+            'gender': c['gender'],
+            'address': c['address'],
+            'phoneRaw': c['phone_raw'],
+            'phoneE164': c['phone_e164'],
+            'highestEducation': c['highest_education'],
+            'highestVocational': c['highest_vocational'],
+            'isSamurdhi': c['is_samurdhi'] == 1,
+            'isAswesuma': c['is_aswesuma'] == 1,
+            'hasSpecialNeeds': c['has_special_needs'] == 1,
+            'isEpf': c['is_epf'] == 1,
+            'isEtf': c['is_etf'] == 1,
+            'syncStatus': c['sync_status'],
+            'lastErrorCode': c['last_error_code'],
+          };
+        }).toList();
+
+        final mergedRecords = [...localUnsynced, ...clientList];
+
         if (mounted) {
           setState(() {
-            _records = clientList;
+            _records = mergedRecords;
             _isLoading = false;
           });
         }
         return;
       } catch (e) {
-        // Fall back to local DB if remote request failed
+        // Fall back to local DB if remote request failed, notifying user
+        serverWarning = 'Server unreachable: showing cached device records.';
       }
     }
 
     // Load from local DB
     try {
       final db = await ref.read(databaseProvider.future);
-      final localClients = await db.getAllClients();
+      final localClients = await db.getAllClientsWithHouseInfo();
 
       final mapped = localClients.map((c) {
         return {
           'id': c['id'],
           'householdId': c['household_id'],
+          'houseNo': c['house_no'],
+          'houseLeaderName': c['house_leader_name'],
           'name': c['name'],
           'age': c['age'],
           'gender': c['gender'],
@@ -133,6 +183,7 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
         setState(() {
           _records = mapped;
           _isLoading = false;
+          _errorMessage = serverWarning;
         });
       }
     } catch (e) {
@@ -150,13 +201,24 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
     return _records.where((r) {
       final name = (r['name'] ?? '').toString().toLowerCase();
       final phone = (r['phoneRaw'] ?? r['phoneE164'] ?? '').toString();
-      final house = (r['householdId'] ?? '').toString().toLowerCase();
+      final houseId = (r['householdId'] ?? '').toString().toLowerCase();
+      final houseNo = (r['household'] is Map
+              ? r['household']['houseNo']
+              : r['houseNo'] ?? '')
+          .toString()
+          .toLowerCase();
+      final houseLeader = (r['household'] is Map
+              ? r['household']['houseLeaderName']
+              : r['houseLeaderName'] ?? '')
+          .toString()
+          .toLowerCase();
 
-      final matchesSearch =
-          query.isEmpty ||
+      final matchesSearch = query.isEmpty ||
           name.contains(query) ||
           phone.contains(query) ||
-          house.contains(query);
+          houseNo.contains(query) ||
+          houseLeader.contains(query) ||
+          houseId.contains(query);
 
       if (!matchesSearch) return false;
 
@@ -531,11 +593,33 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
             ),
           ),
 
+          if (_errorMessage != null && _records.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: GrsSpacing.md,
+                vertical: GrsSpacing.xs,
+              ),
+              color: Colors.amber.shade100,
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.amber.shade900),
+                  const SizedBox(width: GrsSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      _errorMessage!,
+                      style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // Records List
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _errorMessage != null
+                : _errorMessage != null && _records.isEmpty
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(GrsSpacing.lg),
@@ -599,6 +683,11 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                             record['isAswesuma'] == true ||
                             record['isAswesuma'] == 1;
 
+                        final houseNo = (record['household'] is Map
+                                ? record['household']['houseNo']
+                                : record['houseNo'] ?? '')
+                            .toString();
+
                         return GrsCard(
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(
@@ -648,7 +737,7 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                               ],
                             ),
                             subtitle: Text(
-                              '$age yrs • $gender ${phone.isNotEmpty ? '• $phone' : ''}',
+                              '$age yrs • $gender ${phone.isNotEmpty ? '• $phone' : ''}${houseNo.isNotEmpty ? ' • House #$houseNo' : ''}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: GrsColors.textSecondaryLight,

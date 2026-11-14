@@ -120,7 +120,7 @@ export function checkZipDecompressedSize(
 
 @Injectable()
 export class ImportService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Helper to parse boolean cell per Technical Blueprint & Plan §13:
@@ -420,6 +420,18 @@ export class ImportService {
       'சமுர்த்தி',
     ]);
 
+    const nonBeneficiaryIdx = matchHeader([
+      'non_beneficiary',
+      'is_non_beneficiary',
+      'nonbeneficiary',
+      'non_benefit',
+      'ප්‍රතිලාභී නොවන',
+      'ප්‍රතිලාභී_නොවන',
+      'ප්‍රතිලාභීනොවන',
+      'பயனாளியற்றவர்',
+      'பயனாளி_அற்றவர்',
+    ]);
+
     const specialIdx = matchHeader([
       'special_needs',
       'has_special_needs',
@@ -627,6 +639,12 @@ export class ImportService {
       );
       if (!samurdhiRes.isValid) rowErrors.push(samurdhiRes.error!);
 
+      const nonBeneficiaryRes = this.parseBooleanCell(
+        nonBeneficiaryIdx !== -1 ? cols[nonBeneficiaryIdx] : undefined,
+        'non_beneficiary',
+      );
+      if (!nonBeneficiaryRes.isValid) rowErrors.push(nonBeneficiaryRes.error!);
+
       const specialRes = this.parseBooleanCell(
         specialIdx !== -1 ? cols[specialIdx] : undefined,
         'special_needs',
@@ -698,6 +716,7 @@ export class ImportService {
           isEtf: etfRes.value,
           isEpf: epfRes.value,
           isSamurdhi: samurdhiRes.value,
+          isNonBeneficiary: nonBeneficiaryRes.value,
           hasSpecialNeeds: specialRes.value,
           targetFemale: targetFemaleRes.value,
           targetMale: targetMaleRes.value,
@@ -924,6 +943,7 @@ export class ImportService {
             gnId: batch.gnId,
             districtId: gn.ds.districtId,
             dsId: gn.dsId,
+            teamId: caller.role === UserRole.cdc_secretary ? (caller.teamId || null) : null,
             serialNo: allocatedSerial++,
             houseNo: d.houseNo,
             houseNoNorm: d.houseNoNorm,
@@ -934,6 +954,7 @@ export class ImportService {
             isEtf: Boolean(d.isEtf),
             isAswesuma: Boolean(d.isAswesuma),
             isSamurdhi: Boolean(d.isSamurdhi),
+            isNonBeneficiary: Boolean(d.isNonBeneficiary),
             hasSpecialNeeds: Boolean(d.hasSpecialNeeds),
             targetFemale: Number(d.targetFemale) || 0,
             targetMale: Number(d.targetMale) || 0,

@@ -247,6 +247,7 @@ export class SyncService {
         isEtf: h.isEtf,
         isAswesuma: h.isAswesuma,
         isSamurdhi: h.isSamurdhi,
+        isNonBeneficiary: h.isNonBeneficiary,
         hasSpecialNeeds: h.hasSpecialNeeds,
         targetFemale: h.targetFemale,
         targetMale: h.targetMale,
@@ -569,6 +570,7 @@ export class SyncService {
         isEtf: h.isEtf,
         isAswesuma: h.isAswesuma,
         isSamurdhi: h.isSamurdhi,
+        isNonBeneficiary: h.isNonBeneficiary,
         hasSpecialNeeds: h.hasSpecialNeeds,
         targetFemale: h.targetFemale,
         targetMale: h.targetMale,
@@ -646,17 +648,30 @@ export class SyncService {
     // Query all actively assigned GN divisions and teams for Level 4 write permissions
     const assignedGns = new Set<string>();
     const assignedTeams = new Set<string>();
+    const gnToTeams = new Map<string, Set<string>>();
+    const gnsWithNoTeam = new Set<string>();
+
+    const recordAssignment = (gnId?: string | null, teamId?: string | null) => {
+      if (!gnId) return;
+      assignedGns.add(gnId);
+      if (teamId) {
+        assignedTeams.add(teamId);
+        if (!gnToTeams.has(gnId)) gnToTeams.set(gnId, new Set());
+        gnToTeams.get(gnId)!.add(teamId);
+      } else {
+        gnsWithNoTeam.add(gnId);
+      }
+    };
+
     if (user.role === UserRole.cdc_secretary) {
-      if (user.gnId) assignedGns.add(user.gnId);
-      if (user.teamId) assignedTeams.add(user.teamId);
+      recordAssignment(user.gnId, user.teamId);
       try {
         const assignments = await this.prisma.profileAssignment.findMany({
           where: { profileId: user.userId, validTo: null },
           select: { gnId: true, teamId: true },
         });
         for (const a of assignments) {
-          if (a.gnId) assignedGns.add(a.gnId);
-          if (a.teamId) assignedTeams.add(a.teamId);
+          recordAssignment(a.gnId, a.teamId);
         }
       } catch { }
     }
@@ -702,19 +717,7 @@ export class SyncService {
             continue;
           }
         } else if (user.role === UserRole.cdc_secretary) {
-          const matchesTeam =
-            household.teamId && assignedTeams.has(household.teamId);
-          const matchesGn = assignedGns.has(household.gnId);
-          if (assignedTeams.size > 0 && !matchesTeam) {
-            finishedHouseholdsResults.push({
-              id: hid,
-              status: 'forbidden',
-              code: 'OUT_OF_SCOPE_TEAM',
-              message: 'Household is not assigned to your team',
-            });
-            continue;
-          }
-          if (assignedTeams.size === 0 && !matchesGn) {
+          if (!assignedGns.has(household.gnId)) {
             finishedHouseholdsResults.push({
               id: hid,
               status: 'forbidden',
@@ -722,6 +725,20 @@ export class SyncService {
               message: 'Household is outside your assigned GN division',
             });
             continue;
+          }
+          const teamsInGn = gnToTeams.get(household.gnId);
+          if (teamsInGn && teamsInGn.size > 0) {
+            const matchesTeam =
+              household.teamId && teamsInGn.has(household.teamId);
+            if (!matchesTeam) {
+              finishedHouseholdsResults.push({
+                id: hid,
+                status: 'forbidden',
+                code: 'OUT_OF_SCOPE_TEAM',
+                message: 'Household is not assigned to your team',
+              });
+              continue;
+            }
           }
         } else if (user.role === UserRole.sda) {
           if (user.dsId && household.dsId !== user.dsId) {
@@ -1288,19 +1305,7 @@ export class SyncService {
           continue;
         }
       } else if (user.role === 'cdc_secretary') {
-        const matchesTeam =
-          household.teamId && assignedTeams.has(household.teamId);
-        const matchesGn = assignedGns.has(household.gnId);
-        if (assignedTeams.size > 0 && !matchesTeam) {
-          results[idx] = {
-            id: rec.id,
-            status: 'forbidden',
-            code: 'HOUSEHOLD_OUT_OF_SCOPE',
-            message: 'Household is outside caller team scope',
-          };
-          continue;
-        }
-        if (assignedTeams.size === 0 && !matchesGn) {
+        if (!assignedGns.has(household.gnId)) {
           results[idx] = {
             id: rec.id,
             status: 'forbidden',
@@ -1308,6 +1313,20 @@ export class SyncService {
             message: 'Household is outside caller assigned GN division scope',
           };
           continue;
+        }
+        const teamsInGn = gnToTeams.get(household.gnId);
+        if (teamsInGn && teamsInGn.size > 0) {
+          const matchesTeam =
+            household.teamId && teamsInGn.has(household.teamId);
+          if (!matchesTeam) {
+            results[idx] = {
+              id: rec.id,
+              status: 'forbidden',
+              code: 'HOUSEHOLD_OUT_OF_SCOPE',
+              message: 'Household is outside caller team scope',
+            };
+            continue;
+          }
         }
       } else if (user.role === 'sda') {
         // Level 3 (sda): divisional scope
@@ -1390,7 +1409,7 @@ export class SyncService {
           districtId: household.districtId,
           dsId: household.dsId,
           gnId: household.gnId,
-          teamId: user.teamId ?? household.teamId,
+          teamId: household.teamId ?? user.teamId ?? null,
           norm,
           isUpdate: true,
           currentServerVersion: existing.serverVersion,
@@ -1403,7 +1422,7 @@ export class SyncService {
           districtId: household.districtId,
           dsId: household.dsId,
           gnId: household.gnId,
-          teamId: user.teamId ?? household.teamId,
+          teamId: household.teamId ?? user.teamId ?? null,
           norm,
           isUpdate: false,
           currentServerVersion: 0,

@@ -300,40 +300,41 @@ model Team {
 }
 
 model Household {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  gnId            String    @map("gn_id") @db.Uuid
-  teamId          String?   @map("team_id") @db.Uuid
-  districtId      String    @map("district_id") @db.Uuid
-  dsId            String    @map("ds_id") @db.Uuid
-  serialNo        Int       @map("serial_no")
-  houseNo         String    @map("house_no") @db.VarChar(50)
-  houseNoNorm     String    @map("house_no_norm") @db.VarChar(50)
-  houseLeaderName String    @map("house_leader_name") @db.VarChar(255)
-  address         String?   @db.Text
-  villageName     String?   @map("village_name") @db.VarChar(150)
-  isEpf           Boolean   @default(false) @map("is_epf")
-  isEtf           Boolean   @default(false) @map("is_etf")
-  isAswesuma      Boolean   @default(false) @map("is_aswesuma")
-  isSamurdhi      Boolean   @default(false) @map("is_samurdhi")
-  hasSpecialNeeds Boolean   @default(false) @map("has_special_needs")
-  targetFemale    Int       @default(0) @map("target_female")
-  targetMale      Int       @default(0) @map("target_male")
-  ageGroupMin     Int?      @map("age_group_min")
-  ageGroupMax     Int?      @map("age_group_max")
-  langSinhala     Boolean   @default(false) @map("lang_sinhala")
-  langTamil       Boolean   @default(false) @map("lang_tamil")
-  langEnglish     Boolean   @default(false) @map("lang_english")
-  version         Int       @default(1)
-  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
-  deletedReason   String?   @map("deleted_reason") @db.VarChar(255)
-  importBatchId   String?   @map("import_batch_id") @db.Uuid
-  createdBy       String    @map("created_by") @db.Uuid
-  updatedBy       String?   @map("updated_by") @db.Uuid
-  visitStatus     String?   @default("not_started") @map("visit_status") @db.VarChar(50)
-  finishedAt      DateTime? @map("finished_at") @db.Timestamptz(6)
-  finishedBy      String?   @map("finished_by") @db.Uuid
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gnId             String    @map("gn_id") @db.Uuid
+  teamId           String?   @map("team_id") @db.Uuid
+  districtId       String    @map("district_id") @db.Uuid
+  dsId             String    @map("ds_id") @db.Uuid
+  serialNo         Int       @map("serial_no")
+  houseNo          String    @map("house_no") @db.VarChar(50)
+  houseNoNorm      String    @map("house_no_norm") @db.VarChar(50)
+  houseLeaderName  String    @map("house_leader_name") @db.VarChar(255)
+  address          String?   @db.Text
+  villageName      String?   @map("village_name") @db.VarChar(150)
+  isEpf            Boolean   @default(false) @map("is_epf")
+  isEtf            Boolean   @default(false) @map("is_etf")
+  isAswesuma       Boolean   @default(false) @map("is_aswesuma")
+  isSamurdhi       Boolean   @default(false) @map("is_samurdhi")
+  isNonBeneficiary Boolean   @default(false) @map("is_non_beneficiary")
+  hasSpecialNeeds  Boolean   @default(false) @map("has_special_needs")
+  targetFemale     Int       @default(0) @map("target_female")
+  targetMale       Int       @default(0) @map("target_male")
+  ageGroupMin      Int?      @map("age_group_min")
+  ageGroupMax      Int?      @map("age_group_max")
+  langSinhala      Boolean   @default(false) @map("lang_sinhala")
+  langTamil        Boolean   @default(false) @map("lang_tamil")
+  langEnglish      Boolean   @default(false) @map("lang_english")
+  version          Int       @default(1)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedReason    String?   @map("deleted_reason") @db.VarChar(255)
+  importBatchId    String?   @map("import_batch_id") @db.Uuid
+  createdBy        String    @map("created_by") @db.Uuid
+  updatedBy        String?   @map("updated_by") @db.Uuid
+  visitStatus      String?   @default("not_started") @map("visit_status") @db.VarChar(50)
+  finishedAt       DateTime? @map("finished_at") @db.Timestamptz(6)
+  finishedBy       String?   @map("finished_by") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   gn       GnDivision @relation(fields: [gnId], references: [id], onDelete: Restrict)
   team     Team?      @relation(fields: [teamId], references: [id], onDelete: SetNull)

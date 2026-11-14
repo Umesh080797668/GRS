@@ -317,6 +317,7 @@ export const R2_CLIENT_COLUMN_KEYS = [
   'is_etf',
   'is_aswesuma',
   'is_samurdhi',
+  'is_non_beneficiary',
   'has_special_needs',
   'target_female',
   'target_male',
@@ -434,6 +435,11 @@ export const R2_COLUMN_HEADERS_I18N: Record<string, TrilingualText> = {
     en: 'Household Samurdhi Beneficiary',
     si: 'නිවස සමෘද්ධි ප්‍රතිලාභී',
     ta: 'வீடு சமுர்த்தி பயனாளி',
+  },
+  is_non_beneficiary: {
+    en: 'Household Non-beneficiary',
+    si: 'නිවස ප්‍රතිලාභී නොවන',
+    ta: 'வீடு பயனாளியற்றவர்',
   },
   has_special_needs: {
     en: 'Household Special Needs',

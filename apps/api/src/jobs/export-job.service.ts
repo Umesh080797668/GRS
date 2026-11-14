@@ -87,6 +87,11 @@ export const EXPORT_COLUMNS_REGISTRY: Record<
     key: 'is_samurdhi',
     width: 15,
   },
+  is_non_beneficiary: {
+    header: 'Non-beneficiary',
+    key: 'is_non_beneficiary',
+    width: 15,
+  },
   has_special_needs: {
     header: 'Special Needs in Household',
     key: 'has_special_needs',
@@ -1064,6 +1069,7 @@ export class ExportJobService {
       is_etf: formatBooleanLabel(household?.isEtf, lang),
       is_aswesuma: formatBooleanLabel(household?.isAswesuma, lang),
       is_samurdhi: formatBooleanLabel(household?.isSamurdhi, lang),
+      is_non_beneficiary: formatBooleanLabel(household?.isNonBeneficiary, lang),
       has_special_needs: formatBooleanLabel(household?.hasSpecialNeeds, lang),
       target_female: household?.targetFemale ?? 0,
       target_male: household?.targetMale ?? 0,

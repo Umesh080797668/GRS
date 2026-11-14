@@ -147,6 +147,7 @@ export class ClientService {
           { name: { contains: s, mode: 'insensitive' } },
           { phoneRaw: { contains: s } },
           { phoneE164: { contains: s } },
+          { household: { houseNo: { contains: s, mode: 'insensitive' } } },
         ],
       };
     }
@@ -540,7 +541,7 @@ export class ClientService {
           districtId: household.districtId,
           dsId: household.dsId,
           gnId: household.gnId,
-          teamId: caller.teamId ?? household.teamId ?? null,
+          teamId: household.teamId ?? caller.teamId ?? null,
           name: nameVal.value!,
           nameNorm,
           age: ageVal.value!,

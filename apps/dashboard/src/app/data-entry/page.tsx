@@ -153,16 +153,30 @@ export default function DataEntryPage() {
   const [syncingDrafts, setSyncingDrafts] = useState(false);
   const [syncDraftsResult, setSyncDraftsResult] = useState<{ success: number; failed: number } | null>(null);
 
+  const draftsStorageKey = user?.id
+    ? `grs_web_data_entry_drafts_${user.id}`
+    : 'grs_web_data_entry_drafts';
+
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('grs_web_data_entry_drafts');
+      const stored = localStorage.getItem(draftsStorageKey);
       if (stored) {
         setDrafts(JSON.parse(stored));
+      } else {
+        // Fallback: check legacy global key if user has drafts saved under old key
+        const legacy = localStorage.getItem('grs_web_data_entry_drafts');
+        if (legacy && user?.id) {
+          setDrafts(JSON.parse(legacy));
+          localStorage.setItem(draftsStorageKey, legacy);
+          localStorage.removeItem('grs_web_data_entry_drafts');
+        } else {
+          setDrafts([]);
+        }
       }
     } catch (e) {
       console.error('Failed to read drafts from localStorage', e);
     }
-  }, []);
+  }, [draftsStorageKey, user?.id]);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -492,6 +506,12 @@ export default function DataEntryPage() {
       // Refresh existing households for the GN
       loadHouseholdsForGn(selectedGn);
 
+      // Switch form to existing household mode so next person in this house attaches directly
+      if (householdId) {
+        setSelectedHouseholdId(householdId);
+        setHouseholdMode('existing');
+      }
+
       setSubmitSuccess(
         isAttachedToExisting
           ? `Successfully recorded survey for "${clientName}" attached to existing household #${houseNo} (${headName}).`
@@ -522,7 +542,7 @@ export default function DataEntryPage() {
   const saveDraftsToStorage = (updatedDrafts: WebDraft[]) => {
     setDrafts(updatedDrafts);
     try {
-      localStorage.setItem('grs_web_data_entry_drafts', JSON.stringify(updatedDrafts));
+      localStorage.setItem(draftsStorageKey, JSON.stringify(updatedDrafts));
     } catch (e) {
       console.error('Failed to write drafts to localStorage', e);
     }
@@ -704,6 +724,12 @@ export default function DataEntryPage() {
 
   const syncSingleDraft = async (draft: WebDraft): Promise<{ success: boolean; error?: string }> => {
     try {
+      if (!draft.consentGiven) {
+        return {
+          success: false,
+          error: t('entry.error.consent_required') || 'Consent is required to submit this record.',
+        };
+      }
       let householdId = draft.selectedHouseholdId;
       if (!householdId) {
         if (user?.role === 'admin') {
@@ -773,7 +799,7 @@ export default function DataEntryPage() {
         futureHopes: draft.futureHopes,
         infoProvidedBy: draft.infoProvidedBy,
         infoProvidedByOther: draft.infoProvidedBy === 'other' ? (draft.infoProvidedByOther.trim() || undefined) : undefined,
-        consentGiven: true,
+        consentGiven: draft.consentGiven,
         consentVersion: draft.consentVersion || 'consent.v0',
       });
 
@@ -989,6 +1015,37 @@ export default function DataEntryPage() {
                   </strong>
                   <span>{submitSuccess}</span>
                 </div>
+              </div>
+            )}
+
+            {editingDraftId && (
+              <div
+                className="de-alert"
+                style={{
+                  background: 'rgba(59, 130, 246, 0.08)',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  color: 'var(--text)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <FileText size={18} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                  <div>
+                    <strong>Editing Saved Draft:</strong> Making changes to draft #{editingDraftId}. Submitting or saving will update this draft.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="btn-secondary"
+                  style={{ whiteSpace: 'nowrap', marginLeft: '12px', padding: '6px 12px', fontSize: '12px' }}
+                >
+                  Cancel Editing Draft
+                </button>
               </div>
             )}
 
@@ -1638,6 +1695,18 @@ export default function DataEntryPage() {
                   All submissions are immutably signed with operator identity and territorial hierarchy.
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {editingDraftId && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      disabled={submitting || syncingDrafts}
+                      className="btn-secondary"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
+                    >
+                      <X size={15} />
+                      <span>Cancel Edit</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={handleSaveDraft}

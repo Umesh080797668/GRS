@@ -838,6 +838,7 @@ class GrsApiClient {
   /// GET /v1/clients - List team records (M4.4)
   Future<Map<String, dynamic>> getClients({
     String? teamId,
+    String? gnId,
     String? householdId,
     String? search,
     int? limit,
@@ -845,6 +846,7 @@ class GrsApiClient {
   }) async {
     final params = <String, String>{};
     if (teamId != null) params['teamId'] = teamId;
+    if (gnId != null) params['gnId'] = gnId;
     if (householdId != null) params['householdId'] = householdId;
     if (search != null) params['search'] = search;
     if (limit != null) params['limit'] = limit.toString();

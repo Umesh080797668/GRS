@@ -178,13 +178,17 @@ export class HouseholdService {
             targetGnId,
           );
 
+          const resolvedTeamId =
+            dto.teamId ||
+            (creator.role === UserRole.cdc_secretary ? (creator.teamId || null) : null);
+
           // 3. Insert household record
           const household = await tx.household.create({
             data: {
               gnId: targetGnId,
               dsId: resolvedDsId,
               districtId: resolvedDistrictId,
-              teamId: dto.teamId || null,
+              teamId: resolvedTeamId,
               serialNo: allocatedSerial,
               houseNo: dto.houseNo.trim(),
               houseNoNorm,
@@ -195,6 +199,7 @@ export class HouseholdService {
               isEtf: dto.isEtf ?? false,
               isAswesuma: dto.isAswesuma ?? false,
               isSamurdhi: dto.isSamurdhi ?? false,
+              isNonBeneficiary: dto.isNonBeneficiary ?? false,
               hasSpecialNeeds: dto.hasSpecialNeeds ?? false,
               targetFemale: dto.targetFemale ?? 0,
               targetMale: dto.targetMale ?? 0,
@@ -507,6 +512,7 @@ export class HouseholdService {
                 isEtf: dto.isEtf,
                 isAswesuma: dto.isAswesuma,
                 isSamurdhi: dto.isSamurdhi,
+                isNonBeneficiary: dto.isNonBeneficiary,
                 hasSpecialNeeds: dto.hasSpecialNeeds,
                 targetFemale: dto.targetFemale,
                 targetMale: dto.targetMale,
@@ -541,6 +547,7 @@ export class HouseholdService {
             isEtf: dto.isEtf,
             isAswesuma: dto.isAswesuma,
             isSamurdhi: dto.isSamurdhi,
+            isNonBeneficiary: dto.isNonBeneficiary,
             hasSpecialNeeds: dto.hasSpecialNeeds,
             targetFemale: dto.targetFemale,
             targetMale: dto.targetMale,

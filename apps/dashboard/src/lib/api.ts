@@ -194,6 +194,17 @@ export class ApiClient {
     localStorage.removeItem('grs_access_token');
     localStorage.removeItem('grs_refresh_token');
     localStorage.removeItem('grs_user');
+    try {
+      localStorage.removeItem('grs_web_data_entry_drafts');
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('grs_web_data_entry_drafts')) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch {
+      // Invariant: Silently handle storage errors
+    }
   }
 
   public getStoredUser(): SessionTokens['user'] | null {
