@@ -380,8 +380,11 @@ export class SyncService {
       take: take + 1,
     };
 
+    // Level 4 works at GN scope, so a house leaving a team must not vanish from their phone.
     const unassignedQueryArgs: any =
-      user.teamId && this.prisma.householdUnassignment
+      user.teamId &&
+        user.role !== UserRole.cdc_secretary &&
+        this.prisma.householdUnassignment
         ? {
           where: buildKeysetFilter(
             { teamId: user.teamId },

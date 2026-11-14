@@ -66,15 +66,8 @@ export class ClientService {
     let scopeFilter: Record<string, any>;
 
     if (caller.role === UserRole.cdc_secretary) {
-      if (caller.teamId) {
-        if (query.teamId && query.teamId !== caller.teamId) {
-          throw new ForbiddenException({
-            code: 'FORBIDDEN_SCOPE',
-            message: 'Cannot access clients outside assigned team',
-          });
-        }
-        scopeFilter = { deletedAt: null, teamId: caller.teamId };
-      } else if (caller.gnId) {
+      // GN division is the primary scope for Level 4; a team is optional.
+      if (caller.gnId) {
         if (query.gnId && query.gnId !== caller.gnId) {
           throw new ForbiddenException({
             code: 'FORBIDDEN_SCOPE',
@@ -82,6 +75,14 @@ export class ClientService {
           });
         }
         scopeFilter = { deletedAt: null, gnId: caller.gnId };
+      } else if (caller.teamId) {
+        if (query.teamId && query.teamId !== caller.teamId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'Cannot access clients outside assigned team',
+          });
+        }
+        scopeFilter = { deletedAt: null, teamId: caller.teamId };
       } else {
         throw new ForbiddenException({
           code: 'FORBIDDEN_SCOPE',
