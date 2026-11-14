@@ -7,6 +7,7 @@ import '../../providers/api_client_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/connectivity_provider.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/sync_provider.dart';
 
 /// Screen for Level 4 (CDC Secretary) to add a house pre-visit (M4.4 / Form DD/S/002).
 ///
@@ -124,6 +125,8 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
       final db = await ref.read(databaseProvider.future);
       final household = Household.fromJson(created);
       await db.upsertHousehold(household);
+      // Refresh the Home house list so the new house shows up immediately.
+      ref.read(recordsRevisionProvider.notifier).increment();
 
       if (mounted) {
         final dlgL10n = GrsL10n.of(context);
