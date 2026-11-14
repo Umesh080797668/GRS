@@ -86,7 +86,9 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
     try {
       final auth = ref.read(authProvider);
       final teamId = auth.user?.teamId;
-      if (teamId == null || teamId.isEmpty) {
+      final gnId = auth.user?.gnId;
+      if ((teamId == null || teamId.isEmpty) &&
+          (gnId == null || gnId.isEmpty)) {
         setState(() {
           _isLoading = false;
           _errorMessage = GrsL10n.of(context).get('noTeamAssignedUser');
@@ -95,7 +97,10 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
       }
 
       final apiClient = ref.read(apiClientProvider);
-      final response = await apiClient.getAccounts(teamId: teamId);
+      final response = await apiClient.getAccounts(
+        teamId: teamId,
+        gnId: teamId == null || teamId.isEmpty ? gnId : null,
+      );
 
       List<dynamic> accountsRaw = [];
       if (response['accounts'] is List) {
@@ -135,10 +140,28 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
       builder: (dialogCtx) => _AddSingleMemberDialog(
         onSubmit: (name, phone, lang) async {
           final auth = ref.read(authProvider);
-          final teamId = auth.user?.teamId;
+          var teamId = auth.user?.teamId;
           final gnId = auth.user?.gnId;
-
           final apiClient = ref.read(apiClientProvider);
+
+          if ((teamId == null || teamId.isEmpty) &&
+              gnId != null &&
+              gnId.isNotEmpty) {
+            try {
+              final teams = await apiClient.getTeams(gnId: gnId);
+              if (teams.isNotEmpty) {
+                teamId = (teams.first as Map<String, dynamic>)['id'] as String?;
+              } else {
+                final newTeam = await apiClient.createTeam({
+                  'gnId': gnId,
+                  'teamNo': 1,
+                  'maxMembers': 10,
+                });
+                teamId = newTeam['id'] as String?;
+              }
+            } catch (_) {}
+          }
+
           final payload = <String, dynamic>{
             'fullName': name,
             'role': 'team_member',
@@ -180,10 +203,28 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
         availableSlots: availableSlots,
         onSubmit: (count, lang) async {
           final auth = ref.read(authProvider);
-          final teamId = auth.user?.teamId;
+          var teamId = auth.user?.teamId;
           final gnId = auth.user?.gnId;
-
           final apiClient = ref.read(apiClientProvider);
+
+          if ((teamId == null || teamId.isEmpty) &&
+              gnId != null &&
+              gnId.isNotEmpty) {
+            try {
+              final teams = await apiClient.getTeams(gnId: gnId);
+              if (teams.isNotEmpty) {
+                teamId = (teams.first as Map<String, dynamic>)['id'] as String?;
+              } else {
+                final newTeam = await apiClient.createTeam({
+                  'gnId': gnId,
+                  'teamNo': 1,
+                  'maxMembers': 10,
+                });
+                teamId = newTeam['id'] as String?;
+              }
+            } catch (_) {}
+          }
+
           final payload = <String, dynamic>{
             'role': 'team_member',
             'count': count,

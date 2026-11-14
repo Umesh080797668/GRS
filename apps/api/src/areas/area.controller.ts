@@ -146,7 +146,12 @@ export class AreaController {
   }
 
   @Post('teams')
-  @Roles(UserRole.super_admin, UserRole.admin, UserRole.sda)
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.sda,
+    UserRole.cdc_secretary,
+  )
   async createTeam(
     @CurrentUser() user: ScopeContext,
     @Body() dto: CreateTeamDto,
@@ -171,7 +176,12 @@ export class AreaController {
   }
 
   @Patch('teams/:id')
-  @Roles(UserRole.super_admin, UserRole.admin, UserRole.sda)
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.sda,
+    UserRole.cdc_secretary,
+  )
   async updateTeam(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) teamId: string,
@@ -181,7 +191,12 @@ export class AreaController {
   }
 
   @Delete('teams/:id')
-  @Roles(UserRole.super_admin, UserRole.admin, UserRole.sda)
+  @Roles(
+    UserRole.super_admin,
+    UserRole.admin,
+    UserRole.sda,
+    UserRole.cdc_secretary,
+  )
   async deleteTeam(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) teamId: string,

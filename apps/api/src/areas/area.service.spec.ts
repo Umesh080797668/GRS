@@ -9,6 +9,7 @@ import { ROLES_KEY } from '../auth/roles.decorator';
 import { UserRole } from '../common/scope/scope.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { SRI_LANKA_25_DISTRICTS } from './districts.data';
+import { ScopeContext } from '../common/scope/scope.types';
 
 describe('AreaService (M1.7)', () => {
   let service: AreaService;
@@ -1002,6 +1003,65 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
       // Deleting own team succeeds cleanly
       await service.deleteTeam(team.id, sdoScope);
       expect(inMemoryTeams.find((t) => t.id === team.id)).toBeUndefined();
+    });
+
+    it('enforces GN-scoped permissions for Level 4 (cdc_secretary) on team management', async () => {
+      await service.seedDistricts();
+      const colombo = inMemoryDistricts.find((d) => d.nameEn === 'Colombo');
+      const ds = await service.createDivisionalSecretariat({
+        districtId: colombo.id,
+        nameEn: 'Homagama',
+      });
+      const gn1 = await service.createGnDivision({
+        dsId: ds.id,
+        gnNumber: '540A',
+        gnName: 'Homagama East',
+      });
+      const gn2 = await service.createGnDivision({
+        dsId: ds.id,
+        gnNumber: '540B',
+        gnName: 'Homagama West',
+      });
+
+      const cdcScope: ScopeContext = {
+        userId: 'u-cdc-1',
+        role: UserRole.cdc_secretary,
+        gnId: gn1.id,
+      };
+
+      // CDC Secretary can create team in their GN
+      const cdcTeam = await service.createTeam(
+        { gnId: gn1.id, teamNo: 1, maxMembers: 12 },
+        cdcScope,
+      );
+      expect(cdcTeam.gnId).toBe(gn1.id);
+      expect(cdcTeam.teamNo).toBe(1);
+
+      // CDC Secretary can update team in their GN
+      const updated = await service.updateTeam(
+        cdcTeam.id,
+        { teamNo: 2, maxMembers: 15 },
+        cdcScope,
+      );
+      expect(updated.teamNo).toBe(2);
+
+      // CDC Secretary cannot create team in another GN
+      await expect(
+        service.createTeam({ gnId: gn2.id, teamNo: 1 }, cdcScope),
+      ).rejects.toThrow('within their assigned GN division');
+
+      // CDC Secretary cannot modify team in another GN
+      const otherGnTeam = await service.createTeam({
+        gnId: gn2.id,
+        teamNo: 9,
+      });
+      await expect(
+        service.updateTeam(otherGnTeam.id, { teamNo: 10 }, cdcScope),
+      ).rejects.toThrow('within their assigned GN division');
+
+      // CDC Secretary can delete team in their GN
+      await service.deleteTeam(cdcTeam.id, cdcScope);
+      expect(inMemoryTeams.find((t) => t.id === cdcTeam.id)).toBeUndefined();
     });
   });
 });

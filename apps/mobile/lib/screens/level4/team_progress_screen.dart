@@ -57,6 +57,7 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
     final isOnline = ref.read(connectivityProvider);
     final auth = ref.read(authProvider);
     final teamId = auth.user?.teamId;
+    final gnId = auth.user?.gnId;
 
     try {
       // 1. First load local database records as fast baseline
@@ -99,14 +100,39 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
         return age >= 60;
       }).length;
 
-      // 2. If online, fetch from backend for global team view
-      if (isOnline && teamId != null && teamId.isNotEmpty) {
+      // 2. If online, fetch from backend for global team or GN view
+      if (isOnline &&
+          ((teamId != null && teamId.isNotEmpty) ||
+              (gnId != null && gnId.isNotEmpty))) {
         try {
           final apiClient = ref.read(apiClientProvider);
 
-          // Fetch team clients
+          // Fetch team/GN households
+          try {
+            final housesRes = await apiClient.getHouseholds(
+              teamId: teamId,
+              gnId: teamId == null || teamId.isEmpty ? gnId : null,
+              limit: 500,
+            );
+            final serverHouses = (housesRes['households'] as List? ?? [])
+                .whereType<Map<String, dynamic>>()
+                .toList();
+            if (serverHouses.isNotEmpty) {
+              totalH = serverHouses.length;
+              compH = serverHouses
+                  .where((h) => h['status'] == 'completed')
+                  .length;
+              inProgH = serverHouses
+                  .where((h) => h['status'] == 'in_progress')
+                  .length;
+              notStH = totalH - compH - inProgH;
+            }
+          } catch (_) {}
+
+          // Fetch team/GN clients
           final clientsRes = await apiClient.getClients(
             teamId: teamId,
+            gnId: teamId == null || teamId.isEmpty ? gnId : null,
             limit: 500,
           );
           final serverClients =
@@ -152,8 +178,11 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
             }).length;
           }
 
-          // Fetch team members
-          final membersRes = await apiClient.getAccounts(teamId: teamId);
+          // Fetch team/GN members
+          final membersRes = await apiClient.getAccounts(
+            teamId: teamId,
+            gnId: teamId == null || teamId.isEmpty ? gnId : null,
+          );
           final serverMembers =
               (membersRes['accounts'] as List? ??
                       membersRes['data'] as List? ??

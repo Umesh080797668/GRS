@@ -797,6 +797,7 @@ class GrsApiClient {
   /// GET /v1/accounts - List team members (M5.2 / M5.5 keyset paged)
   Future<Map<String, dynamic>> getAccounts({
     String? teamId,
+    String? gnId,
     String? role,
     String? search,
     int? limit,
@@ -804,6 +805,7 @@ class GrsApiClient {
   }) async {
     final params = <String, String>{};
     if (teamId != null) params['teamId'] = teamId;
+    if (gnId != null) params['gnId'] = gnId;
     if (role != null) params['role'] = role;
     if (search != null) params['search'] = search;
     if (limit != null) params['limit'] = limit.toString();
@@ -1033,6 +1035,23 @@ class GrsApiClient {
         return decoded['items'] as List<dynamic>;
       }
       return [];
+    }
+    _handleError(response);
+  }
+
+  /// POST /v1/areas/teams - Create a team (M5.3)
+  Future<Map<String, dynamic>> createTeam(Map<String, dynamic> data) async {
+    final uri = Uri.parse('$baseUrl/v1/areas/teams');
+    final response = await _sendWithAuthRetry(
+      () => _client.post(
+        uri,
+        headers: _headers(authenticated: true),
+        body: jsonEncode(data),
+      ),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
     }
     _handleError(response);
   }

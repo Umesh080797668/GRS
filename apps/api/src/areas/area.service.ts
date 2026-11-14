@@ -702,7 +702,17 @@ export class AreaService {
       });
     }
 
-    this.assertDsScope(caller, gn.dsId);
+    if (caller?.role === UserRole.cdc_secretary) {
+      if (!caller.gnId || dto.gnId !== caller.gnId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_GN',
+          message:
+            'CDC Secretary can only create teams within their assigned GN division',
+        });
+      }
+    } else {
+      this.assertDsScope(caller, gn.dsId);
+    }
 
     const existing = await this.prisma.team.findUnique({
       where: {
@@ -855,7 +865,18 @@ export class AreaService {
     caller: ScopeContext | undefined,
     gnId: string,
   ): Promise<void> {
-    if (!caller || caller.role !== UserRole.sda) return;
+    if (!caller) return;
+    if (caller.role === UserRole.cdc_secretary) {
+      if (!caller.gnId || caller.gnId !== gnId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_GN',
+          message:
+            'CDC Secretary can only modify teams within their assigned GN division',
+        });
+      }
+      return;
+    }
+    if (caller.role !== UserRole.sda) return;
     const gn = await this.prisma.gnDivision.findUnique({
       where: { id: gnId },
       select: { dsId: true },

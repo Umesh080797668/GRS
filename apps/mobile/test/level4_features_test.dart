@@ -66,6 +66,18 @@ void main() {
       mustChangePassword: false,
     );
 
+    final l4ProfileNoTeam = const ProfileModel(
+      id: 'l4-user-no-team',
+      userCode: 'L4002',
+      role: 'cdc_secretary',
+      fullName: 'Sunil Perera (CDC Secretary)',
+      preferredLanguage: 'si',
+      gnId: 'gn-colombo-01',
+      teamId: null,
+      isActive: true,
+      mustChangePassword: false,
+    );
+
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('level4_test_');
       dbFile = File('${tempDir.path}/test_l4.db');
@@ -87,6 +99,7 @@ void main() {
       required Widget screen,
       required http.Client httpClient,
       bool isOnline = true,
+      ProfileModel? profile,
     }) {
       final apiClient = GrsApiClient(
         baseUrl: 'http://localhost:3000',
@@ -106,7 +119,7 @@ void main() {
               storage: _FakeSecureStorageService(),
               initialState: AuthState(
                 status: AuthStatus.authenticated,
-                profile: l4Profile,
+                profile: profile ?? l4Profile,
                 isOffline: !isOnline,
               ),
             ),
@@ -355,6 +368,120 @@ void main() {
 
         // Verify 409 Claim Conflict dialog appears
         expect(find.text('Claim Conflict'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'M4.2: CDC Secretary without teamId can claim houses for GN team and unassign houses',
+      (tester) async {
+        final assignedHouses = <String>[];
+        final unassignedHouses = <String>[];
+
+        final mockClient = MockClient((request) async {
+          if (request.url.path == '/v1/houses') {
+            return http.Response(
+              jsonEncode({
+                'households': [
+                  {
+                    'id': 'h-avail-1',
+                    'houseNo': '10/A',
+                    'serialNo': 1,
+                    'houseLeaderName': 'Available Leader',
+                    'teamId': null,
+                  },
+                  {
+                    'id': 'h-assigned-1',
+                    'houseNo': '10/B',
+                    'serialNo': 2,
+                    'houseLeaderName': 'Assigned Leader',
+                    'teamId': 'team-gn-1',
+                    'team': {'teamNo': 1},
+                  },
+                ],
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (request.url.path == '/v1/areas/teams') {
+            return http.Response(
+              jsonEncode([
+                {
+                  'id': 'team-gn-1',
+                  'teamNo': 1,
+                  'gnId': 'gn-colombo-01',
+                  'maxMembers': 10,
+                },
+              ]),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (request.url.path == '/v1/teams/team-gn-1/houses') {
+            final body = jsonDecode(request.body) as Map<String, dynamic>;
+            assignedHouses.addAll((body['houseIds'] as List).cast<String>());
+            return http.Response(
+              jsonEncode({
+                'success': true,
+                'assignedCount': assignedHouses.length,
+                'houseIds': assignedHouses,
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (request.url.path == '/v1/teams/team-gn-1/houses/h-assigned-1' &&
+              request.method == 'DELETE') {
+            unassignedHouses.add('h-assigned-1');
+            return http.Response(
+              jsonEncode({
+                'success': true,
+                'unassignedHouseId': 'h-assigned-1',
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response('Not Found', 404);
+        });
+
+        await tester.pumpWidget(
+          wrapScreen(
+            screen: const ChooseHousesScreen(),
+            httpClient: mockClient,
+            isOnline: true,
+            profile: l4ProfileNoTeam,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('House No: 10/A'), findsOneWidget);
+        expect(find.text('House No: 10/B'), findsOneWidget);
+        expect(find.text('Available'), findsOneWidget);
+
+        // Claim h-avail-1
+        await tester.tap(find.byType(CheckboxListTile).first);
+        await tester.pumpAndSettle();
+
+        expect(find.text('1 house(s) selected'), findsOneWidget);
+
+        // Tap Claim Selected Houses - must not throw "noTeamAssigned"
+        await tester.tap(find.text('Claim Selected Houses'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('No team assigned to your account'), findsNothing);
+        expect(assignedHouses, contains('h-avail-1'));
+
+        // Verify unassign icon is visible and works for assigned house
+        expect(find.byIcon(Icons.link_off), findsOneWidget);
+        await tester.tap(find.byIcon(Icons.link_off));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Unassign House'), findsOneWidget);
+        await tester.tap(find.text('Unassign'));
+        await tester.pumpAndSettle();
+
+        expect(unassignedHouses, contains('h-assigned-1'));
       },
     );
 

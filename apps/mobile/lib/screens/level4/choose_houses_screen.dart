@@ -21,6 +21,8 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   List<Map<String, dynamic>> _houses = [];
+  List<Map<String, dynamic>> _teams = [];
+  String? _selectedTargetTeamId;
   final Set<String> _selectedHouseIds = {};
   bool _isClaiming = false;
 
@@ -89,9 +91,25 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
         cursor = nextResponse['nextCursor'] as String?;
       }
 
+      List<Map<String, dynamic>> loadedTeams = [];
+      try {
+        final teamsRes = await apiClient.getTeams(gnId: gnId);
+        loadedTeams = teamsRes.whereType<Map<String, dynamic>>().toList();
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           _houses = allHouses;
+          _teams = loadedTeams;
+          if (_selectedTargetTeamId == null ||
+              !_teams.any((t) => t['id'] == _selectedTargetTeamId)) {
+            if (auth.user?.teamId != null &&
+                _teams.any((t) => t['id'] == auth.user!.teamId)) {
+              _selectedTargetTeamId = auth.user!.teamId;
+            } else if (_teams.isNotEmpty) {
+              _selectedTargetTeamId = _teams.first['id'] as String?;
+            }
+          }
           _isLoading = false;
         });
       }
@@ -111,12 +129,12 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
     if (_selectedHouseIds.isEmpty) return;
 
     final auth = ref.read(authProvider);
-    final teamId = auth.user?.teamId;
-    if (teamId == null || teamId.isEmpty) {
+    final gnId = auth.user?.gnId;
+    if (gnId == null || gnId.isEmpty) {
       final l10n = GrsL10n.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n.get('noTeamAssigned')),
+          content: Text(l10n.get('noGnDivisionAssigned')),
           backgroundColor: GrsColors.syncRejected,
         ),
       );
@@ -127,8 +145,51 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
 
     try {
       final apiClient = ref.read(apiClientProvider);
+
+      String? targetTeamId = _selectedTargetTeamId ?? auth.user?.teamId;
+
+      if (targetTeamId == null || targetTeamId.isEmpty) {
+        if (_teams.isNotEmpty) {
+          targetTeamId = _teams.first['id'] as String?;
+        } else {
+          try {
+            final newTeam = await apiClient.createTeam({
+              'gnId': gnId,
+              'teamNo': 1,
+              'maxMembers': 10,
+            });
+            targetTeamId = newTeam['id'] as String?;
+            if (targetTeamId != null) {
+              _teams.add(newTeam);
+              _selectedTargetTeamId = targetTeamId;
+            }
+          } catch (_) {
+            try {
+              final refTeams = await apiClient.getTeams(gnId: gnId);
+              _teams = refTeams.whereType<Map<String, dynamic>>().toList();
+              if (_teams.isNotEmpty) {
+                targetTeamId = _teams.first['id'] as String?;
+                _selectedTargetTeamId = targetTeamId;
+              }
+            } catch (_) {}
+          }
+        }
+      }
+
+      if (targetTeamId == null || targetTeamId.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No team available in this GN division.'),
+              backgroundColor: GrsColors.syncRejected,
+            ),
+          );
+        }
+        return;
+      }
+
       final res = await apiClient.assignHousesToTeam(
-        teamId,
+        targetTeamId,
         _selectedHouseIds.toList(),
       );
 
@@ -220,11 +281,11 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
     }
   }
 
-  Future<void> _unassignHouse(String houseId, String houseNo) async {
-    final auth = ref.read(authProvider);
-    final teamId = auth.user?.teamId;
-    if (teamId == null) return;
-
+  Future<void> _unassignHouse(
+    String houseId,
+    String houseNo,
+    String teamId,
+  ) async {
     final dlgL10n = GrsL10n.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
@@ -286,7 +347,7 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
     final l10n = GrsL10n.of(context);
     final isOnline = ref.watch(connectivityProvider);
     final auth = ref.watch(authProvider);
-    final myTeamId = auth.user?.teamId;
+    final activeTeamId = _selectedTargetTeamId ?? auth.user?.teamId;
 
     // Filter houses
     final search = _searchCtrl.text.trim().toLowerCase();
@@ -303,10 +364,10 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
 
       if (!matchesSearch) return false;
 
-      final teamId = h['teamId'] as String?;
-      final isMyTeam = myTeamId != null && teamId == myTeamId;
-      final isAvailable = teamId == null;
-      final isTakenByOther = teamId != null && !isMyTeam;
+      final houseTeamId = h['teamId'] as String?;
+      final isMyTeam = activeTeamId != null && houseTeamId == activeTeamId;
+      final isAvailable = houseTeamId == null;
+      final isTakenByOther = houseTeamId != null && !isMyTeam;
 
       switch (_selectedFilter) {
         case 'available':
@@ -349,6 +410,45 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
+                if (_teams.length > 1) ...[
+                  const SizedBox(height: GrsSpacing.xs),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.groups_outlined,
+                        size: 18,
+                        color: GrsColors.primaryLight,
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Target Team:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      DropdownButton<String>(
+                        value: _selectedTargetTeamId,
+                        isDense: true,
+                        underline: const SizedBox(),
+                        items: _teams.map((t) {
+                          final id = t['id'] as String;
+                          final tNo = t['teamNo'] ?? '';
+                          return DropdownMenuItem<String>(
+                            value: id,
+                            child: Text('Team $tNo'),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _selectedTargetTeamId = val);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: GrsSpacing.sm),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -374,7 +474,7 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                       const SizedBox(width: 6),
                       FilterChip(
                         label: Text(
-                          '${l10n.get('filterMyTeam')} (${_houses.where((h) => h['teamId'] == myTeamId).length})',
+                          '${l10n.get('filterMyTeam')} (${_houses.where((h) => activeTeamId != null && h['teamId'] == activeTeamId).length})',
                         ),
                         selected: _selectedFilter == 'my_team',
                         onSelected: (_) =>
@@ -383,7 +483,7 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                       const SizedBox(width: 6),
                       FilterChip(
                         label: Text(
-                          '${l10n.get('filterTaken')} (${_houses.where((h) => h['teamId'] != null && h['teamId'] != myTeamId).length})',
+                          '${l10n.get('filterTaken')} (${_houses.where((h) => h['teamId'] != null && (activeTeamId == null || h['teamId'] != activeTeamId)).length})',
                         ),
                         selected: _selectedFilter == 'taken',
                         onSelected: (_) =>
@@ -436,11 +536,15 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                         final houseNo = h['houseNo'] as String? ?? '';
                         final leader = h['houseLeaderName'] as String? ?? '';
                         final serialNo = h['serialNo'];
-                        final teamId = h['teamId'] as String?;
-                        final isMyTeam = myTeamId != null && teamId == myTeamId;
-                        final isAvailable = teamId == null;
-                        final isTakenByOther = teamId != null && !isMyTeam;
-                        final teamNo = h['team']?['teamNo'];
+                        final houseTeamId = h['teamId'] as String?;
+                        final isMyTeam = activeTeamId != null && houseTeamId == activeTeamId;
+                        final isAvailable = houseTeamId == null;
+                        final isTakenByOther = houseTeamId != null && !isMyTeam;
+                        final teamNo = h['team']?['teamNo'] ??
+                            _teams.firstWhere(
+                              (t) => t['id'] == houseTeamId,
+                              orElse: () => <String, dynamic>{},
+                            )['teamNo'];
 
                         final isSelected = _selectedHouseIds.contains(id);
 
@@ -553,7 +657,7 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                               color: GrsColors.textSecondaryLight,
                             ),
                           ),
-                          secondary: isMyTeam
+                          secondary: houseTeamId != null
                               ? IconButton(
                                   icon: const Icon(
                                     Icons.link_off,
@@ -561,7 +665,11 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                                   ),
                                   tooltip: l10n.get('unassignFromTeamTooltip'),
                                   onPressed: isOnline
-                                      ? () => _unassignHouse(id, houseNo)
+                                      ? () => _unassignHouse(
+                                            id,
+                                            houseNo,
+                                            houseTeamId,
+                                          )
                                       : null,
                                 )
                               : null,
