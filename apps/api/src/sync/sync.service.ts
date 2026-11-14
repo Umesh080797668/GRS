@@ -125,7 +125,6 @@ export class SyncService {
       const cleanGnId = targetGnId.trim();
       if (user.role === UserRole.cdc_secretary) {
         let isAssigned = user.gnId === cleanGnId;
-        let effectiveTeamId = user.teamId;
         if (!isAssigned) {
           const assignment = await this.prisma.profileAssignment.findFirst({
             where: {
@@ -136,7 +135,6 @@ export class SyncService {
           });
           if (assignment) {
             isAssigned = true;
-            if (assignment.teamId) effectiveTeamId = assignment.teamId;
           }
         }
         if (!isAssigned) {
@@ -145,19 +143,9 @@ export class SyncService {
             message: 'GN division is outside your assigned scope',
           });
         }
-        if (effectiveTeamId) {
-          where.teamId = effectiveTeamId;
-          where.gnId = cleanGnId;
-          if (where.OR) {
-            where.OR = where.OR.map((cond: any) => ({
-              ...cond,
-              gnId: cleanGnId,
-              teamId: effectiveTeamId,
-            }));
-          }
-        } else {
-          where.gnId = cleanGnId;
-        }
+        delete where.teamId;
+        delete where.OR;
+        where.gnId = cleanGnId;
       } else if (
         user.role === UserRole.super_admin ||
         user.role === UserRole.admin ||
@@ -298,11 +286,12 @@ export class SyncService {
     const whereScope = this.scopeService.getHouseholdScopeFilter(user);
     const sinceDate = since ? new Date(since) : new Date(0);
 
-    // If caller belongs to a team (Level 4 or Level 5), active households must strictly match their teamId.
+    // For Level 5 (team_member), active households must strictly match their teamId.
     // An unassigned house (teamId: null) or reassigned house must NOT be returned in updatedHouseholds.
-    const householdFilter = user.teamId
-      ? { teamId: user.teamId, deletedAt: null }
-      : { ...whereScope, deletedAt: null };
+    const householdFilter =
+      user.role === UserRole.team_member && user.teamId
+        ? { teamId: user.teamId, deletedAt: null }
+        : { ...whereScope, deletedAt: null };
 
     const clientFilter = this.scopeService.getClientScopeFilter(user);
 
@@ -725,20 +714,6 @@ export class SyncService {
               message: 'Household is outside your assigned GN division',
             });
             continue;
-          }
-          const teamsInGn = gnToTeams.get(household.gnId);
-          if (teamsInGn && teamsInGn.size > 0) {
-            const matchesTeam =
-              household.teamId && teamsInGn.has(household.teamId);
-            if (!matchesTeam) {
-              finishedHouseholdsResults.push({
-                id: hid,
-                status: 'forbidden',
-                code: 'OUT_OF_SCOPE_TEAM',
-                message: 'Household is not assigned to your team',
-              });
-              continue;
-            }
           }
         } else if (user.role === UserRole.sda) {
           if (user.dsId && household.dsId !== user.dsId) {
@@ -1314,20 +1289,6 @@ export class SyncService {
           };
           continue;
         }
-        const teamsInGn = gnToTeams.get(household.gnId);
-        if (teamsInGn && teamsInGn.size > 0) {
-          const matchesTeam =
-            household.teamId && teamsInGn.has(household.teamId);
-          if (!matchesTeam) {
-            results[idx] = {
-              id: rec.id,
-              status: 'forbidden',
-              code: 'HOUSEHOLD_OUT_OF_SCOPE',
-              message: 'Household is outside caller team scope',
-            };
-            continue;
-          }
-        }
       } else if (user.role === 'sda') {
         // Level 3 (sda): divisional scope
         if (!user.dsId || household.dsId !== user.dsId) {
@@ -1409,7 +1370,7 @@ export class SyncService {
           districtId: household.districtId,
           dsId: household.dsId,
           gnId: household.gnId,
-          teamId: household.teamId ?? user.teamId ?? null,
+          teamId: household.teamId ?? null,
           norm,
           isUpdate: true,
           currentServerVersion: existing.serverVersion,
@@ -1422,7 +1383,7 @@ export class SyncService {
           districtId: household.districtId,
           dsId: household.dsId,
           gnId: household.gnId,
-          teamId: household.teamId ?? user.teamId ?? null,
+          teamId: household.teamId ?? null,
           norm,
           isUpdate: false,
           currentServerVersion: 0,

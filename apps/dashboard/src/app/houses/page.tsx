@@ -727,7 +727,7 @@ export default function HousesPage() {
               style={{ width: 'auto', minWidth: '220px', padding: '0.45rem 0.75rem', fontSize: '12.5px' }}
               value={targetTeamId}
               onChange={(e) => setTargetTeamId(e.target.value)}
-              disabled={teams.length === 0 || user?.role === 'cdc_secretary'}
+              disabled={teams.length === 0}
             >
               {teams.length === 0 ? (
                 <option value="">No teams available in GN</option>

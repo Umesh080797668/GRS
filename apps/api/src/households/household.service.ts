@@ -129,17 +129,6 @@ export class HouseholdService {
           message: 'Team does not belong to the specified GN division',
         });
       }
-      if (
-        creator.role === UserRole.cdc_secretary &&
-        creator.teamId &&
-        dto.teamId !== creator.teamId
-      ) {
-        throw new ForbiddenException({
-          code: 'OUT_OF_SCOPE_TEAM',
-          message:
-            'CDC Secretary can only assign new households to their own team',
-        });
-      }
     }
 
     // Concurrency-safe atomic serial allocation and duplicate house number check inside transaction
@@ -178,9 +167,7 @@ export class HouseholdService {
             targetGnId,
           );
 
-          const resolvedTeamId =
-            dto.teamId ||
-            (creator.role === UserRole.cdc_secretary ? (creator.teamId || null) : null);
+          const resolvedTeamId = dto.teamId || null;
 
           // 3. Insert household record
           const household = await tx.household.create({
@@ -284,18 +271,9 @@ export class HouseholdService {
     let searchCondition: Record<string, any> | undefined;
     if (query.search) {
       const search = query.search.trim();
-      const callerTeamFilter = caller.teamId ? [{ teamId: caller.teamId }] : [];
-      const leaderNameCondition =
-        caller.role === UserRole.cdc_secretary
-          ? {
-            AND: [
-              { houseLeaderName: { contains: search, mode: 'insensitive' } },
-              {
-                OR: [...callerTeamFilter, { teamId: null }],
-              },
-            ],
-          }
-          : { houseLeaderName: { contains: search, mode: 'insensitive' } };
+      const leaderNameCondition = {
+        houseLeaderName: { contains: search, mode: 'insensitive' },
+      };
 
       const searchConditions = [
         { houseNo: { contains: search, mode: 'insensitive' } },
@@ -339,32 +317,10 @@ export class HouseholdService {
       nextCursor = households[households.length - 1]?.id;
     }
 
-    // Mask PII for houses assigned to other teams if caller is Level 4 (Decision C4)
-    const sanitized = households.map((h) => {
-      if (
-        caller.role === UserRole.cdc_secretary &&
-        h.teamId &&
-        h.teamId !== caller.teamId
-      ) {
-        return {
-          id: h.id,
-          serialNo: h.serialNo,
-          houseNo: h.houseNo,
-          houseLeaderName: `[Assigned to Team ${h.team?.teamNo ?? ''}]`,
-          address: null,
-          villageName: h.villageName,
-          teamId: h.teamId,
-          team: h.team,
-          isTaken: true,
-          version: h.version,
-          updatedAt: h.updatedAt,
-        };
-      }
-      return {
-        ...h,
-        isTaken: h.teamId !== null,
-      };
-    });
+    const sanitized = households.map((h) => ({
+      ...h,
+      isTaken: h.teamId !== null,
+    }));
 
     return {
       households: sanitized,
@@ -406,14 +362,6 @@ export class HouseholdService {
           code: 'OUT_OF_SCOPE_GN',
           message: 'Household is outside your GN division',
         });
-      }
-      if (household.teamId && household.teamId !== caller.teamId) {
-        return {
-          ...household,
-          houseLeaderName: `[Assigned to Team ${household.team?.teamNo ?? ''}]`,
-          address: null,
-          isTaken: true,
-        };
       }
     } else if (caller.role === UserRole.sda) {
       if (!caller.dsId || household.dsId !== caller.dsId) {
@@ -650,12 +598,12 @@ export class HouseholdService {
       });
     }
 
-    // Scope check: Level 4 can only assign to their own team; Level 3 (SDA) within DS division
+    // Scope check: Level 4 can assign within GN division; Level 3 (SDA) within DS division
     if (caller.role === UserRole.cdc_secretary) {
-      if (!caller.teamId || teamId !== caller.teamId) {
+      if (!caller.gnId) {
         throw new ForbiddenException({
-          code: 'OUT_OF_SCOPE_TEAM',
-          message: 'CDC Secretary can only assign houses to their own team',
+          code: 'OUT_OF_SCOPE_GN',
+          message: 'CDC Secretary missing GN division scope',
         });
       }
     } else if (caller.role === UserRole.sda) {
@@ -789,10 +737,10 @@ export class HouseholdService {
     houseId: string,
   ): Promise<{ success: boolean; unassignedHouseId: string }> {
     if (caller.role === UserRole.cdc_secretary) {
-      if (!caller.teamId || teamId !== caller.teamId) {
+      if (!caller.gnId) {
         throw new ForbiddenException({
-          code: 'OUT_OF_SCOPE_TEAM',
-          message: 'CDC Secretary can only unassign houses from their own team',
+          code: 'OUT_OF_SCOPE_GN',
+          message: 'CDC Secretary missing GN division scope',
         });
       }
     } else if (caller.role === UserRole.sda) {
@@ -1029,12 +977,6 @@ export class HouseholdService {
         });
       }
     } else if (caller.role === UserRole.cdc_secretary) {
-      if (household.teamId && caller.teamId !== household.teamId) {
-        throw new ForbiddenException({
-          code: 'OUT_OF_SCOPE_TEAM',
-          message: 'Household is not assigned to your team',
-        });
-      }
       if (caller.gnId && household.gnId !== caller.gnId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_GN',
@@ -1128,12 +1070,6 @@ export class HouseholdService {
           'Level 5 enumerators cannot reopen finished houses. Contact your team leader.',
       });
     } else if (caller.role === UserRole.cdc_secretary) {
-      if (household.teamId && caller.teamId !== household.teamId) {
-        throw new ForbiddenException({
-          code: 'OUT_OF_SCOPE_TEAM',
-          message: 'Household is not assigned to your team',
-        });
-      }
       if (caller.gnId && household.gnId !== caller.gnId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_GN',

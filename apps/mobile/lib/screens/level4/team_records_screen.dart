@@ -58,8 +58,8 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
       try {
         final apiClient = ref.read(apiClientProvider);
         final response = await apiClient.getClients(
-          teamId: (teamId != null && teamId.isNotEmpty) ? teamId : null,
-          gnId: (teamId == null || teamId.isEmpty) ? gnId : null,
+          gnId: (gnId != null && gnId.isNotEmpty) ? gnId : null,
+          teamId: (gnId == null || gnId.isEmpty) ? teamId : null,
           search: _searchCtrl.text.trim().isNotEmpty
               ? _searchCtrl.text.trim()
               : null,
@@ -81,8 +81,8 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
           pageCount++;
           visitedCursors.add(cursor);
           final nextRes = await apiClient.getClients(
-            teamId: (teamId != null && teamId.isNotEmpty) ? teamId : null,
-            gnId: (teamId == null || teamId.isEmpty) ? gnId : null,
+            gnId: (gnId != null && gnId.isNotEmpty) ? gnId : null,
+            teamId: (gnId == null || gnId.isEmpty) ? teamId : null,
             search: _searchCtrl.text.trim().isNotEmpty
                 ? _searchCtrl.text.trim()
                 : null,

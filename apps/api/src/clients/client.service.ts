@@ -249,14 +249,19 @@ export class ClientService {
       });
     }
 
-    if (
-      caller.role === UserRole.cdc_secretary &&
-      client.teamId !== caller.teamId
-    ) {
-      throw new ForbiddenException({
-        code: 'OUT_OF_SCOPE_TEAM',
-        message: 'You can only access records entered by your team',
-      });
+    if (caller.role === UserRole.cdc_secretary) {
+      if (caller.gnId && client.gnId !== caller.gnId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_GN',
+          message: 'You can only access records within your assigned GN division',
+        });
+      }
+      if (!caller.gnId && caller.teamId && client.teamId !== caller.teamId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_TEAM',
+          message: 'You can only access records entered by your team',
+        });
+      }
     }
 
     if (
@@ -326,13 +331,6 @@ export class ClientService {
         });
       }
     } else if (caller.role === UserRole.cdc_secretary) {
-      if (caller.teamId && household.teamId && household.teamId !== caller.teamId) {
-        throw new ForbiddenException({
-          code: 'OUT_OF_SCOPE_HOUSEHOLD',
-          message:
-            'Cannot create client in household not assigned to your team',
-        });
-      }
       if (caller.gnId && household.gnId !== caller.gnId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_HOUSEHOLD',
@@ -541,7 +539,7 @@ export class ClientService {
           districtId: household.districtId,
           dsId: household.dsId,
           gnId: household.gnId,
-          teamId: household.teamId ?? caller.teamId ?? null,
+          teamId: household.teamId ?? null,
           name: nameVal.value!,
           nameNorm,
           age: ageVal.value!,
@@ -609,14 +607,19 @@ export class ClientService {
       });
     }
 
-    if (
-      caller.role === UserRole.cdc_secretary &&
-      client.teamId !== caller.teamId
-    ) {
-      throw new ForbiddenException({
-        code: 'OUT_OF_SCOPE_TEAM',
-        message: 'CDC Secretary can only correct records from their own team',
-      });
+    if (caller.role === UserRole.cdc_secretary) {
+      if (caller.gnId && client.gnId !== caller.gnId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_GN',
+          message: 'CDC Secretary can only correct records from their own GN division',
+        });
+      }
+      if (!caller.gnId && caller.teamId && client.teamId !== caller.teamId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_TEAM',
+          message: 'CDC Secretary can only correct records from their own team',
+        });
+      }
     }
 
     if (
@@ -964,14 +967,19 @@ export class ClientService {
       });
     }
 
-    if (
-      caller.role === UserRole.cdc_secretary &&
-      client.teamId !== caller.teamId
-    ) {
-      throw new ForbiddenException({
-        code: 'OUT_OF_SCOPE_TEAM',
-        message: 'CDC Secretary can only delete records from their own team',
-      });
+    if (caller.role === UserRole.cdc_secretary) {
+      if (caller.gnId && client.gnId !== caller.gnId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_GN',
+          message: 'CDC Secretary can only delete records from their own GN division',
+        });
+      }
+      if (!caller.gnId && caller.teamId && client.teamId !== caller.teamId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_TEAM',
+          message: 'CDC Secretary can only delete records from their own team',
+        });
+      }
     }
 
     if (

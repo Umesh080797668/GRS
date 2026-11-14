@@ -49,11 +49,11 @@ export class ScopeService {
         return { dsId: scope.dsId };
 
       case UserRole.cdc_secretary:
-        if (scope.teamId) {
-          return { teamId: scope.teamId };
-        }
         if (scope.gnId) {
           return { gnId: scope.gnId };
+        }
+        if (scope.teamId) {
+          return { teamId: scope.teamId };
         }
         throw new ForbiddenException({
           code: 'FORBIDDEN_SCOPE',
@@ -110,16 +110,16 @@ export class ScopeService {
         };
 
       case UserRole.cdc_secretary:
-        if (scope.teamId) {
-          return {
-            ...baseCondition,
-            OR: [{ teamId: scope.teamId }, { createdBy: scope.userId }],
-          };
-        }
         if (scope.gnId) {
           return {
             ...baseCondition,
             OR: [{ gnId: scope.gnId }, { createdBy: scope.userId }],
+          };
+        }
+        if (scope.teamId) {
+          return {
+            ...baseCondition,
+            OR: [{ teamId: scope.teamId }, { createdBy: scope.userId }],
           };
         }
         throw new ForbiddenException({
@@ -187,16 +187,16 @@ export class ScopeService {
         };
 
       case UserRole.cdc_secretary:
-        if (scope.teamId) {
-          return {
-            ...baseCondition,
-            OR: [{ teamId: scope.teamId }, { collectedBy: scope.userId }],
-          };
-        }
         if (scope.gnId) {
           return {
             ...baseCondition,
             OR: [{ gnId: scope.gnId }, { collectedBy: scope.userId }],
+          };
+        }
+        if (scope.teamId) {
+          return {
+            ...baseCondition,
+            OR: [{ teamId: scope.teamId }, { collectedBy: scope.userId }],
           };
         }
         throw new ForbiddenException({
@@ -242,8 +242,8 @@ export class ScopeService {
     }
     if (
       scope.role === UserRole.cdc_secretary &&
-      ((scope.teamId && client.teamId === scope.teamId) ||
-        (!scope.teamId && scope.gnId && client.gnId === scope.gnId) ||
+      ((scope.gnId && client.gnId === scope.gnId) ||
+        (scope.teamId && client.teamId === scope.teamId) ||
         client.collectedBy === scope.userId)
     ) {
       return true;

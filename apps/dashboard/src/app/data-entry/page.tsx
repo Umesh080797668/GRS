@@ -256,7 +256,6 @@ export default function DataEntryPage() {
     try {
       const res = await api.getHouseholds({
         gnId,
-        teamId: user?.role === 'cdc_secretary' ? user.teamId : undefined,
         search: search.trim() || undefined,
         limit: 30,
         cursor: reset ? undefined : (houseCursor || undefined),
@@ -435,7 +434,6 @@ export default function DataEntryPage() {
         try {
           const houseRes = await api.createHousehold({
             gnId: selectedGn,
-            teamId: user?.role === 'cdc_secretary' ? user.teamId : undefined,
             houseNo: houseNo.trim(),
             houseLeaderName: headName.trim(),
             address: address.trim() || undefined,
@@ -456,7 +454,6 @@ export default function DataEntryPage() {
           ) {
             const listRes = await api.getHouseholds({
               gnId: selectedGn,
-              teamId: user?.role === 'cdc_secretary' ? user.teamId : undefined,
               search: houseNo.trim(),
               limit: 50,
             });
@@ -618,7 +615,6 @@ export default function DataEntryPage() {
             try {
               const res = await api.getHouseholds({
                 gnId: draft.selectedGn,
-                teamId: user?.role === 'cdc_secretary' ? user.teamId : undefined,
                 limit: 50,
               });
               const list: any[] = Array.isArray(res) ? res : res?.households || res?.items || [];
@@ -738,7 +734,6 @@ export default function DataEntryPage() {
         try {
           const houseRes = await api.createHousehold({
             gnId: draft.selectedGn,
-            teamId: user?.role === 'cdc_secretary' ? user.teamId : undefined,
             houseNo: draft.houseNo.trim(),
             houseLeaderName: draft.headName.trim(),
             address: draft.address.trim() || undefined,
@@ -758,7 +753,6 @@ export default function DataEntryPage() {
           ) {
             const listRes = await api.getHouseholds({
               gnId: draft.selectedGn,
-              teamId: user?.role === 'cdc_secretary' ? user.teamId : undefined,
               search: draft.houseNo.trim(),
               limit: 50,
             });

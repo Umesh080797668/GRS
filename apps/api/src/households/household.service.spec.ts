@@ -684,7 +684,7 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       expect(collectedIds[200]).toBe('house-201');
     });
 
-    it('getHouseholds: prevents search probing of masked house leaders by CDC Secretary', async () => {
+    it('getHouseholds: CDC Secretary can search house leader name across all houses in their GN division', async () => {
       const findManySpy = jest.spyOn(mockPrisma.household, 'findMany');
 
       await service.getHouseholds(cdcSecretaryScope, {
@@ -705,23 +705,16 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       expect(targetWhere.OR).toBeDefined();
 
       const leaderCondition = targetWhere.OR.find(
-        (cond: any) =>
-          cond.AND &&
-          cond.AND.some((c: any) => c.houseLeaderName !== undefined),
+        (cond: any) => cond.houseLeaderName !== undefined,
       );
       expect(leaderCondition).toBeDefined();
-      expect(leaderCondition.AND[0].houseLeaderName).toEqual({
+      expect(leaderCondition.houseLeaderName).toEqual({
         contains: 'Perera',
         mode: 'insensitive',
       });
-      const scopeFilter = leaderCondition.AND[1];
-      expect(scopeFilter.OR).toEqual([
-        { teamId: mockTeamId },
-        { teamId: null },
-      ]);
     });
 
-    it('getHouseholds: CDC Secretary without teamId can only match leader name on unassigned houses', async () => {
+    it('getHouseholds: CDC Secretary without teamId matches leader name across entire GN division', async () => {
       const findManySpy = jest.spyOn(mockPrisma.household, 'findMany');
       const secNoTeamScope: ScopeContext = {
         userId: 'sec-no-team-1',
@@ -745,17 +738,13 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
         ? where.AND.find((c: any) => c.OR !== undefined)
         : where;
       const leaderCondition = targetWhere.OR.find(
-        (cond: any) =>
-          cond.AND &&
-          cond.AND.some((c: any) => c.houseLeaderName !== undefined),
+        (cond: any) => cond.houseLeaderName !== undefined,
       );
       expect(leaderCondition).toBeDefined();
-      expect(leaderCondition.AND[0].houseLeaderName).toEqual({
+      expect(leaderCondition.houseLeaderName).toEqual({
         contains: 'Silva',
         mode: 'insensitive',
       });
-      const scopeFilter = leaderCondition.AND[1];
-      expect(scopeFilter.OR).toEqual([{ teamId: null }]);
     });
 
     it('finishHousehold: marks household as completed and dirties team stats', async () => {
@@ -824,7 +813,7 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       expect(second.version).toBe(first.version);
     });
 
-    it('finishHousehold: rejects secretary with no team or finishing another team house', async () => {
+    it('finishHousehold: secretary with or without team can finish houses in their GN division', async () => {
       const house = await service.createHousehold(cdcSecretaryScope, {
         gnId: mockGnId,
         houseNo: '504',
@@ -840,9 +829,26 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
         gnId: mockGnId,
       };
 
+      const res = await service.finishHousehold(secretaryNoTeam, house.id);
+      expect(res.visitStatus).toBe('completed');
+    });
+
+    it('finishHousehold: rejects secretary when house is outside assigned GN division', async () => {
+      const house = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: '504-out',
+        houseLeaderName: 'Leader 504 Out',
+      });
+
+      const outsideGnSecretary: ScopeContext = {
+        userId: 'sec-outside',
+        role: UserRole.cdc_secretary,
+        gnId: 'other-gn-id',
+      };
+
       await expect(
-        service.finishHousehold(secretaryNoTeam, house.id),
-      ).rejects.toThrow();
+        service.finishHousehold(outsideGnSecretary, house.id),
+      ).rejects.toThrow('Household is outside your assigned GN division');
     });
 
     it('finishHousehold: rejects team member with null teamId trying to finish unassigned house', async () => {
@@ -916,7 +922,7 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       ).rejects.toThrow('Level 5 enumerators cannot reopen finished houses');
     });
 
-    it('reopenHousehold: rejects team leader trying to reopen another team house', async () => {
+    it('reopenHousehold: allows CDC Secretary to reopen houses in their GN division', async () => {
       const house = await service.createHousehold(cdcSecretaryScope, {
         gnId: mockGnId,
         houseNo: '508',
@@ -940,9 +946,36 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
         teamId: 'other-team-id',
       };
 
+      const res = await service.reopenHousehold(otherLeaderScope, house.id);
+      expect(res.visitStatus).toBe('not_started');
+    });
+
+    it('reopenHousehold: rejects secretary when house is outside assigned GN division', async () => {
+      const house = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: '508-out',
+        houseLeaderName: 'Leader 508 Out',
+      });
+      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [
+        house.id,
+      ]);
+
+      const teamMemberScope: ScopeContext = {
+        userId: 'team-member-1',
+        role: UserRole.team_member,
+        teamId: mockTeamId,
+      };
+      await service.finishHousehold(teamMemberScope, house.id);
+
+      const outsideGnSecretary: ScopeContext = {
+        userId: 'outside-leader',
+        role: UserRole.cdc_secretary,
+        gnId: 'different-gn-id',
+      };
+
       await expect(
-        service.reopenHousehold(otherLeaderScope, house.id),
-      ).rejects.toThrow('Household is not assigned to your team');
+        service.reopenHousehold(outsideGnSecretary, house.id),
+      ).rejects.toThrow('Household is outside your assigned GN division');
     });
 
     it('reopenHousehold: is idempotent when house is already not completed', async () => {

@@ -547,7 +547,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     expect(res.results[0].status).toBe('ok');
   });
 
-  it('Role Scope Matrix: CDC Secretary cannot write into an unassigned house (pool)', async () => {
+  it('Role Scope Matrix: CDC Secretary can write into an unassigned house in their assigned GN division', async () => {
     const secretaryCaller = {
       userId: 'sec-001',
       role: UserRole.cdc_secretary,
@@ -561,7 +561,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
     mockPrisma.household.findMany.mockResolvedValueOnce([
       {
         id: unassignedHouseId,
-        gnId: 'gn-001', // Same GN, but unassigned (in pool)!
+        gnId: 'gn-001', // Same GN, unassigned house
         teamId: null,
         districtId: 'dist-001',
         dsId: 'ds-001',
@@ -591,8 +591,7 @@ describe('SyncService — M3.1 Contract & Scaling Tests (§8.3 & §8.5)', () => 
 
     const res = await service.pushRecords(secretaryCaller, dto);
     expect(res.results.length).toBe(1);
-    expect(res.results[0].status).toBe('forbidden');
-    expect(res.results[0].code).toBe('HOUSEHOLD_OUT_OF_SCOPE');
+    expect(res.results[0].status).toBe('ok');
   });
 
   it('Role Scope Matrix: SDA and DC can push within their administrative divisions (Blueprint §10.3)', async () => {
