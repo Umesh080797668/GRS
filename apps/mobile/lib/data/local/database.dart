@@ -33,6 +33,7 @@ class HouseholdsTable extends Table {
   IntColumn get isEtf => integer().withDefault(const Constant(0))();
   IntColumn get isAswesuma => integer().withDefault(const Constant(0))();
   IntColumn get isSamurdhi => integer().withDefault(const Constant(0))();
+  IntColumn get isNonBeneficiary => integer().withDefault(const Constant(0))();
   IntColumn get hasSpecialNeeds => integer().withDefault(const Constant(0))();
   IntColumn get targetFemale => integer().nullable()();
   IntColumn get targetMale => integer().nullable()();
@@ -287,6 +288,16 @@ class AppDatabase {
       await _executor.runCustom('PRAGMA user_version = $targetSchemaVersion;');
       _cachedSchemaVersion = targetSchemaVersion;
     }
+
+    final hCols = await _executor.runSelect(
+      'PRAGMA table_info(households);',
+      [],
+    );
+    if (!hCols.any((c) => c['name'] == 'is_non_beneficiary')) {
+      await _executor.runCustom(
+        'ALTER TABLE households ADD COLUMN is_non_beneficiary INTEGER NOT NULL DEFAULT 0;',
+      );
+    }
   }
 
   Future<void> _createSchema({required int version}) async {
@@ -306,6 +317,7 @@ class AppDatabase {
         is_etf INTEGER NOT NULL DEFAULT 0,
         is_aswesuma INTEGER NOT NULL DEFAULT 0,
         is_samurdhi INTEGER NOT NULL DEFAULT 0,
+        is_non_beneficiary INTEGER NOT NULL DEFAULT 0,
         has_special_needs INTEGER NOT NULL DEFAULT 0,
         target_female INTEGER,
         target_male INTEGER,
@@ -435,10 +447,10 @@ class AppDatabase {
         '''
         INSERT INTO households (
           id, district_id, ds_id, gn_id, team_id, serial_no, house_no, house_leader_name,
-          village_name, address, is_epf, is_etf, is_aswesuma, is_samurdhi, has_special_needs,
+          village_name, address, is_epf, is_etf, is_aswesuma, is_samurdhi, is_non_beneficiary, has_special_needs,
           target_female, target_male, age_group_min, age_group_max, lang_sinhala, lang_tamil, lang_english,
           status, updated_at, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           serial_no = excluded.serial_no,
           house_no = excluded.house_no,
@@ -449,6 +461,7 @@ class AppDatabase {
           is_etf = excluded.is_etf,
           is_aswesuma = excluded.is_aswesuma,
           is_samurdhi = excluded.is_samurdhi,
+          is_non_beneficiary = excluded.is_non_beneficiary,
           has_special_needs = excluded.has_special_needs,
           target_female = excluded.target_female,
           target_male = excluded.target_male,
@@ -481,6 +494,7 @@ class AppDatabase {
           h.isEtf ? 1 : 0,
           h.isAswesuma ? 1 : 0,
           h.isSamurdhi ? 1 : 0,
+          h.isNonBeneficiary ? 1 : 0,
           h.hasSpecialNeeds ? 1 : 0,
           h.targetFemale,
           h.targetMale,
@@ -499,10 +513,10 @@ class AppDatabase {
         '''
         INSERT INTO households (
           id, district_id, ds_id, gn_id, team_id, serial_no, house_no, house_leader_name,
-          village_name, address, is_epf, is_etf, is_aswesuma, is_samurdhi, has_special_needs,
+          village_name, address, is_epf, is_etf, is_aswesuma, is_samurdhi, is_non_beneficiary, has_special_needs,
           target_female, target_male, age_group_min, age_group_max, lang_sinhala, lang_tamil, lang_english,
           status, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           serial_no = excluded.serial_no,
           house_no = excluded.house_no,
@@ -513,6 +527,7 @@ class AppDatabase {
           is_etf = excluded.is_etf,
           is_aswesuma = excluded.is_aswesuma,
           is_samurdhi = excluded.is_samurdhi,
+          is_non_beneficiary = excluded.is_non_beneficiary,
           has_special_needs = excluded.has_special_needs,
           target_female = excluded.target_female,
           target_male = excluded.target_male,
@@ -544,6 +559,7 @@ class AppDatabase {
           h.isEtf ? 1 : 0,
           h.isAswesuma ? 1 : 0,
           h.isSamurdhi ? 1 : 0,
+          h.isNonBeneficiary ? 1 : 0,
           h.hasSpecialNeeds ? 1 : 0,
           h.targetFemale,
           h.targetMale,

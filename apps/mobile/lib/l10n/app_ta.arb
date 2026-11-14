@@ -520,6 +520,8 @@
   "@epf": {},
   "etf": "ஈ.டி.எஃப்",
   "@etf": {},
+  "nonBeneficiary": "பயனாளியற்றவர்",
+  "@nonBeneficiary": {},
   "createHouse": "வீட்டைப் பதிவு செய்க",
   "@createHouse": {},
   "houseCreatedSuccess": "குடும்பம் வெற்றிகரமாக உருவாக்கப்பட்டது!",

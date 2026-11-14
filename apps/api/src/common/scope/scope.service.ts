@@ -49,13 +49,16 @@ export class ScopeService {
         return { dsId: scope.dsId };
 
       case UserRole.cdc_secretary:
-        if (!scope.teamId) {
-          throw new ForbiddenException({
-            code: 'FORBIDDEN_SCOPE',
-            message_key: 'errors.scope.missing_team',
-          });
+        if (scope.teamId) {
+          return { teamId: scope.teamId };
         }
-        return { teamId: scope.teamId };
+        if (scope.gnId) {
+          return { gnId: scope.gnId };
+        }
+        throw new ForbiddenException({
+          code: 'FORBIDDEN_SCOPE',
+          message_key: 'errors.scope.missing_gn',
+        });
 
       case UserRole.team_member:
         return { id: scope.userId };
@@ -107,8 +110,25 @@ export class ScopeService {
         };
 
       case UserRole.cdc_secretary:
+        if (scope.teamId) {
+          return {
+            ...baseCondition,
+            OR: [{ teamId: scope.teamId }, { createdBy: scope.userId }],
+          };
+        }
+        if (scope.gnId) {
+          return {
+            ...baseCondition,
+            OR: [{ gnId: scope.gnId }, { createdBy: scope.userId }],
+          };
+        }
+        throw new ForbiddenException({
+          code: 'FORBIDDEN_SCOPE',
+          message_key: 'errors.scope.missing_gn',
+        });
+
       case UserRole.team_member:
-        // Field team members and leaders access houses assigned to their team
+        // Field team members access houses assigned to their team
         if (!scope.teamId) {
           throw new ForbiddenException({
             code: 'FORBIDDEN_SCOPE',
@@ -167,17 +187,22 @@ export class ScopeService {
         };
 
       case UserRole.cdc_secretary:
-        if (!scope.teamId) {
-          throw new ForbiddenException({
-            code: 'FORBIDDEN_SCOPE',
-            message_key: 'errors.scope.missing_team',
-          });
+        if (scope.teamId) {
+          return {
+            ...baseCondition,
+            OR: [{ teamId: scope.teamId }, { collectedBy: scope.userId }],
+          };
         }
-        // Level 4 sees own team's entries plus own entries (C4)
-        return {
-          ...baseCondition,
-          OR: [{ teamId: scope.teamId }, { collectedBy: scope.userId }],
-        };
+        if (scope.gnId) {
+          return {
+            ...baseCondition,
+            OR: [{ gnId: scope.gnId }, { collectedBy: scope.userId }],
+          };
+        }
+        throw new ForbiddenException({
+          code: 'FORBIDDEN_SCOPE',
+          message_key: 'errors.scope.missing_gn',
+        });
 
       case UserRole.team_member:
         // Level 5 sees ONLY own entries (C7 / Blueprint 3.3)
@@ -203,6 +228,7 @@ export class ScopeService {
     client: {
       teamId?: string | null;
       dsId?: string | null;
+      gnId?: string | null;
       collectedBy: string;
     },
   ): boolean {
@@ -216,8 +242,9 @@ export class ScopeService {
     }
     if (
       scope.role === UserRole.cdc_secretary &&
-      scope.teamId &&
-      client.teamId === scope.teamId
+      ((scope.teamId && client.teamId === scope.teamId) ||
+        (!scope.teamId && scope.gnId && client.gnId === scope.gnId) ||
+        client.collectedBy === scope.userId)
     ) {
       return true;
     }
@@ -256,6 +283,7 @@ export class ScopeService {
     if (scope.role === UserRole.cdc_secretary) {
       return (
         (!!scope.teamId && target.teamId === scope.teamId) ||
+        (!!scope.gnId && target.gnId === scope.gnId) ||
         target.collectedBy === scope.userId
       );
     }

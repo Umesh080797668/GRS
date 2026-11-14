@@ -59,6 +59,26 @@ export function formatCsvRow(cells: Array<unknown>): string {
   return `${escaped.join(',')}\r\n`;
 }
 
+export const APP_TIMEZONE = 'Asia/Colombo';
+
+/**
+ * Parses a date boundary string (e.g. "2026-11-01") strictly in Asia/Colombo (UTC+05:30).
+ * If isEnd is false: start of day (00:00:00.000 +05:30).
+ * If isEnd is true: end of day (23:59:59.999 +05:30).
+ */
+export function parseColomboDateBoundary(
+  dateStr: string,
+  isEnd: boolean = false,
+): Date {
+  if (!dateStr) return new Date();
+  const trimmed = dateStr.trim();
+  if (trimmed.includes('T') || trimmed.includes(' ')) {
+    return new Date(trimmed);
+  }
+  const timePart = isEnd ? '23:59:59.999' : '00:00:00.000';
+  return new Date(`${trimmed}T${timePart}+05:30`);
+}
+
 /**
  * Formats a timestamp in Sri Lanka time (Asia/Colombo, UTC+05:30) per Invariant 15.
  */
@@ -68,7 +88,7 @@ export function formatColomboTimestamp(value?: Date | string | null): string {
   if (Number.isNaN(date.getTime())) return '';
 
   const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Colombo',
+    timeZone: APP_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

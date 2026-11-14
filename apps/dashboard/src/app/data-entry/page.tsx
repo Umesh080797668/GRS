@@ -22,7 +22,49 @@ import {
   HeartHandshake,
   Compass,
   FileCheck,
+  FileText,
+  Save,
+  UploadCloud,
+  Trash2,
+  Edit3,
+  X,
 } from 'lucide-react';
+
+interface WebDraft {
+  id: string;
+  savedAt: string;
+  selectedDistrict: string;
+  selectedDs: string;
+  selectedGn: string;
+  householdMode: 'new' | 'existing';
+  selectedHouseholdId: string;
+  houseNo: string;
+  headName: string;
+  address: string;
+  villageName: string;
+  isEpf: boolean;
+  isEtf: boolean;
+  isAswesuma: boolean;
+  isSamurdhi: boolean;
+  isNonBeneficiary: boolean;
+  hasSpecialNeeds: boolean;
+  clientName: string;
+  clientAge: number;
+  clientGender: 'M' | 'F';
+  clientPhone: string;
+  clientWhatsapp: string;
+  highestEducation: string;
+  highestVocational: string;
+  interestedStream: string;
+  interestedJob: string;
+  futureHopes: string[];
+  infoProvidedBy: 'self' | 'mother' | 'father' | 'sister' | 'other';
+  infoProvidedByOther: string;
+  consentGiven: boolean;
+  consentVersion: string;
+  syncStatus?: 'idle' | 'syncing' | 'failed' | 'success';
+  syncError?: string;
+}
 
 export default function DataEntryPage() {
   const { t, language } = useLanguage();
@@ -80,6 +122,7 @@ export default function DataEntryPage() {
   const [isEtf, setIsEtf] = useState(false);
   const [isAswesuma, setIsAswesuma] = useState(false);
   const [isSamurdhi, setIsSamurdhi] = useState(false);
+  const [isNonBeneficiary, setIsNonBeneficiary] = useState(false);
   const [hasSpecialNeeds, setHasSpecialNeeds] = useState(false);
 
   // Client fields (DD/S/002)
@@ -102,6 +145,24 @@ export default function DataEntryPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+
+  // Local drafts state
+  const [drafts, setDrafts] = useState<WebDraft[]>([]);
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [showDraftsModal, setShowDraftsModal] = useState(false);
+  const [syncingDrafts, setSyncingDrafts] = useState(false);
+  const [syncDraftsResult, setSyncDraftsResult] = useState<{ success: number; failed: number } | null>(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('grs_web_data_entry_drafts');
+      if (stored) {
+        setDrafts(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error('Failed to read drafts from localStorage', e);
+    }
+  }, []);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -209,6 +270,7 @@ export default function DataEntryPage() {
       setIsEtf(Boolean(found.isEtf));
       setIsAswesuma(Boolean(found.isAswesuma));
       setIsSamurdhi(Boolean(found.isSamurdhi));
+      setIsNonBeneficiary(Boolean(found.isNonBeneficiary));
       setHasSpecialNeeds(Boolean(found.hasSpecialNeeds));
     }
   }
@@ -368,6 +430,7 @@ export default function DataEntryPage() {
             isEtf,
             isAswesuma,
             isSamurdhi,
+            isNonBeneficiary,
             hasSpecialNeeds,
           });
           householdId = houseRes.id;
@@ -443,12 +506,339 @@ export default function DataEntryPage() {
       setInfoProvidedBy('self');
       setInfoProvidedByOther('');
       setConsentGiven(false);
+
+      if (editingDraftId) {
+        const remaining = drafts.filter((d) => d.id !== editingDraftId);
+        saveDraftsToStorage(remaining);
+        setEditingDraftId(null);
+      }
     } catch (err: any) {
       setSubmitError(err.messageKey ? t(err.messageKey) : (err.message || t('entry.error.submit_failed')));
     } finally {
       setSubmitting(false);
     }
   }
+
+  const saveDraftsToStorage = (updatedDrafts: WebDraft[]) => {
+    setDrafts(updatedDrafts);
+    try {
+      localStorage.setItem('grs_web_data_entry_drafts', JSON.stringify(updatedDrafts));
+    } catch (e) {
+      console.error('Failed to write drafts to localStorage', e);
+    }
+  };
+
+  const handleSaveDraft = () => {
+    if (!selectedGn) {
+      setSubmitError('Please select District, DS, and GN Division before saving a draft.');
+      return;
+    }
+    const draftId = editingDraftId || `draft_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const newDraft: WebDraft = {
+      id: draftId,
+      savedAt: new Date().toISOString(),
+      selectedDistrict,
+      selectedDs,
+      selectedGn,
+      householdMode,
+      selectedHouseholdId,
+      houseNo,
+      headName,
+      address,
+      villageName,
+      isEpf,
+      isEtf,
+      isAswesuma,
+      isSamurdhi,
+      isNonBeneficiary,
+      hasSpecialNeeds,
+      clientName,
+      clientAge,
+      clientGender,
+      clientPhone,
+      clientWhatsapp,
+      highestEducation,
+      highestVocational,
+      interestedStream,
+      interestedJob,
+      futureHopes,
+      infoProvidedBy,
+      infoProvidedByOther,
+      consentGiven,
+      consentVersion,
+    };
+
+    let nextDrafts: WebDraft[];
+    if (editingDraftId) {
+      nextDrafts = drafts.map((d) => (d.id === editingDraftId ? newDraft : d));
+    } else {
+      nextDrafts = [newDraft, ...drafts];
+      setEditingDraftId(draftId);
+    }
+    saveDraftsToStorage(nextDrafts);
+    setSubmitSuccess(`Draft saved locally for "${clientName || 'Beneficiary'}" (House #${houseNo || 'N/A'}).`);
+    setSubmitError(null);
+  };
+
+  const handleLoadDraft = async (draft: WebDraft) => {
+    setEditingDraftId(draft.id);
+
+    // 1. Sequentially cascade geographic levels so options populate before setting values
+    if (draft.selectedDistrict) {
+      setSelectedDistrict(draft.selectedDistrict);
+      try {
+        const dsList = await api.getDsDivisions(draft.selectedDistrict);
+        setDsDivisions(dsList);
+        if (draft.selectedDs) {
+          setSelectedDs(draft.selectedDs);
+          const gnList = await api.getGnDivisions(draft.selectedDs);
+          setGnDivisions(gnList);
+          if (draft.selectedGn) {
+            setSelectedGn(draft.selectedGn);
+            try {
+              const res = await api.getHouseholds({
+                gnId: draft.selectedGn,
+                teamId: user?.role === 'cdc_secretary' ? user.teamId : undefined,
+                limit: 50,
+              });
+              const list: any[] = Array.isArray(res) ? res : res?.households || res?.items || [];
+              if (draft.householdMode === 'existing' && draft.selectedHouseholdId) {
+                const found = list.find((h: any) => h.id === draft.selectedHouseholdId);
+                if (!found && draft.houseNo) {
+                  list.unshift({
+                    id: draft.selectedHouseholdId,
+                    houseNo: draft.houseNo,
+                    houseLeaderName: draft.headName,
+                    villageName: draft.villageName,
+                    address: draft.address,
+                    isEpf: draft.isEpf,
+                    isEtf: draft.isEtf,
+                    isAswesuma: draft.isAswesuma,
+                    isSamurdhi: draft.isSamurdhi,
+                    isNonBeneficiary: draft.isNonBeneficiary,
+                    hasSpecialNeeds: draft.hasSpecialNeeds,
+                  });
+                }
+              }
+              setExistingHouseholds(list);
+              if (draft.householdMode === 'existing') {
+                setSelectedHouseholdId(draft.selectedHouseholdId || '');
+              }
+            } catch (hErr) {
+              console.error('Failed to load households for draft:', hErr);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to cascade geographic divisions for draft:', err);
+      }
+    }
+
+    setHouseholdMode(draft.householdMode || 'new');
+    if (draft.householdMode !== 'existing') {
+      setSelectedHouseholdId('');
+    }
+    setHouseNo(draft.houseNo || '');
+    setHeadName(draft.headName || '');
+    setAddress(draft.address || '');
+    setVillageName(draft.villageName || '');
+    setIsEpf(Boolean(draft.isEpf));
+    setIsEtf(Boolean(draft.isEtf));
+    setIsAswesuma(Boolean(draft.isAswesuma));
+    setIsSamurdhi(Boolean(draft.isSamurdhi));
+    setIsNonBeneficiary(Boolean(draft.isNonBeneficiary));
+    setHasSpecialNeeds(Boolean(draft.hasSpecialNeeds));
+
+    setClientName(draft.clientName || '');
+    setClientAge(draft.clientAge || 25);
+    setClientGender(draft.clientGender || 'M');
+    setClientPhone(draft.clientPhone || '');
+    setClientWhatsapp(draft.clientWhatsapp || '');
+    setHighestEducation(draft.highestEducation || 'EDU_OL_PASSED');
+    setHighestVocational(draft.highestVocational || 'VOC_NONE');
+    setInterestedStream(draft.interestedStream || 'STREAM_IT_COMPUTING');
+    setInterestedJob(draft.interestedJob || 'JOB_SOFTWARE_DEV');
+    setFutureHopes(draft.futureHopes || []);
+    setInfoProvidedBy(draft.infoProvidedBy || 'self');
+    setInfoProvidedByOther(draft.infoProvidedByOther || '');
+    setConsentGiven(Boolean(draft.consentGiven));
+
+    setShowDraftsModal(false);
+    setSubmitSuccess(`Loaded draft for "${draft.clientName || 'Beneficiary'}" into form.`);
+    setSubmitError(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingDraftId(null);
+    setClientName('');
+    setClientAge(25);
+    setClientGender('M');
+    setClientPhone('');
+    setClientWhatsapp('');
+    setFutureHopes([]);
+    setInfoProvidedBy('self');
+    setInfoProvidedByOther('');
+    setConsentGiven(false);
+    if (householdMode === 'new') {
+      setHouseNo('');
+      setHeadName('');
+      setAddress('');
+      setVillageName('');
+      setIsEpf(false);
+      setIsEtf(false);
+      setIsAswesuma(false);
+      setIsSamurdhi(false);
+      setIsNonBeneficiary(false);
+      setHasSpecialNeeds(false);
+    }
+    setSubmitSuccess('Editing cancelled. Form cleared.');
+  };
+
+  const handleDeleteDraft = (draftId: string) => {
+    const updated = drafts.filter((d) => d.id !== draftId);
+    saveDraftsToStorage(updated);
+    if (editingDraftId === draftId) {
+      setEditingDraftId(null);
+    }
+  };
+
+  const syncSingleDraft = async (draft: WebDraft): Promise<{ success: boolean; error?: string }> => {
+    try {
+      let householdId = draft.selectedHouseholdId;
+      if (!householdId) {
+        if (user?.role === 'admin') {
+          throw new Error('Admin role can only attach records to existing households.');
+        }
+        try {
+          const houseRes = await api.createHousehold({
+            gnId: draft.selectedGn,
+            teamId: user?.role === 'cdc_secretary' ? user.teamId : undefined,
+            houseNo: draft.houseNo.trim(),
+            houseLeaderName: draft.headName.trim(),
+            address: draft.address.trim() || undefined,
+            villageName: draft.villageName.trim() || undefined,
+            isEpf: draft.isEpf,
+            isEtf: draft.isEtf,
+            isAswesuma: draft.isAswesuma,
+            isSamurdhi: draft.isSamurdhi,
+            isNonBeneficiary: draft.isNonBeneficiary,
+            hasSpecialNeeds: draft.hasSpecialNeeds,
+          });
+          householdId = houseRes.id;
+        } catch (err: any) {
+          if (
+            err.message?.includes('already exists') ||
+            err.message?.includes('DUPLICATE_HOUSE_NUMBER')
+          ) {
+            const listRes = await api.getHouseholds({
+              gnId: draft.selectedGn,
+              teamId: user?.role === 'cdc_secretary' ? user.teamId : undefined,
+              search: draft.houseNo.trim(),
+              limit: 50,
+            });
+            const list = Array.isArray(listRes) ? listRes : listRes?.households || [];
+            const existing = list.find(
+              (h: any) =>
+                h.houseNo?.trim().toLowerCase() === draft.houseNo.trim().toLowerCase() ||
+                h.houseNoNorm === draft.houseNo.trim().toUpperCase()
+            );
+            if (existing) {
+              householdId = existing.id;
+            } else {
+              throw err;
+            }
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      await api.createClient({
+        householdId,
+        name: draft.clientName.trim(),
+        age: draft.clientAge,
+        gender: draft.clientGender,
+        address: draft.address.trim() || undefined,
+        phoneRaw: draft.clientPhone.trim() || undefined,
+        whatsappRaw: draft.clientWhatsapp.trim() || undefined,
+        highestEducation: draft.highestEducation,
+        highestVocational: draft.highestVocational,
+        interestedVocationalStream: draft.interestedStream,
+        interestedJob: draft.interestedJob,
+        isEpf: draft.isEpf,
+        isEtf: draft.isEtf,
+        isAswesuma: draft.isAswesuma,
+        isSamurdhi: draft.isSamurdhi,
+        hasSpecialNeeds: draft.hasSpecialNeeds,
+        futureHopes: draft.futureHopes,
+        infoProvidedBy: draft.infoProvidedBy,
+        infoProvidedByOther: draft.infoProvidedBy === 'other' ? (draft.infoProvidedByOther.trim() || undefined) : undefined,
+        consentGiven: true,
+        consentVersion: draft.consentVersion || 'consent.v0',
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.messageKey ? t(err.messageKey) : (err.message || 'Failed to sync draft'),
+      };
+    }
+  };
+
+  const handleSyncSingle = async (draft: WebDraft) => {
+    setSyncingDrafts(true);
+    const res = await syncSingleDraft(draft);
+    setSyncingDrafts(false);
+
+    if (res.success) {
+      const updated = drafts.filter((d) => d.id !== draft.id);
+      saveDraftsToStorage(updated);
+      setSubmitSuccess(`Draft "${draft.clientName}" synced to server successfully.`);
+      if (selectedGn) loadHouseholdsForGn(selectedGn);
+    } else {
+      const updated = drafts.map((d) => (d.id === draft.id ? { ...d, syncStatus: 'failed' as const, syncError: res.error } : d));
+      saveDraftsToStorage(updated);
+      setSubmitError(`Failed to sync draft "${draft.clientName}": ${res.error}`);
+    }
+  };
+
+  const handleSyncAllDrafts = async () => {
+    if (drafts.length === 0 || syncingDrafts) return;
+    setSyncingDrafts(true);
+    setSyncDraftsResult(null);
+
+    const remainingDrafts: WebDraft[] = [];
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const draft of drafts) {
+      const res = await syncSingleDraft(draft);
+      if (res.success) {
+        successCount++;
+      } else {
+        failCount++;
+        remainingDrafts.push({ ...draft, syncStatus: 'failed', syncError: res.error });
+      }
+    }
+
+    saveDraftsToStorage(remainingDrafts);
+    setSyncingDrafts(false);
+    setSyncDraftsResult({ success: successCount, failed: failCount });
+
+    if (selectedGn) {
+      loadHouseholdsForGn(selectedGn);
+    }
+
+    if (successCount > 0 && failCount === 0) {
+      setSubmitSuccess(`All ${successCount} draft record(s) synced to server successfully.`);
+      setShowDraftsModal(false);
+    } else if (successCount > 0 && failCount > 0) {
+      setSubmitSuccess(`Synced ${successCount} draft record(s). ${failCount} draft(s) failed.`);
+    } else if (failCount > 0) {
+      setSubmitError(`${failCount} draft record(s) failed to sync. Review errors in Drafts modal.`);
+    }
+  };
 
   return (
     <Shell activePath="/data-entry">
@@ -472,8 +862,31 @@ export default function DataEntryPage() {
             </div>
           </div>
 
-          {user?.role === 'super_admin' && (
-            <div className="de-header-actions">
+          <div className="de-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setShowDraftsModal(true)}
+              className="btn-secondary"
+              style={{ fontSize: '12.5px', padding: '0.5rem 0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+              title="View and manage locally drafted survey records"
+            >
+              <FileText size={15} />
+              <span>Drafts ({drafts.length})</span>
+            </button>
+            {drafts.length > 0 && (
+              <button
+                type="button"
+                onClick={handleSyncAllDrafts}
+                disabled={syncingDrafts}
+                className="btn-primary"
+                style={{ fontSize: '12.5px', padding: '0.5rem 0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                title="Sync all drafted records to the server"
+              >
+                {syncingDrafts ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} />}
+                <span>Sync Drafts ({drafts.length})</span>
+              </button>
+            )}
+            {user?.role === 'super_admin' && (
               <button
                 type="button"
                 onClick={toggleWebEntryRole}
@@ -495,8 +908,8 @@ export default function DataEntryPage() {
                   </>
                 )}
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Loading authorization state */}
@@ -610,6 +1023,7 @@ export default function DataEntryPage() {
                         setIsEtf(false);
                         setIsAswesuma(false);
                         setIsSamurdhi(false);
+                        setIsNonBeneficiary(false);
                         setHasSpecialNeeds(false);
                       }}
                       className={`de-seg-btn ${householdMode === 'new' ? 'is-active' : ''}`}
@@ -836,7 +1250,10 @@ export default function DataEntryPage() {
                         className="de-checkbox"
                         checked={isSamurdhi}
                         disabled={householdMode === 'existing'}
-                        onChange={(e) => setIsSamurdhi(e.target.checked)}
+                        onChange={(e) => {
+                          setIsSamurdhi(e.target.checked);
+                          if (e.target.checked) setIsNonBeneficiary(false);
+                        }}
                       />
                       <span>Samurdhi Beneficiary</span>
                     </label>
@@ -849,7 +1266,10 @@ export default function DataEntryPage() {
                         className="de-checkbox"
                         checked={isAswesuma}
                         disabled={householdMode === 'existing'}
-                        onChange={(e) => setIsAswesuma(e.target.checked)}
+                        onChange={(e) => {
+                          setIsAswesuma(e.target.checked);
+                          if (e.target.checked) setIsNonBeneficiary(false);
+                        }}
                       />
                       <span>Aswesuma Beneficiary</span>
                     </label>
@@ -862,7 +1282,10 @@ export default function DataEntryPage() {
                         className="de-checkbox"
                         checked={isEpf}
                         disabled={householdMode === 'existing'}
-                        onChange={(e) => setIsEpf(e.target.checked)}
+                        onChange={(e) => {
+                          setIsEpf(e.target.checked);
+                          if (e.target.checked) setIsNonBeneficiary(false);
+                        }}
                       />
                       <span>EPF Contributor</span>
                     </label>
@@ -875,9 +1298,34 @@ export default function DataEntryPage() {
                         className="de-checkbox"
                         checked={isEtf}
                         disabled={householdMode === 'existing'}
-                        onChange={(e) => setIsEtf(e.target.checked)}
+                        onChange={(e) => {
+                          setIsEtf(e.target.checked);
+                          if (e.target.checked) setIsNonBeneficiary(false);
+                        }}
                       />
                       <span>ETF Contributor</span>
+                    </label>
+
+                    <label
+                      className={`de-check-card ${isNonBeneficiary ? 'is-checked' : ''} ${householdMode === 'existing' ? 'is-disabled' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="de-checkbox"
+                        checked={isNonBeneficiary}
+                        disabled={householdMode === 'existing'}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setIsNonBeneficiary(checked);
+                          if (checked) {
+                            setIsSamurdhi(false);
+                            setIsAswesuma(false);
+                            setIsEpf(false);
+                            setIsEtf(false);
+                          }
+                        }}
+                      />
+                      <span>Non-beneficiary</span>
                     </label>
 
                     <label
@@ -946,7 +1394,7 @@ export default function DataEntryPage() {
 
                   <div>
                     <label className="form-label">
-                      Gender <span className="de-req">*</span>
+                      Gender (only 18-35) <span className="de-req">*</span>
                     </label>
                     <select
                       className="select-field"
@@ -1035,6 +1483,25 @@ export default function DataEntryPage() {
                         ))
                       ) : (
                         <option value="STREAM_IT_COMPUTING">IT &amp; Computing</option>
+                      )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="form-label">Interested Job / Career Role</label>
+                    <select
+                      className="select-field"
+                      value={interestedJob}
+                      onChange={(e) => setInterestedJob(e.target.value)}
+                    >
+                      {lookups.job.length > 0 ? (
+                        lookups.job.map((item) => (
+                          <option key={item.code} value={item.code}>
+                            {getLookupLabel(item)}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="JOB_SOFTWARE_DEV">Software Developer</option>
                       )}
                     </select>
                   </div>
@@ -1170,26 +1637,229 @@ export default function DataEntryPage() {
                 <div style={{ fontSize: '12px', color: 'var(--slate-500)' }}>
                   All submissions are immutably signed with operator identity and territorial hierarchy.
                 </div>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="btn-primary de-submit-btn"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      <span>Submitting Survey Record...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={16} />
-                      <span>Submit Survey Record</span>
-                    </>
-                  )}
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    disabled={submitting || syncingDrafts}
+                    className="btn-secondary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
+                    title="Save current details to local browser drafts"
+                  >
+                    <Save size={15} />
+                    <span>Save Draft</span>
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting || syncingDrafts}
+                    className="btn-primary de-submit-btn"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        <span>Submitting Survey Record...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} />
+                        <span>Submit Survey Record</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </form>
+        )}
+
+        {/* Drafts Modal */}
+        {showDraftsModal && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              padding: '1rem',
+            }}
+          >
+            <div
+              className="panel"
+              style={{
+                maxWidth: '750px',
+                width: '100%',
+                maxHeight: '85vh',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+                borderRadius: 'var(--radius-lg, 12px)',
+                backgroundColor: 'white',
+              }}
+            >
+              <div
+                style={{
+                  padding: '1.25rem 1.5rem',
+                  borderBottom: '1px solid var(--slate-200)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FileText size={20} style={{ color: 'var(--primary)' }} />
+                  <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700 }}>
+                    Local Drafted Records ({drafts.length})
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDraftsModal(false)}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    color: 'var(--slate-400)',
+                    padding: '4px',
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div
+                style={{
+                  padding: '1.25rem 1.5rem',
+                  overflowY: 'auto',
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                {drafts.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--slate-500)' }}>
+                    No draft records currently saved. You can save unsubmitted forms as drafts using the &ldquo;Save Draft&rdquo; button.
+                  </div>
+                ) : (
+                  drafts.map((d) => (
+                    <div
+                      key={d.id}
+                      style={{
+                        padding: '12px 16px',
+                        border: '1px solid var(--slate-200)',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px',
+                        backgroundColor: d.syncStatus === 'failed' ? '#fff5f5' : '#f8fafc',
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <strong style={{ fontSize: '14px', color: 'var(--slate-800)' }}>
+                            {d.clientName || '(No Name)'}
+                          </strong>
+                          <span className="badge" style={{ fontSize: '11px' }}>
+                            {d.clientGender === 'F' ? 'Female' : 'Male'}, Age {d.clientAge}
+                          </span>
+                          <span className="badge" style={{ fontSize: '11px' }}>
+                            House #{d.houseNo || 'N/A'}
+                          </span>
+                          {d.syncStatus === 'failed' && (
+                            <span className="badge badge-error" style={{ fontSize: '11px' }}>
+                              Failed
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--slate-500)' }}>
+                          Saved at: {new Date(d.savedAt).toLocaleTimeString()}
+                          {d.syncError && <span style={{ color: '#ef4444', marginLeft: '8px' }}>— Error: {d.syncError}</span>}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          style={{ padding: '5px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          onClick={() => handleLoadDraft(d)}
+                          title="Load draft into form"
+                        >
+                          <Edit3 size={14} />
+                          <span>Load</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-primary"
+                          style={{ padding: '5px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          onClick={() => handleSyncSingle(d)}
+                          disabled={syncingDrafts}
+                          title="Sync draft to server"
+                        >
+                          <UploadCloud size={14} />
+                          <span>Sync</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          style={{ padding: '5px 8px', fontSize: '12px', color: '#ef4444' }}
+                          onClick={() => handleDeleteDraft(d.id)}
+                          title="Delete draft"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div
+                style={{
+                  padding: '1rem 1.5rem',
+                  borderTop: '1px solid var(--slate-200)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: '#f8fafc',
+                }}
+              >
+                <div style={{ fontSize: '12.5px', color: 'var(--slate-500)' }}>
+                  Drafts are saved locally in your browser and persist offline.
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    style={{ fontSize: '13px' }}
+                    onClick={() => setShowDraftsModal(false)}
+                  >
+                    Close
+                  </button>
+                  {drafts.length > 0 && (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      onClick={handleSyncAllDrafts}
+                      disabled={syncingDrafts}
+                    >
+                      {syncingDrafts ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
+                      <span>Sync All ({drafts.length})</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         <style jsx global>{`

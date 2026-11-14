@@ -12,7 +12,7 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
-import { buildCredentialsCsv, downloadFile } from '../lib/utils';
+import { buildCredentialsCsv, downloadFile, getColomboDateString } from '../lib/utils';
 import { useLanguage } from '../context/LanguageContext';
 
 export interface CredentialSlipItem {
@@ -69,7 +69,7 @@ export default function PrintableSlipsModal({
 
   const handleDownloadCsv = () => {
     const csvContent = buildCredentialsCsv(credentials);
-    const dateStr = new Date().toISOString().split('T')[0];
+    const dateStr = getColomboDateString();
     downloadFile(csvContent, `grs_credentials_${dateStr}.csv`);
   };
 

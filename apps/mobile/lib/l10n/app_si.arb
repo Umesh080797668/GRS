@@ -520,6 +520,8 @@
   "@epf": {},
   "etf": "සේ.භා.අ.",
   "@etf": {},
+  "nonBeneficiary": "ප්‍රතිලාභී නොවන",
+  "@nonBeneficiary": {},
   "createHouse": "නිවස ලියාපදිංචි කරන්න",
   "@createHouse": {},
   "houseCreatedSuccess": "නිවස සාර්ථකව ලියාපදිංචි කරන ලදී!",

@@ -1186,11 +1186,20 @@ export class AccountService {
 
     // Guard against explicit cross-scope query widening
     if (callerScope.role === UserRole.cdc_secretary) {
-      if (query.teamId && query.teamId !== callerScope.teamId) {
-        throw new ForbiddenException({
-          code: 'FORBIDDEN_SCOPE',
-          message: 'Cannot access accounts outside assigned team',
-        });
+      if (callerScope.teamId) {
+        if (query.teamId && query.teamId !== callerScope.teamId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'Cannot access accounts outside assigned team',
+          });
+        }
+      } else if (callerScope.gnId) {
+        if (query.gnId && query.gnId !== callerScope.gnId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'Cannot access accounts outside assigned GN division',
+          });
+        }
       }
     } else if (callerScope.role === UserRole.team_member) {
       if (query.teamId && query.teamId !== callerScope.teamId) {

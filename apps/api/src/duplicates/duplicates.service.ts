@@ -63,16 +63,24 @@ export class DuplicatesService {
     }
 
     if (caller.role === UserRole.cdc_secretary) {
-      if (!caller.teamId) {
+      if (caller.teamId) {
+        if (query.teamId && query.teamId !== caller.teamId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'Cannot inspect duplicates outside assigned team',
+          });
+        }
+      } else if (caller.gnId) {
+        if (query.gnId && query.gnId !== caller.gnId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'Cannot inspect duplicates outside assigned GN division',
+          });
+        }
+      } else {
         throw new ForbiddenException({
           code: 'FORBIDDEN_SCOPE',
-          message: 'CDC Secretary missing team scope',
-        });
-      }
-      if (query.teamId && query.teamId !== caller.teamId) {
-        throw new ForbiddenException({
-          code: 'FORBIDDEN_SCOPE',
-          message: 'Cannot inspect duplicates outside assigned team',
+          message: 'CDC Secretary missing GN scope',
         });
       }
     } else if (caller.role === UserRole.sda) {

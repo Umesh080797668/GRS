@@ -285,6 +285,7 @@ class AppTranslations {
     "aswesuma": "Aswesuma",
     "epf": "EPF",
     "etf": "ETF",
+    "nonBeneficiary": "Non-beneficiary",
     "createHouse": "Create House",
     "houseCreatedSuccess": "Household created successfully!",
     "internetRequiredAction": "Internet connection required for this action.",
@@ -667,6 +668,7 @@ class AppTranslations {
     "aswesuma": "අස්වැසුම",
     "epf": "සේ.අ.අ.",
     "etf": "සේ.භා.අ.",
+    "nonBeneficiary": "ප්‍රතිලාභී නොවන",
     "createHouse": "නිවස ලියාපදිංචි කරන්න",
     "houseCreatedSuccess": "නිවස සාර්ථකව ලියාපදිංචි කරන ලදී!",
     "internetRequiredAction":
@@ -1058,6 +1060,7 @@ class AppTranslations {
     "aswesuma": "அஸ்வெசும",
     "epf": "ஈ.பி.எஃப்",
     "etf": "ஈ.டி.எஃப்",
+    "nonBeneficiary": "பயனாளியற்றவர்",
     "createHouse": "வீட்டைப் பதிவு செய்க",
     "houseCreatedSuccess": "குடும்பம் வெற்றிகரமாக உருவாக்கப்பட்டது!",
     "internetRequiredAction": "இந்தச் செயலுக்கு இணைய இணைப்பு தேவை.",

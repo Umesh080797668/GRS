@@ -30,6 +30,7 @@ import {
   formatScopeLevelLabel,
   LookupTranslationMap,
   normalizeReportLanguage,
+  parseColomboDateBoundary,
   pickTrilingual,
   R2_CLIENT_COLUMN_KEYS,
   R2_COLUMN_HEADERS_I18N,
@@ -1660,11 +1661,13 @@ export class ExportJobService {
       }
       if (filters.dateFrom) {
         conditions.push(
-          Prisma.sql`created_at >= ${new Date(filters.dateFrom)}`,
+          Prisma.sql`created_at >= ${parseColomboDateBoundary(filters.dateFrom, false)}`,
         );
       }
       if (filters.dateTo) {
-        conditions.push(Prisma.sql`created_at <= ${new Date(filters.dateTo)}`);
+        conditions.push(
+          Prisma.sql`created_at <= ${parseColomboDateBoundary(filters.dateTo, true)}`,
+        );
       }
 
       const whereSql = Prisma.join(conditions, ' AND ');
@@ -1983,8 +1986,12 @@ export class ExportJobService {
 
     if (filters.dateFrom || filters.dateTo) {
       where.createdAt = {
-        ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
-        ...(filters.dateTo ? { lte: new Date(filters.dateTo) } : {}),
+        ...(filters.dateFrom
+          ? { gte: parseColomboDateBoundary(filters.dateFrom, false) }
+          : {}),
+        ...(filters.dateTo
+          ? { lte: parseColomboDateBoundary(filters.dateTo, true) }
+          : {}),
       };
     }
 
@@ -2005,8 +2012,12 @@ export class ExportJobService {
     }
     if (filters.dateFrom || filters.dateTo) {
       where.createdAt = {
-        ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
-        ...(filters.dateTo ? { lte: new Date(filters.dateTo) } : {}),
+        ...(filters.dateFrom
+          ? { gte: parseColomboDateBoundary(filters.dateFrom, false) }
+          : {}),
+        ...(filters.dateTo
+          ? { lte: parseColomboDateBoundary(filters.dateTo, true) }
+          : {}),
       };
     }
 

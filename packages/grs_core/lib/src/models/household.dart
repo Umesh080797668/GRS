@@ -15,6 +15,7 @@ class Household {
   final bool isEtf;
   final bool isAswesuma;
   final bool isSamurdhi;
+  final bool isNonBeneficiary;
   final bool hasSpecialNeeds;
   final int? targetFemale;
   final int? targetMale;
@@ -44,6 +45,7 @@ class Household {
     this.isEtf = false,
     this.isAswesuma = false,
     this.isSamurdhi = false,
+    this.isNonBeneficiary = false,
     this.hasSpecialNeeds = false,
     this.targetFemale,
     this.targetMale,
@@ -75,6 +77,7 @@ class Household {
       'isEtf': isEtf,
       'isAswesuma': isAswesuma,
       'isSamurdhi': isSamurdhi,
+      'isNonBeneficiary': isNonBeneficiary,
       'hasSpecialNeeds': hasSpecialNeeds,
       'targetFemale': targetFemale,
       'targetMale': targetMale,
@@ -107,6 +110,7 @@ class Household {
       isEtf: json['isEtf'] as bool? ?? false,
       isAswesuma: json['isAswesuma'] as bool? ?? false,
       isSamurdhi: json['isSamurdhi'] as bool? ?? false,
+      isNonBeneficiary: json['isNonBeneficiary'] as bool? ?? false,
       hasSpecialNeeds: json['hasSpecialNeeds'] as bool? ?? false,
       targetFemale: json['targetFemale'] as int?,
       targetMale: json['targetMale'] as int?,

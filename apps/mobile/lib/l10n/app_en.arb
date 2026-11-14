@@ -520,6 +520,8 @@
   "@epf": {},
   "etf": "ETF",
   "@etf": {},
+  "nonBeneficiary": "Non-beneficiary",
+  "@nonBeneficiary": {},
   "createHouse": "Create House",
   "@createHouse": {},
   "houseCreatedSuccess": "Household created successfully!",

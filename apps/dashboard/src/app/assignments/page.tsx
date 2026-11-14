@@ -52,6 +52,7 @@ function roleLabel(role: string) {
 function formatDate(iso?: string | null) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-GB', {
+    timeZone: 'Asia/Colombo',
     day: '2-digit',
     month: 'short',
     year: 'numeric',

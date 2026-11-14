@@ -3,6 +3,7 @@ library;
 
 export 'src/validators.dart';
 export 'src/duplicates.dart';
+export 'src/date_formatters.dart';
 export 'src/models/area.dart';
 export 'src/models/client.dart';
 export 'src/models/household.dart';

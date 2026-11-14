@@ -704,12 +704,22 @@ export class SyncService {
         } else if (user.role === UserRole.cdc_secretary) {
           const matchesTeam =
             household.teamId && assignedTeams.has(household.teamId);
-          if (!matchesTeam) {
+          const matchesGn = assignedGns.has(household.gnId);
+          if (assignedTeams.size > 0 && !matchesTeam) {
             finishedHouseholdsResults.push({
               id: hid,
               status: 'forbidden',
               code: 'OUT_OF_SCOPE_TEAM',
               message: 'Household is not assigned to your team',
+            });
+            continue;
+          }
+          if (assignedTeams.size === 0 && !matchesGn) {
+            finishedHouseholdsResults.push({
+              id: hid,
+              status: 'forbidden',
+              code: 'OUT_OF_SCOPE_GN',
+              message: 'Household is outside your assigned GN division',
             });
             continue;
           }
@@ -1278,15 +1288,24 @@ export class SyncService {
           continue;
         }
       } else if (user.role === 'cdc_secretary') {
-        // Level 4 (secretary): strictly own team's households
         const matchesTeam =
           household.teamId && assignedTeams.has(household.teamId);
-        if (!matchesTeam) {
+        const matchesGn = assignedGns.has(household.gnId);
+        if (assignedTeams.size > 0 && !matchesTeam) {
           results[idx] = {
             id: rec.id,
             status: 'forbidden',
             code: 'HOUSEHOLD_OUT_OF_SCOPE',
             message: 'Household is outside caller team scope',
+          };
+          continue;
+        }
+        if (assignedTeams.size === 0 && !matchesGn) {
+          results[idx] = {
+            id: rec.id,
+            status: 'forbidden',
+            code: 'HOUSEHOLD_OUT_OF_SCOPE',
+            message: 'Household is outside caller assigned GN division scope',
           };
           continue;
         }
@@ -1371,7 +1390,7 @@ export class SyncService {
           districtId: household.districtId,
           dsId: household.dsId,
           gnId: household.gnId,
-          teamId: household.teamId,
+          teamId: user.teamId ?? household.teamId,
           norm,
           isUpdate: true,
           currentServerVersion: existing.serverVersion,
@@ -1384,7 +1403,7 @@ export class SyncService {
           districtId: household.districtId,
           dsId: household.dsId,
           gnId: household.gnId,
-          teamId: household.teamId,
+          teamId: user.teamId ?? household.teamId,
           norm,
           isUpdate: false,
           currentServerVersion: 0,

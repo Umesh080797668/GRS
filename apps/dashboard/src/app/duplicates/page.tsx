@@ -294,7 +294,8 @@ export default function DuplicatesPage() {
     if (!iso) return '—';
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return '—';
-    return d.toLocaleDateString(undefined, {
+    return d.toLocaleDateString('en-GB', {
+      timeZone: 'Asia/Colombo',
       year: 'numeric',
       month: 'short',
       day: 'numeric',

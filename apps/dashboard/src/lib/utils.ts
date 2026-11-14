@@ -66,11 +66,15 @@ export function getOfficialHouseholdTemplateCsv(): string {
   ].join('\n');
 }
 
+export const APP_TIMEZONE = 'Asia/Colombo';
+
 export function formatDate(isoString?: string): string {
   if (!isoString) return '-';
   try {
     const d = new Date(isoString);
+    if (Number.isNaN(d.getTime())) return isoString;
     return d.toLocaleString('en-GB', {
+      timeZone: APP_TIMEZONE,
       day: '2-digit',
       month: 'short',
       year: 'numeric',
@@ -80,6 +84,46 @@ export function formatDate(isoString?: string): string {
   } catch {
     return isoString;
   }
+}
+
+export function formatDateOnly(isoString?: string): string {
+  if (!isoString) return '-';
+  try {
+    const d = new Date(isoString);
+    if (Number.isNaN(d.getTime())) return isoString;
+    return d.toLocaleDateString('en-GB', {
+      timeZone: APP_TIMEZONE,
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return isoString;
+  }
+}
+
+export function formatTimeOnly(isoString?: string): string {
+  if (!isoString) return '-';
+  try {
+    const d = new Date(isoString);
+    if (Number.isNaN(d.getTime())) return isoString;
+    return d.toLocaleTimeString('en-GB', {
+      timeZone: APP_TIMEZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return isoString;
+  }
+}
+
+export function getColomboDateString(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
 }
 
 export interface DurationLabels {

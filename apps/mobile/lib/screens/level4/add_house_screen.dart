@@ -28,12 +28,12 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
   final _villageNameCtrl = TextEditingController();
   final _targetFemaleCtrl = TextEditingController();
   final _targetMaleCtrl = TextEditingController();
-  final _ageGroupCtrl = TextEditingController();
 
   bool _isEpf = false;
   bool _isEtf = false;
   bool _isAswesuma = false;
   bool _isSamurdhi = false;
+  bool _isNonBeneficiary = false;
   bool _hasSpecialNeeds = false;
 
   bool _langSinhala = true;
@@ -50,7 +50,6 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
     _villageNameCtrl.dispose();
     _targetFemaleCtrl.dispose();
     _targetMaleCtrl.dispose();
-    _ageGroupCtrl.dispose();
     super.dispose();
   }
 
@@ -93,14 +92,6 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
         throw Exception('User has no assigned GN division.');
       }
 
-      int? ageMin;
-      int? ageMax;
-      final ageParts = _ageGroupCtrl.text.trim().split('-');
-      if (ageParts.length == 2) {
-        ageMin = int.tryParse(ageParts[0].trim());
-        ageMax = int.tryParse(ageParts[1].trim());
-      }
-
       final payload = {
         'gnId': gnId,
         'houseNo': _houseNoCtrl.text.trim(),
@@ -115,11 +106,12 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
         'isEtf': _isEtf,
         'isAswesuma': _isAswesuma,
         'isSamurdhi': _isSamurdhi,
+        'isNonBeneficiary': _isNonBeneficiary,
         'hasSpecialNeeds': _hasSpecialNeeds,
         'targetFemale': int.tryParse(_targetFemaleCtrl.text.trim()) ?? 0,
         'targetMale': int.tryParse(_targetMaleCtrl.text.trim()) ?? 0,
-        'ageGroupMin': ageMin,
-        'ageGroupMax': ageMax,
+        'ageGroupMin': 18,
+        'ageGroupMax': 35,
         'langSinhala': _langSinhala,
         'langTamil': _langTamil,
         'langEnglish': _langEnglish,
@@ -225,12 +217,12 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
     _villageNameCtrl.clear();
     _targetFemaleCtrl.clear();
     _targetMaleCtrl.clear();
-    _ageGroupCtrl.clear();
     setState(() {
       _isEpf = false;
       _isEtf = false;
       _isAswesuma = false;
       _isSamurdhi = false;
+      _isNonBeneficiary = false;
       _hasSpecialNeeds = false;
       _langSinhala = true;
       _langTamil = false;
@@ -334,7 +326,10 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 title: Text(l10n.get('epf')),
                 value: _isEpf,
                 onChanged: isOnline && !_isSaving
-                    ? (v) => setState(() => _isEpf = v ?? false)
+                    ? (v) => setState(() {
+                        _isEpf = v ?? false;
+                        if (_isEpf) _isNonBeneficiary = false;
+                      })
                     : null,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -342,7 +337,10 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 title: Text(l10n.get('etf')),
                 value: _isEtf,
                 onChanged: isOnline && !_isSaving
-                    ? (v) => setState(() => _isEtf = v ?? false)
+                    ? (v) => setState(() {
+                        _isEtf = v ?? false;
+                        if (_isEtf) _isNonBeneficiary = false;
+                      })
                     : null,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -350,7 +348,10 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 title: Text(l10n.get('aswesuma')),
                 value: _isAswesuma,
                 onChanged: isOnline && !_isSaving
-                    ? (v) => setState(() => _isAswesuma = v ?? false)
+                    ? (v) => setState(() {
+                        _isAswesuma = v ?? false;
+                        if (_isAswesuma) _isNonBeneficiary = false;
+                      })
                     : null,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -358,7 +359,26 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 title: Text(l10n.get('samurdhi')),
                 value: _isSamurdhi,
                 onChanged: isOnline && !_isSaving
-                    ? (v) => setState(() => _isSamurdhi = v ?? false)
+                    ? (v) => setState(() {
+                        _isSamurdhi = v ?? false;
+                        if (_isSamurdhi) _isNonBeneficiary = false;
+                      })
+                    : null,
+                contentPadding: EdgeInsets.zero,
+              ),
+              CheckboxListTile(
+                title: Text(l10n.get('nonBeneficiary')),
+                value: _isNonBeneficiary,
+                onChanged: isOnline && !_isSaving
+                    ? (v) => setState(() {
+                        _isNonBeneficiary = v ?? false;
+                        if (_isNonBeneficiary) {
+                          _isEpf = false;
+                          _isEtf = false;
+                          _isAswesuma = false;
+                          _isSamurdhi = false;
+                        }
+                      })
                     : null,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -372,7 +392,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               ),
               const SizedBox(height: GrsSpacing.lg),
               Text(
-                l10n.get('targetDemographics'),
+                '${l10n.get('targetDemographics')} (only 18-35)',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -384,7 +404,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                   Expanded(
                     child: GrsTextField(
                       controller: _targetFemaleCtrl,
-                      label: l10n.get('female'),
+                      label: '${l10n.get('female')} (only 18-35)',
                       hint: '0',
                       prefixIcon: const Icon(Icons.woman),
                       keyboardType: TextInputType.number,
@@ -403,7 +423,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                   Expanded(
                     child: GrsTextField(
                       controller: _targetMaleCtrl,
-                      label: l10n.get('male'),
+                      label: '${l10n.get('male')} (only 18-35)',
                       hint: '0',
                       prefixIcon: const Icon(Icons.man),
                       keyboardType: TextInputType.number,
@@ -419,33 +439,6 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: GrsSpacing.md),
-              GrsTextField(
-                controller: _ageGroupCtrl,
-                label: l10n.get('ageGroup'),
-                hint: l10n.get('ageGroupHint'),
-                prefixIcon: const Icon(Icons.calendar_month_outlined),
-                enabled: isOnline && !_isSaving,
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) return null;
-                  final parts = val.trim().split('-');
-                  if (parts.length != 2) {
-                    return 'Format must be e.g. 18-35';
-                  }
-                  final min = int.tryParse(parts[0].trim());
-                  final max = int.tryParse(parts[1].trim());
-                  if (min == null || max == null) {
-                    return 'Please enter valid numbers';
-                  }
-                  if (min < 0 || max < 0) {
-                    return 'Age cannot be negative';
-                  }
-                  if (min >= max) {
-                    return 'Minimum age must be less than maximum age';
-                  }
-                  return null;
-                },
               ),
               const SizedBox(height: GrsSpacing.lg),
               Text(

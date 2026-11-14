@@ -66,19 +66,28 @@ export class ClientService {
     let scopeFilter: Record<string, any>;
 
     if (caller.role === UserRole.cdc_secretary) {
-      if (!caller.teamId) {
+      if (caller.teamId) {
+        if (query.teamId && query.teamId !== caller.teamId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'Cannot access clients outside assigned team',
+          });
+        }
+        scopeFilter = { deletedAt: null, teamId: caller.teamId };
+      } else if (caller.gnId) {
+        if (query.gnId && query.gnId !== caller.gnId) {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN_SCOPE',
+            message: 'Cannot access clients outside assigned GN division',
+          });
+        }
+        scopeFilter = { deletedAt: null, gnId: caller.gnId };
+      } else {
         throw new ForbiddenException({
           code: 'FORBIDDEN_SCOPE',
-          message: 'CDC Secretary missing team scope',
+          message: 'CDC Secretary missing GN scope',
         });
       }
-      if (query.teamId && query.teamId !== caller.teamId) {
-        throw new ForbiddenException({
-          code: 'FORBIDDEN_SCOPE',
-          message: 'Cannot access clients outside assigned team',
-        });
-      }
-      scopeFilter = { deletedAt: null, teamId: caller.teamId };
     } else if (caller.role === UserRole.team_member) {
       scopeFilter = { deletedAt: null, collectedBy: caller.userId };
     } else {
@@ -307,15 +316,27 @@ export class ClientService {
       });
     }
 
-    if (
-      caller.role === UserRole.team_member ||
-      caller.role === UserRole.cdc_secretary
-    ) {
-      if (household.teamId !== caller.teamId) {
+    if (caller.role === UserRole.team_member) {
+      if (!caller.teamId || household.teamId !== caller.teamId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_HOUSEHOLD',
           message:
             'Cannot create client in household not assigned to your team',
+        });
+      }
+    } else if (caller.role === UserRole.cdc_secretary) {
+      if (caller.teamId && household.teamId && household.teamId !== caller.teamId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_HOUSEHOLD',
+          message:
+            'Cannot create client in household not assigned to your team',
+        });
+      }
+      if (caller.gnId && household.gnId !== caller.gnId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_HOUSEHOLD',
+          message:
+            'Cannot create client in household outside your assigned GN division',
         });
       }
     } else if (caller.role === UserRole.sda) {
@@ -519,7 +540,7 @@ export class ClientService {
           districtId: household.districtId,
           dsId: household.dsId,
           gnId: household.gnId,
-          teamId: household.teamId,
+          teamId: caller.teamId ?? household.teamId ?? null,
           name: nameVal.value!,
           nameNorm,
           age: ageVal.value!,

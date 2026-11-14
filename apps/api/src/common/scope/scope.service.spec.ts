@@ -166,6 +166,26 @@ describe('ScopeService & Role Hierarchy', () => {
       expect(service.canEditSyncedClient(scope, client)).toBe(false);
     });
 
+    it('Level 4 CDC Secretary without team can edit synced records within their assigned GN division', () => {
+      const scope: ScopeContext = {
+        userId: 'sec-gn',
+        role: UserRole.cdc_secretary,
+        gnId: 'gn-1',
+      };
+      const gnClient = { gnId: 'gn-1', teamId: null, collectedBy: 'agent-101' };
+      expect(service.canEditSyncedClient(scope, gnClient)).toBe(true);
+    });
+
+    it('Level 4 CDC Secretary without team cannot edit synced records outside their assigned GN division', () => {
+      const scope: ScopeContext = {
+        userId: 'sec-gn',
+        role: UserRole.cdc_secretary,
+        gnId: 'gn-1',
+      };
+      const otherGnClient = { gnId: 'gn-99', teamId: null, collectedBy: 'agent-101' };
+      expect(service.canEditSyncedClient(scope, otherGnClient)).toBe(false);
+    });
+
     it('Super Admin (Level 00) can edit any synced record', () => {
       const scope: ScopeContext = {
         userId: 'admin-00',

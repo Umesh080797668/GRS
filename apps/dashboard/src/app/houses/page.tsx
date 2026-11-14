@@ -60,6 +60,7 @@ export default function HousesPage() {
     targetFemale: 0,
     targetMale: 0,
     isSamurdhi: false,
+    isNonBeneficiary: false,
     isAswesuma: false,
     isEpf: false,
     isEtf: false,
@@ -91,6 +92,7 @@ export default function HousesPage() {
   const [newIsEtf, setNewIsEtf] = useState(false);
   const [newIsAswesuma, setNewIsAswesuma] = useState(false);
   const [newIsSamurdhi, setNewIsSamurdhi] = useState(false);
+  const [newIsNonBeneficiary, setNewIsNonBeneficiary] = useState(false);
   const [newHasSpecialNeeds, setNewHasSpecialNeeds] = useState(false);
 
   // GN Setup form
@@ -328,6 +330,7 @@ export default function HousesPage() {
         isEtf: newIsEtf,
         isAswesuma: newIsAswesuma,
         isSamurdhi: newIsSamurdhi,
+        isNonBeneficiary: newIsNonBeneficiary,
         hasSpecialNeeds: newHasSpecialNeeds,
       });
       setShowAddModal(false);
@@ -355,6 +358,7 @@ export default function HousesPage() {
       targetFemale: Number(house.targetFemale ?? 0),
       targetMale: Number(house.targetMale ?? 0),
       isSamurdhi: Boolean(house.isSamurdhi),
+      isNonBeneficiary: Boolean(house.isNonBeneficiary),
       isAswesuma: Boolean(house.isAswesuma),
       isEpf: Boolean(house.isEpf),
       isEtf: Boolean(house.isEtf),
@@ -381,6 +385,7 @@ export default function HousesPage() {
         targetFemale: Number(editHouseForm.targetFemale) || 0,
         targetMale: Number(editHouseForm.targetMale) || 0,
         isSamurdhi: editHouseForm.isSamurdhi,
+        isNonBeneficiary: editHouseForm.isNonBeneficiary,
         isAswesuma: editHouseForm.isAswesuma,
         isEpf: editHouseForm.isEpf,
         isEtf: editHouseForm.isEtf,
@@ -1125,20 +1130,65 @@ export default function HousesPage() {
                   <label className="form-label">Social Welfare & Identifiers</label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', fontSize: '13px', marginTop: '4px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={newIsSamurdhi} onChange={(e) => setNewIsSamurdhi(e.target.checked)} />
+                      <input
+                        type="checkbox"
+                        checked={newIsSamurdhi}
+                        onChange={(e) => {
+                          setNewIsSamurdhi(e.target.checked);
+                          if (e.target.checked) setNewIsNonBeneficiary(false);
+                        }}
+                      />
                       <span>Samurdhi</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={newIsAswesuma} onChange={(e) => setNewIsAswesuma(e.target.checked)} />
+                      <input
+                        type="checkbox"
+                        checked={newIsAswesuma}
+                        onChange={(e) => {
+                          setNewIsAswesuma(e.target.checked);
+                          if (e.target.checked) setNewIsNonBeneficiary(false);
+                        }}
+                      />
                       <span>Aswesuma</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={newIsEpf} onChange={(e) => setNewIsEpf(e.target.checked)} />
+                      <input
+                        type="checkbox"
+                        checked={newIsEpf}
+                        onChange={(e) => {
+                          setNewIsEpf(e.target.checked);
+                          if (e.target.checked) setNewIsNonBeneficiary(false);
+                        }}
+                      />
                       <span>EPF</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={newIsEtf} onChange={(e) => setNewIsEtf(e.target.checked)} />
+                      <input
+                        type="checkbox"
+                        checked={newIsEtf}
+                        onChange={(e) => {
+                          setNewIsEtf(e.target.checked);
+                          if (e.target.checked) setNewIsNonBeneficiary(false);
+                        }}
+                      />
                       <span>ETF</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={newIsNonBeneficiary}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setNewIsNonBeneficiary(checked);
+                          if (checked) {
+                            setNewIsSamurdhi(false);
+                            setNewIsAswesuma(false);
+                            setNewIsEpf(false);
+                            setNewIsEtf(false);
+                          }
+                        }}
+                      />
+                      <span>Non-beneficiary</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                       <input type="checkbox" checked={newHasSpecialNeeds} onChange={(e) => setNewHasSpecialNeeds(e.target.checked)} />
@@ -1314,7 +1364,7 @@ export default function HousesPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
-                    <label className="form-label">Target Female Count</label>
+                    <label className="form-label">Target Female Count (only 18-35)</label>
                     <input
                       type="number"
                       min="0"
@@ -1325,7 +1375,7 @@ export default function HousesPage() {
                     />
                   </div>
                   <div>
-                    <label className="form-label">Target Male Count</label>
+                    <label className="form-label">Target Male Count (only 18-35)</label>
                     <input
                       type="number"
                       min="0"
@@ -1341,20 +1391,79 @@ export default function HousesPage() {
                   <label className="form-label">Social Welfare & Identifiers</label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px', fontSize: '13px', marginTop: '4px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={editHouseForm.isSamurdhi} onChange={(e) => setEditHouseForm({ ...editHouseForm, isSamurdhi: e.target.checked })} />
+                      <input
+                        type="checkbox"
+                        checked={editHouseForm.isSamurdhi}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setEditHouseForm({
+                            ...editHouseForm,
+                            isSamurdhi: checked,
+                            ...(checked ? { isNonBeneficiary: false } : {}),
+                          });
+                        }}
+                      />
                       <span>Samurdhi</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={editHouseForm.isAswesuma} onChange={(e) => setEditHouseForm({ ...editHouseForm, isAswesuma: e.target.checked })} />
+                      <input
+                        type="checkbox"
+                        checked={editHouseForm.isAswesuma}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setEditHouseForm({
+                            ...editHouseForm,
+                            isAswesuma: checked,
+                            ...(checked ? { isNonBeneficiary: false } : {}),
+                          });
+                        }}
+                      />
                       <span>Aswesuma</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={editHouseForm.isEpf} onChange={(e) => setEditHouseForm({ ...editHouseForm, isEpf: e.target.checked })} />
+                      <input
+                        type="checkbox"
+                        checked={editHouseForm.isEpf}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setEditHouseForm({
+                            ...editHouseForm,
+                            isEpf: checked,
+                            ...(checked ? { isNonBeneficiary: false } : {}),
+                          });
+                        }}
+                      />
                       <span>EPF</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={editHouseForm.isEtf} onChange={(e) => setEditHouseForm({ ...editHouseForm, isEtf: e.target.checked })} />
+                      <input
+                        type="checkbox"
+                        checked={editHouseForm.isEtf}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setEditHouseForm({
+                            ...editHouseForm,
+                            isEtf: checked,
+                            ...(checked ? { isNonBeneficiary: false } : {}),
+                          });
+                        }}
+                      />
                       <span>ETF</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={editHouseForm.isNonBeneficiary}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setEditHouseForm({
+                            ...editHouseForm,
+                            isNonBeneficiary: checked,
+                            ...(checked ? { isSamurdhi: false, isAswesuma: false, isEpf: false, isEtf: false } : {}),
+                          });
+                        }}
+                      />
+                      <span>Non-beneficiary</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                       <input type="checkbox" checked={editHouseForm.hasSpecialNeeds} onChange={(e) => setEditHouseForm({ ...editHouseForm, hasSpecialNeeds: e.target.checked })} />

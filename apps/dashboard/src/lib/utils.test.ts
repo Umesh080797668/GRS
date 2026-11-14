@@ -2,8 +2,13 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import {
   formatActiveDuration,
+  formatDate,
+  formatDateOnly,
   formatRelativeTime,
   formatRoleLabel,
+  formatTimeOnly,
+  getColomboDateString,
+  APP_TIMEZONE,
 } from './utils.ts';
 
 describe('Dashboard activity duration & relative time formatting', () => {
@@ -53,5 +58,39 @@ describe('Dashboard activity duration & relative time formatting', () => {
     assert.strictEqual(formatRoleLabel('super_admin'), 'Super Admin (Level 00)');
     assert.strictEqual(formatRoleLabel('cdc_secretary'), 'CDC Secretary (Level 4)');
     assert.strictEqual(formatRoleLabel(undefined), '-');
+  });
+
+  describe('Strict GMT+5:30 (Asia/Colombo) date & time formatting', () => {
+    it('uses Asia/Colombo as the application timezone constant', () => {
+      assert.strictEqual(APP_TIMEZONE, 'Asia/Colombo');
+    });
+
+    it('formats UTC ISO strings strictly into GMT+5:30 dates and times', () => {
+      // 00:00 UTC = 05:30 IST
+      assert.strictEqual(formatDate('2026-11-13T00:00:00Z'), '13 Nov 2026, 05:30');
+      // 19:00 UTC = 00:30 IST on the following day
+      assert.strictEqual(formatDate('2026-11-13T19:00:00Z'), '14 Nov 2026, 00:30');
+      assert.strictEqual(formatDate(undefined), '-');
+      assert.strictEqual(formatDate(''), '-');
+    });
+
+    it('formats date-only strings in GMT+5:30 correctly', () => {
+      assert.strictEqual(formatDateOnly('2026-11-13T00:00:00Z'), '13 Nov 2026');
+      assert.strictEqual(formatDateOnly('2026-11-13T19:00:00Z'), '14 Nov 2026');
+      assert.strictEqual(formatDateOnly(undefined), '-');
+    });
+
+    it('formats time-only strings in GMT+5:30 correctly', () => {
+      assert.strictEqual(formatTimeOnly('2026-11-13T00:00:00Z'), '05:30');
+      assert.strictEqual(formatTimeOnly('2026-11-13T19:00:00Z'), '00:30');
+      assert.strictEqual(formatTimeOnly(undefined), '-');
+    });
+
+    it('generates YYYY-MM-DD date strings in GMT+5:30', () => {
+      const d1 = new Date('2026-11-13T18:00:00Z'); // 23:30 Colombo time -> 2026-11-13
+      const d2 = new Date('2026-11-13T19:00:00Z'); // 00:30 Colombo time -> 2026-11-14
+      assert.strictEqual(getColomboDateString(d1), '2026-11-13');
+      assert.strictEqual(getColomboDateString(d2), '2026-11-14');
+    });
   });
 });

@@ -196,6 +196,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
 
         final hopesList =
             jsonDecode(client['future_hopes'] as String) as List<dynamic>;
+        _futureHopes.clear();
         _futureHopes.addAll(hopesList.map((e) => e.toString()));
 
         _infoProvidedBy = client['info_provided_by'] as String;
@@ -545,7 +546,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  l10n.get('genderLabel'),
+                                  '${l10n.get('genderLabel')} (only 18-35)',
                                   style: GrsTypography.labelMedium(
                                     color: isDark
                                         ? GrsColors.textSecondaryDark

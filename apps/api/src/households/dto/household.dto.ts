@@ -73,6 +73,10 @@ export class CreateHouseholdDto {
 
   @IsBoolean()
   @IsOptional()
+  isNonBeneficiary?: boolean = false;
+
+  @IsBoolean()
+  @IsOptional()
   hasSpecialNeeds?: boolean = false;
 
   @IsInt()
@@ -147,6 +151,10 @@ export class UpdateHouseholdDto {
   @IsBoolean()
   @IsOptional()
   isSamurdhi?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isNonBeneficiary?: boolean;
 
   @IsBoolean()
   @IsOptional()

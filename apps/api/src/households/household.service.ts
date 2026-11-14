@@ -22,7 +22,7 @@ export class HouseholdService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: ScopeService,
-  ) {}
+  ) { }
 
   /**
    * Creates a household in the designated GN division with concurrency-safe serial allocation.
@@ -283,13 +283,13 @@ export class HouseholdService {
       const leaderNameCondition =
         caller.role === UserRole.cdc_secretary
           ? {
-              AND: [
-                { houseLeaderName: { contains: search, mode: 'insensitive' } },
-                {
-                  OR: [...callerTeamFilter, { teamId: null }],
-                },
-              ],
-            }
+            AND: [
+              { houseLeaderName: { contains: search, mode: 'insensitive' } },
+              {
+                OR: [...callerTeamFilter, { teamId: null }],
+              },
+            ],
+          }
           : { houseLeaderName: { contains: search, mode: 'insensitive' } };
 
       const searchConditions = [
@@ -320,9 +320,9 @@ export class HouseholdService {
         },
         ...(query.cursor && query.cursor.trim().length > 0
           ? {
-              cursor: { id: query.cursor.trim() },
-              skip: 1,
-            }
+            cursor: { id: query.cursor.trim() },
+            skip: 1,
+          }
           : {}),
       }),
       this.prisma.household.count({ where: whereCondition }),
@@ -1010,10 +1010,7 @@ export class HouseholdService {
       });
     }
 
-    if (
-      caller.role === UserRole.team_member ||
-      caller.role === UserRole.cdc_secretary
-    ) {
+    if (caller.role === UserRole.team_member) {
       if (
         !caller.teamId ||
         !household.teamId ||
@@ -1022,6 +1019,19 @@ export class HouseholdService {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_TEAM',
           message: 'Household is not assigned to your team',
+        });
+      }
+    } else if (caller.role === UserRole.cdc_secretary) {
+      if (household.teamId && caller.teamId !== household.teamId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_TEAM',
+          message: 'Household is not assigned to your team',
+        });
+      }
+      if (caller.gnId && household.gnId !== caller.gnId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_GN',
+          message: 'Household is outside your assigned GN division',
         });
       }
     } else if (caller.role === UserRole.sda) {
@@ -1111,14 +1121,16 @@ export class HouseholdService {
           'Level 5 enumerators cannot reopen finished houses. Contact your team leader.',
       });
     } else if (caller.role === UserRole.cdc_secretary) {
-      if (
-        !caller.teamId ||
-        !household.teamId ||
-        household.teamId !== caller.teamId
-      ) {
+      if (household.teamId && caller.teamId !== household.teamId) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_TEAM',
           message: 'Household is not assigned to your team',
+        });
+      }
+      if (caller.gnId && household.gnId !== caller.gnId) {
+        throw new ForbiddenException({
+          code: 'OUT_OF_SCOPE_GN',
+          message: 'Household is outside your assigned GN division',
         });
       }
     } else if (caller.role === UserRole.sda) {
