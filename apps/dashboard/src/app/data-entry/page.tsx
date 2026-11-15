@@ -133,7 +133,7 @@ export default function DataEntryPage() {
   const [clientWhatsapp, setClientWhatsapp] = useState('');
   const [highestEducation, setHighestEducation] = useState('EDU_OL_PASSED');
   const [highestVocational, setHighestVocational] = useState('VOC_NONE');
-  const [interestedStream, setInterestedStream] = useState('STREAM_IT_COMPUTING');
+  const [interestedStream, setInterestedStream] = useState('STREAM_AGRICULTURE_FOOD_NATURAL');
   const [interestedJob, setInterestedJob] = useState('JOB_SOFTWARE_DEV');
   const [futureHopes, setFutureHopes] = useState<string[]>([]);
   const [infoProvidedBy, setInfoProvidedBy] = useState<'self' | 'mother' | 'father' | 'sister' | 'other'>('self');
@@ -415,6 +415,10 @@ export default function DataEntryPage() {
       setSubmitError(t('entry.error.client_name_required'));
       return;
     }
+    if (!clientAge || clientAge < 18 || clientAge > 35) {
+      setSubmitError(t('entry.error.age_out_of_range'));
+      return;
+    }
     if (!consentGiven) {
       setSubmitError(t('entry.error.consent_required'));
       return;
@@ -549,6 +553,10 @@ export default function DataEntryPage() {
   const handleSaveDraft = () => {
     if (!selectedGn) {
       setSubmitError('Please select District, DS, and GN Division before saving a draft.');
+      return;
+    }
+    if (!clientAge || clientAge < 18 || clientAge > 35) {
+      setSubmitError(t('entry.error.age_out_of_range'));
       return;
     }
     const draftId = editingDraftId || `draft_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
@@ -721,6 +729,12 @@ export default function DataEntryPage() {
 
   const syncSingleDraft = async (draft: WebDraft): Promise<{ success: boolean; error?: string }> => {
     try {
+      if (!draft.clientAge || draft.clientAge < 18 || draft.clientAge > 35) {
+        return {
+          success: false,
+          error: t('entry.error.age_out_of_range'),
+        };
+      }
       if (!draft.consentGiven) {
         return {
           success: false,
@@ -1169,12 +1183,12 @@ export default function DataEntryPage() {
                 <div>
                   <div className="de-subsection-heading">
                     <MapPin size={15} style={{ color: 'var(--primary)' }} />
-                    <span>Administrative Territorial Boundaries</span>
+                    <span>1. Administrative Territorial Boundaries</span>
                   </div>
                   <div className="de-grid-3">
                     <div>
                       <label className="form-label">
-                        District <span className="de-req">*</span>
+                        1.1. District <span className="de-req">*</span>
                       </label>
                       <select
                         className="select-field"
@@ -1192,7 +1206,7 @@ export default function DataEntryPage() {
 
                     <div>
                       <label className="form-label">
-                        DS Division <span className="de-req">*</span>
+                        1.2. DS Division <span className="de-req">*</span>
                       </label>
                       <select
                         className="select-field"
@@ -1210,7 +1224,7 @@ export default function DataEntryPage() {
 
                     <div>
                       <label className="form-label">
-                        GN Division <span className="de-req">*</span>
+                        1.3. GN Division <span className="de-req">*</span>
                       </label>
                       <select
                         className="select-field"
@@ -1230,10 +1244,14 @@ export default function DataEntryPage() {
 
                 {/* Physical Household Unit Fields */}
                 <div className="de-divider-top">
+                  <div className="de-subsection-heading">
+                    <Home size={15} style={{ color: 'var(--primary)' }} />
+                    <span>2. Household Details</span>
+                  </div>
                   <div className="de-grid-3">
                     <div>
                       <label className="form-label">
-                        House Number (DD/S/001 #1) <span className="de-req">*</span>
+                        2.1. House Number (DD/S/001 #1) <span className="de-req">*</span>
                       </label>
                       <input
                         type="text"
@@ -1248,7 +1266,7 @@ export default function DataEntryPage() {
 
                     <div>
                       <label className="form-label">
-                        Head of Household Name <span className="de-req">*</span>
+                        2.2. Head of Household Name <span className="de-req">*</span>
                       </label>
                       <input
                         type="text"
@@ -1262,7 +1280,7 @@ export default function DataEntryPage() {
                     </div>
 
                     <div>
-                      <label className="form-label">Village / Street / Locality</label>
+                      <label className="form-label">2.3. Village / Street / Locality</label>
                       <input
                         type="text"
                         className="input-field"
@@ -1274,7 +1292,7 @@ export default function DataEntryPage() {
                     </div>
 
                     <div className="de-col-span-full">
-                      <label className="form-label">Complete Postal Address</label>
+                      <label className="form-label">2.4. Complete Postal Address</label>
                       <input
                         type="text"
                         className="input-field"
@@ -1291,7 +1309,7 @@ export default function DataEntryPage() {
                 <div className="de-divider-top">
                   <div className="de-subsection-heading">
                     <HeartHandshake size={15} style={{ color: 'var(--primary)' }} />
-                    <span>Welfare &amp; Social Security Coverage</span>
+                    <span>3. Welfare &amp; Social Security Coverage</span>
                   </div>
                   <div className="de-grid-cards">
                     <label
@@ -1307,7 +1325,7 @@ export default function DataEntryPage() {
                           if (e.target.checked) setIsNonBeneficiary(false);
                         }}
                       />
-                      <span>Samurdhi Beneficiary</span>
+                      <span>3.1. Samurdhi Beneficiary</span>
                     </label>
 
                     <label
@@ -1323,7 +1341,7 @@ export default function DataEntryPage() {
                           if (e.target.checked) setIsNonBeneficiary(false);
                         }}
                       />
-                      <span>Aswesuma Beneficiary</span>
+                      <span>3.2. Aswesuma Beneficiary</span>
                     </label>
 
                     <label
@@ -1339,7 +1357,7 @@ export default function DataEntryPage() {
                           if (e.target.checked) setIsNonBeneficiary(false);
                         }}
                       />
-                      <span>EPF Contributor</span>
+                      <span>3.3. EPF Contributor</span>
                     </label>
 
                     <label
@@ -1355,7 +1373,7 @@ export default function DataEntryPage() {
                           if (e.target.checked) setIsNonBeneficiary(false);
                         }}
                       />
-                      <span>ETF Contributor</span>
+                      <span>3.4. ETF Contributor</span>
                     </label>
 
                     <label
@@ -1377,7 +1395,7 @@ export default function DataEntryPage() {
                           }
                         }}
                       />
-                      <span>Non-beneficiary</span>
+                      <span>3.5. Non-beneficiary</span>
                     </label>
 
                     <label
@@ -1390,7 +1408,7 @@ export default function DataEntryPage() {
                         disabled={householdMode === 'existing'}
                         onChange={(e) => setHasSpecialNeeds(e.target.checked)}
                       />
-                      <span>Special Needs Member</span>
+                      <span>3.6. Special Needs Member</span>
                     </label>
                   </div>
                 </div>
@@ -1414,10 +1432,14 @@ export default function DataEntryPage() {
               </div>
 
               <div className="de-section-body">
+                <div className="de-subsection-heading">
+                  <User size={15} style={{ color: 'var(--primary)' }} />
+                  <span>1. Personal Demographics</span>
+                </div>
                 <div className="de-grid-3">
-                  <div className="de-col-span-2">
+                  <div>
                     <label className="form-label">
-                      Full Name of Individual <span className="de-req">*</span>
+                      1.1. Full Name of Individual <span className="de-req">*</span>
                     </label>
                     <input
                       type="text"
@@ -1431,7 +1453,23 @@ export default function DataEntryPage() {
 
                   <div>
                     <label className="form-label">
-                      Gender (only 18-35) <span className="de-req">*</span>
+                      1.2. Age (only 18-35) <span className="de-req">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={18}
+                      max={35}
+                      className="input-field"
+                      placeholder="18 - 35"
+                      value={clientAge || ''}
+                      onChange={(e) => setClientAge(parseInt(e.target.value, 10) || 0)}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label">
+                      1.3. Gender (only 18-35) <span className="de-req">*</span>
                     </label>
                     <select
                       className="select-field"
@@ -1444,7 +1482,7 @@ export default function DataEntryPage() {
                   </div>
 
                   <div>
-                    <label className="form-label">Phone Number</label>
+                    <label className="form-label">1.4. Phone Number</label>
                     <input
                       type="tel"
                       className="input-field"
@@ -1455,7 +1493,7 @@ export default function DataEntryPage() {
                   </div>
 
                   <div>
-                    <label className="form-label">WhatsApp Number</label>
+                    <label className="form-label">1.5. WhatsApp Number</label>
                     <input
                       type="tel"
                       className="input-field"
@@ -1464,117 +1502,121 @@ export default function DataEntryPage() {
                       onChange={(e) => setClientWhatsapp(e.target.value)}
                     />
                   </div>
+                </div>
 
-                  <div>
-                    <label className="form-label">
-                      Highest Education Level <span className="de-req">*</span>
-                    </label>
-                    <select
-                      className="select-field"
-                      value={highestEducation}
-                      onChange={(e) => setHighestEducation(e.target.value)}
-                    >
-                      {lookups.education.length > 0 ? (
-                        lookups.education.map((item) => (
-                          <option key={item.code} value={item.code}>
-                            {getLookupLabel(item)}
-                          </option>
-                        ))
-                      ) : (
-                        <option value="EDU_OL_PASSED">G.C.E. O/L passed</option>
-                      )}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="form-label">Vocational Qualification</label>
-                    <select
-                      className="select-field"
-                      value={highestVocational}
-                      onChange={(e) => setHighestVocational(e.target.value)}
-                    >
-                      {lookups.vocational_qualification.length > 0 ? (
-                        lookups.vocational_qualification.map((item) => (
-                          <option key={item.code} value={item.code}>
-                            {getLookupLabel(item)}
-                          </option>
-                        ))
-                      ) : (
-                        <option value="VOC_NONE">None</option>
-                      )}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="form-label">Interested Vocational Stream</label>
-                    <select
-                      className="select-field"
-                      value={interestedStream}
-                      onChange={(e) => setInterestedStream(e.target.value)}
-                    >
-                      {lookups.vocational_stream.length > 0 ? (
-                        lookups.vocational_stream.map((item) => (
-                          <option key={item.code} value={item.code}>
-                            {getLookupLabel(item)}
-                          </option>
-                        ))
-                      ) : (
-                        <option value="STREAM_IT_COMPUTING">IT &amp; Computing</option>
-                      )}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="form-label">Interested Job / Career Role</label>
-                    <select
-                      className="select-field"
-                      value={interestedJob}
-                      onChange={(e) => setInterestedJob(e.target.value)}
-                    >
-                      {lookups.job.length > 0 ? (
-                        lookups.job.map((item) => (
-                          <option key={item.code} value={item.code}>
-                            {getLookupLabel(item)}
-                          </option>
-                        ))
-                      ) : (
-                        <option value="JOB_SOFTWARE_DEV">Software Developer</option>
-                      )}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="form-label">
-                      Information Provided By <span className="de-req">*</span>
-                    </label>
-                    <select
-                      className="select-field"
-                      value={infoProvidedBy}
-                      onChange={(e) => setInfoProvidedBy(e.target.value as any)}
-                    >
-                      <option value="self">Self (Surveyed Individual)</option>
-                      <option value="mother">Mother</option>
-                      <option value="father">Father</option>
-                      <option value="sister">Sister</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-
-                  {infoProvidedBy === 'other' && (
-                    <div className="de-col-span-2">
+                <div className="de-divider-top">
+                  <div className="de-grid-3">
+                    <div>
                       <label className="form-label">
-                        Provided By (Specify Relationship) <span className="de-req">*</span>
+                        2. Highest Education Level <span className="de-req">*</span>
                       </label>
-                      <input
-                        type="text"
-                        className="input-field"
-                        placeholder="e.g. Grandparent, Guardian, Neighbor"
-                        value={infoProvidedByOther}
-                        onChange={(e) => setInfoProvidedByOther(e.target.value)}
-                        required
-                      />
+                      <select
+                        className="select-field"
+                        value={highestEducation}
+                        onChange={(e) => setHighestEducation(e.target.value)}
+                      >
+                        {lookups.education.length > 0 ? (
+                          lookups.education.map((item) => (
+                            <option key={item.code} value={item.code}>
+                              {getLookupLabel(item)}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="EDU_OL_PASSED">G.C.E. O/L passed</option>
+                        )}
+                      </select>
                     </div>
-                  )}
+
+                    <div>
+                      <label className="form-label">3. Vocational Qualification</label>
+                      <select
+                        className="select-field"
+                        value={highestVocational}
+                        onChange={(e) => setHighestVocational(e.target.value)}
+                      >
+                        {lookups.vocational_qualification.length > 0 ? (
+                          lookups.vocational_qualification.map((item) => (
+                            <option key={item.code} value={item.code}>
+                              {getLookupLabel(item)}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="VOC_NONE">None</option>
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="form-label">4. Interested Vocational Stream</label>
+                      <select
+                        className="select-field"
+                        value={interestedStream}
+                        onChange={(e) => setInterestedStream(e.target.value)}
+                      >
+                        {lookups.vocational_stream.length > 0 ? (
+                          lookups.vocational_stream.map((item) => (
+                            <option key={item.code} value={item.code}>
+                              {getLookupLabel(item)}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="STREAM_AGRICULTURE_FOOD_NATURAL">Agriculture, Food and Natural Resource Sector</option>
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="form-label">5. Interested Job / Career Role</label>
+                      <select
+                        className="select-field"
+                        value={interestedJob}
+                        onChange={(e) => setInterestedJob(e.target.value)}
+                      >
+                        {lookups.job.length > 0 ? (
+                          lookups.job.map((item) => (
+                            <option key={item.code} value={item.code}>
+                              {getLookupLabel(item)}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="JOB_SOFTWARE_DEV">Software Developer</option>
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="form-label">
+                        6. Information Provided By <span className="de-req">*</span>
+                      </label>
+                      <select
+                        className="select-field"
+                        value={infoProvidedBy}
+                        onChange={(e) => setInfoProvidedBy(e.target.value as any)}
+                      >
+                        <option value="self">Self (Surveyed Individual)</option>
+                        <option value="mother">Mother</option>
+                        <option value="father">Father</option>
+                        <option value="sister">Sister</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+
+                    {infoProvidedBy === 'other' && (
+                      <div className="de-col-span-2">
+                        <label className="form-label">
+                          6.1. Provided By (Specify Relationship) <span className="de-req">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          className="input-field"
+                          placeholder="e.g. Grandparent, Guardian, Neighbor"
+                          value={infoProvidedByOther}
+                          onChange={(e) => setInfoProvidedByOther(e.target.value)}
+                          required
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Future Aspirations (DD/S/002 #13) */}
@@ -1582,7 +1624,7 @@ export default function DataEntryPage() {
                   <div className="de-subsection-heading" style={{ alignItems: 'flex-start' }}>
                     <Compass size={15} style={{ color: 'var(--primary)', marginTop: '2px', flexShrink: 0 }} />
                     <div>
-                      <div>Future Aspirations &amp; Career Hopes (DD/S/002 #13)</div>
+                      <div>7. Future Aspirations &amp; Career Hopes (DD/S/002 #13)</div>
                       <div
                         style={{
                           fontSize: '12px',
@@ -1600,11 +1642,11 @@ export default function DataEntryPage() {
 
                   <div className="de-grid-cards">
                     {[
-                      { id: 'higher_education', label: 'Higher Education' },
-                      { id: 'vocational_education', label: 'Vocational Training' },
-                      { id: 'entrepreneur', label: 'Entrepreneurship' },
-                      { id: 'local_job', label: 'Local Job' },
-                      { id: 'foreign_job', label: 'Foreign Job' },
+                      { id: 'higher_education', label: '7.1. Higher Education' },
+                      { id: 'vocational_education', label: '7.2. Vocational Training' },
+                      { id: 'entrepreneur', label: '7.3. Entrepreneurship' },
+                      { id: 'local_job', label: '7.4. Local Job' },
+                      { id: 'foreign_job', label: '7.5. Foreign Job' },
                     ].map((hope) => {
                       const isSelected = futureHopes.includes(hope.id);
                       return (
@@ -1655,7 +1697,7 @@ export default function DataEntryPage() {
                           }}
                         >
                           <FileCheck size={16} style={{ color: 'var(--primary)' }} />
-                          <span>Explicit Citizen Consent Received (Statutory Requirement — Invariant B2)</span>
+                          <span>8. Explicit Citizen Consent Received (Statutory Requirement — Invariant B2)</span>
                         </strong>
                         <span className="badge badge-success" style={{ fontSize: '10.5px', fontFamily: 'monospace' }}>
                           {consentVersion}

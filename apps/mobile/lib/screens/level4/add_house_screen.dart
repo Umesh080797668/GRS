@@ -273,9 +273,17 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 ),
               ),
               const SizedBox(height: GrsSpacing.lg),
+              Text(
+                '1. ${l10n.get('houseDetails').isNotEmpty ? l10n.get('houseDetails') : 'House Information'}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: GrsSpacing.sm),
               GrsTextField(
                 controller: _houseNoCtrl,
-                label: '${l10n.get('houseNumber')} *',
+                label: '1.1. ${l10n.get('houseNumber')} *',
                 hint: l10n.get('houseNumberHint'),
                 prefixIcon: const Icon(Icons.home_outlined),
                 enabled: isOnline && !_isSaving,
@@ -289,7 +297,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               const SizedBox(height: GrsSpacing.md),
               GrsTextField(
                 controller: _leaderNameCtrl,
-                label: '${l10n.get('houseLeaderName')} *',
+                label: '1.2. ${l10n.get('houseLeaderName')} *',
                 hint: l10n.get('houseLeaderNameHint'),
                 prefixIcon: const Icon(Icons.person_outline),
                 enabled: isOnline && !_isSaving,
@@ -303,7 +311,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               const SizedBox(height: GrsSpacing.md),
               GrsTextField(
                 controller: _addressCtrl,
-                label: l10n.get('address'),
+                label: '1.3. ${l10n.get('address')}',
                 hint: l10n.get('optionalStreetAddressHint'),
                 prefixIcon: const Icon(Icons.location_on_outlined),
                 enabled: isOnline && !_isSaving,
@@ -311,14 +319,14 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               const SizedBox(height: GrsSpacing.md),
               GrsTextField(
                 controller: _villageNameCtrl,
-                label: l10n.get('village'),
+                label: '1.4. ${l10n.get('village')}',
                 hint: l10n.get('villageHint'),
                 prefixIcon: const Icon(Icons.map_outlined),
                 enabled: isOnline && !_isSaving,
               ),
               const SizedBox(height: GrsSpacing.lg),
               Text(
-                l10n.get('welfarePrograms'),
+                '2. ${l10n.get('welfarePrograms')}',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -326,7 +334,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               ),
               const SizedBox(height: GrsSpacing.xs),
               CheckboxListTile(
-                title: Text(l10n.get('epf')),
+                title: Text('2.1. ${l10n.get('epf')}'),
                 value: _isEpf,
                 onChanged: isOnline && !_isSaving
                     ? (v) => setState(() {
@@ -337,7 +345,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 contentPadding: EdgeInsets.zero,
               ),
               CheckboxListTile(
-                title: Text(l10n.get('etf')),
+                title: Text('2.2. ${l10n.get('etf')}'),
                 value: _isEtf,
                 onChanged: isOnline && !_isSaving
                     ? (v) => setState(() {
@@ -348,7 +356,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 contentPadding: EdgeInsets.zero,
               ),
               CheckboxListTile(
-                title: Text(l10n.get('aswesuma')),
+                title: Text('2.3. ${l10n.get('aswesuma')}'),
                 value: _isAswesuma,
                 onChanged: isOnline && !_isSaving
                     ? (v) => setState(() {
@@ -359,7 +367,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 contentPadding: EdgeInsets.zero,
               ),
               CheckboxListTile(
-                title: Text(l10n.get('samurdhi')),
+                title: Text('2.4. ${l10n.get('samurdhi')}'),
                 value: _isSamurdhi,
                 onChanged: isOnline && !_isSaving
                     ? (v) => setState(() {
@@ -370,7 +378,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 contentPadding: EdgeInsets.zero,
               ),
               CheckboxListTile(
-                title: Text(l10n.get('nonBeneficiary')),
+                title: Text('2.5. ${l10n.get('nonBeneficiary')}'),
                 value: _isNonBeneficiary,
                 onChanged: isOnline && !_isSaving
                     ? (v) => setState(() {
@@ -386,7 +394,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 contentPadding: EdgeInsets.zero,
               ),
               CheckboxListTile(
-                title: Text(l10n.get('specialNeeds')),
+                title: Text('2.6. ${l10n.get('specialNeeds')}'),
                 value: _hasSpecialNeeds,
                 onChanged: isOnline && !_isSaving
                     ? (v) => setState(() => _hasSpecialNeeds = v ?? false)
@@ -395,7 +403,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               ),
               const SizedBox(height: GrsSpacing.lg),
               Text(
-                '${l10n.get('targetDemographics')} (only 18-35)',
+                '3. ${l10n.get('targetDemographics')} (only 18-35)',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -407,7 +415,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                   Expanded(
                     child: GrsTextField(
                       controller: _targetFemaleCtrl,
-                      label: '${l10n.get('female')} (only 18-35)',
+                      label: '3.1. ${l10n.get('female')} (only 18-35)',
                       hint: '0',
                       prefixIcon: const Icon(Icons.woman),
                       keyboardType: TextInputType.number,
@@ -426,7 +434,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                   Expanded(
                     child: GrsTextField(
                       controller: _targetMaleCtrl,
-                      label: '${l10n.get('male')} (only 18-35)',
+                      label: '3.2. ${l10n.get('male')} (only 18-35)',
                       hint: '0',
                       prefixIcon: const Icon(Icons.man),
                       keyboardType: TextInputType.number,
@@ -445,7 +453,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               ),
               const SizedBox(height: GrsSpacing.lg),
               Text(
-                l10n.get('preferredLanguage'),
+                '4. ${l10n.get('preferredLanguage')}',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -455,21 +463,21 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 spacing: GrsSpacing.sm,
                 children: [
                   FilterChip(
-                    label: Text(l10n.get('sinhalaOption')),
+                    label: Text('4.1. ${l10n.get('sinhalaOption')}'),
                     selected: _langSinhala,
                     onSelected: isOnline && !_isSaving
                         ? (s) => setState(() => _langSinhala = s)
                         : null,
                   ),
                   FilterChip(
-                    label: Text(l10n.get('tamilOption')),
+                    label: Text('4.2. ${l10n.get('tamilOption')}'),
                     selected: _langTamil,
                     onSelected: isOnline && !_isSaving
                         ? (s) => setState(() => _langTamil = s)
                         : null,
                   ),
                   FilterChip(
-                    label: Text(l10n.get('englishOption')),
+                    label: Text('4.3. ${l10n.get('englishOption')}'),
                     selected: _langEnglish,
                     onSelected: isOnline && !_isSaving
                         ? (s) => setState(() => _langEnglish = s)

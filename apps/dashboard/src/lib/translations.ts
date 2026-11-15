@@ -190,6 +190,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'entry.error.house_no_required': 'House number is required.',
     'entry.error.head_name_required': 'Head of household name is required.',
     'entry.error.client_name_required': 'Individual survey name is required.',
+    'entry.error.age_out_of_range': 'Age must be between 18 and 35. Cannot record data outside 18-35.',
     'entry.error.consent_required': 'Individual consent is mandatory per Data Protection Act (Invariant B2).',
     'entry.error.submit_failed': 'Failed to submit online entry.',
     // Confirm dialogs
@@ -585,6 +586,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'entry.error.house_no_required': 'නිවාස අංකය අනිවාර්ය වේ.',
     'entry.error.head_name_required': 'ගෘහ මූලිකයාගේ නම අනිවාර්ය වේ.',
     'entry.error.client_name_required': 'පුද්ගල සමීක්ෂණ නම අනිවාර්ය වේ.',
+    'entry.error.age_out_of_range': 'වයස අවුරුදු 18 ත් 35 ත් අතර විය යුතුය (දත්ත සටහන් කළ හැක්කේ 18-35 අතර අයට පමණි).',
     'entry.error.consent_required': 'දත්ත ආරක්ෂණ පනත අනුව පුද්ගල කැමැත්ත අනිවාර්ය වේ (Invariant B2).',
     'entry.error.submit_failed': 'මාර්ගගත ඇතුළත් කිරීම ඉදිරිපත් කිරීම අසාර්ථක විය.',
     // Confirm dialogs
@@ -980,6 +982,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'entry.error.house_no_required': 'வீட்டு எண் கட்டாயமாகும்.',
     'entry.error.head_name_required': 'குடும்பத் தலைவரின் பெயர் கட்டாயமாகும்.',
     'entry.error.client_name_required': 'தனிநபர் கணக்கெடுப்பு பெயர் கட்டாயமாகும்.',
+    'entry.error.age_out_of_range': 'வயது 18 முதல் 35 வரை மட்டுமே இருக்க வேண்டும் (18-35 வரை உள்ளவர்களுக்கு மட்டுமே பதிவு செய்ய முடியும்).',
     'entry.error.consent_required': 'தரவுப் பாதுகாப்புச் சட்டத்தின்படி தனிநபர் சம்மதம் கட்டாயமாகும் (Invariant B2).',
     'entry.error.submit_failed': 'ஆன்லைன் உள்ளீட்டைச் சமர்ப்பிப்பதில் தோல்வி.',
     // Confirm dialogs

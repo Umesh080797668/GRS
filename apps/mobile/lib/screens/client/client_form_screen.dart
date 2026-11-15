@@ -33,6 +33,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
 
   // ── Form fields (10.1–10.13) ───────────────────────────────────────────────
   final _nameController = TextEditingController();
+  final _ageController = TextEditingController();
   int? _originalAge;
   String _gender = 'F';
   final _addressController = TextEditingController();
@@ -86,6 +87,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
     super.initState();
     _isConsentConfirmed = widget.consentGiven;
     _nameController.addListener(_evaluateSameHouseDuplicates);
+    _ageController.addListener(_evaluateSameHouseDuplicates);
     _phoneController.addListener(_evaluateSameHouseDuplicates);
     _whatsappController.addListener(_evaluateSameHouseDuplicates);
     _loadInitialData();
@@ -94,9 +96,11 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   @override
   void dispose() {
     _nameController.removeListener(_evaluateSameHouseDuplicates);
+    _ageController.removeListener(_evaluateSameHouseDuplicates);
     _phoneController.removeListener(_evaluateSameHouseDuplicates);
     _whatsappController.removeListener(_evaluateSameHouseDuplicates);
     _nameController.dispose();
+    _ageController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
     _whatsappController.dispose();
@@ -111,7 +115,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       draft: DuplicateCandidateInput(
         id: widget.clientId ?? '__draft__',
         name: _nameController.text.trim(),
-        age: _originalAge ?? 25,
+        age: int.tryParse(_ageController.text.trim()) ?? _originalAge ?? 25,
         gender: _gender,
         phone: _phoneController.text.trim().isEmpty
             ? null
@@ -176,6 +180,9 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       if (client != null) {
         _nameController.text = client['name'] as String;
         _originalAge = client['age'] as int?;
+        if (_originalAge != null) {
+          _ageController.text = _originalAge.toString();
+        }
         _gender = client['gender'] as String;
         _addressController.text = client['address'] as String? ?? '';
         _phoneController.text = client['phone_raw'] as String? ?? '';
@@ -235,6 +242,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   }
 
   Future<bool> _saveRecord({required SyncStatus status}) async {
+    final parsedAge = int.tryParse(_ageController.text.trim());
+
     if (status != SyncStatus.draft) {
       if (!_isConsentConfirmed) {
         final l10n = GrsL10n.of(context);
@@ -244,6 +253,22 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
         return false;
       }
       if (!(_formKey.currentState?.validate() ?? false)) return false;
+
+      // Age validation: preserve only 18-35. If below 18 or above 35, must NOT record the data!
+      if (parsedAge == null || parsedAge < 18 || parsedAge > 35) {
+        final l10n = GrsL10n.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.get('ageOutOfRange').isNotEmpty
+                  ? l10n.get('ageOutOfRange')
+                  : 'Age must be between 18 and 35. Outside range cannot be recorded.',
+            ),
+            backgroundColor: GrsColors.syncRejected,
+          ),
+        );
+        return false;
+      }
     }
 
     final db = await ref.read(databaseProvider.future);
@@ -259,7 +284,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       name: _nameController.text.trim().isEmpty
           ? 'Draft Beneficiary'
           : _nameController.text.trim(),
-      age: widget.clientId != null ? (_originalAge ?? 25) : 25,
+      age: parsedAge ?? (widget.clientId != null ? (_originalAge ?? 25) : 25),
       gender: _gender,
       address: _addressController.text.trim(),
       phoneRaw: _phoneController.text.trim().isEmpty
@@ -486,7 +511,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                       index: 1,
                       child: _SectionHeader(
                         icon: Icons.person_outline_rounded,
-                        title: l10n.get('personalInfo'),
+                        title: '1. ${l10n.get('personalInfo')}',
                         isDark: isDark,
                       ),
                     ),
@@ -497,7 +522,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                       child: GrsTextField(
                         key: const Key('client_form_name_field'),
                         controller: _nameController,
-                        label: l10n.get('nameLabel'),
+                        label: '1.1. ${l10n.get('nameLabel')} *',
                         hint: l10n.get('nameHint'),
                         prefixIcon: const Icon(Icons.badge_outlined, size: 20),
                         enabled: !_isLocked,
@@ -509,28 +534,69 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                     ),
                     const SizedBox(height: GrsSpacing.md),
 
-                    // Gender (only 18-35)
+                    // 1.2 Age + 1.3 Gender row
                     GrsFadeSlideItem(
                       index: 3,
-                      child: Column(
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '${l10n.get('genderLabel')} (only 18-35)',
-                            style: GrsTypography.labelMedium(
-                              color: isDark
-                                  ? GrsColors.textSecondaryDark
-                                  : GrsColors.textSecondaryLight,
-                            ).copyWith(fontWeight: FontWeight.w600),
+                          Expanded(
+                            flex: 2,
+                            child: GrsTextField(
+                              key: const Key('client_form_age_field'),
+                              controller: _ageController,
+                              label: '1.2. ${l10n.get('ageLabel')} *',
+                              hint: '18-35',
+                              keyboardType: TextInputType.number,
+                              prefixIcon: const Icon(
+                                Icons.cake_outlined,
+                                size: 20,
+                              ),
+                              enabled: !_isLocked,
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return l10n.get('ageRequired').isNotEmpty
+                                      ? l10n.get('ageRequired')
+                                      : 'Age is required';
+                                }
+                                final parsed = int.tryParse(val.trim());
+                                if (parsed == null) {
+                                  return 'Enter valid age';
+                                }
+                                if (parsed < 18 || parsed > 35) {
+                                  return l10n.get('ageOutOfRange').isNotEmpty
+                                      ? l10n.get('ageOutOfRange')
+                                      : 'Age must be 18-35';
+                                }
+                                return null;
+                              },
+                            ),
                           ),
-                          const SizedBox(height: 6),
-                          _GenderSelector(
-                            selected: _gender,
-                            enabled: !_isLocked,
-                            femaleLabel: l10n.get('genderFemale'),
-                            maleLabel: l10n.get('genderMale'),
-                            onChanged: (v) => setState(() => _gender = v),
-                            isDark: isDark,
+                          const SizedBox(width: 14),
+                          Expanded(
+                            flex: 3,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '1.3. ${l10n.get('genderLabel')} (only 18-35) *',
+                                  style: GrsTypography.labelMedium(
+                                    color: isDark
+                                        ? GrsColors.textSecondaryDark
+                                        : GrsColors.textSecondaryLight,
+                                  ).copyWith(fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 6),
+                                _GenderSelector(
+                                  selected: _gender,
+                                  enabled: !_isLocked,
+                                  femaleLabel: l10n.get('genderFemale'),
+                                  maleLabel: l10n.get('genderMale'),
+                                  onChanged: (v) => setState(() => _gender = v),
+                                  isDark: isDark,
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -542,7 +608,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                       index: 4,
                       child: GrsTextField(
                         controller: _addressController,
-                        label: l10n.get('clientAddressLabel'),
+                        label: '1.4. ${l10n.get('clientAddressLabel')}',
                         prefixIcon: const Icon(
                           Icons.location_on_outlined,
                           size: 20,
@@ -561,7 +627,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                             child: GrsTextField(
                               key: const Key('client_form_phone_field'),
                               controller: _phoneController,
-                              label: l10n.get('phoneLabel'),
+                              label: '1.5. ${l10n.get('phoneLabel')}',
                               hint: l10n.get('phoneHint'),
                               keyboardType: TextInputType.phone,
                               prefixIcon: const Icon(
@@ -576,7 +642,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                             child: GrsTextField(
                               key: const Key('client_form_whatsapp_field'),
                               controller: _whatsappController,
-                              label: l10n.get('whatsappLabel'),
+                              label: '1.6. ${l10n.get('whatsappLabel')}',
                               hint: l10n.get('whatsappHint'),
                               keyboardType: TextInputType.phone,
                               prefixIcon: const Icon(
@@ -613,7 +679,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                     GrsFadeSlideItem(
                       index: 7,
                       child: GrsDropdown<String>(
-                        label: l10n.get('highestEducationLabel'),
+                        label: '2. ${l10n.get('highestEducationLabel')} *',
                         value:
                             _educationLookups.any(
                               (l) => l.code == _highestEducation,
@@ -639,7 +705,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                     GrsFadeSlideItem(
                       index: 8,
                       child: GrsDropdown<String>(
-                        label: l10n.get('highestVocationalLabel'),
+                        label: '3. ${l10n.get('highestVocationalLabel')}',
                         value:
                             _vocationalLookups.any(
                               (l) => l.code == _highestVocational,
@@ -665,7 +731,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                     GrsFadeSlideItem(
                       index: 9,
                       child: GrsDropdown<String>(
-                        label: l10n.get('interestedVocationalStreamLabel'),
+                        label:
+                            '4. ${l10n.get('interestedVocationalStreamLabel')}',
                         value:
                             _streamLookups.any(
                               (l) => l.code == _interestedVocationalStream,
@@ -691,7 +758,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                     GrsFadeSlideItem(
                       index: 10,
                       child: GrsDropdown<String>(
-                        label: l10n.get('interestedJobLabel'),
+                        label: '5. ${l10n.get('interestedJobLabel')}',
                         value: _jobLookups.any((l) => l.code == _interestedJob)
                             ? _interestedJob
                             : null,
@@ -717,7 +784,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                       index: 11,
                       child: _SectionHeader(
                         icon: Icons.favorite_border_rounded,
-                        title: l10n.get('welfareTitle'),
+                        title: '6. ${l10n.get('welfareTitle')}',
                         isDark: isDark,
                       ),
                     ),
@@ -731,7 +798,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                           children: [
                             _CheckRow(
                               value: _isEpf,
-                              label: l10n.get('isEpf'),
+                              label: '6.1. ${l10n.get('isEpf')}',
                               enabled: !_isLocked,
                               onChanged: (v) =>
                                   setState(() => _isEpf = v ?? false),
@@ -740,7 +807,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                             _Divider(isDark: isDark),
                             _CheckRow(
                               value: _isEtf,
-                              label: l10n.get('isEtf'),
+                              label: '6.2. ${l10n.get('isEtf')}',
                               enabled: !_isLocked,
                               onChanged: (v) =>
                                   setState(() => _isEtf = v ?? false),
@@ -749,7 +816,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                             _Divider(isDark: isDark),
                             _CheckRow(
                               value: _isAswesuma,
-                              label: l10n.get('isAswesuma'),
+                              label: '6.3. ${l10n.get('isAswesuma')}',
                               enabled: !_isLocked,
                               onChanged: (v) =>
                                   setState(() => _isAswesuma = v ?? false),
@@ -758,7 +825,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                             _Divider(isDark: isDark),
                             _CheckRow(
                               value: _isSamurdhi,
-                              label: l10n.get('isSamurdhi'),
+                              label: '6.4. ${l10n.get('isSamurdhi')}',
                               enabled: !_isLocked,
                               onChanged: (v) =>
                                   setState(() => _isSamurdhi = v ?? false),
@@ -767,7 +834,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                             _Divider(isDark: isDark),
                             _CheckRow(
                               value: _hasSpecialNeeds,
-                              label: l10n.get('hasSpecialNeeds'),
+                              label: '6.5. ${l10n.get('hasSpecialNeeds')}',
                               enabled: !_isLocked,
                               isAlert: true,
                               onChanged: (v) =>
@@ -786,7 +853,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                       index: 13,
                       child: _SectionHeader(
                         icon: Icons.lightbulb_outline_rounded,
-                        title: l10n.get('futureHopesTitle'),
+                        title: '7. ${l10n.get('futureHopesTitle')}',
                         isDark: isDark,
                       ),
                     ),
@@ -814,7 +881,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                       index: 15,
                       child: _SectionHeader(
                         icon: Icons.record_voice_over_outlined,
-                        title: l10n.get('infoSourceTitle'),
+                        title: '8. ${l10n.get('infoSourceTitle')}',
                         isDark: isDark,
                       ),
                     ),
@@ -823,7 +890,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                     GrsFadeSlideItem(
                       index: 16,
                       child: GrsDropdown<String>(
-                        label: l10n.get('infoProvidedByLabel'),
+                        label: '8.1. ${l10n.get('infoProvidedByLabel')} *',
                         value: _infoProvidedBy,
                         enabled: !_isLocked,
                         items: _infoProvidedByLookups.map((l) {
@@ -842,7 +909,8 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                       GrsFadeIn(
                         child: GrsTextField(
                           controller: _infoOtherController,
-                          label: l10n.get('infoProvidedByOtherLabel'),
+                          label:
+                              '8.2. ${l10n.get('infoProvidedByOtherLabel')} *',
                           enabled: !_isLocked,
                         ),
                       ),

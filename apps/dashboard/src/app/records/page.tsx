@@ -76,7 +76,7 @@ export default function RecordsPage() {
   const [editWhatsapp, setEditWhatsapp] = useState<string>('');
   const [editHighestEducation, setEditHighestEducation] = useState<string>('EDU_OL_PASSED');
   const [editHighestVocational, setEditHighestVocational] = useState<string>('VOC_NONE');
-  const [editInterestedStream, setEditInterestedStream] = useState<string>('STREAM_IT_COMPUTING');
+  const [editInterestedStream, setEditInterestedStream] = useState<string>('STREAM_AGRICULTURE_FOOD_NATURAL');
   const [editInterestedJob, setEditInterestedJob] = useState<string>('JOB_SOFTWARE_DEV');
   const [editFutureHopes, setEditFutureHopes] = useState<string[]>([]);
   const [editIsEpf, setEditIsEpf] = useState<boolean>(false);
@@ -230,7 +230,7 @@ export default function RecordsPage() {
     setEditWhatsapp(record.whatsappE164 || record.whatsappRaw || '');
     setEditHighestEducation(record.highestEducation || 'EDU_OL_PASSED');
     setEditHighestVocational(record.highestVocational || 'VOC_NONE');
-    setEditInterestedStream(record.interestedVocationalStream || 'STREAM_IT_COMPUTING');
+    setEditInterestedStream(record.interestedVocationalStream || 'STREAM_AGRICULTURE_FOOD_NATURAL');
     setEditInterestedJob(record.interestedJob || 'JOB_SOFTWARE_DEV');
     setEditFutureHopes(Array.isArray(record.futureHopes) ? record.futureHopes : []);
     setEditIsEpf(record.isEpf || false);
@@ -246,6 +246,10 @@ export default function RecordsPage() {
 
   async function handleSaveAudit() {
     if (!editingRecord) return;
+    if (!editAge || editAge < 18 || editAge > 35) {
+      setAuditError('Age must be between 18 and 35. Cannot record data outside 18-35.');
+      return;
+    }
     if (!auditReason.trim()) {
       setAuditError('A mandatory correction reason is required for supervisor audit logging.');
       return;
@@ -829,7 +833,20 @@ export default function RecordsPage() {
                     onChange={(e) => setEditName(e.target.value)}
                   />
                 </div>
-                <div style={{ gridColumn: 'span 2' }}>
+                <div>
+                  <label className="form-label">Age (only 18-35) *</label>
+                  <input
+                    type="number"
+                    min={18}
+                    max={35}
+                    className="input-field"
+                    placeholder="18 - 35"
+                    value={editAge || ''}
+                    onChange={(e) => setEditAge(parseInt(e.target.value, 10) || 0)}
+                    required
+                  />
+                </div>
+                <div>
                   <label className="form-label">Gender (only 18-35) *</label>
                   <select
                     className="select-field"
@@ -924,7 +941,7 @@ export default function RecordsPage() {
                         </option>
                       ))
                     ) : (
-                      <option value="STREAM_IT_COMPUTING">IT & Computing</option>
+                      <option value="STREAM_AGRICULTURE_FOOD_NATURAL">Agriculture, Food and Natural Resource Sector</option>
                     )}
                   </select>
                 </div>
@@ -1064,12 +1081,12 @@ export default function RecordsPage() {
                     {(lookups.future_hope && lookups.future_hope.length > 0
                       ? lookups.future_hope
                       : [
-                          { code: 'HOPE_GOV_JOB', labelEn: 'Government Job' },
-                          { code: 'HOPE_PRIVATE_JOB', labelEn: 'Private Sector' },
-                          { code: 'HOPE_OWN_BIZ', labelEn: 'Own Business' },
-                          { code: 'HOPE_HIGHER_EDU', labelEn: 'Higher Education' },
-                          { code: 'HOPE_FOREIGN_EMPLOYMENT', labelEn: 'Foreign Employment' },
-                        ]
+                        { code: 'HOPE_GOV_JOB', labelEn: 'Government Job' },
+                        { code: 'HOPE_PRIVATE_JOB', labelEn: 'Private Sector' },
+                        { code: 'HOPE_OWN_BIZ', labelEn: 'Own Business' },
+                        { code: 'HOPE_HIGHER_EDU', labelEn: 'Higher Education' },
+                        { code: 'HOPE_FOREIGN_EMPLOYMENT', labelEn: 'Foreign Employment' },
+                      ]
                     ).map((item: any) => {
                       const isChecked = editFutureHopes.includes(item.code);
                       return (

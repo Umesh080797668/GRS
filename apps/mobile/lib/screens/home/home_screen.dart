@@ -170,6 +170,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       final houseNo = h['house_no'] as String;
                       final leader = h['house_leader_name'] as String;
                       final serialNo = h['serial_no'] as int;
+                      final village = h['village_name'] as String?;
+                      final targetFemale = (h['target_female'] as int?) ?? 0;
+                      final targetMale = (h['target_male'] as int?) ?? 0;
+                      final subtitleText = [
+                        leader,
+                        if (village != null && village.trim().isNotEmpty)
+                          village.trim(),
+                        if (targetFemale > 0 || targetMale > 0)
+                          'Target: ${targetFemale}F, ${targetMale}M (18-35)',
+                      ].join(' • ');
 
                       return ListTile(
                         leading: CircleAvatar(
@@ -187,7 +197,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           ),
                         ),
                         title: Text('${l10n.get('houseNumber')}: $houseNo'),
-                        subtitle: Text(leader),
+                        subtitle: Text(subtitleText),
                         trailing: const Icon(
                           Icons.arrow_forward_ios_rounded,
                           size: 16,
@@ -201,7 +211,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               existingClients.any(
                                 (c) => (c['consent_given'] as int?) == 1,
                               );
-                          if (!context.mounted) return;
+                          if (!mounted) return;
                           if (hasConsent) {
                             await context.push(
                               '/houses/$id/client/new?consent=true',
@@ -339,6 +349,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               heroPulse: _heroPulse,
               isOnline: isOnline,
               pendingCount: pendingCount,
+              profile: authState.profile,
               onStartAssessment: _startAssessmentFlow,
             ),
           ),
@@ -488,6 +499,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           final houseNo = h['house_no'] as String;
                           final serialNo = h['serial_no'] as int;
                           final leader = h['house_leader_name'] as String;
+                          final village = h['village_name'] as String?;
+                          final address = h['address'] as String?;
+                          final targetFemale =
+                              (h['target_female'] as int?) ?? 0;
+                          final targetMale = (h['target_male'] as int?) ?? 0;
+                          final isAswesuma = (h['is_aswesuma'] as int?) == 1;
+                          final isSamurdhi = (h['is_samurdhi'] as int?) == 1;
+                          final isEpf = (h['is_epf'] as int?) == 1;
+                          final isEtf = (h['is_etf'] as int?) == 1;
+                          final hasSpecialNeeds =
+                              (h['has_special_needs'] as int?) == 1;
                           final status =
                               h['status'] as String? ?? 'not_started';
 
@@ -501,6 +523,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                 houseNo: houseNo,
                                 serialNo: serialNo,
                                 leader: leader,
+                                village: village,
+                                address: address,
+                                targetFemale: targetFemale,
+                                targetMale: targetMale,
+                                isAswesuma: isAswesuma,
+                                isSamurdhi: isSamurdhi,
+                                isEpf: isEpf,
+                                isEtf: isEtf,
+                                hasSpecialNeeds: hasSpecialNeeds,
                                 status: status,
                                 l10n: l10n,
                                 isDark: isDark,
@@ -537,6 +568,7 @@ class _HeroPanel extends StatelessWidget {
     required this.heroPulse,
     required this.isOnline,
     required this.pendingCount,
+    this.profile,
     required this.onStartAssessment,
   });
 
@@ -545,6 +577,7 @@ class _HeroPanel extends StatelessWidget {
   final Animation<double> heroPulse;
   final bool isOnline;
   final int pendingCount;
+  final dynamic profile;
   final VoidCallback onStartAssessment;
 
   @override
@@ -643,13 +676,31 @@ class _HeroPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
 
-          // Main heading
+          // Main heading & assigned area info
           Text(
-            'Ready for Intake',
+            profile?.gnName != null && (profile!.gnName as String).isNotEmpty
+                ? profile!.gnName as String
+                : (l10n.get('doorToDoorCampaign').isNotEmpty
+                      ? l10n.get('doorToDoorCampaign')
+                      : 'Ready for Intake'),
             style: GrsTypography.headlineLarge(
               color: Colors.white,
             ).copyWith(fontSize: 22),
           ),
+          if (profile?.gnCode != null || profile?.dsName != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              [
+                if (profile?.gnCode != null) 'GN ${profile!.gnCode}',
+                if (profile?.dsName != null) profile!.dsName as String,
+                if (profile?.districtName != null)
+                  profile!.districtName as String,
+              ].join(' • '),
+              style: GrsTypography.bodyMedium(
+                color: Colors.white.withValues(alpha: 0.85),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
 
           // CTA
@@ -838,6 +889,15 @@ class _HouseCard extends StatelessWidget {
     required this.houseNo,
     required this.serialNo,
     required this.leader,
+    this.village,
+    this.address,
+    this.targetFemale = 0,
+    this.targetMale = 0,
+    this.isAswesuma = false,
+    this.isSamurdhi = false,
+    this.isEpf = false,
+    this.isEtf = false,
+    this.hasSpecialNeeds = false,
     required this.status,
     required this.l10n,
     required this.isDark,
@@ -848,6 +908,15 @@ class _HouseCard extends StatelessWidget {
   final String houseNo;
   final int serialNo;
   final String leader;
+  final String? village;
+  final String? address;
+  final int targetFemale;
+  final int targetMale;
+  final bool isAswesuma;
+  final bool isSamurdhi;
+  final bool isEpf;
+  final bool isEtf;
+  final bool hasSpecialNeeds;
   final String status;
   final GrsL10n l10n;
   final bool isDark;
@@ -872,7 +941,7 @@ class _HouseCard extends StatelessWidget {
           await context.push('/houses/$houseId');
           onRefresh?.call();
         },
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         leading: Container(
           width: 44,
           height: 44,
@@ -898,32 +967,117 @@ class _HouseCard extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Text(
-          leader,
-          style: GrsTypography.bodyMedium(
-            color: isDark
-                ? GrsColors.textSecondaryDark
-                : GrsColors.textSecondaryLight,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 2),
+            Text(
+              [
+                leader,
+                if (village != null && village!.trim().isNotEmpty)
+                  village!.trim(),
+              ].join(' • '),
+              style: GrsTypography.bodyMedium(
+                color: isDark
+                    ? GrsColors.textSecondaryDark
+                    : GrsColors.textSecondaryLight,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (targetFemale > 0 || targetMale > 0) ...[
+              const SizedBox(height: 3),
+              Text(
+                'Target (18-35): ${targetFemale}F / ${targetMale}M',
+                style: GrsTypography.labelSmall(
+                  color: isDark
+                      ? GrsColors.textTertiaryDark
+                      : GrsColors.textTertiaryLight,
+                ).copyWith(fontSize: 11),
+              ),
+            ],
+            if (isAswesuma ||
+                isSamurdhi ||
+                isEpf ||
+                isEtf ||
+                hasSpecialNeeds) ...[
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 4,
+                runSpacing: 2,
+                children: [
+                  if (isAswesuma)
+                    _buildMiniTag(
+                      'Aswesuma',
+                      const Color(0xFFE0E7FF),
+                      const Color(0xFF3730A3),
+                    ),
+                  if (isSamurdhi)
+                    _buildMiniTag(
+                      'Samurdhi',
+                      const Color(0xFFFEF3C7),
+                      const Color(0xFF92400E),
+                    ),
+                  if (isEpf || isEtf)
+                    _buildMiniTag(
+                      isEpf && isEtf ? 'EPF/ETF' : (isEpf ? 'EPF' : 'ETF'),
+                      const Color(0xFFF1F5F9),
+                      const Color(0xFF475569),
+                    ),
+                  if (hasSpecialNeeds)
+                    _buildMiniTag(
+                      'Special Needs',
+                      const Color(0xFFFEE2E2),
+                      const Color(0xFF991B1B),
+                    ),
+                ],
+              ),
+            ],
+          ],
         ),
         trailing: _buildStatusBadge(status, l10n),
       ),
     );
   }
 
+  Widget _buildMiniTag(String text, Color bg, Color fg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: fg),
+      ),
+    );
+  }
+
   Widget _buildStatusBadge(String status, GrsL10n l10n) {
     if (status == 'completed') {
-      return const GrsSyncBadge(status: GrsSyncStatus.synced, label: 'Done');
-    }
-    if (status == 'in_progress') {
-      return const GrsSyncBadge(
-        status: GrsSyncStatus.pending,
-        label: 'In Progress',
+      return GrsSyncBadge(
+        status: GrsSyncStatus.synced,
+        label: l10n.get('completed').isNotEmpty
+            ? l10n.get('completed')
+            : 'Done',
       );
     }
-    return const GrsSyncBadge(status: GrsSyncStatus.draft, label: 'Draft');
+    if (status == 'in_progress') {
+      return GrsSyncBadge(
+        status: GrsSyncStatus.pending,
+        label: l10n.get('inProgress').isNotEmpty
+            ? l10n.get('inProgress')
+            : 'In Progress',
+      );
+    }
+    return GrsSyncBadge(
+      status: GrsSyncStatus.draft,
+      label: l10n.get('statusDraft').isNotEmpty
+          ? l10n.get('statusDraft')
+          : 'Draft',
+    );
   }
 }
 
@@ -1160,7 +1314,9 @@ class _Level4Hub extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Level 4 Management',
+                  l10n.get('level4Management').isNotEmpty
+                      ? l10n.get('level4Management')
+                      : 'Level 4 Management',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -1238,42 +1394,54 @@ class _Level4Hub extends ConsumerWidget {
                 children: [
                   _HubButton(
                     icon: Icons.location_city_outlined,
-                    label: 'GN Setup',
+                    label: l10n.get('gnSetup').isNotEmpty
+                        ? l10n.get('gnSetup')
+                        : 'GN Setup',
                     onTap: () => context.push('/gn-setup'),
                     isDark: isDark,
                   ),
                   const SizedBox(width: 8),
                   _HubButton(
                     icon: Icons.add_home_outlined,
-                    label: 'Add House',
+                    label: l10n.get('addHouse').isNotEmpty
+                        ? l10n.get('addHouse')
+                        : 'Add House',
                     onTap: () => context.push('/houses/new'),
                     isDark: isDark,
                   ),
                   const SizedBox(width: 8),
                   _HubButton(
                     icon: Icons.checklist_rtl_outlined,
-                    label: 'Choose Houses',
+                    label: l10n.get('chooseHouses').isNotEmpty
+                        ? l10n.get('chooseHouses')
+                        : 'Choose Houses',
                     onTap: () => context.push('/choose-houses'),
                     isDark: isDark,
                   ),
                   const SizedBox(width: 8),
                   _HubButton(
                     icon: Icons.groups_outlined,
-                    label: 'Members',
+                    label: l10n.get('teamMembers').isNotEmpty
+                        ? l10n.get('teamMembers')
+                        : 'Members',
                     onTap: () => context.push('/team-members'),
                     isDark: isDark,
                   ),
                   const SizedBox(width: 8),
                   _HubButton(
                     icon: Icons.insights_outlined,
-                    label: 'Progress',
+                    label: l10n.get('teamProgress').isNotEmpty
+                        ? l10n.get('teamProgress')
+                        : 'Progress',
                     onTap: () => context.push('/team-progress'),
                     isDark: isDark,
                   ),
                   const SizedBox(width: 8),
                   _HubButton(
                     icon: Icons.folder_shared_outlined,
-                    label: 'Records',
+                    label: l10n.get('teamRecords').isNotEmpty
+                        ? l10n.get('teamRecords')
+                        : 'Records',
                     onTap: () => context.push('/team-records'),
                     isDark: isDark,
                   ),

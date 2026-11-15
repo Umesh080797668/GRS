@@ -883,6 +883,7 @@ class _CorrectionDialog extends StatefulWidget {
 class _CorrectionDialogState extends State<_CorrectionDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameCtrl;
+  late final TextEditingController _ageCtrl;
   late final TextEditingController _phoneCtrl;
   late final TextEditingController _whatsappCtrl;
   late final TextEditingController _addressCtrl;
@@ -915,6 +916,7 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
     super.initState();
     final r = widget.record;
     _nameCtrl = TextEditingController(text: r['name'] ?? '');
+    _ageCtrl = TextEditingController(text: (r['age'] ?? 25).toString());
     _phoneCtrl = TextEditingController(
       text: r['phoneRaw'] ?? r['phoneE164'] ?? '',
     );
@@ -990,6 +992,7 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _ageCtrl.dispose();
     _phoneCtrl.dispose();
     _whatsappCtrl.dispose();
     _addressCtrl.dispose();
@@ -1021,6 +1024,21 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                   validator: (val) {
                     if (val == null || val.trim().isEmpty) {
                       return 'Name is required';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: GrsSpacing.md),
+                GrsTextField(
+                  controller: _ageCtrl,
+                  label: '${l10n.get('ageLabel')} *',
+                  hint: l10n.get('ageHint'),
+                  prefixIcon: const Icon(Icons.cake_outlined),
+                  keyboardType: TextInputType.number,
+                  validator: (val) {
+                    final n = int.tryParse(val?.trim() ?? '');
+                    if (n == null || n < 18 || n > 35) {
+                      return l10n.get('ageOutOfRange');
                     }
                     return null;
                   },
@@ -1319,9 +1337,16 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
           ),
           onPressed: () {
             if (!_formKey.currentState!.validate()) return;
+            final parsedAge = int.tryParse(_ageCtrl.text.trim());
+            if (parsedAge == null || parsedAge < 18 || parsedAge > 35) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(l10n.get('ageOutOfRange'))),
+              );
+              return;
+            }
             final payload = <String, dynamic>{
               'name': _nameCtrl.text.trim(),
-              'age': widget.record['age'] ?? 25,
+              'age': parsedAge,
               'gender': _selectedGender,
               'address': _addressCtrl.text.trim(),
               'phoneRaw': _phoneCtrl.text.trim(),
