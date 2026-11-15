@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 
 export default function ProgressPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -46,6 +46,19 @@ export default function ProgressPage() {
   const fetchSeqRef = useRef(0);
 
   const areaLocks = getAreaScopeLocks(user?.role);
+
+  // District / DS names follow the dashboard language; GN names are single-language, so show "code — name".
+  const areaName = (item: any) => {
+    if (!item) return '';
+    if (language === 'si' && item.nameSi) return item.nameSi;
+    if (language === 'ta' && item.nameTa) return item.nameTa;
+    return item.nameEn || item.name || '';
+  };
+  const gnLabel = (gn: any) => {
+    const code = gn.gnNumber || gn.gnCode || '';
+    const name = gn.gnName || gn.nameEn || gn.name || '';
+    return code && name ? `${code} — ${name}` : name || code;
+  };
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -237,59 +250,92 @@ export default function ProgressPage() {
           display: 'flex',
           gap: '12px',
           flexWrap: 'wrap',
-          alignItems: 'center',
+          alignItems: 'flex-end',
           boxShadow: 'var(--shadow-xs)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--slate-700)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--slate-700)', height: '38px' }}>
           <Layers size={15} style={{ color: 'var(--primary)' }} />
-          <span>Select Scope:</span>
+          <span>{t('progress.scope.title')}:</span>
         </div>
 
-        <select
-          className="select-field"
-          style={{ width: 'auto', minWidth: '180px', flex: '1 1 180px' }}
-          value={selectedDistrict}
-          onChange={(e) => handleDistrictChange(e.target.value)}
-          disabled={areaLocks.isDistrictLocked}
-        >
-          <option value="">{areaLocks.isDistrictLocked ? 'Assigned District' : 'National / All Districts'}</option>
-          {districts.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.nameEn || d.name}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 180px', minWidth: '180px' }}>
+          <label
+            htmlFor="progress-scope-district"
+            style={{ fontSize: '12px', fontWeight: 600, color: 'var(--slate-600)' }}
+          >
+            {t('progress.scope.district')}
+          </label>
+          <select
+            id="progress-scope-district"
+            className="select-field"
+            style={{ width: '100%' }}
+            value={selectedDistrict}
+            onChange={(e) => handleDistrictChange(e.target.value)}
+            disabled={areaLocks.isDistrictLocked}
+          >
+            <option value="">
+              {areaLocks.isDistrictLocked ? t('progress.scope.assigned_district') : t('progress.scope.all_districts')}
             </option>
-          ))}
-        </select>
+            {districts.map((d) => (
+              <option key={d.id} value={d.id}>
+                {areaName(d)}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <select
-          className="select-field"
-          style={{ width: 'auto', minWidth: '180px', flex: '1 1 180px' }}
-          value={selectedDs}
-          onChange={(e) => handleDsChange(e.target.value)}
-          disabled={!selectedDistrict || dsDivisions.length === 0 || areaLocks.isDsLocked}
-        >
-          <option value="">{areaLocks.isDsLocked ? 'Assigned DS Division' : 'All DS Divisions'}</option>
-          {dsDivisions.map((ds) => (
-            <option key={ds.id} value={ds.id}>
-              {ds.nameEn || ds.name}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 180px', minWidth: '180px' }}>
+          <label
+            htmlFor="progress-scope-ds"
+            style={{ fontSize: '12px', fontWeight: 600, color: 'var(--slate-600)' }}
+          >
+            {t('progress.scope.ds_division')}
+          </label>
+          <select
+            id="progress-scope-ds"
+            className="select-field"
+            style={{ width: '100%' }}
+            value={selectedDs}
+            onChange={(e) => handleDsChange(e.target.value)}
+            disabled={!selectedDistrict || dsDivisions.length === 0 || areaLocks.isDsLocked}
+          >
+            <option value="">
+              {areaLocks.isDsLocked ? t('progress.scope.assigned_ds') : t('progress.scope.all_ds')}
             </option>
-          ))}
-        </select>
+            {dsDivisions.map((ds) => (
+              <option key={ds.id} value={ds.id}>
+                {areaName(ds)}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <select
-          className="select-field"
-          style={{ width: 'auto', minWidth: '180px', flex: '1 1 180px' }}
-          value={selectedGn}
-          onChange={(e) => setSelectedGn(e.target.value)}
-          disabled={!selectedDs || gnDivisions.length <= 1}
-        >
-          <option value="">{areaLocks.isGnLocked ? 'Assigned GN Division' : 'All GN Divisions'}</option>
-          {gnDivisions.map((gn) => (
-            <option key={gn.id} value={gn.id}>
-              {gn.nameEn || gn.name} ({gn.gnCode || gn.gnNumber})
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 180px', minWidth: '180px' }}>
+          <label
+            htmlFor="progress-scope-gn"
+            style={{ fontSize: '12px', fontWeight: 600, color: 'var(--slate-600)' }}
+          >
+            {t('progress.scope.gn_division')}
+          </label>
+          <select
+            id="progress-scope-gn"
+            className="select-field"
+            style={{ width: '100%' }}
+            value={selectedGn}
+            onChange={(e) => setSelectedGn(e.target.value)}
+            disabled={!selectedDs || gnDivisions.length <= 1}
+          >
+            <option value="">
+              {areaLocks.isGnLocked ? t('progress.scope.assigned_gn') : t('progress.scope.all_gn')}
             </option>
-          ))}
-        </select>
+            {gnDivisions.map((gn) => (
+              <option key={gn.id} value={gn.id}>
+                {gnLabel(gn)}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Sync Health Banner (M5.7) */}
