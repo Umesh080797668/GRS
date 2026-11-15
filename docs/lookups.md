@@ -42,20 +42,27 @@ This file documents standard lookup codes and multi-lingual labels (`si`, `ta`, 
 
 ---
 
-## 3. Interested Vocational Stream (`category = 'vocational_stream'`) — *Demo Seed (Awaiting B1)*
+## 3. Interested Vocational Stream (`category = 'vocational_stream'`) — *NIE / Ministry of Skills Development 16 Vocational Streams*
 
 | Code | Sort | Label (English) | Label (Sinhala) | Label (Tamil) | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `STREAM_IT_COMPUTING` | 10 | Information Technology & Computing | තොරතුරු තාක්ෂණය සහ පරිගණක | தகவல் தொழில்நுட்பம் & கணிப்பொறி | Demo Seed |
-| `STREAM_ELECTRICAL_ELECTRONIC` | 20 | Electrical, Electronics & Telecommunications | විදුලි, ඉලෙක්ට්‍රොනික හා විදුලි සංදේශ | மின், மின்னணு மற்றும் தொலைத்தொடர்பு | Demo Seed |
-| `STREAM_MECHANICAL_AUTOMOBILE` | 30 | Automobile & Mechanical Engineering | මෝටර් රථ හා යාන්ත්‍රික ඉංජිනේරු | மோட்டார் மற்றும் இயந்திரவியல் | Demo Seed |
-| `STREAM_BUILDING_CONSTRUCTION` | 40 | Construction & Woodwork | ගොඩනැගිලි ඉදිකිරීම් සහ වඩු කාර්මික | கட்டிட நிர்மாணம் மற்றும் தச்சு | Demo Seed |
-| `STREAM_HOSPITALITY_TOURISM` | 50 | Tourism & Hospitality | සංචාරක සහ ආගන්තුක සත්කාර | சுற்றுலா மற்றும் விருந்தோம்பல் | Demo Seed |
-| `STREAM_BEAUTY_HAIR` | 60 | Beauty Culture & Hair Dressing | රූපලාවණ්‍ය සහ කොණ්ඩා සැකසුම් | அழகுக்கலை மற்றும் சிகையலங்காரம் | Demo Seed |
-| `STREAM_AGRICULTURE_FOOD` | 70 | Agriculture & Food Technology | කෘෂිකාර්මික හා ආහාර තාක්ෂණය | விவசாயம் மற்றும் உணவு தொழில்நுட்பம் | Demo Seed |
-| `STREAM_APPAREL_GARMENT` | 80 | Textile & Garment Manufacturing | ඇඟලුම් හා රෙදිපිළි | ஆடை மற்றும் ஜவுளி | Demo Seed |
-| `STREAM_HEALTHCARE_CARE` | 90 | Healthcare & Nursing Support | සෞඛ්‍ය සහ උපස්ථාන සේවා | சுகாதார மற்றும் பராமரிப்பு சேவைகள் | Demo Seed |
-| `STREAM_OTHER` | 100 | Other Stream | වෙනත් ක්ෂේත්‍රයක් | ஏனைய துறை | Demo Seed |
+| `STREAM_AGRICULTURE_FOOD_NATURAL` | 10 | Agriculture, Food and Natural Resource Sector | කෘෂිකර්ම ආහාර හා ස්වාභාවික සම්පත් ක්ෂේත්‍රය | விவசாயம், உணவு மற்றும் இயற்கை வளங்கள் துறை | Official Stream 1 |
+| `STREAM_ARCHITECTURE_CONSTRUCTION` | 20 | Architecture and Construction Sector | ගෘහ නිර්මාණ හා ඉදිකිරීම් ක්ෂේත්‍රය | கட்டிடக்கலை மற்றும் நிர்மாணத்துறை | Official Stream 2 |
+| `STREAM_ARTS_AUDIO_VIDEO_COMMUNICATION` | 30 | Arts, Audio/ Video Technology and Communication Sector | කලා, ශ්‍රව්‍ය/ දෘශ්‍ය වීඩියෝ තාක්ෂණය, සහ සන්නිවේදන ක්ෂේත්‍රය | கலைகள், ஒலி/ஒளி தொழில்நுட்பம் மற்றும் தொடர்பாடல் துறை | Official Stream 3 |
+| `STREAM_HEALTH_SCIENCE` | 40 | Health Science Sector | සෞඛ්‍ය විද්‍යා ක්ෂේත්‍රය | சுகாதார விஞ்ஞானத்துறை | Official Stream 4 |
+| `STREAM_HOSPITALITY_TOURISM` | 50 | Hospitality and Tourism Sector | ආගන්තුක සත්කාර සහ සංචාරක ක්ෂේත්‍රය | விருந்தோம்பல் மற்றும் சுற்றுலாத்துறை | Official Stream 5 |
+| `STREAM_IT` | 60 | Information Technology IT - Sector | තොරතුරු තාක්ෂණ ක්ෂේත්‍රය | தகவல் தொழில்நுட்பத்துறை | Official Stream 6 |
+| `STREAM_LAW_PUBLIC_SAFETY_SECURITY` | 70 | Law, Public Safety and Security Sector | නීතිය හා මහජන ආරක්ෂා ක්ෂේත්‍රය | சட்டம், பொதுப் பாதுகாப்பு மற்றும் பாதுகாப்புத்துறை | Official Stream 7 |
+| `STREAM_MANUFACTURING` | 80 | Manufacturing Sector | නිෂ්පාදන ක්ෂේත්‍රය | உற்பத்தித்துறை | Official Stream 8 |
+| `STREAM_STEM` | 90 | Science, Technology, Engineering and Mathematics (STEM) Sector | විද්‍යාව, තාක්ෂණය, ඉංජිනේරු විද්‍යාව සහ ගණිත (STEM) ක්ෂේත්‍රය | விஞ்ஞானம், தொழில்நுட்பம், பொறியியல் மற்றும் கணிதம் (STEM) துறை | Official Stream 9 |
+| `STREAM_TRANSPORTATION_DISTRIBUTION_LOGISTICS` | 100 | Transportation, Distribution and Logistics Sector | ප්‍රවාහන, බෙදා හැරීම සහ සැපයුම් ක්ෂේත්‍රය | போக்குவரத்து, விநியோகம் மற்றும் தளவாடங்கள் துறை | Official Stream 10 |
+| `STREAM_EDUCATION_TRAINING` | 110 | Education and Training Sector | අධ්‍යාපන සහ පුහුණු ක්ෂේත්‍රය | கல்வி மற்றும் பயிற்சித்துறை | Official Stream 11 |
+| `STREAM_HUMAN_SERVICE` | 120 | Human Service Sector | මානව සේවා ක්ෂේත්‍රය | மனித சேவைத்துறை | Official Stream 12 |
+| `STREAM_MARKETING_SALES_SERVICE` | 130 | Marketing, Sales, and Service Sector | අලෙවිකරණ, විකුණුම් සහ සේවා ක්ෂේත්‍රය | சந்தைப்படுத்தல், விற்பனை மற்றும் சேவைத்துறை | Official Stream 13 |
+| `STREAM_GOVERNMENT_PUBLIC_ADMIN` | 140 | Government and Public Administration Sector | රාජ්‍ය සහ රාජ්‍ය පරිපාලන ක්ෂේත්‍රය | அரசு மற்றும் பொது நிர்வாகத்துறை | Official Stream 14 |
+| `STREAM_BUSINESS_MGMT_ADMIN` | 150 | Business, Management and Administration Sector | ව්‍යාපාර කළමනාකරණ සහ පරිපාලන ක්ෂේත්‍රය | வணிகம், முகாமைத்துவம் மற்றும் நிர்வாகத்துறை | Official Stream 15 |
+| `STREAM_FINANCE` | 160 | Finance Sector | මූල්‍ය ක්ෂේත්‍රය | நிதித்துறை | Official Stream 16 |
+| `STREAM_OTHER` | 170 | Other Sector | වෙනත් ක්ෂේත්‍රය | ஏனைய துறை | Fallback Stream |
 
 ---
 
