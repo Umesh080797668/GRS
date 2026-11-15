@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:grs_core/grs_core.dart';
 import 'package:grs_ui/grs_ui.dart';
+import '../../data/local/canonical_lookups.dart';
 import '../../l10n/l10n.dart';
 import '../../providers/api_client_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -49,7 +52,8 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
     final auth = ref.read(authProvider);
     final teamId = auth.user?.teamId;
     final gnId = auth.user?.gnId;
-    final hasRemoteScope = (teamId != null && teamId.isNotEmpty) ||
+    final hasRemoteScope =
+        (teamId != null && teamId.isNotEmpty) ||
         (gnId != null && gnId.isNotEmpty);
 
     String? serverWarning;
@@ -105,35 +109,51 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
         } catch (_) {}
 
         final serverIds = clientList.map((c) => c['id']?.toString()).toSet();
-        final localUnsynced = localClients.where((c) {
-          final status = c['sync_status']?.toString();
-          final id = c['id']?.toString();
-          final isUnsynced =
-              status == 'draft' || status == 'pending' || status == 'rejected';
-          return isUnsynced || (id != null && !serverIds.contains(id));
-        }).map((c) {
-          return {
-            'id': c['id'],
-            'householdId': c['household_id'],
-            'houseNo': c['house_no'],
-            'houseLeaderName': c['house_leader_name'],
-            'name': c['name'],
-            'age': c['age'],
-            'gender': c['gender'],
-            'address': c['address'],
-            'phoneRaw': c['phone_raw'],
-            'phoneE164': c['phone_e164'],
-            'highestEducation': c['highest_education'],
-            'highestVocational': c['highest_vocational'],
-            'isSamurdhi': c['is_samurdhi'] == 1,
-            'isAswesuma': c['is_aswesuma'] == 1,
-            'hasSpecialNeeds': c['has_special_needs'] == 1,
-            'isEpf': c['is_epf'] == 1,
-            'isEtf': c['is_etf'] == 1,
-            'syncStatus': c['sync_status'],
-            'lastErrorCode': c['last_error_code'],
-          };
-        }).toList();
+        final localUnsynced = localClients
+            .where((c) {
+              final status = c['sync_status']?.toString();
+              final id = c['id']?.toString();
+              final isUnsynced =
+                  status == 'draft' ||
+                  status == 'pending' ||
+                  status == 'rejected';
+              return isUnsynced || (id != null && !serverIds.contains(id));
+            })
+            .map((c) {
+              return {
+                'id': c['id'],
+                'householdId': c['household_id'],
+                'houseNo': c['house_no'],
+                'houseLeaderName': c['house_leader_name'],
+                'name': c['name'],
+                'age': c['age'],
+                'gender': c['gender'],
+                'address': c['address'],
+                'phoneRaw': c['phone_raw'],
+                'phoneE164': c['phone_e164'],
+                'whatsappRaw': c['whatsapp_raw'],
+                'whatsappE164': c['whatsapp_e164'],
+                'highestEducation': c['highest_education'],
+                'highestVocational': c['highest_vocational'],
+                'interestedVocationalStream': c['interested_vocational_stream'],
+                'interestedJob': c['interested_job'],
+                'futureHopes': c['future_hopes'] != null
+                    ? (c['future_hopes'] is String
+                          ? jsonDecode(c['future_hopes'] as String)
+                          : c['future_hopes'])
+                    : [],
+                'isSamurdhi': c['is_samurdhi'] == 1,
+                'isAswesuma': c['is_aswesuma'] == 1,
+                'hasSpecialNeeds': c['has_special_needs'] == 1,
+                'isEpf': c['is_epf'] == 1,
+                'isEtf': c['is_etf'] == 1,
+                'infoProvidedBy': c['info_provided_by'],
+                'infoProvidedByOther': c['info_provided_by_other'],
+                'syncStatus': c['sync_status'],
+                'lastErrorCode': c['last_error_code'],
+              };
+            })
+            .toList();
 
         final mergedRecords = [...localUnsynced, ...clientList];
 
@@ -167,13 +187,24 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
           'address': c['address'],
           'phoneRaw': c['phone_raw'],
           'phoneE164': c['phone_e164'],
+          'whatsappRaw': c['whatsapp_raw'],
+          'whatsappE164': c['whatsapp_e164'],
           'highestEducation': c['highest_education'],
           'highestVocational': c['highest_vocational'],
+          'interestedVocationalStream': c['interested_vocational_stream'],
+          'interestedJob': c['interested_job'],
+          'futureHopes': c['future_hopes'] != null
+              ? (c['future_hopes'] is String
+                    ? jsonDecode(c['future_hopes'] as String)
+                    : c['future_hopes'])
+              : [],
           'isSamurdhi': c['is_samurdhi'] == 1,
           'isAswesuma': c['is_aswesuma'] == 1,
           'hasSpecialNeeds': c['has_special_needs'] == 1,
           'isEpf': c['is_epf'] == 1,
           'isEtf': c['is_etf'] == 1,
+          'infoProvidedBy': c['info_provided_by'],
+          'infoProvidedByOther': c['info_provided_by_other'],
           'syncStatus': c['sync_status'],
           'lastErrorCode': c['last_error_code'],
         };
@@ -202,18 +233,21 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
       final name = (r['name'] ?? '').toString().toLowerCase();
       final phone = (r['phoneRaw'] ?? r['phoneE164'] ?? '').toString();
       final houseId = (r['householdId'] ?? '').toString().toLowerCase();
-      final houseNo = (r['household'] is Map
-              ? r['household']['houseNo']
-              : r['houseNo'] ?? '')
-          .toString()
-          .toLowerCase();
-      final houseLeader = (r['household'] is Map
-              ? r['household']['houseLeaderName']
-              : r['houseLeaderName'] ?? '')
-          .toString()
-          .toLowerCase();
+      final houseNo =
+          (r['household'] is Map
+                  ? r['household']['houseNo']
+                  : r['houseNo'] ?? '')
+              .toString()
+              .toLowerCase();
+      final houseLeader =
+          (r['household'] is Map
+                  ? r['household']['houseLeaderName']
+                  : r['houseLeaderName'] ?? '')
+              .toString()
+              .toLowerCase();
 
-      final matchesSearch = query.isEmpty ||
+      final matchesSearch =
+          query.isEmpty ||
           name.contains(query) ||
           phone.contains(query) ||
           houseNo.contains(query) ||
@@ -326,6 +360,37 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                     ],
                   ),
 
+                  const SizedBox(height: GrsSpacing.md),
+
+                  // Decision C2/C13: Level 4 correction button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: GrsColors.primaryMid,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      icon: const Icon(Icons.edit_note, size: 22),
+                      label: const Text(
+                        'Correct Client Record (Decision C2)',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: isOnline
+                          ? () => Navigator.of(sheetCtx).pop(true)
+                          : () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Online connection required to submit official supervisor corrections.',
+                                  ),
+                                  backgroundColor: GrsColors.syncPending,
+                                ),
+                              );
+                            },
+                    ),
+                  ),
+
                   if (lastError != null && lastError.isNotEmpty) ...[
                     const SizedBox(height: GrsSpacing.md),
                     Container(
@@ -365,8 +430,32 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                     '${record['householdId'] ?? '—'}',
                   ),
                   _buildDetailRow('Phone', '$phone'),
+                  _buildDetailRow(
+                    'WhatsApp',
+                    '${record['whatsappRaw'] ?? record['whatsappE164'] ?? '—'}',
+                  ),
                   _buildDetailRow('Address', '$address'),
                   _buildDetailRow('Highest Education', '$education'),
+                  _buildDetailRow(
+                    'Highest Vocational',
+                    '${record['highestVocational'] ?? '—'}',
+                  ),
+                  _buildDetailRow(
+                    'Interested Stream',
+                    '${record['interestedVocationalStream'] ?? '—'}',
+                  ),
+                  _buildDetailRow(
+                    'Interested Job',
+                    '${record['interestedJob'] ?? '—'}',
+                  ),
+                  _buildDetailRow(
+                    'Future Hopes',
+                    '${record['futureHopes'] is List ? (record['futureHopes'] as List).join(', ') : (record['futureHopes'] ?? '—')}',
+                  ),
+                  _buildDetailRow(
+                    'Info Provided By',
+                    '${record['infoProvidedBy'] ?? '—'}${record['infoProvidedByOther'] != null && record['infoProvidedByOther'].toString().isNotEmpty ? ' (${record['infoProvidedByOther']})' : ''}',
+                  ),
 
                   const SizedBox(height: GrsSpacing.md),
                   const Text(
@@ -378,6 +467,10 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                     spacing: 8,
                     runSpacing: 4,
                     children: [
+                      if (record['isEpf'] == true || record['isEpf'] == 1)
+                        _buildStatusBadge('EPF', GrsColors.primaryLight),
+                      if (record['isEtf'] == true || record['isEtf'] == 1)
+                        _buildStatusBadge('ETF', GrsColors.primaryLight),
                       if (specialNeeds)
                         _buildStatusBadge(
                           'Special Needs',
@@ -387,40 +480,15 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                         _buildStatusBadge('Samurdhi', GrsColors.primaryMid),
                       if (aswesuma)
                         _buildStatusBadge('Aswesuma', GrsColors.syncSynced),
-                      if (!specialNeeds && !samurdhi && !aswesuma)
+                      if (!specialNeeds &&
+                          !samurdhi &&
+                          !aswesuma &&
+                          record['isEpf'] != true &&
+                          record['isEpf'] != 1 &&
+                          record['isEtf'] != true &&
+                          record['isEtf'] != 1)
                         Text(l10n.get('noWelfareFlags')),
                     ],
-                  ),
-
-                  const SizedBox(height: GrsSpacing.xl),
-
-                  // Decision C2/C13: Level 4 correction button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: GrsColors.primaryMid,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      icon: const Icon(Icons.edit_note, size: 22),
-                      label: const Text(
-                        'Correct Client Record (Decision C2)',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      onPressed: isOnline
-                          ? () => Navigator.of(sheetCtx).pop(true)
-                          : () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Online connection required to submit official supervisor corrections.',
-                                  ),
-                                  backgroundColor: GrsColors.syncPending,
-                                ),
-                              );
-                            },
-                    ),
                   ),
                 ],
               ),
@@ -452,9 +520,28 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
               phoneRaw: (updatedPayload['phoneRaw'] as String?)?.isEmpty == true
                   ? null
                   : updatedPayload['phoneRaw'] as String?,
+              phoneE164: updatedPayload['phoneE164'] as String?,
+              whatsappRaw:
+                  (updatedPayload['whatsappRaw'] as String?)?.isEmpty == true
+                  ? null
+                  : updatedPayload['whatsappRaw'] as String?,
+              whatsappE164: updatedPayload['whatsappE164'] as String?,
+              highestEducation: updatedPayload['highestEducation'] as String?,
+              highestVocational: updatedPayload['highestVocational'] as String?,
+              interestedVocationalStream:
+                  updatedPayload['interestedVocationalStream'] as String?,
+              interestedJob: updatedPayload['interestedJob'] as String?,
+              futureHopes: (updatedPayload['futureHopes'] as List?)
+                  ?.map((e) => e.toString())
+                  .toList(),
+              isEpf: updatedPayload['isEpf'] as bool?,
+              isEtf: updatedPayload['isEtf'] as bool?,
               hasSpecialNeeds: updatedPayload['hasSpecialNeeds'] as bool?,
               isSamurdhi: updatedPayload['isSamurdhi'] as bool?,
               isAswesuma: updatedPayload['isAswesuma'] as bool?,
+              infoProvidedBy: updatedPayload['infoProvidedBy'] as String?,
+              infoProvidedByOther:
+                  updatedPayload['infoProvidedByOther'] as String?,
             );
           } catch (_) {}
 
@@ -603,12 +690,19 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
               color: Colors.amber.shade100,
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, size: 16, color: Colors.amber.shade900),
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Colors.amber.shade900,
+                  ),
                   const SizedBox(width: GrsSpacing.xs),
                   Expanded(
                     child: Text(
                       _errorMessage!,
-                      style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.amber.shade900,
+                      ),
                     ),
                   ),
                 ],
@@ -683,10 +777,11 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                             record['isAswesuma'] == true ||
                             record['isAswesuma'] == 1;
 
-                        final houseNo = (record['household'] is Map
-                                ? record['household']['houseNo']
-                                : record['houseNo'] ?? '')
-                            .toString();
+                        final houseNo =
+                            (record['household'] is Map
+                                    ? record['household']['houseNo']
+                                    : record['houseNo'] ?? '')
+                                .toString();
 
                         return GrsCard(
                           child: ListTile(
@@ -788,42 +883,117 @@ class _CorrectionDialog extends StatefulWidget {
 class _CorrectionDialogState extends State<_CorrectionDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameCtrl;
-  late final TextEditingController _ageCtrl;
   late final TextEditingController _phoneCtrl;
+  late final TextEditingController _whatsappCtrl;
   late final TextEditingController _addressCtrl;
+  late final TextEditingController _infoOtherCtrl;
   late final TextEditingController _reasonCtrl;
 
   late String _selectedGender;
+  String? _highestEducation;
+  String? _highestVocational;
+  String? _interestedVocationalStream;
+  String? _interestedJob;
+  late final Set<String> _futureHopes;
+  late String _infoProvidedBy;
+
+  late bool _isEpf;
+  late bool _isEtf;
   late bool _specialNeeds;
   late bool _samurdhi;
   late bool _aswesuma;
+
+  late final List<LookupValueModel> _eduLookups;
+  late final List<LookupValueModel> _vocLookups;
+  late final List<LookupValueModel> _streamLookups;
+  late final List<LookupValueModel> _jobLookups;
+  late final List<LookupValueModel> _hopeLookups;
+  late final List<LookupValueModel> _infoLookups;
 
   @override
   void initState() {
     super.initState();
     final r = widget.record;
     _nameCtrl = TextEditingController(text: r['name'] ?? '');
-    _ageCtrl = TextEditingController(text: '${r['age'] ?? ''}');
     _phoneCtrl = TextEditingController(
       text: r['phoneRaw'] ?? r['phoneE164'] ?? '',
     );
+    _whatsappCtrl = TextEditingController(
+      text: r['whatsappRaw'] ?? r['whatsappE164'] ?? '',
+    );
     _addressCtrl = TextEditingController(text: r['address'] ?? '');
+    _infoOtherCtrl = TextEditingController(
+      text: r['infoProvidedByOther'] ?? '',
+    );
     _reasonCtrl = TextEditingController();
 
     final rawGender = (r['gender'] ?? 'M').toString().toUpperCase();
     _selectedGender = (rawGender == 'F' || rawGender == 'FEMALE') ? 'F' : 'M';
 
+    _highestEducation = r['highestEducation'] as String?;
+    _highestVocational = r['highestVocational'] as String?;
+    _interestedVocationalStream = r['interestedVocationalStream'] as String?;
+    _interestedJob = r['interestedJob'] as String?;
+
+    _futureHopes = <String>{};
+    if (r['futureHopes'] != null) {
+      if (r['futureHopes'] is List) {
+        _futureHopes.addAll(
+          (r['futureHopes'] as List).map((e) => e.toString()),
+        );
+      } else if (r['futureHopes'] is String) {
+        try {
+          final parsed = jsonDecode(r['futureHopes'] as String);
+          if (parsed is List) {
+            _futureHopes.addAll(parsed.map((e) => e.toString()));
+          }
+        } catch (_) {}
+      }
+    }
+
+    _infoProvidedBy = (r['infoProvidedBy'] as String?)?.toLowerCase() ?? 'self';
+
+    _isEpf = r['isEpf'] == true || r['isEpf'] == 1;
+    _isEtf = r['isEtf'] == true || r['isEtf'] == 1;
     _specialNeeds = r['hasSpecialNeeds'] == true || r['hasSpecialNeeds'] == 1;
     _samurdhi = r['isSamurdhi'] == true || r['isSamurdhi'] == 1;
     _aswesuma = r['isAswesuma'] == true || r['isAswesuma'] == 1;
+
+    _eduLookups = CanonicalLookups.byCategory('education');
+    _vocLookups = CanonicalLookups.byCategory('vocational_qualification');
+    _streamLookups = CanonicalLookups.byCategory('vocational_stream');
+    _jobLookups = CanonicalLookups.byCategory('job');
+    _hopeLookups = CanonicalLookups.byCategory('future_hope');
+    _infoLookups = CanonicalLookups.byCategory('info_provided_by');
+
+    if (_highestEducation != null &&
+        !_eduLookups.any((l) => l.code == _highestEducation)) {
+      _highestEducation = null;
+    }
+    if (_highestVocational != null &&
+        !_vocLookups.any((l) => l.code == _highestVocational)) {
+      _highestVocational = null;
+    }
+    if (_interestedVocationalStream != null &&
+        !_streamLookups.any((l) => l.code == _interestedVocationalStream)) {
+      _interestedVocationalStream = null;
+    }
+    if (_interestedJob != null &&
+        !_jobLookups.any((l) => l.code == _interestedJob)) {
+      _interestedJob = null;
+    }
+    if (!_infoLookups.any((l) => l.code == _infoProvidedBy)) {
+      _infoProvidedBy = 'self';
+    }
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _ageCtrl.dispose();
     _phoneCtrl.dispose();
+    _whatsappCtrl.dispose();
     _addressCtrl.dispose();
+    _infoOtherCtrl.dispose();
     _reasonCtrl.dispose();
     super.dispose();
   }
@@ -831,6 +1001,8 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = GrsL10n.of(context);
+    final lang = l10n.locale.languageCode;
+
     return AlertDialog(
       title: Text(l10n.get('supervisorCorrection')),
       content: SizedBox(
@@ -854,54 +1026,36 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                   },
                 ),
                 const SizedBox(height: GrsSpacing.md),
-                Row(
-                  children: [
-                    Expanded(
-                      child: GrsTextField(
-                        controller: _ageCtrl,
-                        label: 'Age (0-120) *',
-                        prefixIcon: const Icon(Icons.calendar_today_outlined),
-                        keyboardType: TextInputType.number,
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Age required';
-                          }
-                          final n = int.tryParse(val.trim());
-                          if (n == null || n < 0 || n > 120) {
-                            return 'Invalid age';
-                          }
-                          return null;
-                        },
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  initialValue: _selectedGender,
+                  decoration: InputDecoration(
+                    labelText: l10n.get('gender') == 'gender'
+                        ? 'Gender'
+                        : l10n.get('gender'),
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: 'M',
+                      child: Text(
+                        l10n.get('male'),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: GrsSpacing.md),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _selectedGender,
-                        decoration: InputDecoration(
-                          labelText: l10n.get('gender') == 'gender'
-                              ? 'Gender'
-                              : l10n.get('gender'),
-                          border: const OutlineInputBorder(),
-                        ),
-                        items: [
-                          DropdownMenuItem(
-                            value: 'M',
-                            child: Text(l10n.get('male')),
-                          ),
-                          DropdownMenuItem(
-                            value: 'F',
-                            child: Text(l10n.get('female')),
-                          ),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() => _selectedGender = val);
-                          }
-                        },
+                    DropdownMenuItem(
+                      value: 'F',
+                      child: Text(
+                        l10n.get('female'),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _selectedGender = val);
+                    }
+                  },
                 ),
                 const SizedBox(height: GrsSpacing.md),
                 GrsTextField(
@@ -912,9 +1066,158 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                 ),
                 const SizedBox(height: GrsSpacing.md),
                 GrsTextField(
+                  controller: _whatsappCtrl,
+                  label: l10n.get('whatsappNumber'),
+                  prefixIcon: const Icon(Icons.chat_outlined),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: GrsSpacing.md),
+                GrsTextField(
                   controller: _addressCtrl,
                   label: l10n.get('address'),
                   prefixIcon: const Icon(Icons.home_outlined),
+                ),
+                const SizedBox(height: GrsSpacing.md),
+                DropdownButtonFormField<String?>(
+                  isExpanded: true,
+                  initialValue: _highestEducation,
+                  decoration: InputDecoration(
+                    labelText: l10n.get('highestEducation'),
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(
+                        '— Select Education —',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    ..._eduLookups.map(
+                      (l) => DropdownMenuItem<String?>(
+                        value: l.code,
+                        child: Text(
+                          l.getLabel(lang),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: (val) => setState(() => _highestEducation = val),
+                ),
+                const SizedBox(height: GrsSpacing.md),
+                DropdownButtonFormField<String?>(
+                  isExpanded: true,
+                  initialValue: _highestVocational,
+                  decoration: InputDecoration(
+                    labelText: l10n.get('highestVocational'),
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(
+                        '— Select Vocational —',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    ..._vocLookups.map(
+                      (l) => DropdownMenuItem<String?>(
+                        value: l.code,
+                        child: Text(
+                          l.getLabel(lang),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: (val) => setState(() => _highestVocational = val),
+                ),
+                const SizedBox(height: GrsSpacing.md),
+                DropdownButtonFormField<String?>(
+                  isExpanded: true,
+                  initialValue: _interestedVocationalStream,
+                  decoration: InputDecoration(
+                    labelText: l10n.get('interestedStream'),
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(
+                        '— Select Stream —',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    ..._streamLookups.map(
+                      (l) => DropdownMenuItem<String?>(
+                        value: l.code,
+                        child: Text(
+                          l.getLabel(lang),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: (val) =>
+                      setState(() => _interestedVocationalStream = val),
+                ),
+                const SizedBox(height: GrsSpacing.md),
+                DropdownButtonFormField<String?>(
+                  isExpanded: true,
+                  initialValue: _interestedJob,
+                  decoration: InputDecoration(
+                    labelText: l10n.get('interestedJob'),
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(
+                        '— Select Job —',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    ..._jobLookups.map(
+                      (l) => DropdownMenuItem<String?>(
+                        value: l.code,
+                        child: Text(
+                          l.getLabel(lang),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: (val) => setState(() => _interestedJob = val),
+                ),
+                const SizedBox(height: GrsSpacing.md),
+                Text(
+                  l10n.get('futureHopes'),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: _hopeLookups.map((h) {
+                    final isSelected = _futureHopes.contains(h.code);
+                    return FilterChip(
+                      label: Text(h.getLabel(lang)),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _futureHopes.add(h.code);
+                          } else {
+                            _futureHopes.remove(h.code);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: GrsSpacing.md),
                 Text(
@@ -923,6 +1226,18 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
+                ),
+                CheckboxListTile(
+                  dense: true,
+                  title: const Text('EPF Contributor'),
+                  value: _isEpf,
+                  onChanged: (val) => setState(() => _isEpf = val ?? false),
+                ),
+                CheckboxListTile(
+                  dense: true,
+                  title: const Text('ETF Contributor'),
+                  value: _isEtf,
+                  onChanged: (val) => setState(() => _isEtf = val ?? false),
                 ),
                 CheckboxListTile(
                   dense: true,
@@ -943,6 +1258,36 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                   value: _aswesuma,
                   onChanged: (val) => setState(() => _aswesuma = val ?? false),
                 ),
+                const SizedBox(height: GrsSpacing.md),
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  initialValue: _infoProvidedBy,
+                  decoration: const InputDecoration(
+                    labelText: 'Info Provided By',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _infoLookups.map((l) {
+                    return DropdownMenuItem(
+                      value: l.code,
+                      child: Text(
+                        l.getLabel(lang),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _infoProvidedBy = val);
+                    }
+                  },
+                ),
+                if (_infoProvidedBy == 'other') ...[
+                  const SizedBox(height: GrsSpacing.sm),
+                  GrsTextField(
+                    controller: _infoOtherCtrl,
+                    label: 'If Other, describe',
+                  ),
+                ],
                 const SizedBox(height: GrsSpacing.md),
                 GrsTextField(
                   controller: _reasonCtrl,
@@ -976,13 +1321,25 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
             if (!_formKey.currentState!.validate()) return;
             final payload = <String, dynamic>{
               'name': _nameCtrl.text.trim(),
-              'age': int.parse(_ageCtrl.text.trim()),
+              'age': widget.record['age'] ?? 25,
               'gender': _selectedGender,
               'address': _addressCtrl.text.trim(),
               'phoneRaw': _phoneCtrl.text.trim(),
+              'whatsappRaw': _whatsappCtrl.text.trim(),
+              'highestEducation': _highestEducation,
+              'highestVocational': _highestVocational,
+              'interestedVocationalStream': _interestedVocationalStream,
+              'interestedJob': _interestedJob,
+              'futureHopes': _futureHopes.toList(),
+              'isEpf': _isEpf,
+              'isEtf': _isEtf,
               'hasSpecialNeeds': _specialNeeds,
               'isSamurdhi': _samurdhi,
               'isAswesuma': _aswesuma,
+              'infoProvidedBy': _infoProvidedBy,
+              'infoProvidedByOther': _infoProvidedBy == 'other'
+                  ? _infoOtherCtrl.text.trim()
+                  : null,
               'correctionReason': _reasonCtrl.text.trim(),
             };
             Navigator.of(context).pop(payload);

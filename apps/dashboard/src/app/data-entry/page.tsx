@@ -273,6 +273,7 @@ export default function DataEntryPage() {
 
   function handleSelectExistingHousehold(hId: string) {
     setSelectedHouseholdId(hId);
+    setConsentGiven(true);
     const found = existingHouseholds.find((h) => h.id === hId);
     if (found) {
       setHouseNo(found.houseNo || '');
@@ -522,7 +523,7 @@ export default function DataEntryPage() {
       setFutureHopes([]);
       setInfoProvidedBy('self');
       setInfoProvidedByOther('');
-      setConsentGiven(false);
+      setConsentGiven(true);
 
       if (editingDraftId) {
         const remaining = drafts.filter((d) => d.id !== editingDraftId);
@@ -1424,21 +1425,6 @@ export default function DataEntryPage() {
                       placeholder="e.g. Kasun Chamara Perera"
                       value={clientName}
                       onChange={(e) => setClientName(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="form-label">
-                      Age <span className="de-req">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      className="input-field"
-                      min={1}
-                      max={120}
-                      value={clientAge}
-                      onChange={(e) => setClientAge(parseInt(e.target.value, 10) || 18)}
                       required
                     />
                   </div>

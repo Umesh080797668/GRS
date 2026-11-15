@@ -194,7 +194,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ),
                         onTap: () async {
                           Navigator.of(ctx).pop();
-                          await context.push('/houses/$id/consent');
+                          final existingClients = await db
+                              .getClientsForHousehold(id);
+                          final hasConsent =
+                              existingClients.isNotEmpty ||
+                              existingClients.any(
+                                (c) => (c['consent_given'] as int?) == 1,
+                              );
+                          if (!context.mounted) return;
+                          if (hasConsent) {
+                            await context.push(
+                              '/houses/$id/client/new?consent=true',
+                            );
+                          } else {
+                            await context.push('/houses/$id/consent');
+                          }
                           ref
                               .read(recordsRevisionProvider.notifier)
                               .increment();

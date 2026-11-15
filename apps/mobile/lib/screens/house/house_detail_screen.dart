@@ -49,7 +49,11 @@ class HouseDetailScreen extends ConsumerWidget {
             final isSamurdhi = (house['is_samurdhi'] as int) == 1;
             final hasSpecialNeeds = (house['has_special_needs'] as int) == 1;
             final isCompleted =
-                (house['visit_status'] as String?) == 'completed';
+                ((house['status'] ??
+                        house['visit_status'] ??
+                        house['visitStatus'])
+                    as String?) ==
+                'completed';
 
             return FutureBuilder<List<Map<String, dynamic>>>(
               key: ValueKey('c_${houseId}_$revision'),
@@ -211,9 +215,21 @@ class HouseDetailScreen extends ConsumerWidget {
                               ),
                               GrsBounceTouch(
                                 onTap: () async {
-                                  await context.push(
-                                    '/houses/$houseId/consent',
-                                  );
+                                  final hasConsent =
+                                      clients.isNotEmpty ||
+                                      clients.any(
+                                        (c) =>
+                                            (c['consent_given'] as int?) == 1,
+                                      );
+                                  if (hasConsent) {
+                                    await context.push(
+                                      '/houses/$houseId/client/new?consent=true',
+                                    );
+                                  } else {
+                                    await context.push(
+                                      '/houses/$houseId/consent',
+                                    );
+                                  }
                                   ref
                                       .read(recordsRevisionProvider.notifier)
                                       .increment();

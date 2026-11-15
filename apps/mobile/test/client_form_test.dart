@@ -101,10 +101,6 @@ void main() {
         final nameField = find.byType(TextFormField).first;
         await tester.enterText(nameField, 'Saman Kumara');
 
-        // 10.2 Age
-        final ageField = find.byType(TextFormField).at(1);
-        await tester.enterText(ageField, '28');
-
         // Gender toggle (Female / Male)
         expect(find.text('Female'), findsOneWidget);
         expect(find.text('Male'), findsOneWidget);
@@ -113,7 +109,7 @@ void main() {
         expect(find.text('101 Temple Road'), findsOneWidget);
 
         // 10.4 & 10.5 Phone & WhatsApp
-        final phoneField = find.byType(TextFormField).at(3);
+        final phoneField = find.byType(TextFormField).at(2);
         await tester.enterText(phoneField, '0771234567');
 
         // 10.10 Welfare checkboxes (EPF, ETF, Aswesuma, Samurdhi)
@@ -148,7 +144,7 @@ void main() {
         );
         expect(pendingClients.length, equals(1));
         expect(pendingClients.first['name'], equals('Saman Kumara'));
-        expect(pendingClients.first['age'], equals(28));
+        expect(pendingClients.first['age'], equals(25));
         expect(pendingClients.first['phone_e164'], equals('+94771234567'));
         expect(pendingClients.first['sync_status'], equals('pending'));
       },

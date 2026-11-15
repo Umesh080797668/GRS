@@ -37,7 +37,6 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
   int _samurdhiClients = 0;
   int _aswesumaClients = 0;
   int _youthClients = 0; // 18 - 35
-  int _seniorClients = 0; // 60+
 
   // Member stats
   List<Map<String, dynamic>> _memberStats = [];
@@ -62,7 +61,9 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
     try {
       // 1. First load local database records as fast baseline
       final db = await ref.read(databaseProvider.future);
-      final localHouses = await db.getHouseholds();
+      final localHouses = await db.getHouseholds(
+        gnId: (teamId == null || teamId.isEmpty) ? gnId : null,
+      );
       final localClients = await db.getAllClients();
 
       // Filter by team if teamId is available
@@ -71,11 +72,17 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
           : localHouses;
 
       int totalH = teamHouses.length;
-      int compH = teamHouses.where((h) => h['status'] == 'completed').length;
-      int inProgH = teamHouses
-          .where((h) => h['status'] == 'in_progress')
-          .length;
-      int notStH = totalH - compH - inProgH;
+      int compH = teamHouses.where((h) {
+        final s = (h['status'] ?? h['visit_status'] ?? h['visitStatus'])
+            ?.toString();
+        return s == 'completed';
+      }).length;
+      int inProgH = teamHouses.where((h) {
+        final s = (h['status'] ?? h['visit_status'] ?? h['visitStatus'])
+            ?.toString();
+        return s == 'in_progress';
+      }).length;
+      int notStH = (totalH - compH - inProgH).clamp(0, totalH);
 
       int totalC = localClients.length;
       int maleC = localClients.where((c) {
@@ -95,10 +102,6 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
         final age = (c['age'] as int?) ?? 0;
         return age >= 18 && age <= 35;
       }).length;
-      int seniorC = localClients.where((c) {
-        final age = (c['age'] as int?) ?? 0;
-        return age >= 60;
-      }).length;
 
       // 2. If online, fetch from backend for global team or GN view
       if (isOnline &&
@@ -106,6 +109,27 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
               (gnId != null && gnId.isNotEmpty))) {
         try {
           final apiClient = ref.read(apiClientProvider);
+
+          // 2a. Attempt fast pre-aggregated progress stats
+          try {
+            final statsRes = await apiClient.getProgressStats(
+              areaType: (teamId != null && teamId.isNotEmpty) ? 'team' : 'gn',
+              areaId: (teamId != null && teamId.isNotEmpty) ? teamId : gnId,
+            );
+            final summary = statsRes['summary'] as Map<String, dynamic>?;
+            if (summary != null) {
+              final assigned =
+                  (summary['housesAssigned'] as num?)?.toInt() ?? 0;
+              final done = (summary['housesDone'] as num?)?.toInt() ?? 0;
+              final started = (summary['housesStarted'] as num?)?.toInt() ?? 0;
+              if (assigned > 0 || done > 0 || started > 0) {
+                totalH = assigned;
+                compH = done;
+                inProgH = started > done ? (started - done) : 0;
+                notStH = (totalH - compH - inProgH).clamp(0, totalH);
+              }
+            }
+          } catch (_) {}
 
           // Fetch team/GN households
           try {
@@ -119,13 +143,17 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                 .toList();
             if (serverHouses.isNotEmpty) {
               totalH = serverHouses.length;
-              compH = serverHouses
-                  .where((h) => h['status'] == 'completed')
-                  .length;
-              inProgH = serverHouses
-                  .where((h) => h['status'] == 'in_progress')
-                  .length;
-              notStH = totalH - compH - inProgH;
+              compH = serverHouses.where((h) {
+                final s = (h['visitStatus'] ?? h['status'] ?? h['visit_status'])
+                    ?.toString();
+                return s == 'completed';
+              }).length;
+              inProgH = serverHouses.where((h) {
+                final s = (h['visitStatus'] ?? h['status'] ?? h['visit_status'])
+                    ?.toString();
+                return s == 'in_progress';
+              }).length;
+              notStH = (totalH - compH - inProgH).clamp(0, totalH);
             }
           } catch (_) {}
 
@@ -169,12 +197,6 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                   ? c['age'] as int
                   : int.tryParse('${c['age']}') ?? 0;
               return age >= 18 && age <= 35;
-            }).length;
-            seniorC = serverClients.where((c) {
-              final age = c['age'] is int
-                  ? c['age'] as int
-                  : int.tryParse('${c['age']}') ?? 0;
-              return age >= 60;
             }).length;
           }
 
@@ -229,7 +251,6 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
           _samurdhiClients = samurdhiC;
           _aswesumaClients = aswesumaC;
           _youthClients = youthC;
-          _seniorClients = seniorC;
 
           _isLoading = false;
         });
@@ -409,23 +430,11 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                                   value: '$_femaleClients',
                                 ),
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: GrsSpacing.sm),
-                          Row(
-                            children: [
                               Expanded(
                                 child: _buildDetailTile(
                                   icon: Icons.school_outlined,
                                   label: l10n.get('youth'),
                                   value: '$_youthClients',
-                                ),
-                              ),
-                              Expanded(
-                                child: _buildDetailTile(
-                                  icon: Icons.elderly_outlined,
-                                  label: l10n.get('seniors'),
-                                  value: '$_seniorClients',
                                 ),
                               ),
                             ],

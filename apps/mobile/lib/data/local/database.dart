@@ -866,7 +866,9 @@ class AppDatabase {
     );
   }
 
-  Future<List<Map<String, dynamic>>> getAllClientsWithHouseInfo({SyncStatus? status}) async {
+  Future<List<Map<String, dynamic>>> getAllClientsWithHouseInfo({
+    SyncStatus? status,
+  }) async {
     final statusClause = status != null ? 'WHERE c.sync_status = ?' : '';
     final args = status != null ? [status.name] : <dynamic>[];
     return await _executor.runSelect(
@@ -951,9 +953,21 @@ class AppDatabase {
     String? gender,
     String? address,
     String? phoneRaw,
+    String? phoneE164,
+    String? whatsappRaw,
+    String? whatsappE164,
+    String? highestEducation,
+    String? highestVocational,
+    String? interestedVocationalStream,
+    String? interestedJob,
+    List<String>? futureHopes,
+    bool? isEpf,
+    bool? isEtf,
     bool? hasSpecialNeeds,
     bool? isSamurdhi,
     bool? isAswesuma,
+    String? infoProvidedBy,
+    String? infoProvidedByOther,
   }) async {
     final sets = <String>[];
     final args = <dynamic>[];
@@ -978,6 +992,46 @@ class AppDatabase {
       sets.add('phone_raw = ?');
       args.add(phoneRaw);
     }
+    if (phoneE164 != null) {
+      sets.add('phone_e164 = ?');
+      args.add(phoneE164);
+    }
+    if (whatsappRaw != null) {
+      sets.add('whatsapp_raw = ?');
+      args.add(whatsappRaw);
+    }
+    if (whatsappE164 != null) {
+      sets.add('whatsapp_e164 = ?');
+      args.add(whatsappE164);
+    }
+    if (highestEducation != null) {
+      sets.add('highest_education = ?');
+      args.add(highestEducation);
+    }
+    if (highestVocational != null) {
+      sets.add('highest_vocational = ?');
+      args.add(highestVocational);
+    }
+    if (interestedVocationalStream != null) {
+      sets.add('interested_vocational_stream = ?');
+      args.add(interestedVocationalStream);
+    }
+    if (interestedJob != null) {
+      sets.add('interested_job = ?');
+      args.add(interestedJob);
+    }
+    if (futureHopes != null) {
+      sets.add('future_hopes = ?');
+      args.add(jsonEncode(futureHopes));
+    }
+    if (isEpf != null) {
+      sets.add('is_epf = ?');
+      args.add(isEpf ? 1 : 0);
+    }
+    if (isEtf != null) {
+      sets.add('is_etf = ?');
+      args.add(isEtf ? 1 : 0);
+    }
     if (hasSpecialNeeds != null) {
       sets.add('has_special_needs = ?');
       args.add(hasSpecialNeeds ? 1 : 0);
@@ -989,6 +1043,14 @@ class AppDatabase {
     if (isAswesuma != null) {
       sets.add('is_aswesuma = ?');
       args.add(isAswesuma ? 1 : 0);
+    }
+    if (infoProvidedBy != null) {
+      sets.add('info_provided_by = ?');
+      args.add(infoProvidedBy);
+    }
+    if (infoProvidedByOther != null) {
+      sets.add('info_provided_by_other = ?');
+      args.add(infoProvidedByOther);
     }
 
     if (sets.isEmpty) return;

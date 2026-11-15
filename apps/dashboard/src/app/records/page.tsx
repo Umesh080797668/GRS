@@ -23,8 +23,15 @@ import {
 } from 'lucide-react';
 
 export default function RecordsPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user, isLoading: authLoading } = useAuth();
+
+  const getLookupLabel = (item: any) => {
+    if (!item) return '';
+    if (language === 'si' && item.labelSi) return item.labelSi;
+    if (language === 'ta' && item.labelTa) return item.labelTa;
+    return item.labelEn || item.name || item.code;
+  };
 
   const [records, setRecords] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -62,16 +69,34 @@ export default function RecordsPage() {
 
   // Edit form fields
   const [editName, setEditName] = useState<string>('');
-  const [editAge, setEditAge] = useState<number>(18);
+  const [editAge, setEditAge] = useState<number>(25);
   const [editGender, setEditGender] = useState<string>('M');
   const [editAddress, setEditAddress] = useState<string>('');
   const [editPhone, setEditPhone] = useState<string>('');
+  const [editWhatsapp, setEditWhatsapp] = useState<string>('');
+  const [editHighestEducation, setEditHighestEducation] = useState<string>('EDU_OL_PASSED');
+  const [editHighestVocational, setEditHighestVocational] = useState<string>('VOC_NONE');
+  const [editInterestedStream, setEditInterestedStream] = useState<string>('STREAM_IT_COMPUTING');
+  const [editInterestedJob, setEditInterestedJob] = useState<string>('JOB_SOFTWARE_DEV');
+  const [editFutureHopes, setEditFutureHopes] = useState<string[]>([]);
   const [editIsEpf, setEditIsEpf] = useState<boolean>(false);
+  const [editIsEtf, setEditIsEtf] = useState<boolean>(false);
   const [editIsAswesuma, setEditIsAswesuma] = useState<boolean>(false);
   const [editIsSamurdhi, setEditIsSamurdhi] = useState<boolean>(false);
   const [editHasSpecialNeeds, setEditHasSpecialNeeds] = useState<boolean>(false);
+  const [editInfoProvidedBy, setEditInfoProvidedBy] = useState<'self' | 'mother' | 'father' | 'sister' | 'other'>('self');
+  const [editInfoProvidedByOther, setEditInfoProvidedByOther] = useState<string>('');
+  const [lookups, setLookups] = useState<Record<string, any[]>>({});
   const fetchSeqRef = useRef(0);
   const areaLocks = getAreaScopeLocks(user?.role);
+
+  useEffect(() => {
+    api.getLookups().then((res) => {
+      if (res?.categories) {
+        setLookups(res.categories);
+      }
+    }).catch(console.error);
+  }, []);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -198,14 +223,23 @@ export default function RecordsPage() {
   function openEditModal(record: any) {
     setEditingRecord(record);
     setEditName(record.name || '');
-    setEditAge(record.age || 18);
+    setEditAge(record.age || 25);
     setEditGender(record.gender || 'M');
     setEditAddress(record.address || record.household?.address || '');
     setEditPhone(record.phoneE164 || record.phoneRaw || '');
+    setEditWhatsapp(record.whatsappE164 || record.whatsappRaw || '');
+    setEditHighestEducation(record.highestEducation || 'EDU_OL_PASSED');
+    setEditHighestVocational(record.highestVocational || 'VOC_NONE');
+    setEditInterestedStream(record.interestedVocationalStream || 'STREAM_IT_COMPUTING');
+    setEditInterestedJob(record.interestedJob || 'JOB_SOFTWARE_DEV');
+    setEditFutureHopes(Array.isArray(record.futureHopes) ? record.futureHopes : []);
     setEditIsEpf(record.isEpf || false);
+    setEditIsEtf(record.isEtf || false);
     setEditIsAswesuma(record.isAswesuma || false);
     setEditIsSamurdhi(record.isSamurdhi || false);
     setEditHasSpecialNeeds(record.hasSpecialNeeds || false);
+    setEditInfoProvidedBy(record.infoProvidedBy || 'self');
+    setEditInfoProvidedByOther(record.infoProvidedByOther || '');
     setAuditReason('');
     setAuditError(null);
   }
@@ -225,14 +259,26 @@ export default function RecordsPage() {
         editingRecord.id,
         {
           name: editName,
-          age: editAge,
+          age: editAge || 25,
           gender: editGender,
           address: editAddress,
           phoneRaw: editPhone,
+          whatsappRaw: editWhatsapp,
+          highestEducation: editHighestEducation,
+          highestVocational: editHighestVocational,
+          interestedVocationalStream: editInterestedStream,
+          interestedJob: editInterestedJob,
+          futureHopes: editFutureHopes,
           isEpf: editIsEpf,
+          isEtf: editIsEtf,
           isAswesuma: editIsAswesuma,
           isSamurdhi: editIsSamurdhi,
           hasSpecialNeeds: editHasSpecialNeeds,
+          infoProvidedBy: editInfoProvidedBy,
+          infoProvidedByOther:
+            editInfoProvidedBy === 'other'
+              ? editInfoProvidedByOther.trim() || undefined
+              : undefined,
         },
         auditReason.trim()
       );
@@ -667,6 +713,12 @@ export default function RecordsPage() {
                     {selectedRecord.phoneE164 || selectedRecord.phoneRaw || '—'}
                   </span>
                 </div>
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--slate-500)', display: 'block' }}>WhatsApp Number</span>
+                  <span style={{ color: 'var(--slate-800)', fontFamily: 'monospace' }}>
+                    {selectedRecord.whatsappE164 || selectedRecord.whatsappRaw || '—'}
+                  </span>
+                </div>
               </div>
 
               <div>
@@ -683,6 +735,22 @@ export default function RecordsPage() {
                   <div>Vocational Qual: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.highestVocational || 'None'}</strong></div>
                   <div>Interested Stream: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.interestedVocationalStream || 'None'}</strong></div>
                   <div>Interested Job: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.interestedJob || 'None'}</strong></div>
+                  <div>Future Hopes: <strong style={{ color: 'var(--slate-800)' }}>{Array.isArray(selectedRecord.futureHopes) ? selectedRecord.futureHopes.join(', ') : (selectedRecord.futureHopes || 'None')}</strong></div>
+                  <div>Info Provided By: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.infoProvidedBy || 'self'}{selectedRecord.infoProvidedByOther ? ` (${selectedRecord.infoProvidedByOther})` : ''}</strong></div>
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', display: 'block', marginBottom: '4px' }}>Welfare & Social Indicators</span>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {selectedRecord.isEpf && <span className="badge badge-info">EPF</span>}
+                  {selectedRecord.isEtf && <span className="badge badge-info">ETF</span>}
+                  {selectedRecord.isAswesuma && <span className="badge badge-success">Aswesuma</span>}
+                  {selectedRecord.isSamurdhi && <span className="badge badge-warning">Samurdhi</span>}
+                  {selectedRecord.hasSpecialNeeds && <span className="badge badge-error">Special Needs</span>}
+                  {!selectedRecord.isEpf && !selectedRecord.isEtf && !selectedRecord.isAswesuma && !selectedRecord.isSamurdhi && !selectedRecord.hasSpecialNeeds && (
+                    <span style={{ color: 'var(--slate-400)', fontSize: '12px' }}>No welfare indicators flagged</span>
+                  )}
                 </div>
               </div>
 
@@ -761,19 +829,8 @@ export default function RecordsPage() {
                     onChange={(e) => setEditName(e.target.value)}
                   />
                 </div>
-                <div>
-                  <label className="form-label">Age *</label>
-                  <input
-                    type="number"
-                    className="input-field"
-                    min={1}
-                    max={120}
-                    value={editAge}
-                    onChange={(e) => setEditAge(parseInt(e.target.value, 10) || 18)}
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Gender *</label>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="form-label">Gender (only 18-35) *</label>
                   <select
                     className="select-field"
                     value={editGender}
@@ -792,16 +849,250 @@ export default function RecordsPage() {
                     onChange={(e) => setEditAddress(e.target.value)}
                   />
                 </div>
-                <div style={{ gridColumn: 'span 2' }}>
+                <div>
                   <label className="form-label">Phone Number</label>
                   <input
                     type="text"
                     className="input-field"
+                    placeholder="e.g. 0771234567"
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
                   />
                 </div>
+                <div>
+                  <label className="form-label">WhatsApp Number</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. 0771234567"
+                    value={editWhatsapp}
+                    onChange={(e) => setEditWhatsapp(e.target.value)}
+                  />
+                </div>
 
+                {/* Education & Career Qualification */}
+                <div style={{ gridColumn: 'span 2', paddingTop: '0.5rem', borderTop: '1px solid var(--slate-100)' }}>
+                  <span className="form-label">Education & Career</span>
+                </div>
+                <div>
+                  <label className="form-label">Highest Education</label>
+                  <select
+                    className="select-field"
+                    value={editHighestEducation}
+                    onChange={(e) => setEditHighestEducation(e.target.value)}
+                  >
+                    {lookups.education && lookups.education.length > 0 ? (
+                      lookups.education.map((item: any) => (
+                        <option key={item.code} value={item.code}>
+                          {getLookupLabel(item)}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="EDU_OL_PASSED">G.C.E. O/L passed</option>
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Highest Vocational Qualification</label>
+                  <select
+                    className="select-field"
+                    value={editHighestVocational}
+                    onChange={(e) => setEditHighestVocational(e.target.value)}
+                  >
+                    {lookups.vocational_qualification && lookups.vocational_qualification.length > 0 ? (
+                      lookups.vocational_qualification.map((item: any) => (
+                        <option key={item.code} value={item.code}>
+                          {getLookupLabel(item)}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="VOC_NONE">None</option>
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Interested Vocational Stream</label>
+                  <select
+                    className="select-field"
+                    value={editInterestedStream}
+                    onChange={(e) => setEditInterestedStream(e.target.value)}
+                  >
+                    {lookups.vocational_stream && lookups.vocational_stream.length > 0 ? (
+                      lookups.vocational_stream.map((item: any) => (
+                        <option key={item.code} value={item.code}>
+                          {getLookupLabel(item)}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="STREAM_IT_COMPUTING">IT & Computing</option>
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Interested Job</label>
+                  <select
+                    className="select-field"
+                    value={editInterestedJob}
+                    onChange={(e) => setEditInterestedJob(e.target.value)}
+                  >
+                    {lookups.job && lookups.job.length > 0 ? (
+                      lookups.job.map((item: any) => (
+                        <option key={item.code} value={item.code}>
+                          {getLookupLabel(item)}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="JOB_SOFTWARE_DEV">Software Developer</option>
+                    )}
+                  </select>
+                </div>
+
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="form-label">Future Hopes / Aspirations</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '6px', marginTop: '4px' }}>
+                    {(lookups.future_hope && lookups.future_hope.length > 0
+                      ? lookups.future_hope
+                      : [
+                        { code: 'HOPE_GOV_JOB', labelEn: 'Government Job' },
+                        { code: 'HOPE_PRIVATE_JOB', labelEn: 'Private Sector' },
+                        { code: 'HOPE_OWN_BIZ', labelEn: 'Own Business' },
+                        { code: 'HOPE_HIGHER_EDU', labelEn: 'Higher Education' },
+                        { code: 'HOPE_FOREIGN_EMPLOYMENT', labelEn: 'Foreign Employment' },
+                      ]
+                    ).map((item: any) => {
+                      const isChecked = editFutureHopes.includes(item.code);
+                      return (
+                        <label key={item.code} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEditFutureHopes([...editFutureHopes, item.code]);
+                              } else {
+                                setEditFutureHopes(editFutureHopes.filter((c) => c !== item.code));
+                              }
+                            }}
+                          />
+                          <span>{getLookupLabel(item)}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Welfare & Social Indicators */}
+                <div style={{ gridColumn: 'span 2', paddingTop: '0.5rem', borderTop: '1px solid var(--slate-100)' }}>
+                  <span className="form-label">Education & Career</span>
+                </div>
+                <div>
+                  <label className="form-label">Highest Education</label>
+                  <select
+                    className="select-field"
+                    value={editHighestEducation}
+                    onChange={(e) => setEditHighestEducation(e.target.value)}
+                  >
+                    {lookups.education && lookups.education.length > 0 ? (
+                      lookups.education.map((item: any) => (
+                        <option key={item.code} value={item.code}>
+                          {getLookupLabel(item)}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="EDU_OL_PASSED">G.C.E. O/L passed</option>
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Highest Vocational Qualification</label>
+                  <select
+                    className="select-field"
+                    value={editHighestVocational}
+                    onChange={(e) => setEditHighestVocational(e.target.value)}
+                  >
+                    {lookups.vocational_qualification && lookups.vocational_qualification.length > 0 ? (
+                      lookups.vocational_qualification.map((item: any) => (
+                        <option key={item.code} value={item.code}>
+                          {getLookupLabel(item)}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="VOC_NONE">None</option>
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Interested Vocational Stream</label>
+                  <select
+                    className="select-field"
+                    value={editInterestedStream}
+                    onChange={(e) => setEditInterestedStream(e.target.value)}
+                  >
+                    {lookups.vocational_stream && lookups.vocational_stream.length > 0 ? (
+                      lookups.vocational_stream.map((item: any) => (
+                        <option key={item.code} value={item.code}>
+                          {getLookupLabel(item)}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="STREAM_IT_COMPUTING">IT & Computing</option>
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Interested Job</label>
+                  <select
+                    className="select-field"
+                    value={editInterestedJob}
+                    onChange={(e) => setEditInterestedJob(e.target.value)}
+                  >
+                    {lookups.job && lookups.job.length > 0 ? (
+                      lookups.job.map((item: any) => (
+                        <option key={item.code} value={item.code}>
+                          {getLookupLabel(item)}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="JOB_SOFTWARE_DEV">Software Developer</option>
+                    )}
+                  </select>
+                </div>
+
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="form-label">Future Hopes / Aspirations</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '6px', marginTop: '4px' }}>
+                    {(lookups.future_hope && lookups.future_hope.length > 0
+                      ? lookups.future_hope
+                      : [
+                          { code: 'HOPE_GOV_JOB', labelEn: 'Government Job' },
+                          { code: 'HOPE_PRIVATE_JOB', labelEn: 'Private Sector' },
+                          { code: 'HOPE_OWN_BIZ', labelEn: 'Own Business' },
+                          { code: 'HOPE_HIGHER_EDU', labelEn: 'Higher Education' },
+                          { code: 'HOPE_FOREIGN_EMPLOYMENT', labelEn: 'Foreign Employment' },
+                        ]
+                    ).map((item: any) => {
+                      const isChecked = editFutureHopes.includes(item.code);
+                      return (
+                        <label key={item.code} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEditFutureHopes([...editFutureHopes, item.code]);
+                              } else {
+                                setEditFutureHopes(editFutureHopes.filter((c) => c !== item.code));
+                              }
+                            }}
+                          />
+                          <span>{getLookupLabel(item)}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Welfare & Social Indicators */}
                 <div style={{ gridColumn: 'span 2', paddingTop: '0.5rem', borderTop: '1px solid var(--slate-100)' }}>
                   <span className="form-label">Welfare & Social Indicators</span>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12.5px', marginTop: '4px' }}>
@@ -811,7 +1102,15 @@ export default function RecordsPage() {
                         checked={editIsEpf}
                         onChange={(e) => setEditIsEpf(e.target.checked)}
                       />
-                      <span>EPF/ETF Contributor</span>
+                      <span>EPF Contributor</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={editIsEtf}
+                        onChange={(e) => setEditIsEtf(e.target.checked)}
+                      />
+                      <span>ETF Contributor</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                       <input
@@ -839,6 +1138,34 @@ export default function RecordsPage() {
                     </label>
                   </div>
                 </div>
+
+                {/* Info Source */}
+                <div style={{ gridColumn: 'span 2', paddingTop: '0.5rem', borderTop: '1px solid var(--slate-100)' }}>
+                  <label className="form-label">Information Provided By</label>
+                  <select
+                    className="select-field"
+                    value={editInfoProvidedBy}
+                    onChange={(e) => setEditInfoProvidedBy(e.target.value as any)}
+                  >
+                    <option value="self">Self (Applicant)</option>
+                    <option value="mother">Mother</option>
+                    <option value="father">Father</option>
+                    <option value="sister">Sister/Brother</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                {editInfoProvidedBy === 'other' && (
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label className="form-label">If Other, please specify</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="e.g. Uncle / Guardian"
+                      value={editInfoProvidedByOther}
+                      onChange={(e) => setEditInfoProvidedByOther(e.target.value)}
+                    />
+                  </div>
+                )}
 
                 {/* Mandatory Audit Reason Input (Decision C2 / Invariant §8) */}
                 <div style={{ gridColumn: 'span 2', paddingTop: '0.75rem', borderTop: '1px solid var(--slate-100)' }}>

@@ -142,13 +142,7 @@ void main() {
         );
         expect(find.textContaining('Kavinda Bandara'), findsOneWidget);
 
-        // Fill valid age and save WITHOUT dismissing warning -> must never block!
-        await tester.enterText(
-          find.byKey(const Key('client_form_age_field')),
-          '24',
-        );
-        await tester.pumpAndSettle();
-
+        // Save WITHOUT dismissing warning -> must never block!
         final saveFinishBtn = find.text('Save & Finish House');
         await tester.ensureVisible(saveFinishBtn);
         await tester.tap(saveFinishBtn);

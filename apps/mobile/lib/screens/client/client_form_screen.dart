@@ -33,7 +33,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
 
   // ── Form fields (10.1–10.13) ───────────────────────────────────────────────
   final _nameController = TextEditingController();
-  final _ageController = TextEditingController();
+  int? _originalAge;
   String _gender = 'F';
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -86,7 +86,6 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
     super.initState();
     _isConsentConfirmed = widget.consentGiven;
     _nameController.addListener(_evaluateSameHouseDuplicates);
-    _ageController.addListener(_evaluateSameHouseDuplicates);
     _phoneController.addListener(_evaluateSameHouseDuplicates);
     _whatsappController.addListener(_evaluateSameHouseDuplicates);
     _loadInitialData();
@@ -95,11 +94,9 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   @override
   void dispose() {
     _nameController.removeListener(_evaluateSameHouseDuplicates);
-    _ageController.removeListener(_evaluateSameHouseDuplicates);
     _phoneController.removeListener(_evaluateSameHouseDuplicates);
     _whatsappController.removeListener(_evaluateSameHouseDuplicates);
     _nameController.dispose();
-    _ageController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
     _whatsappController.dispose();
@@ -114,7 +111,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       draft: DuplicateCandidateInput(
         id: widget.clientId ?? '__draft__',
         name: _nameController.text.trim(),
-        age: int.tryParse(_ageController.text.trim()),
+        age: _originalAge ?? 25,
         gender: _gender,
         phone: _phoneController.text.trim().isEmpty
             ? null
@@ -178,7 +175,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       final client = await db.getClientById(widget.clientId!);
       if (client != null) {
         _nameController.text = client['name'] as String;
-        _ageController.text = (client['age'] as int).toString();
+        _originalAge = client['age'] as int?;
         _gender = client['gender'] as String;
         _addressController.text = client['address'] as String? ?? '';
         _phoneController.text = client['phone_raw'] as String? ?? '';
@@ -262,7 +259,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
       name: _nameController.text.trim().isEmpty
           ? 'Draft Beneficiary'
           : _nameController.text.trim(),
-      age: int.tryParse(_ageController.text) ?? 18,
+      age: widget.clientId != null ? (_originalAge ?? 25) : 25,
       gender: _gender,
       address: _addressController.text.trim(),
       phoneRaw: _phoneController.text.trim().isEmpty
@@ -512,58 +509,28 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                     ),
                     const SizedBox(height: GrsSpacing.md),
 
-                    // Age + Gender row
+                    // Gender (only 18-35)
                     GrsFadeSlideItem(
                       index: 3,
-                      child: Row(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            flex: 2,
-                            child: GrsTextField(
-                              key: const Key('client_form_age_field'),
-                              controller: _ageController,
-                              label: l10n.get('ageLabel'),
-                              hint: l10n.get('ageHint'),
-                              keyboardType: TextInputType.number,
-                              prefixIcon: const Icon(
-                                Icons.cake_outlined,
-                                size: 20,
-                              ),
-                              enabled: !_isLocked,
-                              validator: (val) {
-                                final res = GrsValidators.validateAge(
-                                  int.tryParse(val ?? ''),
-                                );
-                                return res.isValid ? null : res.error;
-                              },
-                            ),
+                          Text(
+                            '${l10n.get('genderLabel')} (only 18-35)',
+                            style: GrsTypography.labelMedium(
+                              color: isDark
+                                  ? GrsColors.textSecondaryDark
+                                  : GrsColors.textSecondaryLight,
+                            ).copyWith(fontWeight: FontWeight.w600),
                           ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            flex: 3,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${l10n.get('genderLabel')} (only 18-35)',
-                                  style: GrsTypography.labelMedium(
-                                    color: isDark
-                                        ? GrsColors.textSecondaryDark
-                                        : GrsColors.textSecondaryLight,
-                                  ).copyWith(fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 6),
-                                _GenderSelector(
-                                  selected: _gender,
-                                  enabled: !_isLocked,
-                                  femaleLabel: l10n.get('genderFemale'),
-                                  maleLabel: l10n.get('genderMale'),
-                                  onChanged: (v) => setState(() => _gender = v),
-                                  isDark: isDark,
-                                ),
-                              ],
-                            ),
+                          const SizedBox(height: 6),
+                          _GenderSelector(
+                            selected: _gender,
+                            enabled: !_isLocked,
+                            femaleLabel: l10n.get('genderFemale'),
+                            maleLabel: l10n.get('genderMale'),
+                            onChanged: (v) => setState(() => _gender = v),
+                            isDark: isDark,
                           ),
                         ],
                       ),
@@ -898,7 +865,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                             );
                             if (ok && context.mounted) {
                               context.pushReplacement(
-                                '/houses/${widget.houseId}/consent',
+                                '/houses/${widget.houseId}/client/new?consent=true',
                               );
                             }
                           },
