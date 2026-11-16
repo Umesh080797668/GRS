@@ -280,12 +280,9 @@ void main() {
         await tester.pumpAndSettle();
 
         // Enter House No & Leader Name
+        await tester.enterText(find.byType(GrsTextField).at(0), '25/B');
         await tester.enterText(
-          find.widgetWithText(GrsTextField, 'House No *'),
-          '25/B',
-        );
-        await tester.enterText(
-          find.widgetWithText(GrsTextField, 'House Leader Name *'),
+          find.byType(GrsTextField).at(1),
           'Priyani Wickramasinghe',
         );
         await tester.pump();
@@ -584,7 +581,7 @@ void main() {
                     'id': 'client-audit-1',
                     'householdId': 'h-01',
                     'name': 'Original Name',
-                    'age': 40,
+                    'age': 25,
                     'gender': 'male',
                     'address': 'Main Street',
                     'hasSpecialNeeds': false,

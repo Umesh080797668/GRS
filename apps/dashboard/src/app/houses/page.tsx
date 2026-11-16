@@ -8,7 +8,6 @@ import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { getAreaScopeLocks, loadScopedAreaLists } from '@/lib/area-scope';
 import {
-  Home,
   ClipboardCheck,
   Plus,
   Settings,
@@ -23,25 +22,34 @@ import {
   Search,
   Edit2,
   Trash2,
+  Columns,
+  Rows,
 } from 'lucide-react';
 
 export default function HousesPage() {
   const { t } = useLanguage();
   const { user, isLoading: authLoading } = useAuth();
 
-  // Tabs: "Houses & GN Setup" (default) and "Records & Corrections" (?tab=records)
-  const [activeTab, setActiveTab] = useState<'houses' | 'records'>('houses');
+  // Focus filter: when a user clicks "Records" on a specific household
+  const [selectedHouseholdFilter, setSelectedHouseholdFilter] = useState<{
+    id: string;
+    houseNo: string;
+    leaderName: string;
+  } | null>(null);
+
+  // Total records count in this scope for KPI card
+  const [totalRecordsCount, setTotalRecordsCount] = useState<number>(0);
+
+  // Layout mode: 'stacked' (Households above, Records below) or 'split' (Side-by-side on wide screens)
+  const [viewMode, setViewMode] = useState<'stacked' | 'split'>('stacked');
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('tab') === 'records') {
-      setActiveTab('records');
+    if (typeof window !== 'undefined' && (window.location.hash === '#records' || new URLSearchParams(window.location.search).get('tab') === 'records')) {
+      setTimeout(() => {
+        document.getElementById('records-section')?.scrollIntoView({ behavior: 'smooth' });
+      }, 250);
     }
   }, []);
-
-  function switchTab(tab: 'houses' | 'records') {
-    setActiveTab(tab);
-    window.history.replaceState(null, '', tab === 'records' ? '/houses?tab=records' : '/houses');
-  }
 
   // Geographic selectors
   const [districts, setDistricts] = useState<any[]>([]);
@@ -91,10 +99,10 @@ export default function HousesPage() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const canMutateHouse = ['super_admin', 'sda', 'cdc_secretary'].includes(user?.role || '');
+  const canDeleteHouse = ['super_admin', 'sda'].includes(user?.role || '');
   const isSdo = user?.role === 'sda';
   const isReadOnlyHouses = Boolean(user && !canMutateHouse);
   const areaLocks = getAreaScopeLocks(user?.role);
-  const isAreaScopeLocked = areaLocks.isDsLocked;
 
   // Banners
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
@@ -422,7 +430,7 @@ export default function HousesPage() {
   }
 
   async function handleDeleteHousehold() {
-    if (!deletingHouse) return;
+    if (!deletingHouse || !canDeleteHouse) return;
     setActionLoading(true);
     setModalError(null);
     setErrorBanner(null);
@@ -489,254 +497,389 @@ export default function HousesPage() {
 
   return (
     <Shell activePath="/houses">
-      {/* Tabs */}
+      {/* Title & Top Action Bar */}
       <div
-        role="tablist"
         style={{
           display: 'flex',
-          gap: '4px',
-          borderBottom: '1px solid var(--border-subtle)',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           marginBottom: '1.5rem',
           flexWrap: 'wrap',
+          gap: '1rem',
         }}
       >
-        {(['houses', 'records'] as const).map((tab) => {
-          const active = activeTab === tab;
-          return (
+        <div>
+          <h1
+            style={{
+              fontSize: '22px',
+              fontWeight: 700,
+              color: 'var(--slate-900)',
+              letterSpacing: '-0.02em',
+              margin: 0,
+            }}
+          >
+            {t('houses.title')}
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--slate-500)', marginTop: '4px' }}>
+            {isReadOnlyHouses
+              ? 'View households and team assignment progress within your assigned scope (View-Only Mode).'
+              : isSdo
+                ? 'Manage households, team assignments, survey completion marking, and GN office contact setup within your assigned DS division (SDA Officer — Level 3).'
+                : 'Field household assignment, unassignment, survey completion marking, and GN office contact setup.'}
+          </p>
+        </div>
+
+        {!isReadOnlyHouses && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button
-              key={tab}
               type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => switchTab(tab)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 16px',
-                fontSize: '14px',
-                fontWeight: active ? 700 : 500,
-                color: active ? 'var(--primary)' : 'var(--slate-500)',
-                background: 'transparent',
-                border: 'none',
-                borderBottom: active ? '2px solid var(--primary)' : '2px solid transparent',
-                marginBottom: '-1px',
-                cursor: 'pointer',
-              }}
+              onClick={() => setShowGnModal(true)}
+              className="btn-secondary"
             >
-              {tab === 'houses' ? <Home size={16} /> : <ClipboardCheck size={16} />}
-              <span>{t(tab === 'houses' ? 'nav.houses' : 'nav.records')}</span>
+              <Settings size={15} style={{ color: 'var(--warning)' }} />
+              <span>{t('houses.gn_setup')}</span>
             </button>
-          );
-        })}
+
+            <button
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              className="btn-primary"
+            >
+              <Plus size={15} />
+              <span>{t('houses.add_house')}</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {activeTab === 'records' ? (
-        <RecordsPanel />
-      ) : (
-        <>
-          {/* Title & Top Action Bar */}
+      {isReadOnlyHouses && (
+        <div
+          style={{
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: 'var(--radius-sm)',
+            padding: '10px 14px',
+            color: '#92400e',
+            marginBottom: '1rem',
+            fontSize: '13px',
+          }}
+        >
+          View-Only Mode: Reviewing households within your assigned scope. Household mutations and team assignments are managed by SDA Officers, CDC Secretaries, or Super Admins.
+        </div>
+      )}
+
+      {/* Alerts */}
+      {errorBanner && (
+        <div
+          style={{
+            background: 'var(--danger-bg)',
+            border: '1px solid var(--danger-border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 16px',
+            color: 'var(--danger-text)',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '13.5px',
+          }}
+        >
+          <AlertCircle size={18} style={{ flexShrink: 0 }} />
+          <span>{errorBanner}</span>
+        </div>
+      )}
+
+      {successBanner && (
+        <div
+          style={{
+            background: 'var(--success-bg)',
+            border: '1px solid var(--success-border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 16px',
+            color: 'var(--success-text)',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '13.5px',
+          }}
+        >
+          <CheckCircle size={18} style={{ flexShrink: 0 }} />
+          <span>{successBanner}</span>
+        </div>
+      )}
+
+      {/* Geographic Scope & GN Details Card */}
+      <div className="panel" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '1rem',
+            marginBottom: '1rem',
+          }}
+        >
+          <div>
+            <label className="form-label">District</label>
+            <select
+              className="select-field"
+              value={selectedDistrict}
+              onChange={(e) => handleDistrictChange(e.target.value)}
+              disabled={areaLocks.isDistrictLocked}
+            >
+              {districts.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.nameEn || d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="form-label">DS Division</label>
+            <select
+              className="select-field"
+              value={selectedDs}
+              onChange={(e) => handleDsChange(e.target.value)}
+              disabled={areaLocks.isDsLocked}
+            >
+              {dsDivisions.map((ds) => (
+                <option key={ds.id} value={ds.id}>
+                  {ds.nameEn || ds.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="form-label">GN Division</label>
+            <select
+              className="select-field"
+              value={selectedGn}
+              onChange={(e) => loadGnData(e.target.value)}
+              disabled={areaLocks.isGnLocked}
+            >
+              {gnDivisions.map((gn) => (
+                <option key={gn.id} value={gn.id}>
+                  {gn.gnNumber || gn.gnCode} — {gn.gnName || gn.nameEn || gn.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* GN Info Summary */}
+        {selectedGn && (
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              marginBottom: '1.5rem',
+              paddingTop: '0.75rem',
+              borderTop: '1px solid var(--slate-100)',
+              fontSize: '12.5px',
+              color: 'var(--slate-500)',
               flexWrap: 'wrap',
-              gap: '1rem',
+              gap: '8px',
             }}
           >
             <div>
-              <h1
-                style={{
-                  fontSize: '22px',
-                  fontWeight: 700,
-                  color: 'var(--slate-900)',
-                  letterSpacing: '-0.02em',
-                  margin: 0,
-                }}
-              >
-                {t('houses.title')}
-              </h1>
-              <p style={{ fontSize: '13px', color: 'var(--slate-500)', marginTop: '4px' }}>
-                {isReadOnlyHouses
-                  ? 'View households and team assignment progress within your assigned scope (View-Only Mode).'
-                  : isSdo
-                    ? 'Manage households, team assignments, survey completion marking, and GN office contact setup within your assigned DS division (SDA Officer — Level 3).'
-                    : 'Field household assignment, unassignment, survey completion marking, and GN office contact setup.'}
-              </p>
+              Secretary Contact:{' '}
+              <strong style={{ color: 'var(--slate-800)', fontWeight: 600 }}>
+                {gnSecretaryName || 'Not configured'} {gnSecretaryContact ? `(${gnSecretaryContact})` : ''}
+              </strong>
             </div>
-
-            {!isReadOnlyHouses && (
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowGnModal(true)}
-                  className="btn-secondary"
-                >
-                  <Settings size={15} style={{ color: 'var(--warning)' }} />
-                  <span>{t('houses.gn_setup')}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(true)}
-                  className="btn-primary"
-                >
-                  <Plus size={15} />
-                  <span>{t('houses.add_house')}</span>
-                </button>
-              </div>
-            )}
+            <div>
+              Active Field Teams:{' '}
+              <strong style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                {teams.length} teams
+              </strong>
+            </div>
           </div>
+        )}
+      </div>
 
-          {isReadOnlyHouses && (
+      {/* KPI Metric Strip */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: '12px',
+          marginBottom: '1.25rem',
+        }}
+      >
+        <div className="panel" style={{ padding: '12px 16px' }}>
+          <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', fontWeight: 500, display: 'block' }}>
+            Total Households
+          </span>
+          <strong style={{ fontSize: '20px', fontWeight: 700, color: 'var(--slate-900)' }}>
+            {households.length}
+          </strong>
+        </div>
+        <div className="panel" style={{ padding: '12px 16px' }}>
+          <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', fontWeight: 500, display: 'block' }}>
+            {t('houses.unassigned')}
+          </span>
+          <strong style={{ fontSize: '20px', fontWeight: 700, color: 'var(--warning-text, #d97706)' }}>
+            {households.filter((h) => !h.teamId).length}
+          </strong>
+        </div>
+        <div className="panel" style={{ padding: '12px 16px' }}>
+          <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', fontWeight: 500, display: 'block' }}>
+            Assigned
+          </span>
+          <strong style={{ fontSize: '20px', fontWeight: 700, color: 'var(--primary)' }}>
+            {households.filter((h) => Boolean(h.teamId)).length}
+          </strong>
+        </div>
+        <div className="panel" style={{ padding: '12px 16px' }}>
+          <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', fontWeight: 500, display: 'block' }}>
+            {t('houses.finished')}
+          </span>
+          <strong style={{ fontSize: '20px', fontWeight: 700, color: 'var(--success, #16a34a)' }}>
+            {households.filter((h) => Boolean(h.isFinished)).length}
+          </strong>
+        </div>
+        <div className="panel" style={{ padding: '12px 16px' }}>
+          <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', fontWeight: 500, display: 'block' }}>
+            {t('records.title')}
+          </span>
+          <strong style={{ fontSize: '20px', fontWeight: 700, color: 'var(--primary)' }}>
+            {totalRecordsCount.toLocaleString()}
+          </strong>
+        </div>
+      </div>
+
+      {/* Unified Toolbar & Layout Toggle */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          marginBottom: '1.25rem',
+        }}
+      >
+        <div>
+          {selectedHouseholdFilter ? (
             <div
               style={{
-                background: '#fffbeb',
-                border: '1px solid #fde68a',
-                borderRadius: 'var(--radius-sm)',
-                padding: '10px 14px',
-                color: '#92400e',
-                marginBottom: '1rem',
-                fontSize: '13px',
-              }}
-            >
-              View-Only Mode: Reviewing households within your assigned scope. Household mutations and team assignments are managed by SDA Officers, CDC Secretaries, or Super Admins.
-            </div>
-          )}
-
-          {/* Alerts */}
-          {errorBanner && (
-            <div
-              style={{
-                background: 'var(--danger-bg)',
-                border: '1px solid var(--danger-border)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '12px 16px',
-                color: 'var(--danger-text)',
-                marginBottom: '1.5rem',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: '10px',
-                fontSize: '13.5px',
-              }}
-            >
-              <AlertCircle size={18} style={{ flexShrink: 0 }} />
-              <span>{errorBanner}</span>
-            </div>
-          )}
-
-          {successBanner && (
-            <div
-              style={{
-                background: 'var(--success-bg)',
-                border: '1px solid var(--success-border)',
+                gap: '8px',
+                background: 'rgba(37, 99, 235, 0.08)',
+                border: '1px solid rgba(37, 99, 235, 0.25)',
                 borderRadius: 'var(--radius-sm)',
-                padding: '12px 16px',
-                color: 'var(--success-text)',
-                marginBottom: '1.5rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                fontSize: '13.5px',
+                padding: '6px 12px',
+                fontSize: '12.5px',
+                color: 'var(--primary)',
+                fontWeight: 600,
               }}
             >
-              <CheckCircle size={18} style={{ flexShrink: 0 }} />
-              <span>{successBanner}</span>
-            </div>
-          )}
-
-          {/* Geographic Scope & GN Details Card */}
-          <div className="panel" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '1rem',
-                marginBottom: '1rem',
-              }}
-            >
-              <div>
-                <label className="form-label">District</label>
-                <select
-                  className="select-field"
-                  value={selectedDistrict}
-                  onChange={(e) => handleDistrictChange(e.target.value)}
-                  disabled={areaLocks.isDistrictLocked}
-                >
-                  {districts.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.nameEn || d.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="form-label">DS Division</label>
-                <select
-                  className="select-field"
-                  value={selectedDs}
-                  onChange={(e) => handleDsChange(e.target.value)}
-                  disabled={areaLocks.isDsLocked}
-                >
-                  {dsDivisions.map((ds) => (
-                    <option key={ds.id} value={ds.id}>
-                      {ds.nameEn || ds.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="form-label">GN Division</label>
-                <select
-                  className="select-field"
-                  value={selectedGn}
-                  onChange={(e) => loadGnData(e.target.value)}
-                  disabled={areaLocks.isGnLocked}
-                >
-                  {gnDivisions.map((gn) => (
-                    <option key={gn.id} value={gn.id}>
-                      {gn.gnNumber || gn.gnCode} — {gn.gnName || gn.nameEn || gn.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* GN Info Summary */}
-            {selectedGn && (
-              <div
+              <ClipboardCheck size={14} />
+              <span>
+                {t('records.filtered_by_house')}: #{selectedHouseholdFilter.houseNo} ({selectedHouseholdFilter.leaderName})
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedHouseholdFilter(null)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingTop: '0.75rem',
-                  borderTop: '1px solid var(--slate-100)',
-                  fontSize: '12.5px',
-                  color: 'var(--slate-500)',
-                  flexWrap: 'wrap',
-                  gap: '8px',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--primary)',
+                  display: 'inline-flex',
+                  padding: '2px',
+                  marginLeft: '4px',
                 }}
+                title="Show all records in GN"
               >
-                <div>
-                  Secretary Contact:{' '}
-                  <strong style={{ color: 'var(--slate-800)', fontWeight: 600 }}>
-                    {gnSecretaryName || 'Not configured'} {gnSecretaryContact ? `(${gnSecretaryContact})` : ''}
-                  </strong>
-                </div>
-                <div>
-                  Active Field Teams:{' '}
-                  <strong style={{ color: 'var(--primary)', fontWeight: 600 }}>
-                    {teams.length} teams
-                  </strong>
-                </div>
-              </div>
-            )}
-          </div>
+                <X size={13} />
+              </button>
+            </div>
+          ) : (
+            <div style={{ fontSize: '13px', color: 'var(--slate-500)', fontWeight: 500 }}>
+              Viewing all households and survey records in selected GN division.
+            </div>
+          )}
+        </div>
 
+        {/* View Mode Controls */}
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            background: 'var(--slate-100)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '3px',
+            gap: '2px',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setViewMode('stacked')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 10px',
+              fontSize: '12px',
+              fontWeight: viewMode === 'stacked' ? 600 : 500,
+              borderRadius: 'var(--radius-xs)',
+              border: 'none',
+              cursor: 'pointer',
+              background: viewMode === 'stacked' ? '#ffffff' : 'transparent',
+              color: viewMode === 'stacked' ? 'var(--slate-900)' : 'var(--slate-600)',
+              boxShadow: viewMode === 'stacked' ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
+            }}
+          >
+            <Rows size={13} />
+            <span>{t('houses.stacked_view')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('split')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 10px',
+              fontSize: '12px',
+              fontWeight: viewMode === 'split' ? 600 : 500,
+              borderRadius: 'var(--radius-xs)',
+              border: 'none',
+              cursor: 'pointer',
+              background: viewMode === 'split' ? '#ffffff' : 'transparent',
+              color: viewMode === 'split' ? 'var(--slate-900)' : 'var(--slate-600)',
+              boxShadow: viewMode === 'split' ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
+            }}
+          >
+            <Columns size={13} />
+            <span>{t('houses.split_view')}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content Layout (Stacked or Side-by-Side) */}
+      <div
+        style={
+          viewMode === 'split'
+            ? {
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(520px, 1fr))',
+              gap: '1.5rem',
+              alignItems: 'start',
+            }
+            : {
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.5rem',
+            }
+        }
+      >
+        {/* Section 1: Households & Team Allocation */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
           {/* Batch Assignment Action Bar */}
           {!isReadOnlyHouses && (
             <div
@@ -949,13 +1092,14 @@ export default function HousesPage() {
                     <th>{t('houses.village_name')}</th>
                     <th>{t('houses.team_assigned')}</th>
                     <th>{t('houses.status')}</th>
+                    <th style={{ textAlign: 'center' }}>{t('houses.view_records')}</th>
                     {!isReadOnlyHouses && <th style={{ textAlign: 'right' }}>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {displayedHouseholds.length === 0 ? (
                     <tr>
-                      <td colSpan={isReadOnlyHouses ? 5 : 7} style={{ textAlign: 'center', color: 'var(--slate-400)', padding: '2.5rem' }}>
+                      <td colSpan={isReadOnlyHouses ? 6 : 8} style={{ textAlign: 'center', color: 'var(--slate-400)', padding: '2.5rem' }}>
                         {loading ? 'Loading households...' : 'No households matching criteria.'}
                       </td>
                     </tr>
@@ -965,9 +1109,20 @@ export default function HousesPage() {
                       const isAssigned = Boolean(h.teamId);
                       const isFinished = Boolean(h.isFinished);
                       const assignedTeam = teams.find((t) => t.id === h.teamId);
+                      const isRecordFiltered = selectedHouseholdFilter?.id === h.id;
 
                       return (
-                        <tr key={h.id}>
+                        <tr
+                          key={h.id}
+                          style={
+                            isRecordFiltered
+                              ? {
+                                background: 'rgba(37, 99, 235, 0.05)',
+                                boxShadow: 'inset 3px 0 0 var(--primary)',
+                              }
+                              : undefined
+                          }
+                        >
                           {!isReadOnlyHouses && (
                             <td style={{ textAlign: 'center' }}>
                               {!isAssigned ? (
@@ -1029,6 +1184,38 @@ export default function HousesPage() {
                               </span>
                             )}
                           </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (selectedHouseholdFilter?.id === h.id) {
+                                  setSelectedHouseholdFilter(null);
+                                } else {
+                                  setSelectedHouseholdFilter({
+                                    id: h.id,
+                                    houseNo: h.houseNo,
+                                    leaderName: h.houseLeaderName,
+                                  });
+                                  if (viewMode === 'stacked') {
+                                    document.getElementById('records-section')?.scrollIntoView({ behavior: 'smooth' });
+                                  }
+                                }
+                              }}
+                              className={isRecordFiltered ? 'btn-primary' : 'btn-secondary'}
+                              style={{
+                                padding: '3px 8px',
+                                fontSize: '11px',
+                                height: 'auto',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                              title={isRecordFiltered ? 'Click to show all records' : 'Filter records to this house'}
+                            >
+                              <ClipboardCheck size={12} />
+                              <span>{isRecordFiltered ? 'Active' : t('houses.view_records')}</span>
+                            </button>
+                          </td>
                           {!isReadOnlyHouses && (
                             <td style={{ textAlign: 'right' }}>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
@@ -1078,25 +1265,27 @@ export default function HousesPage() {
                                     >
                                       <Edit2 size={12} />
                                     </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setModalError(null);
-                                        setDeleteHouseReason('');
-                                        setDeletingHouse(h);
-                                      }}
-                                      className="btn-secondary"
-                                      style={{
-                                        padding: '4px 8px',
-                                        fontSize: '11px',
-                                        color: 'var(--danger-text)',
-                                        borderColor: 'var(--danger-border)',
-                                      }}
-                                      title={t('houses.delete_house')}
-                                      aria-label={t('houses.delete_house')}
-                                    >
-                                      <Trash2 size={12} />
-                                    </button>
+                                    {canDeleteHouse && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setModalError(null);
+                                          setDeleteHouseReason('');
+                                          setDeletingHouse(h);
+                                        }}
+                                        className="btn-secondary"
+                                        style={{
+                                          padding: '4px 8px',
+                                          fontSize: '11px',
+                                          color: 'var(--danger-text)',
+                                          borderColor: 'var(--danger-border)',
+                                        }}
+                                        title={t('houses.delete_house')}
+                                        aria-label={t('houses.delete_house')}
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                    )}
                                   </>
                                 )}
                               </div>
@@ -1123,527 +1312,541 @@ export default function HousesPage() {
               </div>
             )}
           </div>
+        </div>
 
-          {/* Add Household Modal */}
-          {showAddModal && (
-            <div className="modal-backdrop" role="dialog" aria-modal="true">
-              <div className="modal-content" style={{ maxWidth: '520px' }}>
-                <div className="modal-header">
-                  <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
-                    {t('houses.add_house')}
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddModal(false)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-                <form onSubmit={handleAddHousehold}>
-                  <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                      <div>
-                        <label className="form-label">House Number *</label>
-                        <input
-                          type="text"
-                          className="input-field"
-                          placeholder="e.g. 102/B"
-                          value={newHouseNo}
-                          onChange={(e) => setNewHouseNo(e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label">Head of Household *</label>
-                        <input
-                          type="text"
-                          className="input-field"
-                          placeholder="e.g. K. Perera"
-                          value={newHeadName}
-                          onChange={(e) => setNewHeadName(e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div>
+        {/* Section 2: Survey Records & Audit Corrections */}
+        <div id="records-section" style={{ minWidth: 0 }}>
+          <RecordsPanel
+            hideAreaSelectors={true}
+            showHeader={false}
+            districtId={selectedDistrict}
+            dsId={selectedDs}
+            gnId={selectedGn}
+            householdFilter={selectedHouseholdFilter}
+            onClearHouseholdFilter={() => setSelectedHouseholdFilter(null)}
+            onRecordCountChange={setTotalRecordsCount}
+          />
+        </div>
+      </div>
 
-                    <div>
-                      <label className="form-label">Village / Street</label>
-                      <input
-                        type="text"
-                        className="input-field"
-                        placeholder="e.g. Pallekele"
-                        value={newVillageName}
-                        onChange={(e) => setNewVillageName(e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="form-label">Full Postal Address</label>
-                      <input
-                        type="text"
-                        className="input-field"
-                        placeholder="e.g. No. 102/B, Temple Road"
-                        value={newAddress}
-                        onChange={(e) => setNewAddress(e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="form-label">Social Welfare & Identifiers</label>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', fontSize: '13px', marginTop: '4px' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={newIsSamurdhi}
-                            onChange={(e) => {
-                              setNewIsSamurdhi(e.target.checked);
-                              if (e.target.checked) setNewIsNonBeneficiary(false);
-                            }}
-                          />
-                          <span>Samurdhi</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={newIsAswesuma}
-                            onChange={(e) => {
-                              setNewIsAswesuma(e.target.checked);
-                              if (e.target.checked) setNewIsNonBeneficiary(false);
-                            }}
-                          />
-                          <span>Aswesuma</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={newIsEpf}
-                            onChange={(e) => {
-                              setNewIsEpf(e.target.checked);
-                              if (e.target.checked) setNewIsNonBeneficiary(false);
-                            }}
-                          />
-                          <span>EPF</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={newIsEtf}
-                            onChange={(e) => {
-                              setNewIsEtf(e.target.checked);
-                              if (e.target.checked) setNewIsNonBeneficiary(false);
-                            }}
-                          />
-                          <span>ETF</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={newIsNonBeneficiary}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setNewIsNonBeneficiary(checked);
-                              if (checked) {
-                                setNewIsSamurdhi(false);
-                                setNewIsAswesuma(false);
-                                setNewIsEpf(false);
-                                setNewIsEtf(false);
-                              }
-                            }}
-                          />
-                          <span>Non-beneficiary</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input type="checkbox" checked={newHasSpecialNeeds} onChange={(e) => setNewHasSpecialNeeds(e.target.checked)} />
-                          <span>Special Needs</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="modal-footer">
-                    <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary">
-                      Cancel
-                    </button>
-                    <button type="submit" disabled={actionLoading} className="btn-primary">
-                      {actionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Register House'}
-                    </button>
-                  </div>
-                </form>
-              </div>
+      {/* Add Household Modal */}
+      {showAddModal && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                {t('houses.add_house')}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
             </div>
-          )}
-
-          {/* GN Setup Modal */}
-          {showGnModal && (
-            <div className="modal-backdrop" role="dialog" aria-modal="true">
-              <div className="modal-content" style={{ maxWidth: '480px' }}>
-                <div className="modal-header">
-                  <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
-                    {t('houses.gn_setup')}
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => setShowGnModal(false)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-                <form onSubmit={handleUpdateGnSetup}>
-                  <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div>
-                      <label className="form-label">CDC / GN Secretary Full Name</label>
-                      <input
-                        type="text"
-                        className="input-field"
-                        placeholder="e.g. W.M. Jayawardena"
-                        value={gnSecretaryName}
-                        onChange={(e) => setGnSecretaryName(e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="form-label">Secretary Contact Phone</label>
-                      <input
-                        type="text"
-                        className="input-field"
-                        placeholder="e.g. +94771234567"
-                        value={gnSecretaryContact}
-                        onChange={(e) => setGnSecretaryContact(e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="form-label">Secretary Email</label>
-                      <input
-                        type="email"
-                        className="input-field"
-                        placeholder="e.g. secretary.gn101@grs.gov.lk"
-                        value={gnSecretaryEmail}
-                        onChange={(e) => setGnSecretaryEmail(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="modal-footer">
-                    <button type="button" onClick={() => setShowGnModal(false)} className="btn-secondary">
-                      Cancel
-                    </button>
-                    <button type="submit" disabled={actionLoading} className="btn-primary">
-                      {actionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Save Setup'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {/* Edit Household Modal */}
-          {editingHouse && (
-            <div className="modal-backdrop" role="dialog" aria-modal="true">
-              <div className="modal-content" style={{ maxWidth: '560px' }}>
-                <div className="modal-header">
+            <form onSubmit={handleAddHousehold}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
-                    <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
-                      {t('houses.edit_house')}
-                    </h3>
-                    <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
-                      House #{editingHouse.houseNo} — {editingHouse.houseLeaderName}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => { setEditingHouse(null); setModalError(null); }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-                <form onSubmit={handleUpdateHousehold}>
-                  <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {modalError && (
-                      <div
-                        style={{
-                          background: 'var(--danger-bg)',
-                          border: '1px solid var(--danger-border)',
-                          borderRadius: 'var(--radius-sm)',
-                          padding: '10px 12px',
-                          color: 'var(--danger-text)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          fontSize: '13px',
-                        }}
-                      >
-                        <AlertCircle size={16} style={{ flexShrink: 0 }} />
-                        <span>{modalError}</span>
-                      </div>
-                    )}
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                      <div>
-                        <label className="form-label">House Number *</label>
-                        <input
-                          type="text"
-                          className="input-field"
-                          value={editHouseForm.houseNo}
-                          onChange={(e) => setEditHouseForm({ ...editHouseForm, houseNo: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label">Head of Household *</label>
-                        <input
-                          type="text"
-                          className="input-field"
-                          value={editHouseForm.houseLeaderName}
-                          onChange={(e) => setEditHouseForm({ ...editHouseForm, houseLeaderName: e.target.value })}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                      <div>
-                        <label className="form-label">Village / Street</label>
-                        <input
-                          type="text"
-                          className="input-field"
-                          value={editHouseForm.villageName}
-                          onChange={(e) => setEditHouseForm({ ...editHouseForm, villageName: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label">Full Postal Address</label>
-                        <input
-                          type="text"
-                          className="input-field"
-                          value={editHouseForm.address}
-                          onChange={(e) => setEditHouseForm({ ...editHouseForm, address: e.target.value })}
-                        />
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                      <div>
-                        <label className="form-label">Target Female Count (only 18-35)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="99"
-                          className="input-field"
-                          value={editHouseForm.targetFemale}
-                          onChange={(e) => setEditHouseForm({ ...editHouseForm, targetFemale: parseInt(e.target.value) || 0 })}
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label">Target Male Count (only 18-35)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="99"
-                          className="input-field"
-                          value={editHouseForm.targetMale}
-                          onChange={(e) => setEditHouseForm({ ...editHouseForm, targetMale: parseInt(e.target.value) || 0 })}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="form-label">Social Welfare & Identifiers</label>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px', fontSize: '13px', marginTop: '4px' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={editHouseForm.isSamurdhi}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setEditHouseForm({
-                                ...editHouseForm,
-                                isSamurdhi: checked,
-                                ...(checked ? { isNonBeneficiary: false } : {}),
-                              });
-                            }}
-                          />
-                          <span>Samurdhi</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={editHouseForm.isAswesuma}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setEditHouseForm({
-                                ...editHouseForm,
-                                isAswesuma: checked,
-                                ...(checked ? { isNonBeneficiary: false } : {}),
-                              });
-                            }}
-                          />
-                          <span>Aswesuma</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={editHouseForm.isEpf}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setEditHouseForm({
-                                ...editHouseForm,
-                                isEpf: checked,
-                                ...(checked ? { isNonBeneficiary: false } : {}),
-                              });
-                            }}
-                          />
-                          <span>EPF</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={editHouseForm.isEtf}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setEditHouseForm({
-                                ...editHouseForm,
-                                isEtf: checked,
-                                ...(checked ? { isNonBeneficiary: false } : {}),
-                              });
-                            }}
-                          />
-                          <span>ETF</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={editHouseForm.isNonBeneficiary}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setEditHouseForm({
-                                ...editHouseForm,
-                                isNonBeneficiary: checked,
-                                ...(checked ? { isSamurdhi: false, isAswesuma: false, isEpf: false, isEtf: false } : {}),
-                              });
-                            }}
-                          />
-                          <span>Non-beneficiary</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input type="checkbox" checked={editHouseForm.hasSpecialNeeds} onChange={(e) => setEditHouseForm({ ...editHouseForm, hasSpecialNeeds: e.target.checked })} />
-                          <span>Special Needs</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="form-label">Household Languages</label>
-                      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '13px', marginTop: '4px' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input type="checkbox" checked={editHouseForm.langSinhala} onChange={(e) => setEditHouseForm({ ...editHouseForm, langSinhala: e.target.checked })} />
-                          <span>Sinhala</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input type="checkbox" checked={editHouseForm.langTamil} onChange={(e) => setEditHouseForm({ ...editHouseForm, langTamil: e.target.checked })} />
-                          <span>Tamil</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                          <input type="checkbox" checked={editHouseForm.langEnglish} onChange={(e) => setEditHouseForm({ ...editHouseForm, langEnglish: e.target.checked })} />
-                          <span>English</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="modal-footer">
-                    <button type="button" onClick={() => { setEditingHouse(null); setModalError(null); }} className="btn-secondary">
-                      Cancel
-                    </button>
-                    <button type="submit" disabled={actionLoading} className="btn-primary">
-                      {actionLoading ? <Loader2 size={16} className="animate-spin" /> : t('common.save_changes')}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {/* Delete Household Confirmation Modal */}
-          {deletingHouse && (
-            <div className="modal-backdrop" role="dialog" aria-modal="true">
-              <div className="modal-content" style={{ maxWidth: '440px' }}>
-                <div className="modal-header">
-                  <div>
-                    <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--danger-text)' }}>
-                      {t('houses.delete_house')}
-                    </h3>
-                    <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
-                      House #{deletingHouse.houseNo} — {deletingHouse.houseLeaderName}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => { setDeletingHouse(null); setModalError(null); }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-                <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {modalError && (
-                    <div
-                      style={{
-                        background: 'var(--danger-bg)',
-                        border: '1px solid var(--danger-border)',
-                        borderRadius: 'var(--radius-sm)',
-                        padding: '10px 12px',
-                        color: 'var(--danger-text)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        fontSize: '13px',
-                      }}
-                    >
-                      <AlertCircle size={16} style={{ flexShrink: 0 }} />
-                      <span>{modalError}</span>
-                    </div>
-                  )}
-                  <p style={{ fontSize: '13.5px', color: 'var(--slate-700)', margin: 0, lineHeight: 1.5 }}>
-                    Are you sure you want to delete household <strong>#{deletingHouse.houseNo}</strong>? Households with active client survey records attached cannot be deleted until those client records are removed or reassigned (Decision C6).
-                  </p>
-                  <div>
-                    <label className="form-label">Deletion Reason (Optional)</label>
+                    <label className="form-label">House Number *</label>
                     <input
                       type="text"
                       className="input-field"
-                      placeholder="e.g. Duplicate or entered in wrong GN"
-                      value={deleteHouseReason}
-                      onChange={(e) => setDeleteHouseReason(e.target.value)}
+                      placeholder="e.g. 102/B"
+                      value={newHouseNo}
+                      onChange={(e) => setNewHouseNo(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Head of Household *</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="e.g. K. Perera"
+                      value={newHeadName}
+                      onChange={(e) => setNewHeadName(e.target.value)}
+                      required
                     />
                   </div>
                 </div>
-                <div className="modal-footer">
-                  <button type="button" onClick={() => { setDeletingHouse(null); setModalError(null); }} className="btn-secondary">
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDeleteHousehold}
-                    disabled={actionLoading}
-                    className="btn-secondary"
-                    style={{
-                      background: 'var(--danger-bg)',
-                      borderColor: 'var(--danger-border)',
-                      color: 'var(--danger-text)',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {actionLoading ? <Loader2 size={16} className="animate-spin" /> : t('common.delete')}
-                  </button>
+
+                <div>
+                  <label className="form-label">Village / Street</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. Pallekele"
+                    value={newVillageName}
+                    onChange={(e) => setNewVillageName(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">Full Postal Address</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. No. 102/B, Temple Road"
+                    value={newAddress}
+                    onChange={(e) => setNewAddress(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">Social Welfare & Identifiers</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', fontSize: '13px', marginTop: '4px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={newIsSamurdhi}
+                        onChange={(e) => {
+                          setNewIsSamurdhi(e.target.checked);
+                          if (e.target.checked) setNewIsNonBeneficiary(false);
+                        }}
+                      />
+                      <span>Samurdhi</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={newIsAswesuma}
+                        onChange={(e) => {
+                          setNewIsAswesuma(e.target.checked);
+                          if (e.target.checked) setNewIsNonBeneficiary(false);
+                        }}
+                      />
+                      <span>Aswesuma</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={newIsEpf}
+                        onChange={(e) => {
+                          setNewIsEpf(e.target.checked);
+                          if (e.target.checked) setNewIsNonBeneficiary(false);
+                        }}
+                      />
+                      <span>EPF</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={newIsEtf}
+                        onChange={(e) => {
+                          setNewIsEtf(e.target.checked);
+                          if (e.target.checked) setNewIsNonBeneficiary(false);
+                        }}
+                      />
+                      <span>ETF</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={newIsNonBeneficiary}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setNewIsNonBeneficiary(checked);
+                          if (checked) {
+                            setNewIsSamurdhi(false);
+                            setNewIsAswesuma(false);
+                            setNewIsEpf(false);
+                            setNewIsEtf(false);
+                          }
+                        }}
+                      />
+                      <span>Non-beneficiary</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={newHasSpecialNeeds} onChange={(e) => setNewHasSpecialNeeds(e.target.checked)} />
+                      <span>Special Needs</span>
+                    </label>
+                  </div>
                 </div>
               </div>
+
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={actionLoading} className="btn-primary">
+                  {actionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Register House'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* GN Setup Modal */}
+      {showGnModal && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                {t('houses.gn_setup')}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowGnModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
             </div>
-          )}
-        </>
+            <form onSubmit={handleUpdateGnSetup}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label className="form-label">CDC / GN Secretary Full Name</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. W.M. Jayawardena"
+                    value={gnSecretaryName}
+                    onChange={(e) => setGnSecretaryName(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">Secretary Contact Phone</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. +94771234567"
+                    value={gnSecretaryContact}
+                    onChange={(e) => setGnSecretaryContact(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label">Secretary Email</label>
+                  <input
+                    type="email"
+                    className="input-field"
+                    placeholder="e.g. secretary.gn101@grs.gov.lk"
+                    value={gnSecretaryEmail}
+                    onChange={(e) => setGnSecretaryEmail(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowGnModal(false)} className="btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={actionLoading} className="btn-primary">
+                  {actionLoading ? <Loader2 size={16} className="animate-spin" /> : 'Save Setup'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Household Modal */}
+      {editingHouse && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '560px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+                  {t('houses.edit_house')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
+                  House #{editingHouse.houseNo} — {editingHouse.houseLeaderName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setEditingHouse(null); setModalError(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateHousehold}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {modalError && (
+                  <div
+                    style={{
+                      background: 'var(--danger-bg)',
+                      border: '1px solid var(--danger-border)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '10px 12px',
+                      color: 'var(--danger-text)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                    <span>{modalError}</span>
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label className="form-label">House Number *</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={editHouseForm.houseNo}
+                      onChange={(e) => setEditHouseForm({ ...editHouseForm, houseNo: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Head of Household *</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={editHouseForm.houseLeaderName}
+                      onChange={(e) => setEditHouseForm({ ...editHouseForm, houseLeaderName: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label className="form-label">Village / Street</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={editHouseForm.villageName}
+                      onChange={(e) => setEditHouseForm({ ...editHouseForm, villageName: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Full Postal Address</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={editHouseForm.address}
+                      onChange={(e) => setEditHouseForm({ ...editHouseForm, address: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label className="form-label">Target Female Count (only 18-35)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="99"
+                      className="input-field"
+                      value={editHouseForm.targetFemale}
+                      onChange={(e) => setEditHouseForm({ ...editHouseForm, targetFemale: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Target Male Count (only 18-35)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="99"
+                      className="input-field"
+                      value={editHouseForm.targetMale}
+                      onChange={(e) => setEditHouseForm({ ...editHouseForm, targetMale: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label">Social Welfare & Identifiers</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px', fontSize: '13px', marginTop: '4px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={editHouseForm.isSamurdhi}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setEditHouseForm({
+                            ...editHouseForm,
+                            isSamurdhi: checked,
+                            ...(checked ? { isNonBeneficiary: false } : {}),
+                          });
+                        }}
+                      />
+                      <span>Samurdhi</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={editHouseForm.isAswesuma}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setEditHouseForm({
+                            ...editHouseForm,
+                            isAswesuma: checked,
+                            ...(checked ? { isNonBeneficiary: false } : {}),
+                          });
+                        }}
+                      />
+                      <span>Aswesuma</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={editHouseForm.isEpf}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setEditHouseForm({
+                            ...editHouseForm,
+                            isEpf: checked,
+                            ...(checked ? { isNonBeneficiary: false } : {}),
+                          });
+                        }}
+                      />
+                      <span>EPF</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={editHouseForm.isEtf}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setEditHouseForm({
+                            ...editHouseForm,
+                            isEtf: checked,
+                            ...(checked ? { isNonBeneficiary: false } : {}),
+                          });
+                        }}
+                      />
+                      <span>ETF</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={editHouseForm.isNonBeneficiary}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setEditHouseForm({
+                            ...editHouseForm,
+                            isNonBeneficiary: checked,
+                            ...(checked ? { isSamurdhi: false, isAswesuma: false, isEpf: false, isEtf: false } : {}),
+                          });
+                        }}
+                      />
+                      <span>Non-beneficiary</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editHouseForm.hasSpecialNeeds} onChange={(e) => setEditHouseForm({ ...editHouseForm, hasSpecialNeeds: e.target.checked })} />
+                      <span>Special Needs</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label">Household Languages</label>
+                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '13px', marginTop: '4px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editHouseForm.langSinhala} onChange={(e) => setEditHouseForm({ ...editHouseForm, langSinhala: e.target.checked })} />
+                      <span>Sinhala</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editHouseForm.langTamil} onChange={(e) => setEditHouseForm({ ...editHouseForm, langTamil: e.target.checked })} />
+                      <span>Tamil</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editHouseForm.langEnglish} onChange={(e) => setEditHouseForm({ ...editHouseForm, langEnglish: e.target.checked })} />
+                      <span>English</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" onClick={() => { setEditingHouse(null); setModalError(null); }} className="btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" disabled={actionLoading} className="btn-primary">
+                  {actionLoading ? <Loader2 size={16} className="animate-spin" /> : t('common.save_changes')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Household Confirmation Modal */}
+      {deletingHouse && canDeleteHouse && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-content" style={{ maxWidth: '440px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--danger-text)' }}>
+                  {t('houses.delete_house')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0 0' }}>
+                  House #{deletingHouse.houseNo} — {deletingHouse.houseLeaderName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setDeletingHouse(null); setModalError(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {modalError && (
+                <div
+                  style={{
+                    background: 'var(--danger-bg)',
+                    border: '1px solid var(--danger-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '10px 12px',
+                    color: 'var(--danger-text)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '13px',
+                  }}
+                >
+                  <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                  <span>{modalError}</span>
+                </div>
+              )}
+              <p style={{ fontSize: '13.5px', color: 'var(--slate-700)', margin: 0, lineHeight: 1.5 }}>
+                Are you sure you want to delete household <strong>#{deletingHouse.houseNo}</strong>? Households with active client survey records attached cannot be deleted until those client records are removed or reassigned (Decision C6).
+              </p>
+              <div>
+                <label className="form-label">Deletion Reason (Optional)</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. Duplicate or entered in wrong GN"
+                  value={deleteHouseReason}
+                  onChange={(e) => setDeleteHouseReason(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" onClick={() => { setDeletingHouse(null); setModalError(null); }} className="btn-secondary">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteHousehold}
+                disabled={actionLoading}
+                className="btn-secondary"
+                style={{
+                  background: 'var(--danger-bg)',
+                  borderColor: 'var(--danger-border)',
+                  color: 'var(--danger-text)',
+                  fontWeight: 600,
+                }}
+              >
+                {actionLoading ? <Loader2 size={16} className="animate-spin" /> : t('common.delete')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </Shell>
   );

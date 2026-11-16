@@ -19,9 +19,32 @@ import {
   UserCheck,
   ShieldAlert,
   Trash2,
+  Home,
+  ClipboardCheck,
 } from 'lucide-react';
 
-export default function RecordsPanel() {
+export interface RecordsPanelProps {
+  districtId?: string;
+  dsId?: string;
+  gnId?: string;
+  householdFilter?: { id: string; houseNo: string; leaderName: string } | null;
+  onClearHouseholdFilter?: () => void;
+  hideAreaSelectors?: boolean;
+  showHeader?: boolean;
+  standalone?: boolean;
+  onRecordCountChange?: (count: number) => void;
+}
+
+export default function RecordsPanel({
+  districtId: propDistrictId,
+  dsId: propDsId,
+  gnId: propGnId,
+  householdFilter,
+  onClearHouseholdFilter,
+  hideAreaSelectors = false,
+  showHeader = true,
+  onRecordCountChange,
+}: RecordsPanelProps = {}) {
   const { t, language } = useLanguage();
   const { user, isLoading: authLoading } = useAuth();
 
@@ -98,6 +121,7 @@ export default function RecordsPanel() {
   }, []);
 
   useEffect(() => {
+    if (hideAreaSelectors) return;
     if (authLoading || !user) return;
     let cancelled = false;
     setScopeReady(false);
@@ -124,7 +148,7 @@ export default function RecordsPanel() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, user?.id, user?.role, user?.districtId, user?.dsId, user?.gnId]);
+  }, [hideAreaSelectors, authLoading, user?.id, user?.role, user?.districtId, user?.dsId, user?.gnId]);
 
   async function handleDistrictChange(distId: string) {
     if (areaLocks.isDistrictLocked) return;
@@ -159,23 +183,48 @@ export default function RecordsPanel() {
   }
 
   useEffect(() => {
-    if (authLoading || !user || !scopeReady) return;
+    if (authLoading || !user) return;
+    if (!hideAreaSelectors && !scopeReady) return;
     setCursorHistory([]);
     loadRecords();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user?.id, user?.role, scopeReady, search, filterBeneficiary, filterGender, filterLanguage, selectedDistrict, selectedDs, selectedGn]);
+  }, [
+    authLoading,
+    user?.id,
+    user?.role,
+    scopeReady,
+    search,
+    filterBeneficiary,
+    filterGender,
+    filterLanguage,
+    hideAreaSelectors,
+    propDistrictId,
+    propDsId,
+    propGnId,
+    householdFilter?.id,
+    selectedDistrict,
+    selectedDs,
+    selectedGn,
+  ]);
 
   async function loadRecords(cursor?: string) {
-    if (authLoading || !user || !scopeReady) return;
+    if (authLoading || !user) return;
+    if (!hideAreaSelectors && !scopeReady) return;
+    const effectiveDistrict = hideAreaSelectors ? propDistrictId : selectedDistrict;
+    const effectiveDs = hideAreaSelectors ? propDsId : selectedDs;
+    const effectiveGn = hideAreaSelectors ? propGnId : selectedGn;
+    const effectiveHouseholdId = householdFilter?.id;
+
     const seq = ++fetchSeqRef.current;
     setLoading(true);
     setError(null);
     try {
       const res = await api.getClients({
         search: search.trim() || undefined,
-        districtId: !areaLocks.isDsLocked ? (selectedDistrict || undefined) : undefined,
-        dsId: !areaLocks.isGnLocked ? (selectedDs || undefined) : undefined,
-        gnId: selectedGn || undefined,
+        districtId: !areaLocks.isDsLocked ? (effectiveDistrict || undefined) : undefined,
+        dsId: !areaLocks.isGnLocked ? (effectiveDs || undefined) : undefined,
+        gnId: effectiveGn || undefined,
+        householdId: effectiveHouseholdId || undefined,
         gender: filterGender !== 'all' ? filterGender : undefined,
         beneficiary: filterBeneficiary !== 'all' ? filterBeneficiary : undefined,
         language: filterLanguage !== 'all' ? filterLanguage : undefined,
@@ -187,11 +236,9 @@ export default function RecordsPanel() {
 
       const items = res.clients || (Array.isArray(res) ? res : []);
       setRecords(items);
-      if (res.totalCount !== undefined) {
-        setTotalCount(res.totalCount);
-      } else if (!cursor) {
-        setTotalCount(items.length);
-      }
+      const total = res.totalCount !== undefined ? res.totalCount : (!cursor ? items.length : totalCount);
+      setTotalCount(total);
+      onRecordCountChange?.(total);
       setNextCursor(res.nextCursor || null);
     } catch (err: any) {
       if (seq === fetchSeqRef.current) {
@@ -297,7 +344,7 @@ export default function RecordsPanel() {
   }
 
   async function handleDeleteRecord() {
-    if (!deletingRecord) return;
+    if (!deletingRecord || !canDeleteRecords) return;
     setDeleting(true);
     setDeleteError(null);
     setSuccessBanner(null);
@@ -315,41 +362,125 @@ export default function RecordsPanel() {
   }
 
   const canEditRecords = ['super_admin', 'sda', 'cdc_secretary'].includes(user?.role || '');
+  const canDeleteRecords = ['super_admin', 'sda'].includes(user?.role || '');
 
   return (
     <>
       {/* Title & Info Bar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '1.5rem',
-          flexWrap: 'wrap',
-          gap: '1rem',
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontSize: '22px',
-              fontWeight: 700,
-              color: 'var(--slate-900)',
-              letterSpacing: '-0.02em',
-              margin: 0,
-            }}
-          >
-            {t('records.title')}
-          </h1>
-          <p style={{ fontSize: '13px', color: 'var(--slate-500)', marginTop: '4px' }}>
-            Inspect enumerator survey submissions and execute supervisor audit corrections with mandatory reason logging.
-          </p>
-        </div>
+      {showHeader ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '1.5rem',
+            flexWrap: 'wrap',
+            gap: '1rem',
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                fontSize: '22px',
+                fontWeight: 700,
+                color: 'var(--slate-900)',
+                letterSpacing: '-0.02em',
+                margin: 0,
+              }}
+            >
+              {t('records.title')}
+            </h1>
+            <p style={{ fontSize: '13px', color: 'var(--slate-500)', marginTop: '4px' }}>
+              Inspect enumerator survey submissions and execute supervisor audit corrections with mandatory reason logging.
+            </p>
+          </div>
 
-        <div className="badge badge-neutral" style={{ fontSize: '13px', padding: '6px 12px' }}>
-          Total Registered: <strong style={{ color: 'var(--primary)', marginLeft: '4px' }}>{totalCount.toLocaleString()}</strong>
+          <div className="badge badge-neutral" style={{ fontSize: '13px', padding: '6px 12px' }}>
+            Total Registered: <strong style={{ color: 'var(--primary)', marginLeft: '4px' }}>{totalCount.toLocaleString()}</strong>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '1rem',
+            flexWrap: 'wrap',
+            gap: '10px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ClipboardCheck size={20} style={{ color: 'var(--primary)' }} />
+            <h2
+              style={{
+                fontSize: '17px',
+                fontWeight: 700,
+                color: 'var(--slate-900)',
+                letterSpacing: '-0.02em',
+                margin: 0,
+              }}
+            >
+              {t('records.title')}
+            </h2>
+            {householdFilter && (
+              <span className="badge badge-info" style={{ fontSize: '11px' }}>
+                House #{householdFilter.houseNo}
+              </span>
+            )}
+          </div>
+
+          <div className="badge badge-neutral" style={{ fontSize: '12px', padding: '5px 10px' }}>
+            {totalCount.toLocaleString()} {totalCount === 1 ? 'record' : 'records'}
+          </div>
+        </div>
+      )}
+
+      {/* Household Filter Focus Banner */}
+      {householdFilter && (
+        <div
+          style={{
+            background: 'rgba(37, 99, 235, 0.08)',
+            border: '1px solid rgba(37, 99, 235, 0.25)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '10px 14px',
+            marginBottom: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            fontSize: '13px',
+            color: 'var(--primary)',
+            fontWeight: 500,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Home size={16} />
+            <span>
+              {t('records.filtered_by_house')}: <strong>#{householdFilter.houseNo}</strong> ({householdFilter.leaderName})
+            </span>
+          </div>
+          {onClearHouseholdFilter && (
+            <button
+              type="button"
+              onClick={onClearHouseholdFilter}
+              className="btn-secondary"
+              style={{
+                padding: '4px 10px',
+                fontSize: '11.5px',
+                height: 'auto',
+                background: '#ffffff',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <X size={12} />
+              <span>{t('records.all_in_gn')}</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Success Notification */}
       {successBanner && (
@@ -440,58 +571,60 @@ export default function RecordsPanel() {
           </div>
         </div>
 
-        {/* Geographic Cascade Dropdowns */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '10px',
-            paddingTop: '0.75rem',
-            borderTop: '1px solid var(--slate-100)',
-          }}
-        >
-          <select
-            className="select-field"
-            value={selectedDistrict}
-            onChange={(e) => handleDistrictChange(e.target.value)}
-            disabled={areaLocks.isDistrictLocked}
+        {/* Geographic Cascade Dropdowns (hidden when embedded in Houses page) */}
+        {!hideAreaSelectors && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '10px',
+              paddingTop: '0.75rem',
+              borderTop: '1px solid var(--slate-100)',
+            }}
           >
-            <option value="">{areaLocks.isDistrictLocked ? 'Assigned District' : 'All Districts'}</option>
-            {districts.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.nameEn || d.name}
-              </option>
-            ))}
-          </select>
+            <select
+              className="select-field"
+              value={selectedDistrict}
+              onChange={(e) => handleDistrictChange(e.target.value)}
+              disabled={areaLocks.isDistrictLocked}
+            >
+              <option value="">{areaLocks.isDistrictLocked ? 'Assigned District' : 'All Districts'}</option>
+              {districts.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.nameEn || d.name}
+                </option>
+              ))}
+            </select>
 
-          <select
-            className="select-field"
-            value={selectedDs}
-            onChange={(e) => handleDsChange(e.target.value)}
-            disabled={!selectedDistrict || dsDivisions.length === 0 || areaLocks.isDsLocked}
-          >
-            <option value="">{areaLocks.isDsLocked ? 'Assigned DS Division' : 'All DS Divisions'}</option>
-            {dsDivisions.map((ds) => (
-              <option key={ds.id} value={ds.id}>
-                {ds.nameEn || ds.name}
-              </option>
-            ))}
-          </select>
+            <select
+              className="select-field"
+              value={selectedDs}
+              onChange={(e) => handleDsChange(e.target.value)}
+              disabled={!selectedDistrict || dsDivisions.length === 0 || areaLocks.isDsLocked}
+            >
+              <option value="">{areaLocks.isDsLocked ? 'Assigned DS Division' : 'All DS Divisions'}</option>
+              {dsDivisions.map((ds) => (
+                <option key={ds.id} value={ds.id}>
+                  {ds.nameEn || ds.name}
+                </option>
+              ))}
+            </select>
 
-          <select
-            className="select-field"
-            value={selectedGn}
-            onChange={(e) => setSelectedGn(e.target.value)}
-            disabled={!selectedDs || gnDivisions.length === 0 || areaLocks.isGnLocked}
-          >
-            <option value="">{areaLocks.isGnLocked ? 'Assigned GN Division' : 'All GN Divisions'}</option>
-            {gnDivisions.map((gn) => (
-              <option key={gn.id} value={gn.id}>
-                {gn.gnNumber || gn.gnCode} — {gn.gnName || gn.nameEn || gn.name}
-              </option>
-            ))}
-          </select>
-        </div>
+            <select
+              className="select-field"
+              value={selectedGn}
+              onChange={(e) => setSelectedGn(e.target.value)}
+              disabled={!selectedDs || gnDivisions.length === 0 || areaLocks.isGnLocked}
+            >
+              <option value="">{areaLocks.isGnLocked ? 'Assigned GN Division' : 'All GN Divisions'}</option>
+              {gnDivisions.map((gn) => (
+                <option key={gn.id} value={gn.id}>
+                  {gn.gnNumber || gn.gnCode} — {gn.gnName || gn.nameEn || gn.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Survey Records Table */}
@@ -582,37 +715,37 @@ export default function RecordsPanel() {
                           <Eye size={13} />
                         </button>
                         {canEditRecords && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => openEditModal(r)}
-                              className="btn-secondary"
-                              style={{ padding: '5px 8px', fontSize: '11px', color: 'var(--warning-text)' }}
-                              title={t('records.edit_record')}
-                              aria-label={t('records.edit_record')}
-                            >
-                              <Edit3 size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setDeleteError(null);
-                                setDeleteReason('');
-                                setDeletingRecord(r);
-                              }}
-                              className="btn-secondary"
-                              style={{
-                                padding: '5px 8px',
-                                fontSize: '11px',
-                                color: 'var(--danger-text)',
-                                borderColor: 'var(--danger-border)',
-                              }}
-                              title={t('records.delete_record')}
-                              aria-label={t('records.delete_record')}
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </>
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(r)}
+                            className="btn-secondary"
+                            style={{ padding: '5px 8px', fontSize: '11px', color: 'var(--warning-text)' }}
+                            title={t('records.edit_record')}
+                            aria-label={t('records.edit_record')}
+                          >
+                            <Edit3 size={13} />
+                          </button>
+                        )}
+                        {canDeleteRecords && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeleteError(null);
+                              setDeleteReason('');
+                              setDeletingRecord(r);
+                            }}
+                            className="btn-secondary"
+                            style={{
+                              padding: '5px 8px',
+                              fontSize: '11px',
+                              color: 'var(--danger-text)',
+                              borderColor: 'var(--danger-border)',
+                            }}
+                            title={t('records.delete_record')}
+                            aria-label={t('records.delete_record')}
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         )}
                       </div>
                     </td>
@@ -1236,7 +1369,7 @@ export default function RecordsPanel() {
       )}
 
       {/* Delete Record Confirmation Modal */}
-      {deletingRecord && (
+      {deletingRecord && canDeleteRecords && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <div className="modal-content" style={{ maxWidth: '460px' }}>
             <div className="modal-header">

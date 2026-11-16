@@ -39,9 +39,13 @@ class ProfileAssignmentModel {
       ProfileAssignmentModel(
         gnId: json['gnId'] as String? ?? json['gn_id'] as String? ?? '',
         gnName: json['gnName'] as String? ?? json['gn_name'] as String?,
-        gnCode: json['gnCode'] as String? ?? json['gn_code'] as String?,
+        gnCode:
+            json['gnCode'] as String? ??
+            json['gn_code'] as String? ??
+            json['gnNumber'] as String? ??
+            json['gn_number'] as String?,
         teamId: json['teamId'] as String? ?? json['team_id'] as String?,
-        teamNo: json['teamNo'] as String? ?? json['team_no'] as String?,
+        teamNo: json['teamNo']?.toString() ?? json['team_no']?.toString(),
         validFrom:
             json['validFrom'] as String? ?? json['valid_from'] as String?,
       );
@@ -72,6 +76,10 @@ class ProfileModel {
   final bool isActive;
   final bool mustChangePassword;
   final List<ProfileAssignmentModel>? assignments;
+  final String? gnName;
+  final String? gnCode;
+  final String? dsName;
+  final String? districtName;
 
   const ProfileModel({
     required this.id,
@@ -89,39 +97,121 @@ class ProfileModel {
     required this.isActive,
     required this.mustChangePassword,
     this.assignments,
+    this.gnName,
+    this.gnCode,
+    this.dsName,
+    this.districtName,
   });
 
-  factory ProfileModel.fromJson(Map<String, dynamic> json) => ProfileModel(
-    id: json['id'] as String,
-    userCode: json['userCode'] as String? ?? json['user_code'] as String? ?? '',
-    email: json['email'] as String?,
-    pendingEmail:
-        json['pendingEmail'] as String? ?? json['pending_email'] as String?,
-    role: json['role'] as String,
-    fullName: json['fullName'] as String? ?? json['full_name'] as String? ?? '',
-    phoneE164: json['phoneE164'] as String? ?? json['phone_e164'] as String?,
-    preferredLanguage:
-        json['preferredLanguage'] as String? ??
-        json['preferred_language'] as String? ??
-        'en',
-    districtId: json['districtId'] as String? ?? json['district_id'] as String?,
-    dsId: json['dsId'] as String? ?? json['ds_id'] as String?,
-    gnId: json['gnId'] as String? ?? json['gn_id'] as String?,
-    teamId: json['teamId'] as String? ?? json['team_id'] as String?,
-    isActive: json['isActive'] as bool? ?? json['is_active'] as bool? ?? true,
-    mustChangePassword:
-        json['mustChangePassword'] as bool? ??
-        json['must_change_password'] as bool? ??
-        false,
-    assignments: json['assignments'] != null
+  factory ProfileModel.fromJson(Map<String, dynamic> json) {
+    final parsedAssignments = json['assignments'] != null
         ? (json['assignments'] as List<dynamic>)
               .map(
                 (e) =>
                     ProfileAssignmentModel.fromJson(e as Map<String, dynamic>),
               )
               .toList()
-        : null,
-  );
+        : null;
+
+    final gnIdVal = json['gnId'] as String? ?? json['gn_id'] as String?;
+    final activeAssignment =
+        parsedAssignments != null && parsedAssignments.isNotEmpty
+        ? (parsedAssignments.where((a) => a.gnId == gnIdVal).firstOrNull ??
+              parsedAssignments.first)
+        : null;
+
+    final gnNameVal =
+        json['gnName'] as String? ??
+        json['gn_name'] as String? ??
+        activeAssignment?.gnName;
+
+    final gnCodeVal =
+        json['gnCode'] as String? ??
+        json['gn_code'] as String? ??
+        json['gnNumber'] as String? ??
+        json['gn_number'] as String? ??
+        activeAssignment?.gnCode;
+
+    final dsNameVal = json['dsName'] as String? ?? json['ds_name'] as String?;
+    final districtNameVal =
+        json['districtName'] as String? ?? json['district_name'] as String?;
+
+    return ProfileModel(
+      id: json['id'] as String,
+      userCode:
+          json['userCode'] as String? ?? json['user_code'] as String? ?? '',
+      email: json['email'] as String?,
+      pendingEmail:
+          json['pendingEmail'] as String? ?? json['pending_email'] as String?,
+      role: json['role'] as String,
+      fullName:
+          json['fullName'] as String? ?? json['full_name'] as String? ?? '',
+      phoneE164: json['phoneE164'] as String? ?? json['phone_e164'] as String?,
+      preferredLanguage:
+          json['preferredLanguage'] as String? ??
+          json['preferred_language'] as String? ??
+          'en',
+      districtId:
+          json['districtId'] as String? ?? json['district_id'] as String?,
+      dsId: json['dsId'] as String? ?? json['ds_id'] as String?,
+      gnId: gnIdVal,
+      teamId: json['teamId'] as String? ?? json['team_id'] as String?,
+      isActive: json['isActive'] as bool? ?? json['is_active'] as bool? ?? true,
+      mustChangePassword:
+          json['mustChangePassword'] as bool? ??
+          json['must_change_password'] as bool? ??
+          false,
+      assignments: parsedAssignments,
+      gnName: gnNameVal,
+      gnCode: gnCodeVal,
+      dsName: dsNameVal,
+      districtName: districtNameVal,
+    );
+  }
+
+  ProfileModel copyWith({
+    String? id,
+    String? userCode,
+    String? email,
+    String? pendingEmail,
+    String? role,
+    String? fullName,
+    String? phoneE164,
+    String? preferredLanguage,
+    String? districtId,
+    String? dsId,
+    String? gnId,
+    String? teamId,
+    bool? isActive,
+    bool? mustChangePassword,
+    List<ProfileAssignmentModel>? assignments,
+    String? gnName,
+    String? gnCode,
+    String? dsName,
+    String? districtName,
+  }) {
+    return ProfileModel(
+      id: id ?? this.id,
+      userCode: userCode ?? this.userCode,
+      email: email ?? this.email,
+      pendingEmail: pendingEmail ?? this.pendingEmail,
+      role: role ?? this.role,
+      fullName: fullName ?? this.fullName,
+      phoneE164: phoneE164 ?? this.phoneE164,
+      preferredLanguage: preferredLanguage ?? this.preferredLanguage,
+      districtId: districtId ?? this.districtId,
+      dsId: dsId ?? this.dsId,
+      gnId: gnId ?? this.gnId,
+      teamId: teamId ?? this.teamId,
+      isActive: isActive ?? this.isActive,
+      mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+      assignments: assignments ?? this.assignments,
+      gnName: gnName ?? this.gnName,
+      gnCode: gnCode ?? this.gnCode,
+      dsName: dsName ?? this.dsName,
+      districtName: districtName ?? this.districtName,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -139,6 +229,10 @@ class ProfileModel {
     'isActive': isActive,
     'mustChangePassword': mustChangePassword,
     'assignments': assignments?.map((e) => e.toJson()).toList(),
+    if (gnName != null) 'gnName': gnName,
+    if (gnCode != null) 'gnCode': gnCode,
+    if (dsName != null) 'dsName': dsName,
+    if (districtName != null) 'districtName': districtName,
   };
 }
 

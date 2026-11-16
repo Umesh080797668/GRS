@@ -83,7 +83,7 @@ export class HouseholdController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.sda, UserRole.cdc_secretary, UserRole.super_admin)
+  @Roles(UserRole.sda, UserRole.super_admin)
   async deleteHousehold(
     @CurrentUser() user: ScopeContext,
     @Param('id', ParseUUIDPipe) id: string,

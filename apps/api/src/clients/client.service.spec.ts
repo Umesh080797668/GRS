@@ -588,12 +588,13 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       expect(errors.length).toBe(0);
     });
 
-    it('deleteClient: soft-deletes in scope, logs client_audit, dismisses open duplicates, and blocks L5/cross-team', async () => {
+    it('deleteClient: soft-deletes in scope, logs client_audit, dismisses open duplicates, and blocks L5/L4', async () => {
       mockClients.push(
         {
           id: 'client-del-1',
           householdId: mockHouseholdId,
           teamId: mockTeamId,
+          dsId: 'ds-1',
           collectedBy: 'user-member-1',
           name: 'Delete Target',
           deletedAt: null,
@@ -603,6 +604,7 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
           id: 'client-del-other',
           householdId: 'house-002',
           teamId: mockOtherTeamId,
+          dsId: 'ds-2',
           collectedBy: 'user-other',
           name: 'Other Team Target',
           deletedAt: null,
@@ -617,13 +619,19 @@ describe('ClientService (M4.4 Team Records & Decision C2/C13 Corrections)', () =
       ).rejects.toThrow(ForbiddenException);
 
       await expect(
+        service.deleteClient(cdcSecretaryScope, 'client-del-1', {
+          reason: 'CDC Secretary delete attempt',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
         service.deleteClient(cdcSecretaryScope, 'client-del-other', {
           reason: 'Cross team attempt',
         }),
       ).rejects.toThrow(ForbiddenException);
 
       const res = await service.deleteClient(
-        cdcSecretaryScope,
+        sdaScope,
         'client-del-1',
         {
           reason: 'Duplicate manual cleanup',

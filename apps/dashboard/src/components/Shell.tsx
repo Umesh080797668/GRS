@@ -177,9 +177,8 @@ export function Shell({ children, activePath }: ShellProps) {
       key: 'nav.records',
       href: '/records',
       icon: <ClipboardCheck size={18} />,
-      // Everyone else reaches Records & Corrections as a tab inside Houses & GN Setup.
-      // CG has no Houses page, so it keeps this direct link.
-      roles: ['cg'],
+      // CG uses standalone /records. Other roles are routed to /houses#records on the unified single page.
+      roles: ['super_admin', 'admin', 'cg', 'dc', 'sda', 'cdc_secretary'],
     },
     {
       key: 'nav.duplicates',

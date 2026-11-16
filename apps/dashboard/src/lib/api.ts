@@ -960,6 +960,7 @@ export class ApiClient {
     districtId?: string;
     dsId?: string;
     gnId?: string;
+    householdId?: string;
     gender?: string;
     beneficiary?: string;
     language?: string;
@@ -973,6 +974,7 @@ export class ApiClient {
     if (params.districtId) p.append('districtId', params.districtId);
     if (params.dsId) p.append('dsId', params.dsId);
     if (params.gnId) p.append('gnId', params.gnId);
+    if (params.householdId) p.append('householdId', params.householdId);
     if (params.gender && params.gender !== 'all') p.append('gender', params.gender);
     if (params.beneficiary && params.beneficiary !== 'all') p.append('beneficiary', params.beneficiary);
     if (params.language && params.language !== 'all') p.append('language', params.language);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:grs_core/grs_core.dart';
 import 'package:grs_ui/grs_ui.dart';
 import '../../l10n/l10n.dart';
 import '../../providers/area_download_provider.dart';
@@ -577,11 +578,34 @@ class _HeroPanel extends StatelessWidget {
   final Animation<double> heroPulse;
   final bool isOnline;
   final int pendingCount;
-  final dynamic profile;
+  final ProfileModel? profile;
   final VoidCallback onStartAssessment;
 
   @override
   Widget build(BuildContext context) {
+    final resolvedGnName =
+        profile?.gnName ??
+        (profile?.assignments != null && profile!.assignments!.isNotEmpty
+            ? (profile!.assignments!
+                          .where((a) => a.gnId == profile!.gnId)
+                          .firstOrNull ??
+                      profile!.assignments!.first)
+                  .gnName
+            : null);
+
+    final resolvedGnCode =
+        profile?.gnCode ??
+        (profile?.assignments != null && profile!.assignments!.isNotEmpty
+            ? (profile!.assignments!
+                          .where((a) => a.gnId == profile!.gnId)
+                          .firstOrNull ??
+                      profile!.assignments!.first)
+                  .gnCode
+            : null);
+
+    final resolvedDsName = profile?.dsName;
+    final resolvedDistrictName = profile?.districtName;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       decoration: BoxDecoration(
@@ -678,8 +702,8 @@ class _HeroPanel extends StatelessWidget {
 
           // Main heading & assigned area info
           Text(
-            profile?.gnName != null && (profile!.gnName as String).isNotEmpty
-                ? profile!.gnName as String
+            resolvedGnName != null && resolvedGnName.isNotEmpty
+                ? resolvedGnName
                 : (l10n.get('doorToDoorCampaign').isNotEmpty
                       ? l10n.get('doorToDoorCampaign')
                       : 'Ready for Intake'),
@@ -687,14 +711,20 @@ class _HeroPanel extends StatelessWidget {
               color: Colors.white,
             ).copyWith(fontSize: 22),
           ),
-          if (profile?.gnCode != null || profile?.dsName != null) ...[
+          if ((resolvedGnCode != null && resolvedGnCode.isNotEmpty) ||
+              (resolvedDsName != null && resolvedDsName.isNotEmpty) ||
+              (resolvedDistrictName != null &&
+                  resolvedDistrictName.isNotEmpty)) ...[
             const SizedBox(height: 4),
             Text(
               [
-                if (profile?.gnCode != null) 'GN ${profile!.gnCode}',
-                if (profile?.dsName != null) profile!.dsName as String,
-                if (profile?.districtName != null)
-                  profile!.districtName as String,
+                if (resolvedGnCode != null && resolvedGnCode.isNotEmpty)
+                  'GN $resolvedGnCode',
+                if (resolvedDsName != null && resolvedDsName.isNotEmpty)
+                  resolvedDsName,
+                if (resolvedDistrictName != null &&
+                    resolvedDistrictName.isNotEmpty)
+                  resolvedDistrictName,
               ].join(' • '),
               style: GrsTypography.bodyMedium(
                 color: Colors.white.withValues(alpha: 0.85),

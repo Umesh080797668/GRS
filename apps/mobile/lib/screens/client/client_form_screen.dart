@@ -329,7 +329,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   }
 
   Future<void> _handleDeleteDraft() async {
-    if (widget.clientId == null) return;
+    if (widget.clientId == null || _isPreviouslySynced) return;
     final db = await ref.read(databaseProvider.future);
     await db.deleteDraftClient(widget.clientId!);
     ref.read(recordsRevisionProvider.notifier).increment();
@@ -958,27 +958,30 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                           },
                         ),
                       ),
-                      const SizedBox(height: GrsSpacing.xs),
-
-                      GrsFadeSlideItem(
-                        index: 19,
-                        child: GrsButton(
-                          label: l10n.get('saveDraftButton'),
-                          icon: Icons.save_outlined,
-                          variant: GrsButtonVariant.outline,
-                          isFullWidth: true,
-                          onPressed: () async {
-                            final ok = await _saveRecord(
-                              status: SyncStatus.draft,
-                            );
-                            if (ok && context.mounted) {
-                              Navigator.of(context).maybePop();
-                            }
-                          },
+                      if (!_isPreviouslySynced) ...[
+                        const SizedBox(height: GrsSpacing.xs),
+                        GrsFadeSlideItem(
+                          index: 19,
+                          child: GrsButton(
+                            label: l10n.get('saveDraftButton'),
+                            icon: Icons.save_outlined,
+                            variant: GrsButtonVariant.outline,
+                            isFullWidth: true,
+                            onPressed: () async {
+                              final ok = await _saveRecord(
+                                status: SyncStatus.draft,
+                              );
+                              if (ok && context.mounted) {
+                                Navigator.of(context).maybePop();
+                              }
+                            },
+                          ),
                         ),
-                      ),
+                      ],
 
-                      if (_isDraft && widget.clientId != null) ...[
+                      if (_isDraft &&
+                          !_isPreviouslySynced &&
+                          widget.clientId != null) ...[
                         const SizedBox(height: GrsSpacing.xs),
                         GrsFadeSlideItem(
                           index: 20,

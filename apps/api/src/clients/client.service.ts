@@ -969,18 +969,10 @@ export class ClientService {
     }
 
     if (caller.role === UserRole.cdc_secretary) {
-      if (caller.gnId && client.gnId !== caller.gnId) {
-        throw new ForbiddenException({
-          code: 'OUT_OF_SCOPE_GN',
-          message: 'CDC Secretary can only delete records from their own GN division',
-        });
-      }
-      if (!caller.gnId && caller.teamId && client.teamId !== caller.teamId) {
-        throw new ForbiddenException({
-          code: 'OUT_OF_SCOPE_TEAM',
-          message: 'CDC Secretary can only delete records from their own team',
-        });
-      }
+      throw new ForbiddenException({
+        code: 'LOCKED_RECORD',
+        message: 'CDC Secretary cannot delete records after sync to server.',
+      });
     }
 
     if (

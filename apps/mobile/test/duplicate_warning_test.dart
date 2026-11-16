@@ -134,6 +134,10 @@ void main() {
           find.byKey(const Key('client_form_name_field')),
           'Bandara Kavinda',
         );
+        await tester.enterText(
+          find.byKey(const Key('client_form_age_field')),
+          '25',
+        );
         await tester.pumpAndSettle();
 
         expect(

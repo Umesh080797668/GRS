@@ -329,6 +329,18 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
+    it('blocks CDC Secretary from deleting households after sync to server', async () => {
+      const house = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: '101-SEC',
+        houseLeaderName: 'Leader Test',
+      });
+
+      await expect(
+        service.deleteHousehold(cdcSecretaryScope, house.id),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
     it('Decision C6: blocks soft delete if clients exist on the household', async () => {
       const house = await service.createHousehold(cdcSecretaryScope, {
         gnId: mockGnId,
@@ -340,11 +352,11 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       mockClients.push({ id: 'client-1', householdId: house.id });
 
       await expect(
-        service.deleteHousehold(cdcSecretaryScope, house.id),
+        service.deleteHousehold(sdaScope, house.id),
       ).rejects.toThrow(ConflictException);
 
       // Verify house was NOT deleted
-      const check = await service.getHouseholdById(cdcSecretaryScope, house.id);
+      const check = await service.getHouseholdById(sdaScope, house.id);
       expect(check.deletedAt).toBeNull();
     });
 
@@ -355,7 +367,7 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
         houseLeaderName: 'Leader Empty',
       });
 
-      const res = await service.deleteHousehold(cdcSecretaryScope, house.id, {
+      const res = await service.deleteHousehold(sdaScope, house.id, {
         reason: 'Demolished',
       });
 
@@ -379,7 +391,7 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
         deletedAt: new Date(),
       });
 
-      const res = await service.deleteHousehold(cdcSecretaryScope, house.id, {
+      const res = await service.deleteHousehold(sdaScope, house.id, {
         reason: 'Demolished with soft deleted clients',
       });
 

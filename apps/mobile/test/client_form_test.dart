@@ -98,8 +98,12 @@ void main() {
         expect(find.text('Leader Test'), findsOneWidget);
 
         // 10.1 Name
-        final nameField = find.byType(TextFormField).first;
+        final nameField = find.byKey(const Key('client_form_name_field'));
         await tester.enterText(nameField, 'Saman Kumara');
+
+        // 10.2 Age
+        final ageField = find.byKey(const Key('client_form_age_field'));
+        await tester.enterText(ageField, '25');
 
         // Gender toggle (Female / Male)
         expect(find.text('Female'), findsOneWidget);
@@ -109,17 +113,17 @@ void main() {
         expect(find.text('101 Temple Road'), findsOneWidget);
 
         // 10.4 & 10.5 Phone & WhatsApp
-        final phoneField = find.byType(TextFormField).at(2);
+        final phoneField = find.byKey(const Key('client_form_phone_field'));
         await tester.enterText(phoneField, '0771234567');
 
         // 10.10 Welfare checkboxes (EPF, ETF, Aswesuma, Samurdhi)
-        expect(find.text('EPF Member'), findsOneWidget);
-        expect(find.text('ETF Member'), findsOneWidget);
-        expect(find.text('Aswesuma Beneficiary'), findsOneWidget);
-        expect(find.text('Samurdhi Beneficiary'), findsOneWidget);
+        expect(find.textContaining('EPF Member'), findsOneWidget);
+        expect(find.textContaining('ETF Member'), findsOneWidget);
+        expect(find.textContaining('Aswesuma Beneficiary'), findsOneWidget);
+        expect(find.textContaining('Samurdhi Beneficiary'), findsOneWidget);
 
         // 10.11 Special needs
-        expect(find.text('Special Needs Present'), findsOneWidget);
+        expect(find.textContaining('Special Needs Present'), findsOneWidget);
 
         // 10.12 Future hopes chips
         expect(find.text('Higher Education'), findsOneWidget);
@@ -127,7 +131,7 @@ void main() {
         expect(find.text('Entrepreneurship / Self-employment'), findsOneWidget);
 
         // 10.13 Info provided by
-        expect(find.text('Information Provided By'), findsOneWidget);
+        expect(find.textContaining('Information Provided By'), findsOneWidget);
 
         // Save and Finish House
         final saveFinishBtn = find.widgetWithText(

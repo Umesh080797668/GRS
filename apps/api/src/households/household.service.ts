@@ -537,6 +537,13 @@ export class HouseholdService {
     id: string,
     dto?: DeleteHouseholdDto,
   ): Promise<{ success: boolean; id: string }> {
+    if (caller.role === UserRole.cdc_secretary) {
+      throw new ForbiddenException({
+        code: 'LOCKED_HOUSEHOLD',
+        message: 'CDC Secretary cannot delete households after sync to server.',
+      });
+    }
+
     const household = await this.getHouseholdById(caller, id);
 
     return this.prisma.$transaction(

@@ -404,19 +404,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       await _apiClient.verifyEmail(email, code);
       if (state.profile != null) {
-        final updated = ProfileModel(
-          id: state.profile!.id,
-          userCode: state.profile!.userCode,
+        final updated = state.profile!.copyWith(
           email: email.trim().toLowerCase(),
-          role: state.profile!.role,
-          fullName: state.profile!.fullName,
-          phoneE164: state.profile!.phoneE164,
-          preferredLanguage: state.profile!.preferredLanguage,
-          districtId: state.profile!.districtId,
-          dsId: state.profile!.dsId,
-          gnId: state.profile!.gnId,
-          teamId: state.profile!.teamId,
-          isActive: state.profile!.isActive,
           mustChangePassword: false,
         );
         await _storage.saveActiveProfile(updated);
