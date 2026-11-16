@@ -539,7 +539,7 @@ export default function RecordsPanel({
               value={filterBeneficiary}
               onChange={(e) => setFilterBeneficiary(e.target.value)}
             >
-              <option value="all">All Beneficiaries</option>
+              <option value="all">{t('records.all_beneficiaries')}</option>
               <option value="aswesuma">Aswesuma</option>
               <option value="samurdhi">Samurdhi</option>
               <option value="epf">EPF/ETF</option>
@@ -552,7 +552,7 @@ export default function RecordsPanel({
               value={filterGender}
               onChange={(e) => setFilterGender(e.target.value)}
             >
-              <option value="all">All Genders</option>
+              <option value="all">{t('records.all_genders')}</option>
               <option value="M">Male</option>
               <option value="F">Female</option>
             </select>
@@ -563,7 +563,7 @@ export default function RecordsPanel({
               value={filterLanguage}
               onChange={(e) => setFilterLanguage(e.target.value)}
             >
-              <option value="all">All Languages</option>
+              <option value="all">{t('records.all_languages')}</option>
               <option value="si">Sinhala</option>
               <option value="ta">Tamil</option>
               <option value="en">English</option>
@@ -632,7 +632,7 @@ export default function RecordsPanel({
         {loading ? (
           <div style={{ padding: '3rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', color: 'var(--slate-500)' }}>
             <Loader2 size={24} className="animate-spin" style={{ color: 'var(--primary)' }} />
-            <span style={{ fontSize: '13.5px' }}>Loading survey records...</span>
+            <span style={{ fontSize: '13.5px' }}>{t('records.loading')}</span>
           </div>
         ) : error ? (
           <div style={{ padding: '2.5rem 1.5rem', textAlign: 'center', color: 'var(--danger-text)' }}>
@@ -641,20 +641,20 @@ export default function RecordsPanel({
           </div>
         ) : records.length === 0 ? (
           <div style={{ padding: '3rem 1.5rem', textAlign: 'center', color: 'var(--slate-400)' }}>
-            <p style={{ fontSize: '13.5px' }}>No survey records found matching your filters.</p>
+            <p style={{ fontSize: '13.5px' }}>{t('records.no_records')}</p>
           </div>
         ) : (
           <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>House / Serial</th>
-                  <th>Surveyed Individual</th>
-                  <th>Demographics</th>
-                  <th>Contact</th>
-                  <th>Welfare Status</th>
-                  <th>Collector</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th>{t('records.col_house')}</th>
+                  <th>{t('records.col_individual')}</th>
+                  <th>{t('records.col_demographics')}</th>
+                  <th>{t('records.col_contact')}</th>
+                  <th>{t('records.col_welfare')}</th>
+                  <th>{t('records.col_collector')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('records.col_actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -779,7 +779,7 @@ export default function RecordsPanel({
               style={{ padding: '4px 10px', fontSize: '12px' }}
             >
               <ChevronLeft size={14} />
-              <span>Previous</span>
+              <span>{t('common.previous')}</span>
             </button>
             <button
               type="button"
@@ -788,7 +788,7 @@ export default function RecordsPanel({
               className="btn-secondary"
               style={{ padding: '4px 10px', fontSize: '12px' }}
             >
-              <span>Next</span>
+              <span>{t('common.next')}</span>
               <ChevronRight size={14} />
             </button>
           </div>
@@ -828,29 +828,29 @@ export default function RecordsPanel({
                 }}
               >
                 <div>
-                  <span style={{ fontSize: '11px', color: 'var(--slate-500)', display: 'block' }}>Full Name</span>
+                  <span style={{ fontSize: '11px', color: 'var(--slate-500)', display: 'block' }}>{t('records.full_name')}</span>
                   <strong style={{ color: 'var(--slate-900)' }}>{selectedRecord.name}</strong>
                 </div>
                 <div>
-                  <span style={{ fontSize: '11px', color: 'var(--slate-500)', display: 'block' }}>Age & Gender</span>
+                  <span style={{ fontSize: '11px', color: 'var(--slate-500)', display: 'block' }}>{t('records.age_gender')}</span>
                   <span style={{ color: 'var(--slate-800)' }}>
                     {selectedRecord.age} years • {selectedRecord.gender}
                   </span>
                 </div>
                 <div>
-                  <span style={{ fontSize: '11px', color: 'var(--slate-500)', display: 'block' }}>House Number</span>
+                  <span style={{ fontSize: '11px', color: 'var(--slate-500)', display: 'block' }}>{t('records.house_number')}</span>
                   <span style={{ color: 'var(--slate-800)', fontFamily: 'monospace' }}>
                     #{selectedRecord.household?.houseNo || 'N/A'}
                   </span>
                 </div>
                 <div>
-                  <span style={{ fontSize: '11px', color: 'var(--slate-500)', display: 'block' }}>Phone Number</span>
+                  <span style={{ fontSize: '11px', color: 'var(--slate-500)', display: 'block' }}>{t('records.phone_number')}</span>
                   <span style={{ color: 'var(--slate-800)', fontFamily: 'monospace' }}>
                     {selectedRecord.phoneE164 || selectedRecord.phoneRaw || '—'}
                   </span>
                 </div>
                 <div>
-                  <span style={{ fontSize: '11px', color: 'var(--slate-500)', display: 'block' }}>WhatsApp Number</span>
+                  <span style={{ fontSize: '11px', color: 'var(--slate-500)', display: 'block' }}>{t('records.whatsapp_number')}</span>
                   <span style={{ color: 'var(--slate-800)', fontFamily: 'monospace' }}>
                     {selectedRecord.whatsappE164 || selectedRecord.whatsappRaw || '—'}
                   </span>
@@ -858,26 +858,26 @@ export default function RecordsPanel({
               </div>
 
               <div>
-                <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', display: 'block', marginBottom: '2px' }}>Registered Address</span>
+                <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', display: 'block', marginBottom: '2px' }}>{t('records.registered_address')}</span>
                 <p style={{ color: 'var(--slate-800)', margin: 0 }}>
                   {selectedRecord.address || selectedRecord.household?.address || 'Not specified'}
                 </p>
               </div>
 
               <div>
-                <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', display: 'block', marginBottom: '4px' }}>Education & Career</span>
+                <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', display: 'block', marginBottom: '4px' }}>{t('records.education_career')}</span>
                 <div style={{ background: 'var(--slate-50)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
-                  <div>Highest Education: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.highestEducation || 'None'}</strong></div>
-                  <div>Vocational Qual: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.highestVocational || 'None'}</strong></div>
-                  <div>Interested Stream: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.interestedVocationalStream || 'None'}</strong></div>
-                  <div>Interested Job: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.interestedJob || 'None'}</strong></div>
-                  <div>Future Hopes: <strong style={{ color: 'var(--slate-800)' }}>{Array.isArray(selectedRecord.futureHopes) ? selectedRecord.futureHopes.join(', ') : (selectedRecord.futureHopes || 'None')}</strong></div>
-                  <div>Info Provided By: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.infoProvidedBy || 'self'}{selectedRecord.infoProvidedByOther ? ` (${selectedRecord.infoProvidedByOther})` : ''}</strong></div>
+                  <div>{t('records.highest_education')}: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.highestEducation || 'None'}</strong></div>
+                  <div>{t('records.vocational_qual')}: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.highestVocational || 'None'}</strong></div>
+                  <div>{t('records.interested_stream')}: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.interestedVocationalStream || 'None'}</strong></div>
+                  <div>{t('records.interested_job')}: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.interestedJob || 'None'}</strong></div>
+                  <div>{t('records.future_hopes')}: <strong style={{ color: 'var(--slate-800)' }}>{Array.isArray(selectedRecord.futureHopes) ? selectedRecord.futureHopes.join(', ') : (selectedRecord.futureHopes || 'None')}</strong></div>
+                  <div>{t('records.info_provided_by')}: <strong style={{ color: 'var(--slate-800)' }}>{selectedRecord.infoProvidedBy || 'self'}{selectedRecord.infoProvidedByOther ? ` (${selectedRecord.infoProvidedByOther})` : ''}</strong></div>
                 </div>
               </div>
 
               <div>
-                <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', display: 'block', marginBottom: '4px' }}>Welfare & Social Indicators</span>
+                <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', display: 'block', marginBottom: '4px' }}>{t('records.welfare_indicators')}</span>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   {selectedRecord.isEpf && <span className="badge badge-info">EPF</span>}
                   {selectedRecord.isEtf && <span className="badge badge-info">ETF</span>}
@@ -885,13 +885,13 @@ export default function RecordsPanel({
                   {selectedRecord.isSamurdhi && <span className="badge badge-warning">Samurdhi</span>}
                   {selectedRecord.hasSpecialNeeds && <span className="badge badge-error">Special Needs</span>}
                   {!selectedRecord.isEpf && !selectedRecord.isEtf && !selectedRecord.isAswesuma && !selectedRecord.isSamurdhi && !selectedRecord.hasSpecialNeeds && (
-                    <span style={{ color: 'var(--slate-400)', fontSize: '12px' }}>No welfare indicators flagged</span>
+                    <span style={{ color: 'var(--slate-400)', fontSize: '12px' }}>{t('records.no_welfare')}</span>
                   )}
                 </div>
               </div>
 
               <div>
-                <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', display: 'block', marginBottom: '2px' }}>Audit Metadata</span>
+                <span style={{ fontSize: '11.5px', color: 'var(--slate-500)', display: 'block', marginBottom: '2px' }}>{t('records.audit_metadata')}</span>
                 <div style={{ fontSize: '11.5px', color: 'var(--slate-500)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <div>Created: {formatDate(selectedRecord.createdAt)}</div>
                   <div>Last Updated: {formatDate(selectedRecord.updatedAt)}</div>
@@ -912,7 +912,7 @@ export default function RecordsPanel({
                 style={{ fontSize: '12.5px' }}
               >
                 <Edit3 size={13} />
-                <span>Supervisor Correction</span>
+                <span>{t('records.supervisor_correction')}</span>
               </button>
               <button
                 type="button"
@@ -957,7 +957,7 @@ export default function RecordsPanel({
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div style={{ gridColumn: 'span 2' }}>
-                  <label className="form-label">Full Name *</label>
+                  <label className="form-label">{t('records.full_name')} *</label>
                   <input
                     type="text"
                     className="input-field"
@@ -990,7 +990,7 @@ export default function RecordsPanel({
                   </select>
                 </div>
                 <div style={{ gridColumn: 'span 2' }}>
-                  <label className="form-label">Address</label>
+                  <label className="form-label">{t('records.registered_address')}</label>
                   <input
                     type="text"
                     className="input-field"
@@ -999,7 +999,7 @@ export default function RecordsPanel({
                   />
                 </div>
                 <div>
-                  <label className="form-label">Phone Number</label>
+                  <label className="form-label">{t('records.phone_number')}</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1009,7 +1009,7 @@ export default function RecordsPanel({
                   />
                 </div>
                 <div>
-                  <label className="form-label">WhatsApp Number</label>
+                  <label className="form-label">{t('records.whatsapp_number')}</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1021,7 +1021,7 @@ export default function RecordsPanel({
 
                 {/* Education & Career Qualification */}
                 <div style={{ gridColumn: 'span 2', paddingTop: '0.5rem', borderTop: '1px solid var(--slate-100)' }}>
-                  <span className="form-label">Education & Career</span>
+                  <span className="form-label">{t('records.education_career')}</span>
                 </div>
                 <div>
                   <label className="form-label">Highest Education</label>
@@ -1132,7 +1132,7 @@ export default function RecordsPanel({
 
                 {/* Welfare & Social Indicators */}
                 <div style={{ gridColumn: 'span 2', paddingTop: '0.5rem', borderTop: '1px solid var(--slate-100)' }}>
-                  <span className="form-label">Education & Career</span>
+                  <span className="form-label">{t('records.education_career')}</span>
                 </div>
                 <div>
                   <label className="form-label">Highest Education</label>
@@ -1243,7 +1243,7 @@ export default function RecordsPanel({
 
                 {/* Welfare & Social Indicators */}
                 <div style={{ gridColumn: 'span 2', paddingTop: '0.5rem', borderTop: '1px solid var(--slate-100)' }}>
-                  <span className="form-label">Welfare & Social Indicators</span>
+                  <span className="form-label">{t('records.welfare_indicators')}</span>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12.5px', marginTop: '4px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                       <input
@@ -1251,7 +1251,7 @@ export default function RecordsPanel({
                         checked={editIsEpf}
                         onChange={(e) => setEditIsEpf(e.target.checked)}
                       />
-                      <span>EPF Contributor</span>
+                      <span>{t('records.epf_contributor')}</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                       <input
@@ -1259,7 +1259,7 @@ export default function RecordsPanel({
                         checked={editIsEtf}
                         onChange={(e) => setEditIsEtf(e.target.checked)}
                       />
-                      <span>ETF Contributor</span>
+                      <span>{t('records.etf_contributor')}</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                       <input
@@ -1267,7 +1267,7 @@ export default function RecordsPanel({
                         checked={editIsAswesuma}
                         onChange={(e) => setEditIsAswesuma(e.target.checked)}
                       />
-                      <span>Aswesuma Beneficiary</span>
+                      <span>{t('records.aswesuma_beneficiary')}</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                       <input
@@ -1275,7 +1275,7 @@ export default function RecordsPanel({
                         checked={editIsSamurdhi}
                         onChange={(e) => setEditIsSamurdhi(e.target.checked)}
                       />
-                      <span>Samurdhi Beneficiary</span>
+                      <span>{t('records.samurdhi_beneficiary')}</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                       <input
@@ -1283,29 +1283,29 @@ export default function RecordsPanel({
                         checked={editHasSpecialNeeds}
                         onChange={(e) => setEditHasSpecialNeeds(e.target.checked)}
                       />
-                      <span>Has Special Needs</span>
+                      <span>{t('records.has_special_needs')}</span>
                     </label>
                   </div>
                 </div>
 
                 {/* Info Source */}
                 <div style={{ gridColumn: 'span 2', paddingTop: '0.5rem', borderTop: '1px solid var(--slate-100)' }}>
-                  <label className="form-label">Information Provided By</label>
+                  <label className="form-label">{t('records.info_provided_by_label')}</label>
                   <select
                     className="select-field"
                     value={editInfoProvidedBy}
                     onChange={(e) => setEditInfoProvidedBy(e.target.value as any)}
                   >
-                    <option value="self">Self (Applicant)</option>
-                    <option value="mother">Mother</option>
-                    <option value="father">Father</option>
-                    <option value="sister">Sister/Brother</option>
-                    <option value="other">Other</option>
+                    <option value="self">{t('records.self_applicant')}</option>
+                    <option value="mother">{t('records.mother')}</option>
+                    <option value="father">{t('records.father')}</option>
+                    <option value="sister">{t('records.sibling')}</option>
+                    <option value="other">{t('common.other')}</option>
                   </select>
                 </div>
                 {editInfoProvidedBy === 'other' && (
                   <div style={{ gridColumn: 'span 2' }}>
-                    <label className="form-label">If Other, please specify</label>
+                    <label className="form-label">{t('records.other_specify')}</label>
                     <input
                       type="text"
                       className="input-field"
@@ -1354,7 +1354,7 @@ export default function RecordsPanel({
                 {savingAudit ? (
                   <>
                     <Loader2 size={15} className="animate-spin" />
-                    <span>Saving...</span>
+                    <span>{t('common.saving')}</span>
                   </>
                 ) : (
                   <>
@@ -1412,7 +1412,7 @@ export default function RecordsPanel({
                 Are you sure you want to soft-delete the survey record for <strong>{deletingRecord.name || deletingRecord.id.slice(0, 8)}</strong>? This action logs an immutable audit entry and automatically dismisses open duplicate candidates referencing this record.
               </p>
               <div>
-                <label className="form-label">Deletion Reason (Optional)</label>
+                <label className="form-label">{t('records.deletion_reason')}</label>
                 <textarea
                   rows={2}
                   className="input-field"

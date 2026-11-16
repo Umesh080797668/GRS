@@ -934,7 +934,7 @@ export default function DataEntryPage() {
                 ) : webEntryEnabled ? (
                   <>
                     <Lock size={14} />
-                    <span>Enforce C19 Gate (Disable Web Entry)</span>
+                    <span>{t('entry.enforce_c19')}</span>
                   </>
                 ) : (
                   <>
@@ -969,8 +969,8 @@ export default function DataEntryPage() {
               </div>
               <div className="de-c19-body">
                 <div className="de-c19-title-row">
-                  <h2 className="de-c19-title">Decision C19: Web Direct Data Entry Restricted</h2>
-                  <span className="badge badge-warning">Policy Protected</span>
+                  <h2 className="de-c19-title">{t('entry.c19_restricted')}</h2>
+                  <span className="badge badge-warning">{t('entry.policy_protected')}</span>
                 </div>
                 <p className="de-c19-lead">{t('entry.web_roles_off')}</p>
                 <p className="de-c19-desc">
@@ -990,7 +990,7 @@ export default function DataEntryPage() {
                       ) : (
                         <Unlock size={14} />
                       )}
-                      <span>Grant Super Admin Override (Enable Web Entry)</span>
+                      <span>{t('entry.override_c19')}</span>
                     </button>
                   </div>
                 )}
@@ -1066,7 +1066,7 @@ export default function DataEntryPage() {
                     <Home size={18} />
                   </div>
                   <div>
-                    <h2 className="de-section-title">Section 1: Household Roster (DD/S/001)</h2>
+                    <h2 className="de-section-title">{t('entry.section_household')}</h2>
                     <p className="de-section-subtitle">
                       Physical dwelling unit, geographic hierarchy, and welfare indicators
                     </p>
@@ -1170,7 +1170,7 @@ export default function DataEntryPage() {
                               style={{ fontSize: '12px', padding: '0.35rem 0.75rem' }}
                             >
                               {loadingHouses ? <Loader2 size={13} className="animate-spin" /> : null}
-                              <span>Load More Households</span>
+                              <span>{t('entry.load_more_households')}</span>
                             </button>
                           </div>
                         )}
@@ -1183,7 +1183,7 @@ export default function DataEntryPage() {
                 <div>
                   <div className="de-subsection-heading">
                     <MapPin size={15} style={{ color: 'var(--primary)' }} />
-                    <span>1. Administrative Territorial Boundaries</span>
+                    <span>{t('entry.sec_boundaries')}</span>
                   </div>
                   <div className="de-grid-3">
                     <div>
@@ -1246,7 +1246,7 @@ export default function DataEntryPage() {
                 <div className="de-divider-top">
                   <div className="de-subsection-heading">
                     <Home size={15} style={{ color: 'var(--primary)' }} />
-                    <span>2. Household Details</span>
+                    <span>{t('entry.sec_household_details')}</span>
                   </div>
                   <div className="de-grid-3">
                     <div>
@@ -1280,7 +1280,7 @@ export default function DataEntryPage() {
                     </div>
 
                     <div>
-                      <label className="form-label">2.3. Village / Street / Locality</label>
+                      <label className="form-label">{t('entry.village_street')}</label>
                       <input
                         type="text"
                         className="input-field"
@@ -1292,7 +1292,7 @@ export default function DataEntryPage() {
                     </div>
 
                     <div className="de-col-span-full">
-                      <label className="form-label">2.4. Complete Postal Address</label>
+                      <label className="form-label">{t('entry.postal_address')}</label>
                       <input
                         type="text"
                         className="input-field"
@@ -1309,7 +1309,7 @@ export default function DataEntryPage() {
                 <div className="de-divider-top">
                   <div className="de-subsection-heading">
                     <HeartHandshake size={15} style={{ color: 'var(--primary)' }} />
-                    <span>3. Welfare &amp; Social Security Coverage</span>
+                    <span>{t('entry.welfare_coverage')}</span>
                   </div>
                   <div className="de-grid-cards">
                     <label
@@ -1423,7 +1423,7 @@ export default function DataEntryPage() {
                     <User size={18} />
                   </div>
                   <div>
-                    <h2 className="de-section-title">Section 2: Individual Survey Data (DD/S/002)</h2>
+                    <h2 className="de-section-title">{t('entry.section_individual')}</h2>
                     <p className="de-section-subtitle">
                       Citizen demographic profiling, vocational qualifications, and career aspirations
                     </p>
@@ -1434,7 +1434,7 @@ export default function DataEntryPage() {
               <div className="de-section-body">
                 <div className="de-subsection-heading">
                   <User size={15} style={{ color: 'var(--primary)' }} />
-                  <span>1. Personal Demographics</span>
+                  <span>{t('entry.personal_demographics')}</span>
                 </div>
                 <div className="de-grid-3">
                   <div>
@@ -1482,7 +1482,7 @@ export default function DataEntryPage() {
                   </div>
 
                   <div>
-                    <label className="form-label">1.4. Phone Number</label>
+                    <label className="form-label">{t('entry.phone_number')}</label>
                     <input
                       type="tel"
                       className="input-field"
@@ -1493,7 +1493,7 @@ export default function DataEntryPage() {
                   </div>
 
                   <div>
-                    <label className="form-label">1.5. WhatsApp Number</label>
+                    <label className="form-label">{t('entry.whatsapp_number')}</label>
                     <input
                       type="tel"
                       className="input-field"
@@ -1624,7 +1624,7 @@ export default function DataEntryPage() {
                   <div className="de-subsection-heading" style={{ alignItems: 'flex-start' }}>
                     <Compass size={15} style={{ color: 'var(--primary)', marginTop: '2px', flexShrink: 0 }} />
                     <div>
-                      <div>7. Future Aspirations &amp; Career Hopes (DD/S/002 #13)</div>
+                      <div>{t('entry.future_aspirations')}</div>
                       <div
                         style={{
                           fontSize: '12px',
@@ -1697,7 +1697,7 @@ export default function DataEntryPage() {
                           }}
                         >
                           <FileCheck size={16} style={{ color: 'var(--primary)' }} />
-                          <span>8. Explicit Citizen Consent Received (Statutory Requirement — Invariant B2)</span>
+                          <span>{t('entry.citizen_consent')}</span>
                         </strong>
                         <span className="badge badge-success" style={{ fontSize: '10.5px', fontFamily: 'monospace' }}>
                           {consentVersion}
@@ -1726,7 +1726,7 @@ export default function DataEntryPage() {
                       style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
                     >
                       <X size={15} />
-                      <span>Cancel Edit</span>
+                      <span>{t('entry.cancel_edit')}</span>
                     </button>
                   )}
                   <button
@@ -1738,7 +1738,7 @@ export default function DataEntryPage() {
                     title="Save current details to local browser drafts"
                   >
                     <Save size={15} />
-                    <span>Save Draft</span>
+                    <span>{t('entry.save_draft')}</span>
                   </button>
                   <button
                     type="submit"
@@ -1748,12 +1748,12 @@ export default function DataEntryPage() {
                     {submitting ? (
                       <>
                         <Loader2 size={16} className="animate-spin" />
-                        <span>Submitting Survey Record...</span>
+                        <span>{t('entry.submitting')}</span>
                       </>
                     ) : (
                       <>
                         <Sparkles size={16} />
-                        <span>Submit Survey Record</span>
+                        <span>{t('entry.submit')}</span>
                       </>
                     )}
                   </button>

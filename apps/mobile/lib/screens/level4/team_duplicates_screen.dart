@@ -167,8 +167,14 @@ class _TeamDuplicatesScreenState extends ConsumerState<TeamDuplicatesScreen> {
     }
   }
 
-  Widget _buildStatusChip(String value, String label) {
+  Widget _buildStatusChip(String value, String label, bool isDark) {
     final selected = _status == value;
+    final primaryColor = isDark
+        ? GrsColors.primaryDark
+        : GrsColors.primaryLight;
+    final secondary = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
     return ChoiceChip(
       label: Text(label),
       selected: selected,
@@ -178,9 +184,11 @@ class _TeamDuplicatesScreenState extends ConsumerState<TeamDuplicatesScreen> {
           _loadQueue();
         }
       },
-      selectedColor: GrsColors.primaryMid.withValues(alpha: 0.15),
+      selectedColor: GrsColors.primaryMid.withValues(
+        alpha: isDark ? 0.25 : 0.15,
+      ),
       labelStyle: TextStyle(
-        color: selected ? GrsColors.primaryLight : GrsColors.textSecondaryLight,
+        color: selected ? primaryColor : secondary,
         fontWeight: selected ? FontWeight.bold : FontWeight.normal,
       ),
     );
@@ -194,6 +202,12 @@ class _TeamDuplicatesScreenState extends ConsumerState<TeamDuplicatesScreen> {
     required bool isOpen,
     required GrsL10n l10n,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? GrsColors.textPrimaryDark : GrsColors.textPrimaryLight;
+    final secondary = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
+    final outline = isDark ? GrsColors.outlineDark : GrsColors.outlineLight;
     final id = (record?['id'] ?? fallbackId).toString();
     final selectedId = _selectedCanonical[pairId];
     final isCanonical = selectedId == id;
@@ -214,13 +228,15 @@ class _TeamDuplicatesScreenState extends ConsumerState<TeamDuplicatesScreen> {
         padding: const EdgeInsets.all(GrsSpacing.sm),
         decoration: BoxDecoration(
           color: isCanonical
-              ? GrsColors.syncSynced.withValues(alpha: 0.07)
-              : GrsColors.duplicateAlertBg.withValues(alpha: 0.35),
+              ? GrsColors.syncSynced.withValues(alpha: isDark ? 0.15 : 0.07)
+              : (isDark
+                    ? GrsColors.syncPendingBgDark
+                    : GrsColors.duplicateAlertBg.withValues(alpha: 0.35)),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isCanonical
                 ? GrsColors.syncSynced
-                : (isOpen ? GrsColors.duplicateAlert : GrsColors.outlineLight),
+                : (isOpen ? GrsColors.duplicateAlert : outline),
             width: isCanonical ? 1.8 : 1.0,
           ),
         ),
@@ -235,7 +251,7 @@ class _TeamDuplicatesScreenState extends ConsumerState<TeamDuplicatesScreen> {
                 Text(
                   slotLabel,
                   style: GrsTypography.labelMedium(
-                    color: GrsColors.textSecondaryLight,
+                    color: secondary,
                   ).copyWith(fontWeight: FontWeight.w700),
                 ),
                 if (isOpen && isCanonical)
@@ -261,15 +277,13 @@ class _TeamDuplicatesScreenState extends ConsumerState<TeamDuplicatesScreen> {
             Text(
               name,
               style: GrsTypography.titleMedium(
-                color: GrsColors.textPrimaryLight,
+                color: ink,
               ).copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
             Text(
               '$age yrs • $gender • $phone${houseNo != null ? ' • #$houseNo' : ''}',
-              style: GrsTypography.bodyMedium(
-                color: GrsColors.textSecondaryLight,
-              ),
+              style: GrsTypography.bodyMedium(color: secondary),
             ),
           ],
         ),
@@ -281,6 +295,11 @@ class _TeamDuplicatesScreenState extends ConsumerState<TeamDuplicatesScreen> {
   Widget build(BuildContext context) {
     final l10n = GrsL10n.of(context);
     final isOnline = ref.watch(connectivityProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? GrsColors.textPrimaryDark : GrsColors.textPrimaryLight;
+    final secondary = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
 
     return GrsScaffold(
       title: l10n.get('duplicatesQueueTitle'),
@@ -298,16 +317,18 @@ class _TeamDuplicatesScreenState extends ConsumerState<TeamDuplicatesScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _buildStatusChip('open', l10n.get('statusOpenLabel')),
+                  _buildStatusChip('open', l10n.get('statusOpenLabel'), isDark),
                   const SizedBox(width: GrsSpacing.xs),
                   _buildStatusChip(
                     'confirmed',
                     l10n.get('statusConfirmedLabel'),
+                    isDark,
                   ),
                   const SizedBox(width: GrsSpacing.xs),
                   _buildStatusChip(
                     'dismissed',
                     l10n.get('statusDismissedLabel'),
+                    isDark,
                   ),
                 ],
               ),
@@ -319,7 +340,9 @@ class _TeamDuplicatesScreenState extends ConsumerState<TeamDuplicatesScreen> {
               child: Container(
                 padding: const EdgeInsets.all(GrsSpacing.md),
                 decoration: BoxDecoration(
-                  color: GrsColors.duplicateAlertBg,
+                  color: isDark
+                      ? GrsColors.syncPendingBgDark
+                      : GrsColors.duplicateAlertBg,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: GrsColors.duplicateAlert),
                 ),
@@ -333,9 +356,7 @@ class _TeamDuplicatesScreenState extends ConsumerState<TeamDuplicatesScreen> {
                     Expanded(
                       child: Text(
                         l10n.get('duplicatesOfflineBanner'),
-                        style: GrsTypography.bodyMedium(
-                          color: GrsColors.textPrimaryLight,
-                        ),
+                        style: GrsTypography.bodyMedium(color: ink),
                       ),
                     ),
                   ],
@@ -348,9 +369,7 @@ class _TeamDuplicatesScreenState extends ConsumerState<TeamDuplicatesScreen> {
                     child: Text(
                       l10n.get('duplicatesOfflineBanner'),
                       textAlign: TextAlign.center,
-                      style: GrsTypography.bodyMedium(
-                        color: GrsColors.textSecondaryLight,
-                      ),
+                      style: GrsTypography.bodyMedium(color: secondary),
                     ),
                   )
                 : _isLoading
@@ -451,9 +470,13 @@ class _TeamDuplicatesScreenState extends ConsumerState<TeamDuplicatesScreen> {
                                         vertical: 3,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: isProbable
-                                            ? GrsColors.syncRejectedBg
-                                            : GrsColors.duplicateAlertBg,
+                                        color: isDark
+                                            ? (isProbable
+                                                  ? GrsColors.syncRejectedBgDark
+                                                  : GrsColors.syncPendingBgDark)
+                                            : (isProbable
+                                                  ? GrsColors.syncRejectedBg
+                                                  : GrsColors.duplicateAlertBg),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
@@ -472,7 +495,9 @@ class _TeamDuplicatesScreenState extends ConsumerState<TeamDuplicatesScreen> {
                                           vertical: 3,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: Colors.grey.shade100,
+                                          color: isDark
+                                              ? GrsColors.surfaceVariantDark
+                                              : Colors.grey.shade100,
                                           borderRadius: BorderRadius.circular(
                                             10,
                                           ),
@@ -480,7 +505,7 @@ class _TeamDuplicatesScreenState extends ConsumerState<TeamDuplicatesScreen> {
                                         child: Text(
                                           f.replaceAll('_', ' '),
                                           style: GrsTypography.labelSmall(
-                                            color: GrsColors.textSecondaryLight,
+                                            color: secondary,
                                           ),
                                         ),
                                       ),

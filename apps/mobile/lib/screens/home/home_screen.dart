@@ -457,7 +457,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Expanded(
             child: dbAsync.when(
               loading: () => _buildLoadingSkeletons(isDark),
-              error: (err, _) => Center(child: Text('Database error: $err')),
+              error: (err, _) => Center(
+                child: Text(l10n.translate('databaseError', {'error': '$err'})),
+              ),
               data: (db) {
                 return FutureBuilder<List<Map<String, dynamic>>>(
                   key: ValueKey(
@@ -1150,7 +1152,7 @@ class _EmptyState extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'No houses in this area',
+                l10n.get('noHousesInAreaTitle'),
                 style: GrsTypography.titleMedium(
                   color: isDark
                       ? GrsColors.textPrimaryDark
@@ -1160,7 +1162,7 @@ class _EmptyState extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Download area data to begin field work.',
+                l10n.get('noHousesInAreaSubtitle'),
                 style: GrsTypography.bodyMedium(color: secondary),
                 textAlign: TextAlign.center,
               ),
@@ -1404,7 +1406,11 @@ class _Level4Hub extends ConsumerWidget {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Failed to switch area: $e'),
+                                    content: Text(
+                                      l10n.translate('failedToSwitchArea', {
+                                        'error': '$e',
+                                      }),
+                                    ),
                                   ),
                                 );
                               }

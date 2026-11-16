@@ -795,5 +795,91 @@
   "loadMore": "තවත් පූරණය කරන්න",
   "@loadMore": {},
   "selectAtLeastOneLanguage": "කරුණාකර අවම වශයෙන් එක් භාෂාවක් තෝරන්න.",
-  "@selectAtLeastOneLanguage": {}
+  "@selectAtLeastOneLanguage": {},
+  "proceedToBeneficiaryForm": "ප්‍රතිලාභී පෝරමය වෙත ඉදිරියට යන්න",
+  "@proceedToBeneficiaryForm": {},
+  "selectLevelHint": "මට්ටම තෝරන්න",
+  "@selectLevelHint": {},
+  "selectStreamHint": "ක්ෂේත්‍රය තෝරන්න",
+  "@selectStreamHint": {},
+  "selectRoleHint": "කාර්යභාරය තෝරන්න",
+  "@selectRoleHint": {},
+  "enterValidAge": "වලංගු වයසක් ඇතුළත් කරන්න",
+  "@enterValidAge": {},
+  "epfContributor": "සේ.අ.අ. දායකයා",
+  "@epfContributor": {},
+  "etfContributor": "සේ.සේ.භා. දායකයා",
+  "@etfContributor": {},
+  "ifOtherDescribe": "වෙනත් නම්, විස්තර කරන්න",
+  "@ifOtherDescribe": {},
+  "correctionReasonMinChars": "කරුණාකර වලංගු සංශෝධන හේතුවක් ලබා දෙන්න (අවම අකුරු 5)",
+  "@correctionReasonMinChars": {},
+  "householdRemovedClientRetained": "මෙම සේවාලාභියාට අදාළ නිවස 4 වන මට්ටම මඟින් ඉවත් කර ඇත. තීරණය C6 අනුව සේවාලාභියා රඳවා ගනු ලැබේ.",
+  "@householdRemovedClientRetained": {},
+  "selectEducation": "— අධ්‍යාපන මට්ටම තෝරන්න —",
+  "@selectEducation": {},
+  "selectVocational": "— වෘත්තීය මට්ටම තෝරන්න —",
+  "@selectVocational": {},
+  "selectStream": "— ක්ෂේත්‍රය තෝරන්න —",
+  "@selectStream": {},
+  "selectJob": "— රැකියාව තෝරන්න —",
+  "@selectJob": {},
+  "noTeamAvailableInGn": "මෙම වසමේ කණ්ඩායමක් නොමැත.",
+  "@noTeamAvailableInGn": {},
+  "targetTeam": "ඉලක්කගත කණ්ඩායම",
+  "@targetTeam": {},
+  "retry": "නැවත උත්සාහ කරන්න",
+  "@retry": {},
+  "currentVersionLabel": "වත්මන්: v{version}",
+  "@currentVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "checkingForUpdates": "යාවත්කාලීන පරීක්ෂා කරමින්…",
+  "@checkingForUpdates": {},
+  "latestVersionNotice": "ඔබ නවතම අනුවාදය භාවිතා කරයි!",
+  "@latestVersionNotice": {},
+  "versionAvailable": "v{version} ලබා ගත හැකිය",
+  "@versionAvailable": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "appearanceSection": "පෙනුම",
+  "@appearanceSection": {},
+  "accountSection": "ගිණුම",
+  "@accountSection": {},
+  "appSection": "යෙදුම",
+  "@appSection": {},
+  "noHousesInAreaTitle": "මෙම ප්‍රදේශයේ නිවාස නොමැත",
+  "@noHousesInAreaTitle": {},
+  "noHousesInAreaSubtitle": "ක්ෂේත්‍ර කටයුතු ආරම්භ කිරීමට ප්‍රදේශ දත්ත බාගන්න.",
+  "@noHousesInAreaSubtitle": {},
+  "enterValidCount": "වලංගු ගණනක් ඇතුළත් කරන්න",
+  "@enterValidCount": {},
+  "householdIdLabel": "නිවාස අංකය (ID)",
+  "@householdIdLabel": {},
+  "welfareAndSpecialStatus": "සුබසාධන සහ විශේෂ තත්ත්වය",
+  "@welfareAndSpecialStatus": {},
+  "databaseError": "දත්ත සමුදායේ දෝෂයකි: {error}",
+  "@databaseError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToSwitchArea": "ප්‍රදේශය මාරු කිරීම අසාර්ථක විය: {error}",
+  "@failedToSwitchArea": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }

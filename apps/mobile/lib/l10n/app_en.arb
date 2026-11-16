@@ -795,5 +795,91 @@
   "loadMore": "Load More",
   "@loadMore": {},
   "selectAtLeastOneLanguage": "Please select at least one preferred language.",
-  "@selectAtLeastOneLanguage": {}
+  "@selectAtLeastOneLanguage": {},
+  "proceedToBeneficiaryForm": "Proceed to Beneficiary Form",
+  "@proceedToBeneficiaryForm": {},
+  "selectLevelHint": "Select level",
+  "@selectLevelHint": {},
+  "selectStreamHint": "Select stream",
+  "@selectStreamHint": {},
+  "selectRoleHint": "Select role",
+  "@selectRoleHint": {},
+  "enterValidAge": "Enter valid age",
+  "@enterValidAge": {},
+  "epfContributor": "EPF Contributor",
+  "@epfContributor": {},
+  "etfContributor": "ETF Contributor",
+  "@etfContributor": {},
+  "ifOtherDescribe": "If Other, describe",
+  "@ifOtherDescribe": {},
+  "correctionReasonMinChars": "Please provide a valid correction reason (min 5 chars)",
+  "@correctionReasonMinChars": {},
+  "householdRemovedClientRetained": "Household associated with this client was removed by Level 4. Client is retained per Decision C6.",
+  "@householdRemovedClientRetained": {},
+  "selectEducation": "— Select Education —",
+  "@selectEducation": {},
+  "selectVocational": "— Select Vocational —",
+  "@selectVocational": {},
+  "selectStream": "— Select Stream —",
+  "@selectStream": {},
+  "selectJob": "— Select Job —",
+  "@selectJob": {},
+  "noTeamAvailableInGn": "No team available in this GN division.",
+  "@noTeamAvailableInGn": {},
+  "targetTeam": "Target Team",
+  "@targetTeam": {},
+  "retry": "Retry",
+  "@retry": {},
+  "currentVersionLabel": "Current: v{version}",
+  "@currentVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "checkingForUpdates": "Checking for updates…",
+  "@checkingForUpdates": {},
+  "latestVersionNotice": "You're on the latest version!",
+  "@latestVersionNotice": {},
+  "versionAvailable": "v{version} available",
+  "@versionAvailable": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "appearanceSection": "Appearance",
+  "@appearanceSection": {},
+  "accountSection": "Account",
+  "@accountSection": {},
+  "appSection": "App",
+  "@appSection": {},
+  "noHousesInAreaTitle": "No houses in this area",
+  "@noHousesInAreaTitle": {},
+  "noHousesInAreaSubtitle": "Download area data to begin field work.",
+  "@noHousesInAreaSubtitle": {},
+  "enterValidCount": "Enter valid count",
+  "@enterValidCount": {},
+  "householdIdLabel": "Household ID",
+  "@householdIdLabel": {},
+  "welfareAndSpecialStatus": "Welfare & Special Status",
+  "@welfareAndSpecialStatus": {},
+  "databaseError": "Database error: {error}",
+  "@databaseError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToSwitchArea": "Failed to switch area: {error}",
+  "@failedToSwitchArea": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }

@@ -178,9 +178,10 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
 
       if (targetTeamId == null || targetTeamId.isEmpty) {
         if (mounted) {
+          final l10n = GrsL10n.of(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No team available in this GN division.'),
+            SnackBar(
+              content: Text(l10n.get('noTeamAvailableInGn')),
               backgroundColor: GrsColors.syncRejected,
             ),
           );
@@ -346,6 +347,15 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
   Widget build(BuildContext context) {
     final l10n = GrsL10n.of(context);
     final isOnline = ref.watch(connectivityProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? GrsColors.textPrimaryDark : GrsColors.textPrimaryLight;
+    final secondary = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
+    final outline = isDark ? GrsColors.outlineDark : GrsColors.outlineLight;
+    final primaryColor = isDark
+        ? GrsColors.primaryDark
+        : GrsColors.primaryLight;
     final auth = ref.watch(authProvider);
     final activeTeamId = _selectedTargetTeamId ?? auth.user?.teamId;
 
@@ -414,17 +424,18 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                   const SizedBox(height: GrsSpacing.xs),
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.groups_outlined,
                         size: 18,
-                        color: GrsColors.primaryLight,
+                        color: primaryColor,
                       ),
                       const SizedBox(width: 6),
-                      const Text(
-                        'Target Team:',
+                      Text(
+                        '${l10n.get('targetTeam')}:',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
+                          color: ink,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -437,7 +448,10 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                           final tNo = t['teamNo'] ?? '';
                           return DropdownMenuItem<String>(
                             value: id,
-                            child: Text('Team $tNo'),
+                            child: Text(
+                              l10n.translate('teamBadge', {'teamNo': '$tNo'}),
+                              style: TextStyle(color: ink),
+                            ),
                           );
                         }).toList(),
                         onChanged: (val) {
@@ -537,10 +551,12 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                         final leader = h['houseLeaderName'] as String? ?? '';
                         final serialNo = h['serialNo'];
                         final houseTeamId = h['teamId'] as String?;
-                        final isMyTeam = activeTeamId != null && houseTeamId == activeTeamId;
+                        final isMyTeam =
+                            activeTeamId != null && houseTeamId == activeTeamId;
                         final isAvailable = houseTeamId == null;
                         final isTakenByOther = houseTeamId != null && !isMyTeam;
-                        final teamNo = h['team']?['teamNo'] ??
+                        final teamNo =
+                            h['team']?['teamNo'] ??
                             _teams.firstWhere(
                               (t) => t['id'] == houseTeamId,
                               orElse: () => <String, dynamic>{},
@@ -565,17 +581,18 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                             children: [
                               Text(
                                 '${l10n.get('houseNumber')}: $houseNo',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
+                                  color: ink,
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 '#$serialNo',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: GrsColors.textSecondaryLight,
+                                  color: secondary,
                                 ),
                               ),
                               const Spacer(),
@@ -610,9 +627,13 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.grey.withValues(alpha: 0.2),
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.08)
+                                        : Colors.grey.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.grey),
+                                    border: Border.all(
+                                      color: isDark ? outline : Colors.grey,
+                                    ),
                                   ),
                                   child: Text(
                                     teamNo != null
@@ -620,9 +641,9 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                                             'teamNo': '$teamNo',
                                           })
                                         : l10n.get('filterTaken'),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11,
-                                      color: Colors.grey,
+                                      color: secondary,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -634,16 +655,16 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: GrsColors.primaryMid.withValues(
-                                      alpha: 0.12,
+                                    color: primaryColor.withValues(
+                                      alpha: isDark ? 0.2 : 0.12,
                                     ),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
                                     l10n.get('filterAvailable'),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11,
-                                      color: GrsColors.primaryLight,
+                                      color: primaryColor,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -652,10 +673,7 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                           ),
                           subtitle: Text(
                             leader,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: GrsColors.textSecondaryLight,
-                            ),
+                            style: TextStyle(fontSize: 12, color: secondary),
                           ),
                           secondary: houseTeamId != null
                               ? IconButton(
@@ -666,10 +684,10 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                                   tooltip: l10n.get('unassignFromTeamTooltip'),
                                   onPressed: isOnline
                                       ? () => _unassignHouse(
-                                            id,
-                                            houseNo,
-                                            houseTeamId,
-                                          )
+                                          id,
+                                          houseNo,
+                                          houseTeamId,
+                                        )
                                       : null,
                                 )
                               : null,
@@ -684,14 +702,10 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
               child: Container(
                 padding: const EdgeInsets.all(GrsSpacing.md),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 4,
-                      offset: Offset(0, -2),
-                    ),
-                  ],
+                  color: isDark
+                      ? GrsColors.surfaceDark
+                      : GrsColors.surfaceLight,
+                  border: Border(top: BorderSide(color: outline, width: 1)),
                 ),
                 child: Row(
                   children: [
@@ -700,9 +714,10 @@ class _ChooseHousesScreenState extends ConsumerState<ChooseHousesScreen> {
                         l10n.translate('housesSelected', {
                           'count': '${_selectedHouseIds.length}',
                         }),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
+                          color: ink,
                         ),
                       ),
                     ),

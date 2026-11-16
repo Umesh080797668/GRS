@@ -94,7 +94,7 @@ export default function PrintableSlipsModal({
           <html>
             <head>
               <meta charset="utf-8" />
-              <title>GRS Credential Slips</title>
+              <title>${t('slips.title')}</title>
               <style>
                 @page {
                   size: A4 portrait;
@@ -209,22 +209,22 @@ export default function PrintableSlipsModal({
               (c) => `
                 <div class="slip">
                   <div class="slip-header">
-                    <div class="gov-title">GOV.LK — GRS Door-to-Door Skills Campaign 2026</div>
-                    <div class="gov-sub">Official Account Credential & Temporary Access Slip</div>
+                    <div class="gov-title">${t('slips.gov_campaign')}</div>
+                    <div class="gov-sub">${t('slips.official_slip')}</div>
                   </div>
                   <div class="slip-body">
                     <div class="meta-col">
                       <div class="full-name">${c.fullName || 'Official Field Operative'}</div>
-                      <div class="code-row">User Code: <span class="code-val">${c.userCode || 'N/A'}</span></div>
-                      <div class="role-row">Role: <strong>${c.role}</strong></div>
+                      <div class="code-row">${t('slips.user_code')} <span class="code-val">${c.userCode || 'N/A'}</span></div>
+                      <div class="role-row">${t('slips.role')} <strong>${c.role}</strong></div>
                     </div>
                     <div class="pwd-box">
-                      <div class="pwd-title">Initial Password</div>
+                      <div class="pwd-title">${t('slips.initial_password')}</div>
                       <div class="pwd-val">${c.initialPassword || 'N/A'}</div>
                     </div>
                   </div>
                   <div class="slip-footer">
-                    Important: This temporary password must be changed immediately upon first sign-in at the mobile app or web portal. Keep this slip secure.
+                    ${t('slips.security_notice')}
                   </div>
                 </div>
               `,
@@ -561,16 +561,16 @@ export default function PrintableSlipsModal({
         <div className="modal-footer no-print" style={{ justifyContent: 'space-between' }}>
           <button type="button" onClick={handleDownloadCsv} className="btn-secondary">
             <Download size={15} />
-            <span>Download Injection-Safe CSV</span>
+            <span>{t('slips.download_csv')}</span>
           </button>
 
           <div style={{ display: 'flex', gap: '8px' }}>
             <button type="button" onClick={handlePrint} className="btn-primary">
               <Printer size={15} />
-              <span>Print Credential Slips</span>
+              <span>{t('slips.print_slips')}</span>
             </button>
             <button type="button" onClick={onClose} className="btn-secondary">
-              Done
+              {t('common.done')}
             </button>
           </div>
         </div>

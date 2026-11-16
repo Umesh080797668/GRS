@@ -168,9 +168,11 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                 const SizedBox(height: 12),
                 Text(
                   dlgL10n.get('housePoolNotice'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: GrsColors.textSecondaryLight,
+                    color: Theme.of(ctx).brightness == Brightness.dark
+                        ? GrsColors.textSecondaryDark
+                        : GrsColors.textSecondaryLight,
                   ),
                 ),
               ],
@@ -237,6 +239,11 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
   Widget build(BuildContext context) {
     final isOnline = ref.watch(connectivityProvider);
     final l10n = GrsL10n.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? GrsColors.textPrimaryDark : GrsColors.textPrimaryLight;
+    final secondary = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
 
     return GrsScaffold(
       title: l10n.get('addHouse'),
@@ -256,18 +263,16 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                   children: [
                     Text(
                       l10n.get('preVisitHouseholdDataTitle'),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: ink,
                       ),
                     ),
                     const SizedBox(height: GrsSpacing.sm),
                     Text(
                       l10n.get('preVisitHouseholdDataDesc'),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: GrsColors.textSecondaryLight,
-                      ),
+                      style: TextStyle(fontSize: 12, color: secondary),
                     ),
                   ],
                 ),
@@ -275,9 +280,10 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               const SizedBox(height: GrsSpacing.lg),
               Text(
                 '1. ${l10n.get('houseDetails').isNotEmpty ? l10n.get('houseDetails') : 'House Information'}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
+                  color: ink,
                 ),
               ),
               const SizedBox(height: GrsSpacing.sm),
@@ -327,9 +333,10 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               const SizedBox(height: GrsSpacing.lg),
               Text(
                 '2. ${l10n.get('welfarePrograms')}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
+                  color: ink,
                 ),
               ),
               const SizedBox(height: GrsSpacing.xs),
@@ -404,9 +411,10 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               const SizedBox(height: GrsSpacing.lg),
               Text(
                 '3. ${l10n.get('targetDemographics')} (only 18-35)',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
+                  color: ink,
                 ),
               ),
               const SizedBox(height: GrsSpacing.sm),
@@ -424,7 +432,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                         if (val == null || val.trim().isEmpty) return null;
                         final parsed = int.tryParse(val.trim());
                         if (parsed == null || parsed < 0) {
-                          return 'Enter valid count';
+                          return l10n.get('enterValidCount');
                         }
                         return null;
                       },
@@ -443,7 +451,7 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
                         if (val == null || val.trim().isEmpty) return null;
                         final parsed = int.tryParse(val.trim());
                         if (parsed == null || parsed < 0) {
-                          return 'Enter valid count';
+                          return l10n.get('enterValidCount');
                         }
                         return null;
                       },
@@ -454,9 +462,10 @@ class _AddHouseScreenState extends ConsumerState<AddHouseScreen> {
               const SizedBox(height: GrsSpacing.lg),
               Text(
                 '4. ${l10n.get('preferredLanguage')}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
+                  color: ink,
                 ),
               ),
               Wrap(

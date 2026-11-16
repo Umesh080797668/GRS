@@ -173,7 +173,7 @@ class _ConsentScreenState extends State<ConsentScreen> {
 
                   // Proceed button
                   GrsButton(
-                    label: 'Proceed to Beneficiary Form',
+                    label: l10n.get('proceedToBeneficiaryForm'),
                     icon: Icons.arrow_forward_rounded,
                     isFullWidth: true,
                     size: GrsButtonSize.large,

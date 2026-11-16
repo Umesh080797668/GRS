@@ -166,6 +166,11 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
   Widget build(BuildContext context) {
     final isOnline = ref.watch(connectivityProvider);
     final l10n = GrsL10n.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? GrsColors.textPrimaryDark : GrsColors.textPrimaryLight;
+    final secondary = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
 
     return GrsScaffold(
       title: l10n.get('gnSetup'),
@@ -230,16 +235,17 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
                               children: [
                                 Text(
                                   l10n.get('gnNumber'),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: GrsColors.textSecondaryLight,
+                                    color: secondary,
                                   ),
                                 ),
                                 Text(
                                   _gnNumber ?? '-',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
+                                    color: ink,
                                   ),
                                 ),
                               ],
@@ -251,16 +257,17 @@ class _GnSetupScreenState extends ConsumerState<GnSetupScreen> {
                               children: [
                                 Text(
                                   l10n.get('gnName'),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: GrsColors.textSecondaryLight,
+                                    color: secondary,
                                   ),
                                 ),
                                 Text(
                                   _gnName ?? '-',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
+                                    color: ink,
                                   ),
                                 ),
                               ],

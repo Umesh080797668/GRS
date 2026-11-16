@@ -40,6 +40,12 @@ class GrsTheme {
         onTertiary: Colors.white,
       ),
       scaffoldBackgroundColor: GrsColors.backgroundLight,
+      cardColor: GrsColors.surfaceLight,
+      canvasColor: GrsColors.surfaceLight,
+      popupMenuTheme: const PopupMenuThemeData(
+        color: GrsColors.surfaceLight,
+        surfaceTintColor: Colors.transparent,
+      ),
       textTheme: textTheme,
       // ── AppBar ──────────────────────────────────────────────────────────────
       appBarTheme: AppBarTheme(
@@ -261,6 +267,15 @@ class GrsTheme {
         onTertiary: Colors.white,
       ),
       scaffoldBackgroundColor: GrsColors.backgroundDark,
+      cardColor: GrsColors.surfaceDark,
+      canvasColor: GrsColors.surfaceDark,
+      popupMenuTheme: PopupMenuThemeData(
+        color: GrsColors.surfaceDark,
+        surfaceTintColor: Colors.transparent,
+        textStyle: textTheme.bodyMedium?.copyWith(
+          color: GrsColors.textPrimaryDark,
+        ),
+      ),
       textTheme: textTheme,
       // ── AppBar ──────────────────────────────────────────────────────────────
       appBarTheme: AppBarTheme(

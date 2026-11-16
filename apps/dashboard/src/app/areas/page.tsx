@@ -1162,7 +1162,7 @@ export default function AreasPage() {
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {renderModalError()}
                 <div>
-                  <label className="form-label">Team Number *</label>
+                  <label className="form-label">{t('areas.team_number')} *</label>
                   <input
                     type="number"
                     min="1"
@@ -1174,7 +1174,7 @@ export default function AreasPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Max Active Members *</label>
+                  <label className="form-label">{t('areas.max_active_members')} *</label>
                   <input
                     type="number"
                     min="1"
@@ -1225,7 +1225,7 @@ export default function AreasPage() {
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {renderModalError()}
                 <div>
-                  <label className="form-label">English Name *</label>
+                  <label className="form-label">{t('areas.name_en')} *</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1235,7 +1235,7 @@ export default function AreasPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Sinhala Name</label>
+                  <label className="form-label">{t('areas.name_si')}</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1244,7 +1244,7 @@ export default function AreasPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Tamil Name</label>
+                  <label className="form-label">{t('areas.name_ta')}</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1253,7 +1253,7 @@ export default function AreasPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">SDO Officer Name</label>
+                  <label className="form-label">{t('areas.sdo_name')}</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1300,7 +1300,7 @@ export default function AreasPage() {
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {renderModalError()}
                 <div>
-                  <label className="form-label">GN Number / Code *</label>
+                  <label className="form-label">{t('areas.gn_number_code')} *</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1310,7 +1310,7 @@ export default function AreasPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">GN Division Name *</label>
+                  <label className="form-label">{t('areas.gn_division_name')} *</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1320,7 +1320,7 @@ export default function AreasPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Secretary Name</label>
+                  <label className="form-label">{t('areas.secretary_name')}</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1329,7 +1329,7 @@ export default function AreasPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Secretary Phone</label>
+                  <label className="form-label">{t('areas.secretary_phone')}</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1338,7 +1338,7 @@ export default function AreasPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Secretary Email</label>
+                  <label className="form-label">{t('areas.secretary_email')}</label>
                   <input
                     type="email"
                     className="input-field"
@@ -1439,7 +1439,7 @@ export default function AreasPage() {
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {renderModalError()}
                 <div>
-                  <label className="form-label">English Name *</label>
+                  <label className="form-label">{t('areas.name_en')} *</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1518,7 +1518,7 @@ export default function AreasPage() {
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {renderModalError()}
                 <div>
-                  <label className="form-label">GN Number / Code *</label>
+                  <label className="form-label">{t('areas.gn_number_code')} *</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1529,7 +1529,7 @@ export default function AreasPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">GN Division Name *</label>
+                  <label className="form-label">{t('areas.gn_division_name')} *</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1614,7 +1614,7 @@ export default function AreasPage() {
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {renderModalError()}
                 <div>
-                  <label className="form-label">Team Number *</label>
+                  <label className="form-label">{t('areas.team_number')} *</label>
                   <input
                     type="number"
                     min="1"
@@ -1626,7 +1626,7 @@ export default function AreasPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Member Capacity Limit *</label>
+                  <label className="form-label">{t('areas.max_active_members')} *</label>
                   <input
                     type="number"
                     min="1"

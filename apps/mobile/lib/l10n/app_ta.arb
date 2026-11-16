@@ -795,5 +795,91 @@
   "loadMore": "மேலும் ஏற்று",
   "@loadMore": {},
   "selectAtLeastOneLanguage": "குறைந்தது ஒரு விருப்ப மொழியைத் தேர்ந்தெடுக்கவும்.",
-  "@selectAtLeastOneLanguage": {}
+  "@selectAtLeastOneLanguage": {},
+  "proceedToBeneficiaryForm": "பயனாளி படிவத்திற்கு தொடரவும்",
+  "@proceedToBeneficiaryForm": {},
+  "selectLevelHint": "நிலையைத் தேர்ந்தெடுக்கவும்",
+  "@selectLevelHint": {},
+  "selectStreamHint": "துறையைத் தேர்ந்தெடுக்கவும்",
+  "@selectStreamHint": {},
+  "selectRoleHint": "பங்கைத் தேர்ந்தெடுக்கவும்",
+  "@selectRoleHint": {},
+  "enterValidAge": "சரியான வயதை உள்ளிடவும்",
+  "@enterValidAge": {},
+  "epfContributor": "ஈ.பி.எஃப் பங்களிப்பாளர்",
+  "@epfContributor": {},
+  "etfContributor": "ஈ.டி.எஃப் பங்களிப்பாளர்",
+  "@etfContributor": {},
+  "ifOtherDescribe": "மற்றவை எனில், விவரிக்கவும்",
+  "@ifOtherDescribe": {},
+  "correctionReasonMinChars": "தயவுசெய்து சரியான திருத்தக் காரணத்தை வழங்கவும் (குறைந்தது 5 எழுத்துக்கள்)",
+  "@correctionReasonMinChars": {},
+  "householdRemovedClientRetained": "இந்த பயனாளியுடன் தொடர்புடைய குடும்பம் நிலை 4 ஆல் அகற்றப்பட்டது. முடிவு C6 இன் படி பயனாளி தக்கவைக்கப்படுகிறார்.",
+  "@householdRemovedClientRetained": {},
+  "selectEducation": "— கல்வியைத் தேர்ந்தெடுக்கவும் —",
+  "@selectEducation": {},
+  "selectVocational": "— தொழிற்கல்வியைத் தேர்ந்தெடுக்கவும் —",
+  "@selectVocational": {},
+  "selectStream": "— துறையைத் தேர்ந்தெடுக்கவும் —",
+  "@selectStream": {},
+  "selectJob": "— வேலையைத் தேர்ந்தெடுக்கவும் —",
+  "@selectJob": {},
+  "noTeamAvailableInGn": "இந்த கிராம அலுவலர் பிரிவில் குழு எதுவும் இல்லை.",
+  "@noTeamAvailableInGn": {},
+  "targetTeam": "இலக்கு குழு",
+  "@targetTeam": {},
+  "retry": "மீண்டும் முயற்சிக்கவும்",
+  "@retry": {},
+  "currentVersionLabel": "தற்போதைய: v{version}",
+  "@currentVersionLabel": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "checkingForUpdates": "புதுப்பிப்புகளைச் சரிபார்க்கிறது…",
+  "@checkingForUpdates": {},
+  "latestVersionNotice": "நீங்கள் சமீபத்திய பதிப்பில் உள்ளீர்கள்!",
+  "@latestVersionNotice": {},
+  "versionAvailable": "v{version} கிடைக்கிறது",
+  "@versionAvailable": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "appearanceSection": "தோற்றம்",
+  "@appearanceSection": {},
+  "accountSection": "கணக்கு",
+  "@accountSection": {},
+  "appSection": "பயன்பாடு",
+  "@appSection": {},
+  "noHousesInAreaTitle": "இந்த பகுதியில் வீடுகள் இல்லை",
+  "@noHousesInAreaTitle": {},
+  "noHousesInAreaSubtitle": "களப்பணியைத் தொடங்க பகுதி தரவைப் பதிவிறக்கவும்.",
+  "@noHousesInAreaSubtitle": {},
+  "enterValidCount": "சரியான எண்ணிக்கையை உள்ளிடவும்",
+  "@enterValidCount": {},
+  "householdIdLabel": "குடும்ப அடையாள எண் (ID)",
+  "@householdIdLabel": {},
+  "welfareAndSpecialStatus": "நலன்புரி மற்றும் சிறப்பு நிலை",
+  "@welfareAndSpecialStatus": {},
+  "databaseError": "தரவுத்தளப் பிழை: {error}",
+  "@databaseError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "failedToSwitchArea": "பகுதியை மாற்றுவதில் தோல்வி: {error}",
+  "@failedToSwitchArea": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }

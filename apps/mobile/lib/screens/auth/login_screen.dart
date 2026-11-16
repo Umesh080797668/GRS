@@ -298,10 +298,11 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: GrsColors.syncRejectedBg,
+        color: isDark ? GrsColors.syncRejectedBgDark : GrsColors.syncRejectedBg,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(

@@ -508,7 +508,7 @@ export default function UsersPage() {
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button type="button" onClick={() => setShowReissueModal(true)} className="btn-secondary">
             <KeyRound size={15} />
-            <span>Reissue Batch</span>
+            <span>{t('users.reissue_batch')}</span>
           </button>
 
           <button type="button" onClick={handleOpenSingleModal} className="btn-secondary">
@@ -599,17 +599,17 @@ export default function UsersPage() {
             style={{ width: '180px' }}
           >
             {user?.role === 'cdc_secretary' ? (
-              <option value="team_member">Team Members (Assigned)</option>
+              <option value="team_member">{t('users.team_members_assigned')}</option>
             ) : user?.role === 'sda' ? (
               <>
-                <option value="">All Roles</option>
+                <option value="">{t('users.all_roles')}</option>
                 <option value="team_member">Team Member</option>
                 <option value="cdc_secretary">CDC Secretary</option>
                 <option value="sda">SDA Officer (Level 3)</option>
               </>
             ) : user?.role === 'dc' ? (
               <>
-                <option value="">All Roles</option>
+                <option value="">{t('users.all_roles')}</option>
                 <option value="team_member">Team Member</option>
                 <option value="cdc_secretary">CDC Secretary</option>
                 <option value="sda">SDA Officer (Level 3)</option>
@@ -617,7 +617,7 @@ export default function UsersPage() {
               </>
             ) : (
               <>
-                <option value="">All Roles</option>
+                <option value="">{t('users.all_roles')}</option>
                 <option value="team_member">Team Member</option>
                 <option value="cdc_secretary">CDC Secretary</option>
                 <option value="sda">SDA Officer (Level 3)</option>
@@ -650,7 +650,7 @@ export default function UsersPage() {
               <th>{t('users.role')}</th>
               <th>{t('users.phone')}</th>
               <th>{t('users.status')}</th>
-              <th>Created Date</th>
+              <th>{t('users.created_date')}</th>
               <th style={{ textAlign: 'right' }}>{t('users.actions')}</th>
             </tr>
           </thead>
@@ -1220,7 +1220,7 @@ export default function UsersPage() {
                   </div>
                 )}
                 <div>
-                  <label className="form-label">Full Name *</label>
+                  <label className="form-label">{t('users.name')} *</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1240,7 +1240,7 @@ export default function UsersPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Preferred Language</label>
+                  <label className="form-label">{t('users.preferred_language')}</label>
                   <select
                     className="input-field"
                     value={editForm.preferredLanguage}
@@ -1253,13 +1253,13 @@ export default function UsersPage() {
                 </div>
                 {editingAccount.role === 'team_member' && teams.length > 0 && (
                   <div>
-                    <label className="form-label">Assigned Field Team</label>
+                    <label className="form-label">{t('users.assigned_field_team')}</label>
                     <select
                       className="input-field"
                       value={editForm.teamId}
                       onChange={(e) => setEditForm({ ...editForm, teamId: e.target.value })}
                     >
-                      <option value="">Keep current team</option>
+                      <option value="">{t('users.keep_current_team')}</option>
                       {teams.map((tm) => (
                         <option key={tm.id} value={tm.id}>
                           {tm.name || tm.teamCode || formatTeamOption(tm, false)}

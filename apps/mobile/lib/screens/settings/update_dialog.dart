@@ -172,7 +172,9 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
                         style: GrsTypography.titleMedium(color: ink),
                       ),
                       Text(
-                        'Current: v${widget.currentVersion}',
+                        l10n.translate('currentVersionLabel', {
+                          'version': widget.currentVersion,
+                        }),
                         style: GrsTypography.labelSmall(color: secondary),
                       ),
                     ],
@@ -192,7 +194,7 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
               const Center(child: CircularProgressIndicator()),
               const SizedBox(height: 16),
               Text(
-                'Checking for updates…',
+                l10n.get('checkingForUpdates'),
                 style: GrsTypography.bodyMedium(color: secondary),
                 textAlign: TextAlign.center,
               ),
@@ -214,7 +216,7 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
               ),
               const SizedBox(height: 16),
               GrsButton(
-                label: 'Retry',
+                label: l10n.get('retry'),
                 icon: Icons.refresh_rounded,
                 variant: GrsButtonVariant.outline,
                 isFullWidth: true,
@@ -238,7 +240,7 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      "You're on the latest version!",
+                      l10n.get('latestVersionNotice'),
                       style: GrsTypography.bodyMedium(
                         color: GrsColors.syncSynced,
                       ).copyWith(fontWeight: FontWeight.w600),
@@ -265,7 +267,9 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'v${_release!.version} available',
+                            l10n.translate('versionAvailable', {
+                              'version': _release!.version,
+                            }),
                             style: GrsTypography.titleMedium(
                               color: ink,
                             ).copyWith(fontSize: 14),

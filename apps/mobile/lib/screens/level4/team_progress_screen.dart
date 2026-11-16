@@ -269,6 +269,15 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
   Widget build(BuildContext context) {
     final l10n = GrsL10n.of(context);
     final isOnline = ref.watch(connectivityProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? GrsColors.textPrimaryDark : GrsColors.textPrimaryLight;
+    final secondary = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
+    final outline = isDark ? GrsColors.outlineDark : GrsColors.outlineLight;
+    final primaryColor = isDark
+        ? GrsColors.primaryDark
+        : GrsColors.primaryLight;
     final double completionRate = _totalHouses > 0
         ? (_completedHouses / _totalHouses).clamp(0.0, 1.0)
         : 0.0;
@@ -325,17 +334,18 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                             children: [
                               Text(
                                 l10n.get('householdsSurveyed'),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
+                                  color: ink,
                                 ),
                               ),
                               Text(
                                 '${(completionRate * 100).toStringAsFixed(1)}%',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
-                                  color: GrsColors.primaryLight,
+                                  color: primaryColor,
                                 ),
                               ),
                             ],
@@ -346,7 +356,7 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                             child: LinearProgressIndicator(
                               value: completionRate,
                               minHeight: 10,
-                              backgroundColor: GrsColors.outlineLight,
+                              backgroundColor: outline,
                               valueColor: const AlwaysStoppedAnimation<Color>(
                                 GrsColors.syncSynced,
                               ),
@@ -359,22 +369,26 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                               _buildMetricItem(
                                 l10n.get('totalHouseholds'),
                                 '$_totalHouses',
-                                GrsColors.textPrimaryLight,
+                                ink,
+                                secondary,
                               ),
                               _buildMetricItem(
                                 l10n.get('completed'),
                                 '$_completedHouses',
                                 GrsColors.syncSynced,
+                                secondary,
                               ),
                               _buildMetricItem(
                                 l10n.get('inProgress'),
                                 '$_inProgressHouses',
                                 GrsColors.syncPending,
+                                secondary,
                               ),
                               _buildMetricItem(
                                 l10n.get('pending'),
                                 '$_notStartedHouses',
-                                GrsColors.textSecondaryLight,
+                                secondary,
+                                secondary,
                               ),
                             ],
                           ),
@@ -405,10 +419,10 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                               const Spacer(),
                               Text(
                                 '$_totalClients ${l10n.get('totalBeneficiaries')}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
-                                  color: GrsColors.primaryLight,
+                                  color: primaryColor,
                                 ),
                               ),
                             ],
@@ -421,6 +435,9 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                                   icon: Icons.man,
                                   label: l10n.get('male'),
                                   value: '$_maleClients',
+                                  iconColor: secondary,
+                                  labelColor: secondary,
+                                  valueColor: ink,
                                 ),
                               ),
                               Expanded(
@@ -428,6 +445,9 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                                   icon: Icons.woman,
                                   label: l10n.get('female'),
                                   value: '$_femaleClients',
+                                  iconColor: secondary,
+                                  labelColor: secondary,
+                                  valueColor: ink,
                                 ),
                               ),
                               Expanded(
@@ -435,6 +455,9 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                                   icon: Icons.school_outlined,
                                   label: l10n.get('youth'),
                                   value: '$_youthClients',
+                                  iconColor: secondary,
+                                  labelColor: secondary,
+                                  valueColor: ink,
                                 ),
                               ),
                             ],
@@ -458,9 +481,10 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                               const SizedBox(width: GrsSpacing.sm),
                               Text(
                                 l10n.get('vulnerabilityFlags'),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
+                                  color: ink,
                                 ),
                               ),
                             ],
@@ -471,6 +495,8 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                             _specialNeedsClients,
                             _totalClients,
                             GrsColors.syncPending,
+                            outline,
+                            ink,
                           ),
                           const SizedBox(height: GrsSpacing.sm),
                           _buildVulnerabilityRow(
@@ -478,6 +504,8 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                             _samurdhiClients,
                             _totalClients,
                             GrsColors.primaryMid,
+                            outline,
+                            ink,
                           ),
                           const SizedBox(height: GrsSpacing.sm),
                           _buildVulnerabilityRow(
@@ -485,6 +513,8 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
                             _aswesumaClients,
                             _totalClients,
                             GrsColors.syncSynced,
+                            outline,
+                            ink,
                           ),
                         ],
                       ),
@@ -557,7 +587,12 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
     );
   }
 
-  Widget _buildMetricItem(String label, String value, Color color) {
+  Widget _buildMetricItem(
+    String label,
+    String value,
+    Color color, [
+    Color? labelColor,
+  ]) {
     return Column(
       children: [
         Text(
@@ -571,9 +606,9 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
         const SizedBox(height: 2),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
-            color: GrsColors.textSecondaryLight,
+            color: labelColor ?? GrsColors.textSecondaryLight,
           ),
         ),
       ],
@@ -584,24 +619,31 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
     required IconData icon,
     required String label,
     required String value,
+    Color? iconColor,
+    Color? labelColor,
+    Color? valueColor,
   }) {
     return Row(
       children: [
-        Icon(icon, size: 20, color: GrsColors.textSecondaryLight),
+        Icon(icon, size: 20, color: iconColor ?? GrsColors.textSecondaryLight),
         const SizedBox(width: 8),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: GrsColors.textSecondaryLight,
+                color: labelColor ?? GrsColors.textSecondaryLight,
               ),
             ),
             Text(
               value,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: valueColor,
+              ),
             ),
           ],
         ),
@@ -613,8 +655,10 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
     String title,
     int count,
     int total,
-    Color color,
-  ) {
+    Color color, [
+    Color? outlineColor,
+    Color? textColor,
+  ]) {
     final double pct = total > 0 ? (count / total).clamp(0.0, 1.0) : 0.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -622,7 +666,7 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(title, style: const TextStyle(fontSize: 13)),
+            Text(title, style: TextStyle(fontSize: 13, color: textColor)),
             Text(
               '$count (${(pct * 100).toStringAsFixed(1)}%)',
               style: TextStyle(
@@ -639,7 +683,7 @@ class _TeamProgressScreenState extends ConsumerState<TeamProgressScreen> {
           child: LinearProgressIndicator(
             value: pct,
             minHeight: 6,
-            backgroundColor: GrsColors.outlineLight,
+            backgroundColor: outlineColor ?? GrsColors.outlineLight,
             valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
         ),

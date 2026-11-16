@@ -300,6 +300,20 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
           expand: false,
           builder: (ctx, scrollCtrl) {
             final l10n = GrsL10n.of(ctx);
+            final isDark = Theme.of(ctx).brightness == Brightness.dark;
+            final ink = isDark
+                ? GrsColors.textPrimaryDark
+                : GrsColors.textPrimaryLight;
+            final secondary = isDark
+                ? GrsColors.textSecondaryDark
+                : GrsColors.textSecondaryLight;
+            final outline = isDark
+                ? GrsColors.outlineDark
+                : GrsColors.outlineLight;
+            final primaryColor = isDark
+                ? GrsColors.primaryDark
+                : GrsColors.primaryLight;
+
             return SingleChildScrollView(
               controller: scrollCtrl,
               padding: const EdgeInsets.all(GrsSpacing.lg),
@@ -312,7 +326,7 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                       height: 4,
                       margin: const EdgeInsets.only(bottom: GrsSpacing.md),
                       decoration: BoxDecoration(
-                        color: GrsColors.outlineLight,
+                        color: outline,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -323,14 +337,12 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                     children: [
                       CircleAvatar(
                         radius: 28,
-                        backgroundColor: GrsColors.primaryLight.withValues(
-                          alpha: 0.15,
-                        ),
+                        backgroundColor: primaryColor.withValues(alpha: 0.15),
                         child: Text(
                           name.isNotEmpty ? name[0].toUpperCase() : 'B',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 22,
-                            color: GrsColors.primaryLight,
+                            color: primaryColor,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -342,17 +354,15 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                           children: [
                             Text(
                               name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
+                                color: ink,
                               ),
                             ),
                             Text(
                               '$age yrs  •  $gender',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: GrsColors.textSecondaryLight,
-                              ),
+                              style: TextStyle(fontSize: 13, color: secondary),
                             ),
                           ],
                         ),
@@ -396,7 +406,9 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                     Container(
                       padding: const EdgeInsets.all(GrsSpacing.sm),
                       decoration: BoxDecoration(
-                        color: GrsColors.syncRejectedBg,
+                        color: isDark
+                            ? GrsColors.syncRejectedBgDark
+                            : GrsColors.syncRejectedBg,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -409,7 +421,7 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                           Expanded(
                             child: Text(
                               lastError == 'HOUSE_DELETED'
-                                  ? 'Household associated with this client was removed by Level 4. Client is retained per Decision C6.'
+                                  ? l10n.get('householdRemovedClientRetained')
                                   : 'Notice: $lastError',
                               style: const TextStyle(
                                 fontSize: 12,
@@ -426,41 +438,74 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                   const Divider(height: GrsSpacing.xl),
 
                   _buildDetailRow(
-                    'Household ID',
+                    l10n.get('householdIdLabel'),
                     '${record['householdId'] ?? '—'}',
+                    secondary,
+                    ink,
                   ),
-                  _buildDetailRow('Phone', '$phone'),
                   _buildDetailRow(
-                    'WhatsApp',
+                    l10n.get('phoneNumber'),
+                    '$phone',
+                    secondary,
+                    ink,
+                  ),
+                  _buildDetailRow(
+                    l10n.get('whatsappNumber'),
                     '${record['whatsappRaw'] ?? record['whatsappE164'] ?? '—'}',
+                    secondary,
+                    ink,
                   ),
-                  _buildDetailRow('Address', '$address'),
-                  _buildDetailRow('Highest Education', '$education'),
                   _buildDetailRow(
-                    'Highest Vocational',
+                    l10n.get('address'),
+                    '$address',
+                    secondary,
+                    ink,
+                  ),
+                  _buildDetailRow(
+                    l10n.get('highestEducation'),
+                    '$education',
+                    secondary,
+                    ink,
+                  ),
+                  _buildDetailRow(
+                    l10n.get('highestVocational'),
                     '${record['highestVocational'] ?? '—'}',
+                    secondary,
+                    ink,
                   ),
                   _buildDetailRow(
-                    'Interested Stream',
+                    l10n.get('interestedStream'),
                     '${record['interestedVocationalStream'] ?? '—'}',
+                    secondary,
+                    ink,
                   ),
                   _buildDetailRow(
-                    'Interested Job',
+                    l10n.get('interestedJob'),
                     '${record['interestedJob'] ?? '—'}',
+                    secondary,
+                    ink,
                   ),
                   _buildDetailRow(
-                    'Future Hopes',
+                    l10n.get('futureHopes'),
                     '${record['futureHopes'] is List ? (record['futureHopes'] as List).join(', ') : (record['futureHopes'] ?? '—')}',
+                    secondary,
+                    ink,
                   ),
                   _buildDetailRow(
-                    'Info Provided By',
+                    l10n.get('infoProvidedByLabel'),
                     '${record['infoProvidedBy'] ?? '—'}${record['infoProvidedByOther'] != null && record['infoProvidedByOther'].toString().isNotEmpty ? ' (${record['infoProvidedByOther']})' : ''}',
+                    secondary,
+                    ink,
                   ),
 
                   const SizedBox(height: GrsSpacing.md),
-                  const Text(
-                    'Welfare & Special Status',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  Text(
+                    l10n.get('welfareAndSpecialStatus'),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: ink,
+                    ),
                   ),
                   const SizedBox(height: GrsSpacing.xs),
                   Wrap(
@@ -584,7 +629,12 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildDetailRow(
+    String label,
+    String value, [
+    Color? labelColor,
+    Color? valueColor,
+  ]) {
     return Padding(
       padding: const EdgeInsets.only(bottom: GrsSpacing.sm),
       child: Row(
@@ -594,16 +644,20 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
             width: 120,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                color: GrsColors.textSecondaryLight,
+                color: labelColor ?? GrsColors.textSecondaryLight,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: valueColor,
+              ),
             ),
           ),
         ],
@@ -634,6 +688,14 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
   Widget build(BuildContext context) {
     final l10n = GrsL10n.of(context);
     final isOnline = ref.watch(connectivityProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? GrsColors.textPrimaryDark : GrsColors.textPrimaryLight;
+    final secondary = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
+    final primaryColor = isDark
+        ? GrsColors.primaryDark
+        : GrsColors.primaryLight;
     final filtered = _filteredRecords;
 
     return GrsScaffold(
@@ -663,16 +725,26 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                       _buildFilterChip(
                         'all',
                         '${l10n.get('allTab')} (${_records.length})',
+                        isDark,
                       ),
                       const SizedBox(width: GrsSpacing.xs),
                       _buildFilterChip(
                         'special_needs',
                         l10n.get('specialNeeds'),
+                        isDark,
                       ),
                       const SizedBox(width: GrsSpacing.xs),
-                      _buildFilterChip('samurdhi', l10n.get('samurdhi')),
+                      _buildFilterChip(
+                        'samurdhi',
+                        l10n.get('samurdhi'),
+                        isDark,
+                      ),
                       const SizedBox(width: GrsSpacing.xs),
-                      _buildFilterChip('aswesuma', l10n.get('aswesuma')),
+                      _buildFilterChip(
+                        'aswesuma',
+                        l10n.get('aswesuma'),
+                        isDark,
+                      ),
                     ],
                   ),
                 ),
@@ -790,13 +862,14 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                               vertical: 2,
                             ),
                             leading: CircleAvatar(
-                              backgroundColor: GrsColors.primaryLight
-                                  .withValues(alpha: 0.15),
+                              backgroundColor: primaryColor.withValues(
+                                alpha: 0.15,
+                              ),
                               child: Text(
                                 name.isNotEmpty ? name[0].toUpperCase() : 'C',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: GrsColors.primaryLight,
+                                  color: primaryColor,
                                 ),
                               ),
                             ),
@@ -805,9 +878,10 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                                 Expanded(
                                   child: Text(
                                     name,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
+                                      color: ink,
                                     ),
                                   ),
                                 ),
@@ -833,14 +907,11 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
                             ),
                             subtitle: Text(
                               '$age yrs • $gender ${phone.isNotEmpty ? '• $phone' : ''}${houseNo.isNotEmpty ? ' • House #$houseNo' : ''}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: GrsColors.textSecondaryLight,
-                              ),
+                              style: TextStyle(fontSize: 12, color: secondary),
                             ),
-                            trailing: const Icon(
+                            trailing: Icon(
                               Icons.chevron_right,
-                              color: GrsColors.textSecondaryLight,
+                              color: secondary,
                             ),
                             onTap: () => _showRecordDetails(record),
                           ),
@@ -854,17 +925,23 @@ class _TeamRecordsScreenState extends ConsumerState<TeamRecordsScreen> {
     );
   }
 
-  Widget _buildFilterChip(String value, String label) {
+  Widget _buildFilterChip(String value, String label, bool isDark) {
     final isSelected = _selectedFilter == value;
+    final primaryColor = isDark
+        ? GrsColors.primaryDark
+        : GrsColors.primaryLight;
+    final secondary = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
     return ChoiceChip(
       label: Text(label),
       selected: isSelected,
       onSelected: (_) => setState(() => _selectedFilter = value),
-      selectedColor: GrsColors.primaryMid.withValues(alpha: 0.15),
+      selectedColor: GrsColors.primaryMid.withValues(
+        alpha: isDark ? 0.25 : 0.15,
+      ),
       labelStyle: TextStyle(
-        color: isSelected
-            ? GrsColors.primaryLight
-            : GrsColors.textSecondaryLight,
+        color: isSelected ? primaryColor : secondary,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
     );
@@ -1104,10 +1181,10 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                     border: const OutlineInputBorder(),
                   ),
                   items: [
-                    const DropdownMenuItem<String?>(
+                    DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        '— Select Education —',
+                        l10n.get('selectEducation'),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1132,10 +1209,10 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                     border: const OutlineInputBorder(),
                   ),
                   items: [
-                    const DropdownMenuItem<String?>(
+                    DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        '— Select Vocational —',
+                        l10n.get('selectVocational'),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1160,10 +1237,10 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                     border: const OutlineInputBorder(),
                   ),
                   items: [
-                    const DropdownMenuItem<String?>(
+                    DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        '— Select Stream —',
+                        l10n.get('selectStream'),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1189,10 +1266,10 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                     border: const OutlineInputBorder(),
                   ),
                   items: [
-                    const DropdownMenuItem<String?>(
+                    DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
-                        '— Select Job —',
+                        l10n.get('selectJob'),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1247,13 +1324,13 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                 ),
                 CheckboxListTile(
                   dense: true,
-                  title: const Text('EPF Contributor'),
+                  title: Text(l10n.get('epfContributor')),
                   value: _isEpf,
                   onChanged: (val) => setState(() => _isEpf = val ?? false),
                 ),
                 CheckboxListTile(
                   dense: true,
-                  title: const Text('ETF Contributor'),
+                  title: Text(l10n.get('etfContributor')),
                   value: _isEtf,
                   onChanged: (val) => setState(() => _isEtf = val ?? false),
                 ),
@@ -1280,9 +1357,9 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                 DropdownButtonFormField<String>(
                   isExpanded: true,
                   initialValue: _infoProvidedBy,
-                  decoration: const InputDecoration(
-                    labelText: 'Info Provided By',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.get('infoProvidedByLabel'),
+                    border: const OutlineInputBorder(),
                   ),
                   items: _infoLookups.map((l) {
                     return DropdownMenuItem(
@@ -1303,7 +1380,7 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                   const SizedBox(height: GrsSpacing.sm),
                   GrsTextField(
                     controller: _infoOtherCtrl,
-                    label: 'If Other, describe',
+                    label: l10n.get('ifOtherDescribe'),
                   ),
                 ],
                 const SizedBox(height: GrsSpacing.md),
@@ -1315,7 +1392,7 @@ class _CorrectionDialogState extends State<_CorrectionDialog> {
                   maxLines: 2,
                   validator: (val) {
                     if (val == null || val.trim().length < 5) {
-                      return 'Please provide a valid correction reason (min 5 chars)';
+                      return l10n.get('correctionReasonMinChars');
                     }
                     return null;
                   },

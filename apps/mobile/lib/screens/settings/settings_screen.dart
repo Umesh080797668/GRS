@@ -299,7 +299,10 @@ class SettingsScreen extends ConsumerWidget {
           // ── Section: Appearance / Theme ────────────────────────────────────
           GrsFadeSlideItem(
             index: 4,
-            child: _SectionLabel(label: 'Appearance', isDark: isDark),
+            child: _SectionLabel(
+              label: l10n.get('appearanceSection'),
+              isDark: isDark,
+            ),
           ),
           const SizedBox(height: 8),
           GrsFadeSlideItem(
@@ -341,7 +344,10 @@ class SettingsScreen extends ConsumerWidget {
           // ── Section: Account ───────────────────────────────────────────────
           GrsFadeSlideItem(
             index: 4,
-            child: _SectionLabel(label: 'Account', isDark: isDark),
+            child: _SectionLabel(
+              label: l10n.get('accountSection'),
+              isDark: isDark,
+            ),
           ),
           const SizedBox(height: 8),
           GrsFadeSlideItem(
@@ -380,7 +386,7 @@ class SettingsScreen extends ConsumerWidget {
           // ── Section: App ───────────────────────────────────────────────────
           GrsFadeSlideItem(
             index: 6,
-            child: _SectionLabel(label: 'App', isDark: isDark),
+            child: _SectionLabel(label: l10n.get('appSection'), isDark: isDark),
           ),
           const SizedBox(height: 8),
           GrsFadeSlideItem(

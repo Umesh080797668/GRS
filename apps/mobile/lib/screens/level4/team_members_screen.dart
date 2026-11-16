@@ -282,6 +282,29 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
         barrierDismissible: false,
         builder: (modalCtx) {
           final modalL10n = GrsL10n.of(modalCtx);
+          final isDark = Theme.of(modalCtx).brightness == Brightness.dark;
+          final cardBg = isDark
+              ? GrsColors.surfaceVariantDark
+              : GrsColors.surfaceLight;
+          final cardBorder = isDark
+              ? GrsColors.outlineDark
+              : GrsColors.outlineLight;
+          final modalInk = isDark
+              ? GrsColors.textPrimaryDark
+              : GrsColors.textPrimaryLight;
+          final modalSecondary = isDark
+              ? GrsColors.textSecondaryDark
+              : GrsColors.textSecondaryLight;
+          final modalPrimary = isDark
+              ? GrsColors.primaryDark
+              : GrsColors.primaryLight;
+          final warningBg = isDark
+              ? GrsColors.syncPendingBgDark
+              : GrsColors.syncPendingBg;
+          final warningText = isDark
+              ? const Color(0xFFFDE68A)
+              : const Color(0xFF78350F);
+
           return AlertDialog(
             title: Row(
               children: [
@@ -290,9 +313,10 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                 Expanded(
                   child: Text(
                     modalL10n.get('oneTimeCredentials'),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: modalInk,
                     ),
                   ),
                 ),
@@ -308,7 +332,7 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                     Container(
                       padding: const EdgeInsets.all(GrsSpacing.sm),
                       decoration: BoxDecoration(
-                        color: GrsColors.syncPendingBg,
+                        color: warningBg,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: GrsColors.syncPending.withValues(alpha: 0.3),
@@ -326,10 +350,10 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                           Expanded(
                             child: Text(
                               modalL10n.get('credentialsOneTimeWarning'),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF78350F),
+                                color: warningText,
                               ),
                             ),
                           ),
@@ -344,8 +368,8 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                         margin: const EdgeInsets.only(bottom: GrsSpacing.sm),
                         padding: const EdgeInsets.all(GrsSpacing.sm),
                         decoration: BoxDecoration(
-                          color: GrsColors.surfaceLight,
-                          border: Border.all(color: GrsColors.outlineLight),
+                          color: cardBg,
+                          border: Border.all(color: cardBorder),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
@@ -356,9 +380,10 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                                 Expanded(
                                   child: Text(
                                     c['fullName'] ?? 'Member',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
+                                      color: modalInk,
                                     ),
                                   ),
                                 ),
@@ -393,16 +418,17 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                               children: [
                                 Text(
                                   '${modalL10n.get('userId')}: ',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: GrsColors.textSecondaryLight,
+                                    color: modalSecondary,
                                   ),
                                 ),
                                 SelectableText(
                                   c['userCode'] ?? '',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
+                                    color: modalInk,
                                   ),
                                 ),
                               ],
@@ -412,17 +438,17 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                               children: [
                                 Text(
                                   '${modalL10n.get('password')}: ',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: GrsColors.textSecondaryLight,
+                                    color: modalSecondary,
                                   ),
                                 ),
                                 SelectableText(
                                   c['initialPassword'] ?? '',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: GrsColors.primaryLight,
+                                    color: modalPrimary,
                                     letterSpacing: 1.2,
                                   ),
                                 ),
@@ -564,6 +590,15 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
   Widget build(BuildContext context) {
     final l10n = GrsL10n.of(context);
     final isOnline = ref.watch(connectivityProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark
+        ? GrsColors.primaryDark
+        : GrsColors.primaryLight;
+    final ink = isDark ? GrsColors.textPrimaryDark : GrsColors.textPrimaryLight;
+    final secondary = isDark
+        ? GrsColors.textSecondaryDark
+        : GrsColors.textSecondaryLight;
+    final outline = isDark ? GrsColors.outlineDark : GrsColors.outlineLight;
     final activeCount = _activeCount;
 
     return GrsScaffold(
@@ -582,12 +617,12 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                   Container(
                     padding: const EdgeInsets.all(GrsSpacing.sm),
                     decoration: BoxDecoration(
-                      color: GrsColors.primaryLight.withValues(alpha: 0.15),
+                      color: primaryColor.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.groups_outlined,
-                      color: GrsColors.primaryLight,
+                      color: primaryColor,
                       size: 28,
                     ),
                   ),
@@ -598,10 +633,7 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                       children: [
                         Text(
                           l10n.get('teamCapacity'),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: GrsColors.textSecondaryLight,
-                          ),
+                          style: TextStyle(fontSize: 12, color: secondary),
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -611,7 +643,7 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                             fontWeight: FontWeight.bold,
                             color: activeCount >= _maxMembers
                                 ? GrsColors.syncRejected
-                                : GrsColors.textPrimaryLight,
+                                : ink,
                           ),
                         ),
                       ],
@@ -671,18 +703,15 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.person_off_outlined,
                           size: 48,
-                          color: GrsColors.textSecondaryLight,
+                          color: secondary,
                         ),
                         const SizedBox(height: GrsSpacing.sm),
                         Text(
                           l10n.get('noTeamMembersFound'),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: GrsColors.textSecondaryLight,
-                          ),
+                          style: TextStyle(fontSize: 14, color: secondary),
                         ),
                         const SizedBox(height: GrsSpacing.md),
                         if (isOnline)
@@ -721,15 +750,11 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                             ),
                             leading: CircleAvatar(
                               backgroundColor: isActive
-                                  ? GrsColors.primaryLight.withValues(
-                                      alpha: 0.12,
-                                    )
-                                  : GrsColors.outlineLight,
+                                  ? primaryColor.withValues(alpha: 0.12)
+                                  : outline,
                               child: Icon(
                                 Icons.person,
-                                color: isActive
-                                    ? GrsColors.primaryLight
-                                    : GrsColors.textSecondaryLight,
+                                color: isActive ? primaryColor : secondary,
                               ),
                             ),
                             title: Row(
@@ -740,6 +765,7 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.bold,
+                                      color: ink,
                                       decoration: isActive
                                           ? null
                                           : TextDecoration.lineThrough,
@@ -753,14 +779,16 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: GrsColors.outlineLight,
+                                      color: isDark
+                                          ? GrsColors.surfaceVariantDark
+                                          : outline,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
                                       l10n.get('deactivatedTitle'),
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 10,
-                                        color: GrsColors.textSecondaryLight,
+                                        color: secondary,
                                       ),
                                     ),
                                   ),
@@ -771,17 +799,17 @@ class _TeamMembersScreenState extends ConsumerState<TeamMembersScreen> {
                               children: [
                                 Text(
                                   'ID: $userCode  •  Role: $role',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: GrsColors.textSecondaryLight,
+                                    color: secondary,
                                   ),
                                 ),
                                 if (phone.isNotEmpty)
                                   Text(
                                     '${l10n.get('phoneNumber')}: $phone',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12,
-                                      color: GrsColors.textSecondaryLight,
+                                      color: secondary,
                                     ),
                                   ),
                               ],
@@ -992,6 +1020,14 @@ class _BulkAddDialogState extends State<_BulkAddDialog> {
   @override
   Widget build(BuildContext context) {
     final dlgL10n = GrsL10n.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bannerBg = isDark
+        ? GrsColors.primaryContainerDark
+        : GrsColors.primaryLight.withValues(alpha: 0.12);
+    final bannerTextColor = isDark
+        ? GrsColors.onPrimaryContainerDark
+        : GrsColors.primaryLight;
+
     return AlertDialog(
       title: Text(dlgL10n.get('bulkAddMembers')),
       content: SingleChildScrollView(
@@ -1004,16 +1040,16 @@ class _BulkAddDialogState extends State<_BulkAddDialog> {
               Container(
                 padding: const EdgeInsets.all(GrsSpacing.sm),
                 decoration: BoxDecoration(
-                  color: GrsColors.primaryLight.withValues(alpha: 0.12),
+                  color: bannerBg,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   dlgL10n.translate('availableCapacity', {
                     'count': '${widget.availableSlots}',
                   }),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: GrsColors.primaryLight,
+                    color: bannerTextColor,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

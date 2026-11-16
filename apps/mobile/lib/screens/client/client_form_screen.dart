@@ -561,7 +561,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                                 }
                                 final parsed = int.tryParse(val.trim());
                                 if (parsed == null) {
-                                  return 'Enter valid age';
+                                  return l10n.get('enterValidAge');
                                 }
                                 if (parsed < 18 || parsed > 35) {
                                   return l10n.get('ageOutOfRange').isNotEmpty
@@ -687,7 +687,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                             ? _highestEducation
                             : null,
                         enabled: !_isLocked,
-                        hint: 'Select level',
+                        hint: l10n.get('selectLevelHint'),
                         items: _educationLookups
                             .map(
                               (l) => GrsDropdownItem(
@@ -713,7 +713,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                             ? _highestVocational
                             : null,
                         enabled: !_isLocked,
-                        hint: 'Select level',
+                        hint: l10n.get('selectLevelHint'),
                         items: _vocationalLookups
                             .map(
                               (l) => GrsDropdownItem(
@@ -740,7 +740,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                             ? _interestedVocationalStream
                             : null,
                         enabled: !_isLocked,
-                        hint: 'Select stream',
+                        hint: l10n.get('selectStreamHint'),
                         items: _streamLookups
                             .map(
                               (l) => GrsDropdownItem(
@@ -763,7 +763,7 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
                             ? _interestedJob
                             : null,
                         enabled: !_isLocked,
-                        hint: 'Select role',
+                        hint: l10n.get('selectRoleHint'),
                         items: _jobLookups
                             .map(
                               (l) => GrsDropdownItem(

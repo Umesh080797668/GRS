@@ -973,7 +973,7 @@ export default function HousesPage() {
                   disabled={teams.length === 0}
                 >
                   {teams.length === 0 ? (
-                    <option value="">No teams available in GN</option>
+                    <option value="">{t('houses.no_teams_in_gn')}</option>
                   ) : (
                     teams.map((t) => (
                       <option key={t.id} value={t.id}>
@@ -1399,7 +1399,7 @@ export default function HousesPage() {
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
-                    <label className="form-label">House Number *</label>
+                    <label className="form-label">{t('houses.house_number')} *</label>
                     <input
                       type="text"
                       className="input-field"
@@ -1410,7 +1410,7 @@ export default function HousesPage() {
                     />
                   </div>
                   <div>
-                    <label className="form-label">Head of Household *</label>
+                    <label className="form-label">{t('houses.head_of_household')} *</label>
                     <input
                       type="text"
                       className="input-field"
@@ -1423,7 +1423,7 @@ export default function HousesPage() {
                 </div>
 
                 <div>
-                  <label className="form-label">Village / Street</label>
+                  <label className="form-label">{t('houses.village_street')}</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1434,7 +1434,7 @@ export default function HousesPage() {
                 </div>
 
                 <div>
-                  <label className="form-label">Full Postal Address</label>
+                  <label className="form-label">{t('houses.full_postal_address')}</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1445,7 +1445,7 @@ export default function HousesPage() {
                 </div>
 
                 <div>
-                  <label className="form-label">Social Welfare & Identifiers</label>
+                  <label className="form-label">{t('houses.welfare_identifiers')}</label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', fontSize: '13px', marginTop: '4px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                       <input
@@ -1548,7 +1548,7 @@ export default function HousesPage() {
             <form onSubmit={handleUpdateGnSetup}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
-                  <label className="form-label">CDC / GN Secretary Full Name</label>
+                  <label className="form-label">{t('houses.secretary_name')}</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1559,7 +1559,7 @@ export default function HousesPage() {
                 </div>
 
                 <div>
-                  <label className="form-label">Secretary Contact Phone</label>
+                  <label className="form-label">{t('houses.secretary_phone')}</label>
                   <input
                     type="text"
                     className="input-field"
@@ -1570,7 +1570,7 @@ export default function HousesPage() {
                 </div>
 
                 <div>
-                  <label className="form-label">Secretary Email</label>
+                  <label className="form-label">{t('houses.secretary_email')}</label>
                   <input
                     type="email"
                     className="input-field"
@@ -1638,7 +1638,7 @@ export default function HousesPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
-                    <label className="form-label">House Number *</label>
+                    <label className="form-label">{t('houses.house_number')} *</label>
                     <input
                       type="text"
                       className="input-field"
@@ -1648,7 +1648,7 @@ export default function HousesPage() {
                     />
                   </div>
                   <div>
-                    <label className="form-label">Head of Household *</label>
+                    <label className="form-label">{t('houses.head_of_household')} *</label>
                     <input
                       type="text"
                       className="input-field"
@@ -1661,7 +1661,7 @@ export default function HousesPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
-                    <label className="form-label">Village / Street</label>
+                    <label className="form-label">{t('houses.village_street')}</label>
                     <input
                       type="text"
                       className="input-field"
@@ -1670,7 +1670,7 @@ export default function HousesPage() {
                     />
                   </div>
                   <div>
-                    <label className="form-label">Full Postal Address</label>
+                    <label className="form-label">{t('houses.full_postal_address')}</label>
                     <input
                       type="text"
                       className="input-field"
@@ -1682,7 +1682,7 @@ export default function HousesPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
-                    <label className="form-label">Target Female Count (only 18-35)</label>
+                    <label className="form-label">{t('houses.target_female_count')}</label>
                     <input
                       type="number"
                       min="0"
@@ -1693,7 +1693,7 @@ export default function HousesPage() {
                     />
                   </div>
                   <div>
-                    <label className="form-label">Target Male Count (only 18-35)</label>
+                    <label className="form-label">{t('houses.target_male_count')}</label>
                     <input
                       type="number"
                       min="0"
@@ -1706,7 +1706,7 @@ export default function HousesPage() {
                 </div>
 
                 <div>
-                  <label className="form-label">Social Welfare & Identifiers</label>
+                  <label className="form-label">{t('houses.welfare_identifiers')}</label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px', fontSize: '13px', marginTop: '4px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                       <input
@@ -1791,7 +1791,7 @@ export default function HousesPage() {
                 </div>
 
                 <div>
-                  <label className="form-label">Household Languages</label>
+                  <label className="form-label">{t('houses.household_languages')}</label>
                   <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '13px', marginTop: '4px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                       <input type="checkbox" checked={editHouseForm.langSinhala} onChange={(e) => setEditHouseForm({ ...editHouseForm, langSinhala: e.target.checked })} />
@@ -1866,7 +1866,7 @@ export default function HousesPage() {
                 Are you sure you want to delete household <strong>#{deletingHouse.houseNo}</strong>? Households with active client survey records attached cannot be deleted until those client records are removed or reassigned (Decision C6).
               </p>
               <div>
-                <label className="form-label">Deletion Reason (Optional)</label>
+                <label className="form-label">{t('houses.deletion_reason')}</label>
                 <input
                   type="text"
                   className="input-field"

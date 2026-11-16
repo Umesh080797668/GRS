@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import Shell from '../../components/Shell';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
+import { useLanguage } from '../../context/LanguageContext';
 import {
   MapPin,
   ArrowRightLeft,
@@ -90,6 +91,7 @@ function AssignDialog({
   callerRole, callerDsId,
   onClose, onDsChange, onGnChange, onSubmit, submitting, error,
 }: AssignDialogProps) {
+  const { t } = useLanguage();
   const isSdo = callerRole === 'sda';
   const isDc = callerRole === 'dc';
   const defaultLevel: 'district' | 'ds' | 'gn' | 'team' =
@@ -123,7 +125,7 @@ function AssignDialog({
         <div className="modal-header">
           <div>
             <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
-              {profile?.role === 'cdc_secretary' ? 'Add GN / Assign Territory' : 'Assign Territory'}
+              {profile?.role === 'cdc_secretary' ? 'Add GN / Assign Territory' : t('assignments.title')}
             </h3>
             {profile && (
               <p style={{ fontSize: '12px', color: 'var(--slate-500)', marginTop: '3px' }}>
@@ -151,20 +153,20 @@ function AssignDialog({
             )}
             {/* Level picker */}
             <div>
-              <label className="form-label">Territory level *</label>
+              <label className="form-label">{t('assignments.territory_level')} *</label>
               <select value={level} onChange={(e) => setLevel(e.target.value as any)} className="select-field">
-                <option value="gn">GN Division</option>
-                <option value="team">Team (within GN)</option>
-                {!isSdo && <option value="ds">DS Division</option>}
-                {!isSdo && !isDc && <option value="district">District</option>}
+                <option value="gn">{t('assignments.level_gn')}</option>
+                <option value="team">{t('assignments.level_team')}</option>
+                {!isSdo && <option value="ds">{t('assignments.level_ds')}</option>}
+                {!isSdo && !isDc && <option value="district">{t('assignments.level_district')}</option>}
               </select>
             </div>
 
             {level === 'district' && (
               <div>
-                <label className="form-label">District *</label>
+                <label className="form-label">{t('assignments.level_district')} *</label>
                 <select value={districtId} onChange={(e) => setDistrictId(e.target.value)} className="select-field" required>
-                  <option value="">Select district…</option>
+                  <option value="">{t('assignments.select_district')}</option>
                   {districts.map((d) => <option key={d.id} value={d.id}>{d.nameEn || d.name_en}</option>)}
                 </select>
               </div>
@@ -172,9 +174,9 @@ function AssignDialog({
 
             {level === 'ds' && (
               <div>
-                <label className="form-label">DS Division *</label>
+                <label className="form-label">{t('assignments.level_ds')} *</label>
                 <select value={dsId} onChange={(e) => { setDsId(e.target.value); onDsChange(e.target.value); }} className="select-field" required>
-                  <option value="">Select DS division…</option>
+                  <option value="">{t('assignments.select_ds')}</option>
                   {dsDivisions.map((d) => <option key={d.id} value={d.id}>{d.nameEn || d.name_en}</option>)}
                 </select>
               </div>
@@ -183,21 +185,21 @@ function AssignDialog({
             {(level === 'gn' || level === 'team') && (
               <>
                 <div>
-                  <label className="form-label">DS Division (to filter GNs)</label>
+                  <label className="form-label">{t('assignments.level_ds')}</label>
                   <select
                     value={dsId}
                     onChange={(e) => { setDsId(e.target.value); onDsChange(e.target.value); setGnId(''); setTeamId(''); }}
                     disabled={isSdo}
                     className="select-field"
                   >
-                    {!isSdo && <option value="">All DS divisions</option>}
+                    {!isSdo && <option value="">{t('assignments.all_ds')}</option>}
                     {dsDivisions.map((d) => <option key={d.id} value={d.id}>{d.nameEn || d.name_en}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">GN Division *</label>
+                  <label className="form-label">{t('assignments.level_gn')} *</label>
                   <select value={gnId} onChange={(e) => { setGnId(e.target.value); onGnChange(e.target.value); setTeamId(''); }} className="select-field" required>
-                    <option value="">Select GN division…</option>
+                    <option value="">{t('assignments.select_gn')}</option>
                     {gnDivisions.map((g) => <option key={g.id} value={g.id}>{g.gnNumber} — {g.gnName || g.gn_name}</option>)}
                   </select>
                 </div>
@@ -206,9 +208,9 @@ function AssignDialog({
 
             {level === 'team' && (
               <div>
-                <label className="form-label">Team *</label>
+                <label className="form-label">{t('assignments.col_team')} *</label>
                 <select value={teamId} onChange={(e) => setTeamId(e.target.value)} className="select-field" required>
-                  <option value="">Select team…</option>
+                  <option value="">{t('assignments.select_team')}</option>
                   {(gnId ? teams.filter((t) => (t.gnId || t.gn_id) === gnId) : teams).map((t) => (
                     <option key={t.id} value={t.id}>Team {t.teamNo}</option>
                   ))}
@@ -217,15 +219,15 @@ function AssignDialog({
             )}
 
             <div>
-              <label className="form-label">Note (optional)</label>
+              <label className="form-label">{t('assignments.note_optional')}</label>
               <input type="text" className="input-field" placeholder="e.g. Temporary reassignment for census month" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
             </div>
           </div>
 
           <div className="modal-footer">
-            <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+            <button type="button" onClick={onClose} className="btn-secondary">{t('common.cancel')}</button>
             <button type="submit" disabled={submitting} className="btn-primary">
-              {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Assign Territory'}
+              {submitting ? <Loader2 size={16} className="animate-spin" /> : t('assignments.title')}
             </button>
           </div>
         </form>
@@ -247,6 +249,7 @@ interface TransferDialogProps {
 }
 
 function TransferDialog({ fromProfile, currentTerritory, accounts, onClose, onSubmit, submitting, error }: TransferDialogProps) {
+  const { t } = useLanguage();
   const [toProfileId, setToProfileId] = useState('');
   const [note, setNote] = useState('');
   const [search, setSearch] = useState('');
@@ -284,13 +287,13 @@ function TransferDialog({ fromProfile, currentTerritory, accounts, onClose, onSu
             </div>
           )}
           <div>
-            <label className="form-label">Transfer to *</label>
+            <label className="form-label">{t('assignments.transfer_to')} *</label>
             <div style={{ position: 'relative', marginBottom: '8px' }}>
               <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--slate-400)' }} />
               <input type="text" className="input-field" placeholder="Search by name or code…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: '32px' }} />
             </div>
             <select value={toProfileId} onChange={(e) => setToProfileId(e.target.value)} className="select-field" required size={5} style={{ height: '130px' }}>
-              <option value="">— select recipient —</option>
+              <option value="">{t('assignments.select_recipient')}</option>
               {filtered.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.fullName || a.full_name} ({a.userCode || a.user_code}) · {roleLabel(a.role)}
@@ -300,15 +303,15 @@ function TransferDialog({ fromProfile, currentTerritory, accounts, onClose, onSu
           </div>
 
           <div>
-            <label className="form-label">Note (optional)</label>
+            <label className="form-label">{t('assignments.note_optional')}</label>
             <input type="text" className="input-field" placeholder="Reason for transfer" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
           </div>
         </div>
 
         <div className="modal-footer">
-          <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+          <button type="button" onClick={onClose} className="btn-secondary">{t('common.cancel')}</button>
           <button type="button" disabled={submitting || !toProfileId} className="btn-primary" onClick={() => onSubmit(toProfileId, note)}>
-            {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Transfer'}
+            {submitting ? <Loader2 size={16} className="animate-spin" /> : t('assignments.transfer_assignment')}
           </button>
         </div>
       </div>
@@ -325,6 +328,7 @@ interface HistoryPanelProps {
 }
 
 function HistoryPanel({ profileId, profileName, onClose }: HistoryPanelProps) {
+  const { t } = useLanguage();
   const [history, setHistory] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -355,7 +359,7 @@ function HistoryPanel({ profileId, profileName, onClose }: HistoryPanelProps) {
           {loading ? (
             <div style={{ textAlign: 'center', padding: '2rem' }}><Loader2 size={24} className="animate-spin" style={{ color: 'var(--primary)' }} /></div>
           ) : history.length === 0 ? (
-            <p style={{ color: 'var(--slate-400)', textAlign: 'center', padding: '1.5rem' }}>No assignment history found.</p>
+            <p style={{ color: 'var(--slate-400)', textAlign: 'center', padding: '1.5rem' }}>{t('assignments.no_history')}</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {history.map((h) => (
@@ -397,7 +401,7 @@ function HistoryPanel({ profileId, profileName, onClose }: HistoryPanelProps) {
         </div>
 
         <div className="modal-footer" style={{ justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} className="btn-secondary">Close</button>
+          <button type="button" onClick={onClose} className="btn-secondary">{t('common.close')}</button>
         </div>
       </div>
     </div>
@@ -407,6 +411,7 @@ function HistoryPanel({ profileId, profileName, onClose }: HistoryPanelProps) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AssignmentsPage() {
+  const { t } = useLanguage();
   const { user, isLoading: authLoading } = useAuth();
 
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -573,7 +578,7 @@ export default function AssignmentsPage() {
       <Shell>
         <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--slate-500)' }}>
           <AlertCircle size={32} style={{ marginBottom: '1rem', color: 'var(--danger)' }} />
-          <p>You do not have permission to manage assignments.</p>
+          <p>{t('assignments.no_permission')}</p>
         </div>
       </Shell>
     );
@@ -585,10 +590,10 @@ export default function AssignmentsPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--slate-900)', letterSpacing: '-0.02em', margin: 0 }}>
-            Territory Assignments
+            {t('assignments.title')}
           </h1>
           <p style={{ fontSize: '13px', color: 'var(--slate-500)', marginTop: '4px' }}>
-            Assign, transfer, or end territorial assignments. All changes immediately revoke stale sessions.
+            {t('assignments.subtitle')}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -619,7 +624,7 @@ export default function AssignmentsPage() {
           <input
             type="text"
             className="input-field"
-            placeholder="Search by name, code or territory…"
+            placeholder={t('assignments.search_placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ paddingLeft: '32px' }}
@@ -634,9 +639,9 @@ export default function AssignmentsPage() {
       <div className="panel" style={{ padding: '0.875rem 1.25rem', marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
           <div>
-            <p style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--slate-900)', margin: 0 }}>Assign an account</p>
+            <p style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--slate-900)', margin: 0 }}>{t('assignments.assign_account')}</p>
             <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '3px 0 0 0' }}>
-              Search for any account to open the assign dialog directly.
+              {t('assignments.assign_shortcut_desc')}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -654,7 +659,7 @@ export default function AssignmentsPage() {
               }}
               defaultValue=""
             >
-              <option value="">Select account to assign…</option>
+              <option value="">{t('assignments.select_account')}</option>
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.fullName || a.full_name} ({a.userCode || a.user_code}) · {roleLabel(a.role)}
@@ -670,13 +675,13 @@ export default function AssignmentsPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>Account</th>
-              <th>Role</th>
-              <th>Territory</th>
-              <th>Team</th>
-              <th style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={13} /> Since</th>
-              <th>Assigned by</th>
-              <th style={{ textAlign: 'right' }}>Actions</th>
+              <th>{t('assignments.col_account')}</th>
+              <th>{t('assignments.col_role')}</th>
+              <th>{t('assignments.col_territory')}</th>
+              <th>{t('assignments.col_team')}</th>
+              <th style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={13} /> {t('assignments.col_since')}</th>
+              <th>{t('assignments.col_assigned_by')}</th>
+              <th style={{ textAlign: 'right' }}>{t('common.actions')}</th>
             </tr>
           </thead>
           <tbody>
