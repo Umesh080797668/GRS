@@ -67,7 +67,7 @@ export default function ProgressPage() {
 
     (async () => {
       try {
-        const res = await loadScopedAreaLists(api, user, { autoSelectFirst: true });
+        const res = await loadScopedAreaLists(api, user);
         if (cancelled) return;
         setDistricts(res.districts);
         setDsDivisions(res.dsDivisions);
@@ -262,9 +262,14 @@ export default function ProgressPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 180px', minWidth: '180px' }}>
           <label
             htmlFor="progress-scope-district"
-            style={{ fontSize: '12px', fontWeight: 600, color: 'var(--slate-600)' }}
+            style={{ fontSize: '12px', fontWeight: 600, color: 'var(--slate-600)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
           >
-            {t('progress.scope.district')}
+            <span>{t('progress.scope.district')}</span>
+            {districts.length > 0 && !areaLocks.isDistrictLocked && (
+              <span className="badge badge-neutral" style={{ fontSize: '10px', padding: '1px 6px', lineHeight: '14px' }}>
+                {districts.length}
+              </span>
+            )}
           </label>
           <select
             id="progress-scope-district"
@@ -275,7 +280,9 @@ export default function ProgressPage() {
             disabled={areaLocks.isDistrictLocked}
           >
             <option value="">
-              {areaLocks.isDistrictLocked ? t('progress.scope.assigned_district') : t('progress.scope.all_districts')}
+              {areaLocks.isDistrictLocked
+                ? t('progress.scope.assigned_district')
+                : `${t('progress.scope.all_districts')}${districts.length > 0 ? ` (${districts.length})` : ''}`}
             </option>
             {districts.map((d) => (
               <option key={d.id} value={d.id}>
@@ -288,9 +295,14 @@ export default function ProgressPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 180px', minWidth: '180px' }}>
           <label
             htmlFor="progress-scope-ds"
-            style={{ fontSize: '12px', fontWeight: 600, color: 'var(--slate-600)' }}
+            style={{ fontSize: '12px', fontWeight: 600, color: 'var(--slate-600)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
           >
-            {t('progress.scope.ds_division')}
+            <span>{t('progress.scope.ds_division')}</span>
+            {dsDivisions.length > 0 && !areaLocks.isDsLocked && (
+              <span className="badge badge-neutral" style={{ fontSize: '10px', padding: '1px 6px', lineHeight: '14px' }}>
+                {dsDivisions.length}
+              </span>
+            )}
           </label>
           <select
             id="progress-scope-ds"
@@ -301,7 +313,9 @@ export default function ProgressPage() {
             disabled={!selectedDistrict || dsDivisions.length === 0 || areaLocks.isDsLocked}
           >
             <option value="">
-              {areaLocks.isDsLocked ? t('progress.scope.assigned_ds') : t('progress.scope.all_ds')}
+              {areaLocks.isDsLocked
+                ? t('progress.scope.assigned_ds')
+                : `${t('progress.scope.all_ds')}${dsDivisions.length > 0 ? ` (${dsDivisions.length})` : ''}`}
             </option>
             {dsDivisions.map((ds) => (
               <option key={ds.id} value={ds.id}>
@@ -314,9 +328,14 @@ export default function ProgressPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 180px', minWidth: '180px' }}>
           <label
             htmlFor="progress-scope-gn"
-            style={{ fontSize: '12px', fontWeight: 600, color: 'var(--slate-600)' }}
+            style={{ fontSize: '12px', fontWeight: 600, color: 'var(--slate-600)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
           >
-            {t('progress.scope.gn_division')}
+            <span>{t('progress.scope.gn_division')}</span>
+            {gnDivisions.length > 0 && !areaLocks.isGnLocked && (
+              <span className="badge badge-neutral" style={{ fontSize: '10px', padding: '1px 6px', lineHeight: '14px' }}>
+                {gnDivisions.length}
+              </span>
+            )}
           </label>
           <select
             id="progress-scope-gn"
@@ -324,10 +343,12 @@ export default function ProgressPage() {
             style={{ width: '100%' }}
             value={selectedGn}
             onChange={(e) => setSelectedGn(e.target.value)}
-            disabled={!selectedDs || gnDivisions.length <= 1}
+            disabled={!selectedDs || gnDivisions.length === 0 || (areaLocks.isGnLocked && gnDivisions.length <= 1)}
           >
             <option value="">
-              {areaLocks.isGnLocked ? t('progress.scope.assigned_gn') : t('progress.scope.all_gn')}
+              {areaLocks.isGnLocked
+                ? t('progress.scope.assigned_gn')
+                : `${t('progress.scope.all_gn')}${gnDivisions.length > 0 ? ` (${gnDivisions.length})` : ''}`}
             </option>
             {gnDivisions.map((gn) => (
               <option key={gn.id} value={gn.id}>
