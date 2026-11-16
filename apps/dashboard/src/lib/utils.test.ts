@@ -8,6 +8,7 @@ import {
   formatRoleLabel,
   formatTimeOnly,
   getColomboDateString,
+  isHouseholdFinished,
   APP_TIMEZONE,
 } from './utils.ts';
 
@@ -91,6 +92,28 @@ describe('Dashboard activity duration & relative time formatting', () => {
       const d2 = new Date('2026-11-13T19:00:00Z'); // 00:30 Colombo time -> 2026-11-14
       assert.strictEqual(getColomboDateString(d1), '2026-11-13');
       assert.strictEqual(getColomboDateString(d2), '2026-11-14');
+    });
+  });
+
+  describe('isHouseholdFinished helper', () => {
+    it('returns true when isFinished is true', () => {
+      assert.strictEqual(isHouseholdFinished({ isFinished: true }), true);
+    });
+
+    it('returns true when visitStatus is completed', () => {
+      assert.strictEqual(isHouseholdFinished({ visitStatus: 'completed' }), true);
+    });
+
+    it('returns true when finishedAt timestamp is present', () => {
+      assert.strictEqual(isHouseholdFinished({ finishedAt: '2026-11-16T08:00:00Z' }), true);
+    });
+
+    it('returns false for in_progress or not_started houses without finishedAt', () => {
+      assert.strictEqual(isHouseholdFinished({ visitStatus: 'in_progress', finishedAt: null }), false);
+      assert.strictEqual(isHouseholdFinished({ visitStatus: 'not_started' }), false);
+      assert.strictEqual(isHouseholdFinished({}), false);
+      assert.strictEqual(isHouseholdFinished(null), false);
+      assert.strictEqual(isHouseholdFinished(undefined), false);
     });
   });
 });

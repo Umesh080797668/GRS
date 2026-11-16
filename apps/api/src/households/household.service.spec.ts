@@ -125,14 +125,20 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       }),
       findMany: jest.fn().mockImplementation(({ where }) => {
         let results = [...mockHouseholds];
-        if (where.gnId) results = results.filter((h) => h.gnId === where.gnId);
-        if (where.teamId !== undefined)
-          results = results.filter((h) => h.teamId === where.teamId);
-        if (where.deletedAt === null)
+        const flatWhere = where?.AND ? Object.assign({}, ...where.AND) : where || {};
+        if (flatWhere.gnId) results = results.filter((h) => h.gnId === flatWhere.gnId);
+        if (flatWhere.teamId !== undefined)
+          results = results.filter((h) => h.teamId === flatWhere.teamId);
+        if (flatWhere.deletedAt === null)
           results = results.filter((h) => h.deletedAt === null);
-        if (where.id?.in) {
-          const idSet = new Set(where.id.in);
+        if (flatWhere.id?.in) {
+          const idSet = new Set(flatWhere.id.in);
           results = results.filter((h) => idSet.has(h.id));
+        }
+        if (flatWhere.OR) {
+          results = results.filter(
+            (h) => h.visitStatus === 'completed' || Boolean(h.finishedAt),
+          );
         }
         return Promise.resolve(results);
       }),
@@ -166,9 +172,16 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
       }),
       count: jest.fn().mockImplementation(({ where }) => {
         let results = [...mockHouseholds];
-        if (where.gnId) results = results.filter((h) => h.gnId === where.gnId);
-        if (where.deletedAt === null)
+        const flatWhere = where?.AND ? Object.assign({}, ...where.AND) : where || {};
+        if (flatWhere.gnId) results = results.filter((h) => h.gnId === flatWhere.gnId);
+        if (flatWhere.deletedAt === null)
           results = results.filter((h) => h.deletedAt === null);
+        if (flatWhere.teamId === null)
+          results = results.filter((h) => h.teamId === null);
+        if (flatWhere.teamId && flatWhere.teamId !== null && flatWhere.teamId.not === null)
+          results = results.filter((h) => h.teamId !== null);
+        if (flatWhere.OR)
+          results = results.filter((h) => h.visitStatus === 'completed' || (h.finishedAt && h.finishedAt !== null));
         return Promise.resolve(results.length);
       }),
     },
@@ -263,6 +276,41 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
     mockClients = [];
     lockQueue = Promise.resolve();
     jest.clearAllMocks();
+
+    mockPrisma.household.findMany.mockImplementation(({ where }: any = {}) => {
+      let results = [...mockHouseholds];
+      const flatWhere = where?.AND ? Object.assign({}, ...where.AND) : where || {};
+      if (flatWhere.gnId) results = results.filter((h) => h.gnId === flatWhere.gnId);
+      if (flatWhere.teamId !== undefined)
+        results = results.filter((h) => h.teamId === flatWhere.teamId);
+      if (flatWhere.deletedAt === null)
+        results = results.filter((h) => h.deletedAt === null);
+      if (flatWhere.id?.in) {
+        const idSet = new Set(flatWhere.id.in);
+        results = results.filter((h) => idSet.has(h.id));
+      }
+      if (flatWhere.OR) {
+        results = results.filter(
+          (h) => h.visitStatus === 'completed' || Boolean(h.finishedAt),
+        );
+      }
+      return Promise.resolve(results);
+    });
+
+    mockPrisma.household.count.mockImplementation(({ where }: any = {}) => {
+      let results = [...mockHouseholds];
+      const flatWhere = where?.AND ? Object.assign({}, ...where.AND) : where || {};
+      if (flatWhere.gnId) results = results.filter((h) => h.gnId === flatWhere.gnId);
+      if (flatWhere.deletedAt === null)
+        results = results.filter((h) => h.deletedAt === null);
+      if (flatWhere.teamId === null)
+        results = results.filter((h) => h.teamId === null);
+      if (flatWhere.teamId && flatWhere.teamId !== null && flatWhere.teamId.not === null)
+        results = results.filter((h) => h.teamId !== null);
+      if (flatWhere.OR)
+        results = results.filter((h) => h.visitStatus === 'completed' || (h.finishedAt && h.finishedAt !== null));
+      return Promise.resolve(results.length);
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -757,6 +805,57 @@ describe('HouseholdService (M4.1, M4.2, Milestone 4 Invariants)', () => {
         contains: 'Silva',
         mode: 'insensitive',
       });
+    });
+
+    it('getHouseholds: returns isFinished flag and accurate GN scope stats', async () => {
+      const house1 = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: 'FIN-101',
+        houseLeaderName: 'Finished Leader',
+      });
+      const house2 = await service.createHousehold(cdcSecretaryScope, {
+        gnId: mockGnId,
+        houseNo: 'UNFIN-102',
+        houseLeaderName: 'Unfinished Leader',
+      });
+
+      // Assign both houses to team
+      await service.assignHousesToTeam(cdcSecretaryScope, mockTeamId, [
+        house1.id,
+        house2.id,
+      ]);
+
+      // Finish house1
+      await service.finishHousehold(cdcSecretaryScope, house1.id);
+
+      const res = await service.getHouseholds(cdcSecretaryScope, {
+        limit: 50,
+      });
+
+      const returnedHouse1 = res.households.find((h) => h.id === house1.id);
+      const returnedHouse2 = res.households.find((h) => h.id === house2.id);
+
+      expect(returnedHouse1).toBeDefined();
+      expect(returnedHouse1.isFinished).toBe(true);
+      expect(returnedHouse2).toBeDefined();
+      expect(returnedHouse2.isFinished).toBe(false);
+
+      expect(res.stats).toBeDefined();
+      expect(res.stats!.total).toBeGreaterThanOrEqual(2);
+      expect(res.stats!.assigned).toBeGreaterThanOrEqual(2);
+      expect(res.stats!.finished).toBeGreaterThanOrEqual(1);
+
+      // Verify status: 'finished' filter returns only finished households
+      const finishedRes = await service.getHouseholds(cdcSecretaryScope, {
+        status: 'finished',
+        limit: 50,
+      });
+      expect(finishedRes.households.some((h) => h.id === house1.id)).toBe(true);
+      expect(finishedRes.households.some((h) => h.id === house2.id)).toBe(false);
+      // GN total stats are preserved even when filtered by status
+      expect(finishedRes.stats).toBeDefined();
+      expect(finishedRes.stats!.total).toBe(res.stats!.total);
+      expect(finishedRes.stats!.finished).toBe(res.stats!.finished);
     });
 
     it('finishHousehold: marks household as completed and dirties team stats', async () => {

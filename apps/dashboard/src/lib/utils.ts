@@ -232,3 +232,17 @@ export function formatRoleLabel(role?: string | null, compact = false): string {
   const map = compact ? ROLE_LABELS_COMPACT : ROLE_LABELS_FULL;
   return map[role] || role;
 }
+
+/**
+ * Determines whether a household entity is finished/completed.
+ * Checks boolean flag, visit_status enum, or timestamp presence.
+ */
+export function isHouseholdFinished(h: any): boolean {
+  if (!h) return false;
+  return Boolean(
+    h.isFinished === true ||
+    h.visitStatus === 'completed' ||
+    h.finishedAt != null
+  );
+}
+

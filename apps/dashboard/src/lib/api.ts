@@ -866,13 +866,23 @@ export class ApiClient {
 
   // --- HOUSEHOLDS & IMPORT (M5.4) ---
 
-  async getHouseholds(params: { gnId?: string; teamId?: string; search?: string; limit?: number; cursor?: string } = {}): Promise<any> {
+  async getHouseholds(params: {
+    gnId?: string;
+    teamId?: string;
+    search?: string;
+    limit?: number;
+    cursor?: string;
+    status?: string;
+    unassignedOnly?: boolean;
+  } = {}): Promise<any> {
     const p = new URLSearchParams();
     if (params.gnId) p.append('gnId', params.gnId);
     if (params.teamId) p.append('teamId', params.teamId);
     if (params.search) p.append('search', params.search);
     if (params.limit) p.append('limit', params.limit.toString());
     if (params.cursor) p.append('cursor', params.cursor);
+    if (params.status) p.append('status', params.status);
+    if (params.unassignedOnly) p.append('unassignedOnly', 'true');
     const q = p.toString() ? `?${p.toString()}` : '';
     return this.request(`/v1/houses${q}`);
   }

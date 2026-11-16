@@ -7,6 +7,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { getAreaScopeLocks, loadScopedAreaLists } from '@/lib/area-scope';
+import { isHouseholdFinished } from '@/lib/utils';
 import {
   ClipboardCheck,
   Plus,
@@ -39,6 +40,19 @@ export default function HousesPage() {
 
   // Total records count in this scope for KPI card
   const [totalRecordsCount, setTotalRecordsCount] = useState<number>(0);
+
+  // Overall GN scope totals for KPI strip & status tabs
+  const [kpiStats, setKpiStats] = useState<{
+    total: number;
+    unassigned: number;
+    assigned: number;
+    finished: number;
+  }>({
+    total: 0,
+    unassigned: 0,
+    assigned: 0,
+    finished: 0,
+  });
 
   // Layout mode: 'stacked' (Households above, Records below) or 'split' (Side-by-side on wide screens)
   const [viewMode, setViewMode] = useState<'stacked' | 'split'>('stacked');
@@ -182,20 +196,40 @@ export default function HousesPage() {
     }
   }
 
-  async function fetchHouseholds(gnId: string, isReset = false, cursor?: string) {
+  async function fetchHouseholds(
+    gnId: string,
+    isReset = false,
+    cursor?: string,
+    searchOverride?: string,
+    statusOverride?: 'all' | 'assigned' | 'unassigned' | 'finished',
+  ) {
     if (!gnId) return;
+    const currentSearch = searchOverride !== undefined ? searchOverride : houseSearch;
+    const currentStatus = statusOverride !== undefined ? statusOverride : statusFilter;
     try {
       setLoading(true);
       const res = await api.getHouseholds({
         gnId,
-        search: houseSearch.trim() || undefined,
+        search: currentSearch.trim() || undefined,
         limit: 30,
         cursor: isReset ? undefined : cursor,
+        status: currentStatus !== 'all' ? currentStatus : undefined,
       });
 
       const list = Array.isArray(res) ? res : res?.households || res?.items || [];
       setHouseholds(isReset ? list : [...households, ...list]);
       setNextCursor(res?.nextCursor || null);
+
+      if (res?.stats) {
+        setKpiStats(res.stats);
+      } else {
+        const combined = isReset ? list : [...households, ...list];
+        const total = typeof res?.totalCount === 'number' ? res.totalCount : combined.length;
+        const unassigned = combined.filter((h: any) => !h.teamId).length;
+        const assigned = combined.filter((h: any) => Boolean(h.teamId)).length;
+        const finished = combined.filter((h: any) => isHouseholdFinished(h)).length;
+        setKpiStats({ total, unassigned, assigned, finished });
+      }
     } catch (err: any) {
       setErrorBanner(err.message || 'Failed to fetch households.');
     } finally {
@@ -219,6 +253,7 @@ export default function HousesPage() {
           setSelectedGn('');
           setHouseholds([]);
           setTeams([]);
+          setKpiStats({ total: 0, unassigned: 0, assigned: 0, finished: 0 });
         }
       } else {
         setSelectedDs('');
@@ -226,6 +261,7 @@ export default function HousesPage() {
         setSelectedGn('');
         setHouseholds([]);
         setTeams([]);
+        setKpiStats({ total: 0, unassigned: 0, assigned: 0, finished: 0 });
       }
     } catch (err: any) {
       setErrorBanner(err.message);
@@ -244,6 +280,7 @@ export default function HousesPage() {
         setSelectedGn('');
         setHouseholds([]);
         setTeams([]);
+        setKpiStats({ total: 0, unassigned: 0, assigned: 0, finished: 0 });
       }
     } catch (err: any) {
       setErrorBanner(err.message);
@@ -491,7 +528,7 @@ export default function HousesPage() {
   const displayedHouseholds = households.filter((h) => {
     if (statusFilter === 'unassigned') return !h.teamId;
     if (statusFilter === 'assigned') return Boolean(h.teamId);
-    if (statusFilter === 'finished') return Boolean(h.isFinished);
+    if (statusFilter === 'finished') return isHouseholdFinished(h);
     return true;
   });
 
@@ -713,7 +750,7 @@ export default function HousesPage() {
             Total Households
           </span>
           <strong style={{ fontSize: '20px', fontWeight: 700, color: 'var(--slate-900)' }}>
-            {households.length}
+            {(kpiStats.total || households.length).toLocaleString()}
           </strong>
         </div>
         <div className="panel" style={{ padding: '12px 16px' }}>
@@ -721,7 +758,7 @@ export default function HousesPage() {
             {t('houses.unassigned')}
           </span>
           <strong style={{ fontSize: '20px', fontWeight: 700, color: 'var(--warning-text, #d97706)' }}>
-            {households.filter((h) => !h.teamId).length}
+            {(kpiStats.unassigned ?? households.filter((h) => !h.teamId).length).toLocaleString()}
           </strong>
         </div>
         <div className="panel" style={{ padding: '12px 16px' }}>
@@ -729,7 +766,7 @@ export default function HousesPage() {
             Assigned
           </span>
           <strong style={{ fontSize: '20px', fontWeight: 700, color: 'var(--primary)' }}>
-            {households.filter((h) => Boolean(h.teamId)).length}
+            {(kpiStats.assigned ?? households.filter((h) => Boolean(h.teamId)).length).toLocaleString()}
           </strong>
         </div>
         <div className="panel" style={{ padding: '12px 16px' }}>
@@ -737,7 +774,7 @@ export default function HousesPage() {
             {t('houses.finished')}
           </span>
           <strong style={{ fontSize: '20px', fontWeight: 700, color: 'var(--success, #16a34a)' }}>
-            {households.filter((h) => Boolean(h.isFinished)).length}
+            {(kpiStats.finished ?? households.filter((h) => isHouseholdFinished(h)).length).toLocaleString()}
           </strong>
         </div>
         <div className="panel" style={{ padding: '12px 16px' }}>
@@ -987,8 +1024,9 @@ export default function HousesPage() {
                   placeholder="Search house # or name..."
                   value={houseSearch}
                   onChange={(e) => {
-                    setHouseSearch(e.target.value);
-                    fetchHouseholds(selectedGn, true);
+                    const query = e.target.value;
+                    setHouseSearch(query);
+                    fetchHouseholds(selectedGn, true, undefined, query);
                   }}
                   className="input-field"
                   style={{ paddingLeft: '32px', padding: '0.45rem 0.75rem 0.45rem 32px', fontSize: '12.5px' }}
@@ -1008,7 +1046,10 @@ export default function HousesPage() {
               >
                 <button
                   type="button"
-                  onClick={() => setStatusFilter('all')}
+                  onClick={() => {
+                    setStatusFilter('all');
+                    fetchHouseholds(selectedGn, true, undefined, undefined, 'all');
+                  }}
                   style={{
                     padding: '4px 10px',
                     fontSize: '12px',
@@ -1021,11 +1062,14 @@ export default function HousesPage() {
                     boxShadow: statusFilter === 'all' ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
                   }}
                 >
-                  All ({households.length})
+                  All ({(kpiStats.total || households.length).toLocaleString()})
                 </button>
                 <button
                   type="button"
-                  onClick={() => setStatusFilter('unassigned')}
+                  onClick={() => {
+                    setStatusFilter('unassigned');
+                    fetchHouseholds(selectedGn, true, undefined, undefined, 'unassigned');
+                  }}
                   style={{
                     padding: '4px 10px',
                     fontSize: '12px',
@@ -1038,11 +1082,14 @@ export default function HousesPage() {
                     boxShadow: statusFilter === 'unassigned' ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
                   }}
                 >
-                  {t('houses.unassigned')} ({households.filter((h) => !h.teamId).length})
+                  {t('houses.unassigned')} ({(kpiStats.unassigned ?? households.filter((h) => !h.teamId).length).toLocaleString()})
                 </button>
                 <button
                   type="button"
-                  onClick={() => setStatusFilter('assigned')}
+                  onClick={() => {
+                    setStatusFilter('assigned');
+                    fetchHouseholds(selectedGn, true, undefined, undefined, 'assigned');
+                  }}
                   style={{
                     padding: '4px 10px',
                     fontSize: '12px',
@@ -1055,11 +1102,14 @@ export default function HousesPage() {
                     boxShadow: statusFilter === 'assigned' ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
                   }}
                 >
-                  Assigned ({households.filter((h) => h.teamId).length})
+                  Assigned ({(kpiStats.assigned ?? households.filter((h) => Boolean(h.teamId)).length).toLocaleString()})
                 </button>
                 <button
                   type="button"
-                  onClick={() => setStatusFilter('finished')}
+                  onClick={() => {
+                    setStatusFilter('finished');
+                    fetchHouseholds(selectedGn, true, undefined, undefined, 'finished');
+                  }}
                   style={{
                     padding: '4px 10px',
                     fontSize: '12px',
@@ -1072,7 +1122,7 @@ export default function HousesPage() {
                     boxShadow: statusFilter === 'finished' ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
                   }}
                 >
-                  {t('houses.finished')} ({households.filter((h) => h.isFinished).length})
+                  {t('houses.finished')} ({(kpiStats.finished ?? households.filter((h) => isHouseholdFinished(h)).length).toLocaleString()})
                 </button>
               </div>
             </div>
@@ -1107,7 +1157,7 @@ export default function HousesPage() {
                     displayedHouseholds.map((h) => {
                       const isSelected = selectedHouseIds.includes(h.id);
                       const isAssigned = Boolean(h.teamId);
-                      const isFinished = Boolean(h.isFinished);
+                      const isFinished = isHouseholdFinished(h);
                       const assignedTeam = teams.find((t) => t.id === h.teamId);
                       const isRecordFiltered = selectedHouseholdFilter?.id === h.id;
 
@@ -1230,12 +1280,12 @@ export default function HousesPage() {
                                     {t('houses.finish_house')}
                                   </button>
                                 )}
-                                {isAssigned && isFinished && (
+                                {isFinished && (
                                   <button
                                     type="button"
                                     onClick={() => handleReopen(h)}
                                     className="btn-secondary"
-                                    style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--warning)' }}
+                                    style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--warning-text, #d97706)' }}
                                     title={t('houses.reopen_house')}
                                   >
                                     <RotateCcw size={12} />

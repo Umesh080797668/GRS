@@ -488,4 +488,24 @@ describe('ApiClient - Single-flight refresh (Bug 4)', () => {
     assert.strictEqual(requests[10].url.endsWith('/v1/clients/cl-1'), true);
     assert.deepStrictEqual(requests[10].body, { reason: 'Duplicate entry' });
   });
+
+  it('getHouseholds serializes status and unassignedOnly query parameters properly', async () => {
+    let capturedUrl = '';
+    (globalThis as any).fetch = async (url: string) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: async () => JSON.stringify({ households: [], totalCount: 0 }),
+      };
+    };
+
+    client.setAccessToken('auth-token');
+    await client.getHouseholds({ gnId: 'gn-123', status: 'finished', limit: 30 });
+    assert.strictEqual(capturedUrl.includes('/v1/houses?'), true);
+    assert.strictEqual(capturedUrl.includes('gnId=gn-123'), true);
+    assert.strictEqual(capturedUrl.includes('status=finished'), true);
+    assert.strictEqual(capturedUrl.includes('limit=30'), true);
+  });
 });

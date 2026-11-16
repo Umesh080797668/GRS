@@ -239,4 +239,8 @@ export class ListHouseholdsDto {
       value === 'true' || value === true || value === 1 || value === '1',
   )
   unassignedOnly?: boolean;
+
+  @IsString()
+  @IsOptional()
+  status?: string;
 }

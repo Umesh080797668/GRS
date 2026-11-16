@@ -225,8 +225,19 @@ export class HouseholdService {
   async getHouseholds(
     caller: ScopeContext,
     query: ListHouseholdsDto,
-  ): Promise<{ households: any[]; totalCount: number; nextCursor?: string }> {
+  ): Promise<{
+    households: any[];
+    totalCount: number;
+    stats?: {
+      total: number;
+      unassigned: number;
+      assigned: number;
+      finished: number;
+    };
+    nextCursor?: string;
+  }> {
     let scopeFilter: Record<string, any>;
+    const baseUserFilter: Record<string, any> = {};
     const userFilter: Record<string, any> = {};
 
     if (caller.role === UserRole.cdc_secretary) {
@@ -245,10 +256,8 @@ export class HouseholdService {
       }
       scopeFilter = { deletedAt: null, gnId: caller.gnId };
 
-      if (query.unassignedOnly) {
-        userFilter.teamId = null;
-      } else if (query.teamId) {
-        userFilter.teamId = query.teamId;
+      if (query.teamId) {
+        baseUserFilter.teamId = query.teamId;
       }
     } else if (caller.role === UserRole.team_member) {
       // Team member scope: assigned team
@@ -263,9 +272,20 @@ export class HouseholdService {
       // Higher roles: use scope service filter
       scopeFilter = this.scopeService.getHouseholdScopeFilter(caller);
 
-      if (query.gnId) userFilter.gnId = query.gnId;
-      if (query.teamId) userFilter.teamId = query.teamId;
-      if (query.unassignedOnly) userFilter.teamId = null;
+      if (query.gnId) baseUserFilter.gnId = query.gnId;
+      if (query.teamId) baseUserFilter.teamId = query.teamId;
+    }
+
+    Object.assign(userFilter, baseUserFilter);
+    if (query.unassignedOnly || query.status === 'unassigned') {
+      userFilter.teamId = null;
+    } else if (query.status === 'assigned') {
+      userFilter.teamId = { not: null };
+    } else if (query.status === 'finished') {
+      userFilter.OR = [
+        { visitStatus: 'completed' },
+        { finishedAt: { not: null } },
+      ];
     }
 
     let searchCondition: Record<string, any> | undefined;
@@ -283,6 +303,12 @@ export class HouseholdService {
       searchCondition = { OR: searchConditions };
     }
 
+    const baseCondition = this.scopeService.combineConditions(
+      scopeFilter,
+      baseUserFilter,
+      searchCondition,
+    );
+
     const whereCondition = this.scopeService.combineConditions(
       scopeFilter,
       userFilter,
@@ -291,25 +317,40 @@ export class HouseholdService {
 
     const limit = query.limit ?? 50;
 
-    const [households, totalCount] = await Promise.all([
-      this.prisma.household.findMany({
-        where: whereCondition,
-        take: limit + 1,
-        orderBy: [{ serialNo: 'asc' }, { id: 'asc' }],
-        include: {
-          team: {
-            select: { id: true, teamNo: true },
+    const [households, totalCount, unassignedCount, finishedCount] =
+      await Promise.all([
+        this.prisma.household.findMany({
+          where: whereCondition,
+          take: limit + 1,
+          orderBy: [{ serialNo: 'asc' }, { id: 'asc' }],
+          include: {
+            team: {
+              select: { id: true, teamNo: true },
+            },
           },
-        },
-        ...(query.cursor && query.cursor.trim().length > 0
-          ? {
-            cursor: { id: query.cursor.trim() },
-            skip: 1,
-          }
-          : {}),
-      }),
-      this.prisma.household.count({ where: whereCondition }),
-    ]);
+          ...(query.cursor && query.cursor.trim().length > 0
+            ? {
+              cursor: { id: query.cursor.trim() },
+              skip: 1,
+            }
+            : {}),
+        }),
+        this.prisma.household.count({ where: baseCondition }),
+        this.prisma.household.count({
+          where: {
+            ...baseCondition,
+            teamId: null,
+          },
+        }),
+        this.prisma.household.count({
+          where: {
+            ...baseCondition,
+            OR: [{ visitStatus: 'completed' }, { finishedAt: { not: null } }],
+          },
+        }),
+      ]);
+
+    const assignedCount = Math.max(0, totalCount - unassignedCount);
 
     let nextCursor: string | undefined;
     if (households.length > limit) {
@@ -320,11 +361,27 @@ export class HouseholdService {
     const sanitized = households.map((h) => ({
       ...h,
       isTaken: h.teamId !== null,
+      isFinished: h.visitStatus === 'completed' || Boolean(h.finishedAt),
     }));
+
+    const stats = {
+      total: totalCount,
+      unassigned: unassignedCount,
+      assigned: assignedCount,
+      finished: finishedCount,
+    };
 
     return {
       households: sanitized,
-      totalCount,
+      totalCount:
+        query.status === 'finished'
+          ? finishedCount
+          : query.status === 'unassigned' || query.unassignedOnly
+            ? unassignedCount
+            : query.status === 'assigned'
+              ? assignedCount
+              : totalCount,
+      stats,
       nextCursor,
     };
   }
@@ -389,7 +446,12 @@ export class HouseholdService {
       }
     }
 
-    return household;
+    return {
+      ...household,
+      isTaken: household.teamId !== null,
+      isFinished:
+        household.visitStatus === 'completed' || Boolean(household.finishedAt),
+    };
   }
 
   /**
@@ -1008,7 +1070,11 @@ export class HouseholdService {
 
     // Idempotency: if already marked completed, return existing household without re-dirtying stats or bumping version
     if (household.visitStatus === 'completed') {
-      return household;
+      return {
+        ...household,
+        isTaken: household.teamId !== null,
+        isFinished: true,
+      };
     }
 
     const now = new Date();
@@ -1042,7 +1108,11 @@ export class HouseholdService {
       }
     }
 
-    return updated;
+    return {
+      ...updated,
+      isTaken: updated.teamId !== null,
+      isFinished: true,
+    };
   }
 
   /**
@@ -1101,7 +1171,11 @@ export class HouseholdService {
 
     // Idempotency: if already not marked completed, return current state
     if (household.visitStatus !== 'completed') {
-      return household;
+      return {
+        ...household,
+        isTaken: household.teamId !== null,
+        isFinished: false,
+      };
     }
 
     const activeClientsCount = household.clients?.length ?? 0;
@@ -1138,6 +1212,10 @@ export class HouseholdService {
       }
     }
 
-    return updated;
+    return {
+      ...updated,
+      isTaken: updated.teamId !== null,
+      isFinished: false,
+    };
   }
 }
