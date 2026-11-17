@@ -99,14 +99,15 @@ export const SRI_LANKA_25_DISTRICTS = [
 
 /**
  * Official CSV template for pilot area bulk hierarchy import (M1.7).
+ * initial_teams can be 0-50 (set to 0 to create areas without initial field teams).
  */
 export function getPilotAreaTemplateCsv(): string {
   return [
     'district,ds_division,gn_number,gn_name,secretary_name,secretary_contact,secretary_email,sdo_name,initial_teams,max_members_per_team',
     'Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.com,Sunil Jayakody,2,10',
-    'Colombo,Thimbirigasyaya,514B,Pamankada,Sunethra Silva,+94772345678,sunethra@example.com,Sunil Jayakody,3,10',
+    'Colombo,Thimbirigasyaya,514B,Pamankada,Sunethra Silva,+94772345678,sunethra@example.com,Sunil Jayakody,0,10',
     'Gampaha,Kelaniya,123,Peliyagoda,Kamal Fernando,+94773456789,kamal@example.com,Anura Kumara,2,10',
-    'Kalutara,Panadura,675,Wekada,Sarath Perera,+94774567890,sarath@example.com,Bandara Silva,1,10',
+    'Kalutara,Panadura,675,Wekada,Sarath Perera,+94774567890,sarath@example.com,Bandara Silva,0,10',
   ].join('\n');
 }
 

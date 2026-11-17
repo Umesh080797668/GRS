@@ -105,7 +105,7 @@ function gridToCsv(rows: PilotGridRow[]): string {
       r.secretaryContact.trim(),
       '',
       r.sdoName.trim(),
-      r.initialTeams || 1,
+      r.initialTeams ?? 0,
       10,
     ]
       .map((val) => {
@@ -194,7 +194,11 @@ function parseCsvToGrid(csvText: string): PilotGridRow[] {
       secretaryContact: colIdx.secContact !== -1 ? parts[colIdx.secContact] || '' : '',
       sdoName: colIdx.sdoName !== -1 ? parts[colIdx.sdoName] || '' : '',
       initialTeams:
-        colIdx.initialTeams !== -1 ? parseInt(parts[colIdx.initialTeams], 10) || 1 : 1,
+        colIdx.initialTeams !== -1
+          ? isNaN(parseInt(parts[colIdx.initialTeams], 10))
+            ? 0
+            : parseInt(parts[colIdx.initialTeams], 10)
+          : 0,
     });
   }
   return rows;
@@ -223,8 +227,8 @@ function validateGridRow(row: PilotGridRow): { isValid: boolean; error?: string 
   if (!row.gnName.trim()) {
     return { isValid: false, error: 'GN Name is required' };
   }
-  if (row.initialTeams < 1 || row.initialTeams > 50) {
-    return { isValid: false, error: 'Teams must be between 1 and 50' };
+  if (row.initialTeams < 0 || row.initialTeams > 50) {
+    return { isValid: false, error: 'Teams must be between 0 and 50' };
   }
   return { isValid: true };
 }
@@ -695,7 +699,7 @@ export default function AreasPage() {
       secretaryName: '',
       secretaryContact: '',
       sdoName: lastRow?.sdoName || '',
-      initialTeams: 2,
+      initialTeams: lastRow?.initialTeams ?? 0,
     };
     const next = [...pilotGridRows, newRow];
     setPilotGridRows(next);
@@ -715,7 +719,7 @@ export default function AreasPage() {
       secretaryName: '',
       secretaryContact: '',
       sdoName: lastRow?.sdoName || '',
-      initialTeams: 2,
+      initialTeams: lastRow?.initialTeams ?? 0,
     }));
     const next = [...pilotGridRows, ...newRows];
     setPilotGridRows(next);
@@ -1482,7 +1486,7 @@ export default function AreasPage() {
             .filter((val) => !val.startsWith('_') && !val.endsWith('_'))
         ).size;
         const totalTeams = pilotGridRows.reduce(
-          (sum, r) => sum + (parseInt(String(r.initialTeams), 10) || 1),
+          (sum, r) => sum + (parseInt(String(r.initialTeams), 10) || 0),
           0
         );
 
@@ -1704,7 +1708,7 @@ export default function AreasPage() {
                         <strong>gn_name</strong> (Required): Grama Niladhari division name (e.g. <em>Kirulapone</em>). Also accepts <code>gn_division</code>.
                       </li>
                       <li>
-                        <strong>initial_teams</strong> (Optional): Number of Field Teams to automatically provision (1 to 50, default: <code>1</code>).
+                        <strong>initial_teams</strong> (Optional): Number of Field Teams to automatically provision (0 to 50, default: <code>0</code>). Set to <code>0</code> to create areas without initial field teams.
                       </li>
                       <li>
                         <strong>secretary_name, secretary_contact, sdo_name</strong> (Optional): Contact and officer metadata for the GN / DS division.
@@ -1976,13 +1980,19 @@ export default function AreasPage() {
                                   <td style={{ padding: '4px 6px' }}>
                                     <input
                                       type="number"
-                                      min="1"
+                                      min="0"
                                       max="50"
                                       className="input-field"
                                       value={row.initialTeams}
-                                      onChange={(e) =>
-                                        handleUpdateGridRow(row.id, 'initialTeams', parseInt(e.target.value, 10) || 1)
-                                      }
+                                      onChange={(e) => {
+                                        const raw = e.target.value.trim();
+                                        const val = raw === '' ? 0 : parseInt(raw, 10);
+                                        handleUpdateGridRow(
+                                          row.id,
+                                          'initialTeams',
+                                          isNaN(val) ? 0 : val
+                                        );
+                                      }}
                                       style={{ padding: '3px 6px', fontSize: '12px', height: '28px', textAlign: 'center' }}
                                     />
                                   </td>

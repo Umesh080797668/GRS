@@ -1230,15 +1230,15 @@ export class AreaService {
         continue;
       }
 
-      // Validate initial_teams: upper bound is 50
-      let initialTeams = 1;
+      // Validate initial_teams: between 0 and 50 (0 teams allowed)
+      let initialTeams = 0;
       if (colIndex.initialTeams !== -1 && row[colIndex.initialTeams]?.trim()) {
         const rawTeams = row[colIndex.initialTeams].trim();
         const parsed = parseInt(rawTeams, 10);
-        if (isNaN(parsed) || parsed < 1 || parsed > 50) {
+        if (isNaN(parsed) || parsed < 0 || parsed > 50) {
           errors.push({
             row: rowNumber,
-            error: `initial_teams must be between 1 and 50 (got "${rawTeams}")`,
+            error: `initial_teams must be between 0 and 50 (got "${rawTeams}")`,
           });
           continue;
         }

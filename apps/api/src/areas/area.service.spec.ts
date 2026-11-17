@@ -426,8 +426,22 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
       const result = await service.importPilotAreaFromCsv(excessiveTeamsCsv);
       expect(result.errors.length).toBe(1);
       expect(result.errors[0].error).toContain(
-        'initial_teams must be between 1 and 50',
+        'initial_teams must be between 0 and 50',
       );
+      expect(inMemoryTeams).toHaveLength(0);
+    });
+
+    it('allows importing areas with 0 initial teams', async () => {
+      const zeroTeamsCsv = `
+district,ds_division,gn_number,gn_name,initial_teams
+Colombo,Thimbirigasyaya,514Z,ZeroTeamGN,0
+      `.trim();
+
+      const result = await service.importPilotAreaFromCsv(zeroTeamsCsv);
+      expect(result.errors).toHaveLength(0);
+      expect(result.rowCount).toBe(1);
+      expect(result.importedGn).toBe(1);
+      expect(result.importedTeams).toBe(0);
       expect(inMemoryTeams).toHaveLength(0);
     });
 
