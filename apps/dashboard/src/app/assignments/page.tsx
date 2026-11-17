@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Shell from '../../components/Shell';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
@@ -16,6 +16,7 @@ import {
   Loader2,
   Clock,
   X,
+  Users,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -408,6 +409,789 @@ function HistoryPanel({ profileId, profileName, onClose }: HistoryPanelProps) {
   );
 }
 
+// ── Bulk assign dialog ────────────────────────────────────────────────────────
+
+type BulkLevel = 'district' | 'ds' | 'gn' | 'team';
+type TerrLevel = 'district' | 'ds' | 'gn';
+type BulkMode = 'territories' | 'accounts';
+
+const BULK_FIELD_ROLES = ['dc', 'sda', 'cdc_secretary', 'team_member'];
+const BULK_LEVEL_ROLE: Record<BulkLevel, string> = {
+  district: 'dc',
+  ds: 'sda',
+  gn: 'cdc_secretary',
+  team: 'team_member',
+};
+const TERR_FIELD: Record<TerrLevel, 'districtId' | 'dsId' | 'gnId'> = {
+  district: 'districtId',
+  ds: 'dsId',
+  gn: 'gnId',
+};
+
+function bulkManageableRoles(callerRole?: string): string[] {
+  if (callerRole === 'sda') return ['cdc_secretary', 'team_member'];
+  if (callerRole === 'dc') return ['sda', 'cdc_secretary', 'team_member'];
+  return BULK_FIELD_ROLES;
+}
+
+const accName = (a: any): string => a.fullName || a.full_name || '';
+const accCode = (a: any): string => a.userCode || a.user_code || '';
+
+interface BulkAssignDialogProps {
+  accounts: any[];
+  assignments: Assignment[];
+  districts: any[];
+  dsDivisions: any[];
+  gnDivisions: any[];
+  teams: any[];
+  callerRole?: string;
+  callerDistrictId?: string | null;
+  callerDsId?: string | null;
+  onClose: () => void;
+  onDsChange: (dsId: string) => void;
+  onGnChange: (gnId: string) => void;
+  onFinished: (summary: { ok: number; failed: number }) => void;
+}
+
+function BulkAssignDialog({
+  accounts, assignments, districts, dsDivisions, gnDivisions, teams,
+  callerRole, callerDistrictId, callerDsId,
+  onClose, onDsChange, onGnChange, onFinished,
+}: BulkAssignDialogProps) {
+  const { t } = useLanguage();
+  const isSdo = callerRole === 'sda';
+  const isDc = callerRole === 'dc';
+  const allowedRoles = bulkManageableRoles(callerRole);
+
+  const [mode, setMode] = useState<BulkMode>('territories');
+  const [note, setNote] = useState('');
+
+  // ── Mode "territories": each GN / DS / district gets its own account ──
+  const [tLevel, setTLevel] = useState<TerrLevel>('gn');
+  const [tDistrictId, setTDistrictId] = useState(isSdo || isDc ? callerDistrictId || '' : '');
+  const [tDsId, setTDsId] = useState(isSdo ? callerDsId || '' : '');
+  const [tRole, setTRole] = useState<string>(BULK_LEVEL_ROLE.gn);
+  const [assignee, setAssignee] = useState<Record<string, string>>({});
+  const [fillAccountId, setFillAccountId] = useState('');
+
+  // ── Mode "accounts": many accounts -> one territory ──
+  const [level, setLevel] = useState<BulkLevel>('team');
+  const [districtId, setDistrictId] = useState('');
+  const [dsId, setDsId] = useState(isSdo ? (callerDsId || dsDivisions[0]?.id || '') : '');
+  const [gnId, setGnId] = useState('');
+  const [teamId, setTeamId] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>(BULK_LEVEL_ROLE.team);
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [failures, setFailures] = useState<{ id: string; name: string; message: string }[]>([]);
+  const [okCount, setOkCount] = useState<number | null>(null);
+
+  const activeByProfile = useMemo(() => {
+    const m = new Map<string, Assignment[]>();
+    for (const a of assignments) {
+      const list = m.get(a.profileId) ?? [];
+      list.push(a);
+      m.set(a.profileId, list);
+    }
+    return m;
+  }, [assignments]);
+
+  const resetResult = () => {
+    setFailures([]);
+    setOkCount(null);
+  };
+
+  const currentText = (accId: string): string => {
+    const rows = activeByProfile.get(accId) ?? [];
+    if (rows.length === 0) return t('assignments.bulk_unassigned');
+    return rows.map((r) => territoryLabel(r)).join(', ');
+  };
+
+  // ════════════════════════ territories mode ════════════════════════
+  const holdersFor = (lvl: TerrLevel, id: string): Assignment[] =>
+    assignments.filter((a) => {
+      if (lvl === 'gn') return a.gn?.id === id && !a.team;
+      if (lvl === 'ds') return a.ds?.id === id && !a.gn && !a.team;
+      return a.district?.id === id && !a.ds && !a.gn && !a.team;
+    });
+
+  const hasDsField = gnDivisions.some((g) => g.dsId || g.ds_id);
+  const hasDistrictField = dsDivisions.some((d) => d.districtId || d.district_id);
+  const dsInDistrict = dsDivisions.filter(
+    (d) => !tDistrictId || !hasDistrictField || (d.districtId ?? d.district_id) === tDistrictId,
+  );
+
+  type TerrRow = { id: string; label: string; holders: Assignment[] };
+  let rows: TerrRow[] = [];
+  if (tLevel === 'gn' && tDsId) {
+    rows = gnDivisions
+      .filter((g) => !hasDsField || (g.dsId ?? g.ds_id) === tDsId)
+      .map((g) => ({
+        id: g.id,
+        label: `${g.gnNumber} — ${g.gnName || g.gn_name || ''}`,
+        holders: holdersFor('gn', g.id),
+      }));
+  } else if (tLevel === 'ds' && tDistrictId) {
+    rows = dsDivisions
+      .filter((d) => !hasDistrictField || (d.districtId ?? d.district_id) === tDistrictId)
+      .map((d) => ({ id: d.id, label: d.nameEn || d.name_en || '', holders: holdersFor('ds', d.id) }));
+  } else if (tLevel === 'district') {
+    rows = districts.map((d) => ({ id: d.id, label: d.nameEn || d.name_en || '', holders: holdersFor('district', d.id) }));
+  }
+
+  const rowAccounts = accounts.filter(
+    (a) => allowedRoles.includes(a.role) && (tRole === 'all' || a.role === tRole),
+  );
+
+  const pendingRows = rows.filter((r) => {
+    const acc = assignee[r.id];
+    return Boolean(acc) && !r.holders.some((h) => h.profileId === acc);
+  });
+
+  const pickedCount = new Map<string, number>();
+  for (const r of pendingRows) pickedCount.set(assignee[r.id], (pickedCount.get(assignee[r.id]) ?? 0) + 1);
+  const duplicateAccount = pendingRows.some((r) => {
+    const accId = assignee[r.id];
+    if ((pickedCount.get(accId) ?? 0) < 2) return false;
+    const acc = accounts.find((a) => a.id === accId);
+    return !(tLevel === 'gn' && acc?.role === 'cdc_secretary');
+  });
+
+  const changeTLevel = (next: TerrLevel) => {
+    setTLevel(next);
+    setTRole(BULK_LEVEL_ROLE[next]);
+    setAssignee({});
+    resetResult();
+  };
+
+  const changeTDistrict = (id: string) => {
+    setTDistrictId(id);
+    setTDsId('');
+    setAssignee({});
+    resetResult();
+  };
+
+  const changeTDs = (id: string) => {
+    setTDsId(id);
+    setAssignee({});
+    resetResult();
+    onDsChange(id);
+  };
+
+  const setRowAssignee = (rowId: string, accId: string) => {
+    setAssignee((prev) => ({ ...prev, [rowId]: accId }));
+    resetResult();
+  };
+
+  const fillEmptyWith = () => {
+    if (!fillAccountId) return;
+    setAssignee((prev) => {
+      const next = { ...prev };
+      for (const r of rows) {
+        if (!next[r.id] && !r.holders.some((h) => h.profileId === fillAccountId)) next[r.id] = fillAccountId;
+      }
+      return next;
+    });
+    resetResult();
+  };
+
+  const fillFromUnassigned = () => {
+    const used = new Set(Object.values(assignee).filter(Boolean));
+    const candidates = rowAccounts.filter((a) => (activeByProfile.get(a.id) ?? []).length === 0 && !used.has(a.id));
+    setAssignee((prev) => {
+      const next = { ...prev };
+      let i = 0;
+      for (const r of rows) {
+        if (i >= candidates.length) break;
+        if (!next[r.id] && r.holders.length === 0) next[r.id] = candidates[i++].id;
+      }
+      return next;
+    });
+    resetResult();
+  };
+
+  // ════════════════════════ accounts mode ════════════════════════
+  const targetId =
+    level === 'district' ? districtId : level === 'ds' ? dsId : level === 'gn' ? gnId : teamId;
+
+  const territoryText = (): string => {
+    if (level === 'team') {
+      const tm = teams.find((x) => x.id === teamId);
+      return tm ? `Team ${tm.teamNo}` : '';
+    }
+    if (level === 'gn') {
+      const g = gnDivisions.find((x) => x.id === gnId);
+      return g ? `${g.gnNumber} — ${g.gnName || g.gn_name || ''}` : '';
+    }
+    const list = level === 'ds' ? dsDivisions : districts;
+    const id = level === 'ds' ? dsId : districtId;
+    const found = list.find((x) => x.id === id);
+    return found ? found.nameEn || found.name_en || '' : '';
+  };
+
+  const alreadyHere = (acc: any): boolean => {
+    if (!targetId) return false;
+    const list = activeByProfile.get(acc.id) ?? [];
+    return list.some((r) => {
+      if (level === 'team') return r.team?.id === teamId;
+      if (level === 'gn') return r.gn?.id === gnId && !r.team;
+      if (level === 'ds') return r.ds?.id === dsId && !r.gn && !r.team;
+      return r.district?.id === districtId && !r.ds && !r.gn && !r.team;
+    });
+  };
+
+  const changeLevel = (next: BulkLevel) => {
+    setLevel(next);
+    setRoleFilter(BULK_LEVEL_ROLE[next]);
+    setSelected(new Set());
+    resetResult();
+  };
+
+  const q = search.trim().toLowerCase();
+  const visibleAccounts = accounts.filter((a) => {
+    if (!allowedRoles.includes(a.role)) return false;
+    if (roleFilter !== 'all' && a.role !== roleFilter) return false;
+    if (!q) return true;
+    return accName(a).toLowerCase().includes(q) || accCode(a).toLowerCase().includes(q);
+  });
+  const chosenAccounts = accounts.filter((a) => selected.has(a.id) && !alreadyHere(a));
+  const secretariesChosen = chosenAccounts.filter((a) => a.role === 'cdc_secretary').length;
+  const gnConflict = level === 'gn' && secretariesChosen > 1;
+
+  const toggleAccount = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    resetResult();
+  };
+
+  const selectAllShown = () => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const a of visibleAccounts) if (!alreadyHere(a)) next.add(a.id);
+      return next;
+    });
+    resetResult();
+  };
+
+  // ════════════════════════ submit ════════════════════════
+  const itemCount = mode === 'territories' ? pendingRows.length : chosenAccounts.length;
+  const canSubmit =
+    !running &&
+    itemCount > 0 &&
+    (mode === 'territories' ? !duplicateAccount : Boolean(targetId) && !gnConflict);
+
+  const run = async () => {
+    const noteValue = note.trim() || undefined;
+    const jobs: { key: string; name: string; profileId: string; territory: any }[] = [];
+
+    if (mode === 'territories') {
+      const field = TERR_FIELD[tLevel];
+      for (const r of pendingRows) {
+        const acc = accounts.find((a) => a.id === assignee[r.id]);
+        jobs.push({
+          key: r.id,
+          name: `${r.label} → ${acc ? `${accName(acc)} (${accCode(acc)})` : assignee[r.id]}`,
+          profileId: assignee[r.id],
+          territory: { [field]: r.id, note: noteValue },
+        });
+      }
+    } else {
+      const field =
+        level === 'district' ? 'districtId' : level === 'ds' ? 'dsId' : level === 'gn' ? 'gnId' : 'teamId';
+      for (const acc of chosenAccounts) {
+        jobs.push({
+          key: acc.id,
+          name: `${accName(acc)} (${accCode(acc)})`,
+          profileId: acc.id,
+          territory: { [field]: targetId, note: noteValue },
+        });
+      }
+    }
+
+    setRunning(true);
+    resetResult();
+    setProgress(0);
+    setTotal(jobs.length);
+    const failed: { id: string; name: string; message: string }[] = [];
+    let ok = 0;
+    for (let i = 0; i < jobs.length; i++) {
+      const job = jobs[i];
+      try {
+        await api.assignAccount(job.profileId, job.territory);
+        ok += 1;
+      } catch (e: any) {
+        failed.push({ id: job.key, name: job.name, message: e?.message || 'Assignment failed.' });
+      }
+      setProgress(i + 1);
+    }
+    setRunning(false);
+    setOkCount(ok);
+    setFailures(failed);
+
+    // Keep only the failed items so they can be retried.
+    if (mode === 'territories') {
+      const keep: Record<string, string> = {};
+      for (const f of failed) keep[f.id] = assignee[f.id];
+      setAssignee(keep);
+    } else {
+      setSelected(new Set(failed.map((f) => f.id)));
+    }
+
+    onFinished({ ok, failed: failed.length });
+    if (failed.length === 0) onClose();
+  };
+
+  const territoryLevelOptions: TerrLevel[] = isSdo ? ['gn'] : isDc ? ['gn', 'ds'] : ['gn', 'ds', 'district'];
+  const levelNames: Record<TerrLevel, string> = {
+    gn: t('assignments.level_gn'),
+    ds: t('assignments.level_ds'),
+    district: t('assignments.level_district'),
+  };
+  const roleOptions = ['all', ...allowedRoles];
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <div className="modal-content" style={{ maxWidth: '820px', width: '100%' }}>
+        <div className="modal-header">
+          <div>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
+              {t('assignments.bulk_title')}
+            </h3>
+            <p style={{ fontSize: '12px', color: 'var(--slate-500)', marginTop: '3px' }}>
+              {t('assignments.bulk_desc')}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={running}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div
+          className="modal-body"
+          style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '70vh', overflowY: 'auto' }}
+        >
+          {/* Mode switch */}
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {(['territories', 'accounts'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                className={mode === m ? 'btn-primary' : 'btn-secondary'}
+                style={{ fontSize: '12.5px', padding: '6px 12px' }}
+                disabled={running}
+                onClick={() => { setMode(m); resetResult(); }}
+              >
+                {t(m === 'territories' ? 'assignments.bulk_mode_territories' : 'assignments.bulk_mode_accounts')}
+              </button>
+            ))}
+          </div>
+
+          {/* ═════════ Mode: each territory -> its own account ═════════ */}
+          {mode === 'territories' && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '12px' }}>
+                <div>
+                  <label className="form-label">{t('assignments.territory_level')} *</label>
+                  <select
+                    value={tLevel}
+                    onChange={(e) => changeTLevel(e.target.value as TerrLevel)}
+                    className="select-field"
+                    disabled={running}
+                  >
+                    {territoryLevelOptions.map((l) => (
+                      <option key={l} value={l}>{levelNames[l]}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {(tLevel === 'gn' || tLevel === 'ds') && (
+                  <div>
+                    <label className="form-label">{t('assignments.level_district')} *</label>
+                    <select
+                      value={tDistrictId}
+                      onChange={(e) => changeTDistrict(e.target.value)}
+                      className="select-field"
+                      disabled={running || isSdo || isDc}
+                    >
+                      <option value="">{t('assignments.select_district')}</option>
+                      {districts.map((d) => <option key={d.id} value={d.id}>{d.nameEn || d.name_en}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {tLevel === 'gn' && (
+                  <div>
+                    <label className="form-label">{t('assignments.level_ds')} *</label>
+                    <select
+                      value={tDsId}
+                      onChange={(e) => changeTDs(e.target.value)}
+                      className="select-field"
+                      disabled={running || isSdo}
+                    >
+                      <option value="">{t('assignments.select_ds')}</option>
+                      {dsInDistrict.map((d) => <option key={d.id} value={d.id}>{d.nameEn || d.name_en}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="form-label">{t('assignments.bulk_accounts')}</label>
+                  <select
+                    value={tRole}
+                    onChange={(e) => { setTRole(e.target.value); resetResult(); }}
+                    className="select-field"
+                    disabled={running}
+                  >
+                    {roleOptions.map((r) => (
+                      <option key={r} value={r}>{r === 'all' ? t('assignments.bulk_all_roles') : roleLabel(r)}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {rows.length === 0 ? (
+                <div style={{ border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '1.5rem', textAlign: 'center', color: 'var(--slate-500)', fontSize: '13px' }}>
+                  {tLevel === 'gn' && !tDsId
+                    ? t('assignments.bulk_pick_ds_first')
+                    : tLevel === 'ds' && !tDistrictId
+                      ? t('assignments.bulk_pick_district_first')
+                      : t('assignments.bulk_no_match')}
+                </div>
+              ) : (
+                <>
+                  {/* Fill helpers */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--slate-500)' }}>{t('assignments.bulk_fill_with')}</span>
+                    <select
+                      className="select-field"
+                      style={{ width: 'auto', minWidth: '200px' }}
+                      value={fillAccountId}
+                      onChange={(e) => setFillAccountId(e.target.value)}
+                      disabled={running}
+                    >
+                      <option value="">—</option>
+                      {rowAccounts.map((a) => (
+                        <option key={a.id} value={a.id}>{accName(a)} ({accCode(a)})</option>
+                      ))}
+                    </select>
+                    <button type="button" className="btn-secondary" style={{ fontSize: '12px' }} onClick={fillEmptyWith} disabled={running || !fillAccountId}>
+                      {t('assignments.bulk_fill_btn')}
+                    </button>
+                    <button type="button" className="btn-secondary" style={{ fontSize: '12px' }} onClick={fillFromUnassigned} disabled={running}>
+                      {t('assignments.bulk_fill_unassigned')}
+                    </button>
+                    <button type="button" className="btn-secondary" style={{ fontSize: '12px' }} onClick={() => { setAssignee({}); resetResult(); }} disabled={running}>
+                      {t('assignments.bulk_clear')}
+                    </button>
+                  </div>
+
+                  <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', maxHeight: '340px', overflow: 'auto' }}>
+                    <table className="data-table" style={{ width: '100%' }}>
+                      <thead>
+                        <tr>
+                          <th>{t('assignments.col_territory')}</th>
+                          <th>{t('assignments.bulk_col_holder')}</th>
+                          <th>{t('assignments.bulk_col_new')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((r) => {
+                          const sel = assignee[r.id] ?? '';
+                          const selAcc = accounts.find((a) => a.id === sel);
+                          const isHolder = r.holders.some((h) => h.profileId === sel);
+                          const moves =
+                            Boolean(selAcc) &&
+                            !isHolder &&
+                            (activeByProfile.get(sel) ?? []).length > 0 &&
+                            !(tLevel === 'gn' && selAcc?.role === 'cdc_secretary');
+                          return (
+                            <tr key={r.id}>
+                              <td style={{ fontSize: '13px', fontWeight: 600, color: 'var(--slate-900)' }}>{r.label}</td>
+                              <td style={{ fontSize: '12.5px', color: 'var(--slate-500)' }}>
+                                {r.holders.length === 0 ? '—' : r.holders.map((h) => h.profile.fullName).join(', ')}
+                              </td>
+                              <td>
+                                <select
+                                  className="select-field"
+                                  value={sel}
+                                  onChange={(e) => setRowAssignee(r.id, e.target.value)}
+                                  disabled={running}
+                                >
+                                  <option value="">{t('assignments.bulk_none')}</option>
+                                  {rowAccounts.map((a) => (
+                                    <option key={a.id} value={a.id}>{accName(a)} ({accCode(a)})</option>
+                                  ))}
+                                </select>
+                                {isHolder && (
+                                  <div style={{ fontSize: '11px', color: 'var(--slate-500)', marginTop: '3px' }}>
+                                    {t('assignments.bulk_already_here')}
+                                  </div>
+                                )}
+                                {moves && (
+                                  <div style={{ fontSize: '11px', color: 'var(--warning-text)', marginTop: '3px' }}>
+                                    {t('assignments.bulk_currently')}: {currentText(sel)}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--slate-500)' }}>
+                    {pendingRows.length} {t('assignments.bulk_selected')}
+                  </div>
+                </>
+              )}
+
+              {duplicateAccount && (
+                <div style={{ background: 'var(--warning-bg)', border: '1px solid var(--warning-border)', borderRadius: 'var(--radius-sm)', padding: '9px 12px', color: 'var(--warning-text)', fontSize: '12.5px' }}>
+                  {t('assignments.bulk_duplicate_account')}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ═════════ Mode: many accounts -> one territory ═════════ */}
+          {mode === 'accounts' && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                <div>
+                  <label className="form-label">{t('assignments.territory_level')} *</label>
+                  <select
+                    value={level}
+                    onChange={(e) => changeLevel(e.target.value as BulkLevel)}
+                    className="select-field"
+                    disabled={running}
+                  >
+                    <option value="team">{t('assignments.level_team')}</option>
+                    <option value="gn">{t('assignments.level_gn')}</option>
+                    {!isSdo && <option value="ds">{t('assignments.level_ds')}</option>}
+                    {!isSdo && !isDc && <option value="district">{t('assignments.level_district')}</option>}
+                  </select>
+                </div>
+
+                {level === 'district' && (
+                  <div>
+                    <label className="form-label">{t('assignments.level_district')} *</label>
+                    <select value={districtId} onChange={(e) => { setDistrictId(e.target.value); resetResult(); }} className="select-field" disabled={running}>
+                      <option value="">{t('assignments.select_district')}</option>
+                      {districts.map((d) => <option key={d.id} value={d.id}>{d.nameEn || d.name_en}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {level === 'ds' && (
+                  <div>
+                    <label className="form-label">{t('assignments.level_ds')} *</label>
+                    <select
+                      value={dsId}
+                      onChange={(e) => { setDsId(e.target.value); onDsChange(e.target.value); resetResult(); }}
+                      className="select-field"
+                      disabled={running}
+                    >
+                      <option value="">{t('assignments.select_ds')}</option>
+                      {dsDivisions.map((d) => <option key={d.id} value={d.id}>{d.nameEn || d.name_en}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {(level === 'gn' || level === 'team') && (
+                  <>
+                    <div>
+                      <label className="form-label">{t('assignments.level_ds')}</label>
+                      <select
+                        value={dsId}
+                        onChange={(e) => { setDsId(e.target.value); onDsChange(e.target.value); setGnId(''); setTeamId(''); resetResult(); }}
+                        disabled={isSdo || running}
+                        className="select-field"
+                      >
+                        {!isSdo && <option value="">{t('assignments.all_ds')}</option>}
+                        {dsDivisions.map((d) => <option key={d.id} value={d.id}>{d.nameEn || d.name_en}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label">{t('assignments.level_gn')} *</label>
+                      <select
+                        value={gnId}
+                        onChange={(e) => { setGnId(e.target.value); onGnChange(e.target.value); setTeamId(''); resetResult(); }}
+                        className="select-field"
+                        disabled={running}
+                      >
+                        <option value="">{t('assignments.select_gn')}</option>
+                        {gnDivisions.map((g) => <option key={g.id} value={g.id}>{g.gnNumber} — {g.gnName || g.gn_name}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {level === 'team' && (
+                  <div>
+                    <label className="form-label">{t('assignments.col_team')} *</label>
+                    <select value={teamId} onChange={(e) => { setTeamId(e.target.value); resetResult(); }} className="select-field" disabled={running}>
+                      <option value="">{t('assignments.select_team')}</option>
+                      {(gnId ? teams.filter((x) => (x.gnId || x.gn_id) === gnId) : teams).map((x) => (
+                        <option key={x.id} value={x.id}>Team {x.teamNo}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="form-label">{t('assignments.bulk_accounts')} *</label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                  <div style={{ position: 'relative', flex: '1 1 200px' }}>
+                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--slate-400)' }} />
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder={t('assignments.bulk_search_accounts')}
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      style={{ paddingLeft: '32px' }}
+                    />
+                  </div>
+                  <select
+                    className="select-field"
+                    style={{ width: 'auto', minWidth: '160px' }}
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                  >
+                    {roleOptions.map((r) => (
+                      <option key={r} value={r}>{r === 'all' ? t('assignments.bulk_all_roles') : roleLabel(r)}</option>
+                    ))}
+                  </select>
+                  <button type="button" className="btn-secondary" style={{ fontSize: '12px' }} onClick={selectAllShown} disabled={running}>
+                    {t('assignments.bulk_select_shown')}
+                  </button>
+                  <button type="button" className="btn-secondary" style={{ fontSize: '12px' }} onClick={() => { setSelected(new Set()); resetResult(); }} disabled={running}>
+                    {t('assignments.bulk_clear')}
+                  </button>
+                </div>
+
+                <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', maxHeight: '260px', overflowY: 'auto' }}>
+                  {visibleAccounts.length === 0 ? (
+                    <div style={{ padding: '1.25rem', textAlign: 'center', color: 'var(--slate-400)', fontSize: '13px' }}>
+                      {t('assignments.bulk_no_match')}
+                    </div>
+                  ) : (
+                    visibleAccounts.map((a) => {
+                      const here = alreadyHere(a);
+                      return (
+                        <label
+                          key={a.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '8px 12px',
+                            borderBottom: '1px solid var(--border-subtle)',
+                            cursor: here ? 'not-allowed' : 'pointer',
+                            opacity: here ? 0.55 : 1,
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selected.has(a.id) && !here}
+                            disabled={here || running}
+                            onChange={() => toggleAccount(a.id)}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--slate-900)' }}>
+                              {accName(a)} <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--primary)' }}>{accCode(a)}</span>
+                            </div>
+                            <div style={{ fontSize: '11.5px', color: 'var(--slate-500)' }}>
+                              {here ? t('assignments.bulk_already_here') : `${t('assignments.bulk_currently')}: ${currentText(a.id)}`}
+                            </div>
+                          </div>
+                          <span className="badge badge-neutral" style={{ fontSize: '10px', textTransform: 'uppercase' }}>{roleLabel(a.role)}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--slate-500)', marginTop: '6px' }}>
+                  {chosenAccounts.length} {t('assignments.bulk_selected')}
+                </div>
+              </div>
+
+              {gnConflict && (
+                <div style={{ background: 'var(--warning-bg)', border: '1px solid var(--warning-border)', borderRadius: 'var(--radius-sm)', padding: '9px 12px', color: 'var(--warning-text)', fontSize: '12.5px' }}>
+                  {t('assignments.bulk_one_secretary_per_gn')}
+                </div>
+              )}
+            </>
+          )}
+
+          <div>
+            <label className="form-label">{t('assignments.note_optional')}</label>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="e.g. Temporary reassignment for census month"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={500}
+              disabled={running}
+            />
+          </div>
+
+          <div style={{ background: 'var(--primary-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '9px 12px', color: 'var(--slate-700)', fontSize: '12.5px', lineHeight: 1.4 }}>
+            {t('assignments.bulk_replace_warning')}
+          </div>
+
+          {running && (
+            <div style={{ fontSize: '13px', color: 'var(--slate-700)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Loader2 size={15} className="animate-spin" />
+              {t('assignments.bulk_progress')} {progress} / {total}…
+            </div>
+          )}
+          {!running && okCount !== null && failures.length > 0 && (
+            <div style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger-border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', color: 'var(--danger-text)', fontSize: '12.5px' }}>
+              <div style={{ fontWeight: 600, marginBottom: '4px' }}>
+                {okCount} {t('assignments.bulk_ok')} · {failures.length} {t('assignments.bulk_failed')}
+              </div>
+              <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                {failures.map((f) => (
+                  <li key={f.id}>{f.name}: {f.message}</li>
+                ))}
+              </ul>
+              <div style={{ marginTop: '6px', opacity: 0.9 }}>{t('assignments.bulk_retry_hint')}</div>
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          {mode === 'accounts' && targetId && itemCount > 0 && (
+            <span style={{ marginRight: 'auto', fontSize: '12px', color: 'var(--slate-500)' }}>
+              → {territoryText()}
+            </span>
+          )}
+          <button type="button" onClick={onClose} disabled={running} className="btn-secondary">{t('common.close')}</button>
+          <button type="button" onClick={run} disabled={!canSubmit} className="btn-primary">
+            {running ? <Loader2 size={16} className="animate-spin" /> : `${t('assignments.bulk_assign_btn')} (${itemCount})`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AssignmentsPage() {
@@ -433,6 +1217,7 @@ export default function AssignmentsPage() {
   const [assignTarget, setAssignTarget] = useState<Assignment['profile'] | null>(null);
   const [transferFrom, setTransferFrom] = useState<Assignment | null>(null);
   const [historyFor, setHistoryFor] = useState<{ id: string; name: string } | null>(null);
+  const [showBulk, setShowBulk] = useState(false);
 
   const isAdmin = ['super_admin', 'admin', 'cg', 'dc', 'sda'].includes(user?.role ?? '');
 
@@ -597,6 +1382,14 @@ export default function AssignmentsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={() => { handleDsChange(''); setShowBulk(true); }}
+            className="btn-primary"
+          >
+            <Users size={14} />
+            <span>{t('assignments.bulk_assign')}</span>
+          </button>
           <button type="button" onClick={() => fetchAssignments()} className="btn-secondary" title="Refresh">
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -788,6 +1581,30 @@ export default function AssignmentsPage() {
           onSubmit={handleAssign}
           submitting={submitting}
           error={modalError}
+        />
+      )}
+
+      {showBulk && (
+        <BulkAssignDialog
+          accounts={accounts}
+          assignments={assignments}
+          districts={districts}
+          dsDivisions={dsDivisions}
+          gnDivisions={gnDivisions}
+          teams={teams}
+          callerRole={user?.role}
+          callerDistrictId={user?.districtId}
+          callerDsId={user?.dsId}
+          onClose={() => setShowBulk(false)}
+          onDsChange={handleDsChange}
+          onGnChange={handleGnChange}
+          onFinished={({ ok, failed }) => {
+            flash(
+              failed > 0 ? `${ok} assigned, ${failed} failed.` : `${ok} assignment${ok !== 1 ? 's' : ''} completed.`,
+              failed > 0,
+            );
+            fetchAssignments();
+          }}
         />
       )}
 
