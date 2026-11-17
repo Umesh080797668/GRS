@@ -176,7 +176,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                   if (authState.errorMessage != null) ...[
                                     GrsRiseIn(
                                       child: _ErrorBanner(
-                                        message: authState.errorMessage!,
+                                        message: l10n.translate(
+                                          authState.errorMessage!,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(height: 20),
@@ -298,11 +300,10 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: isDark ? GrsColors.syncRejectedBgDark : GrsColors.syncRejectedBg,
+        color: GrsColors.syncRejectedBg,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(

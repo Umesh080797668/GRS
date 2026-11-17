@@ -1070,6 +1070,7 @@ export class AreaService {
     dryRun: boolean = false,
   ): Promise<PilotAreaImportResult> {
     const lines = csvContent
+      .replace(/^\uFEFF/, '')
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter((line) => line.length > 0 && !line.startsWith('#'));
@@ -1081,25 +1082,78 @@ export class AreaService {
       });
     }
 
-    const header = this.parseCsvLine(lines[0]).map((h) =>
+    const normalizeHeader = (h: string) =>
       h
         .trim()
         .toLowerCase()
-        .replace(/^["']|["']$/g, ''),
-    );
+        .replace(/^["']|["']$/g, '')
+        .replace(/[\s_-]+/g, '');
 
-    const gnNameCol = header.indexOf('gn_name');
+    const header = this.parseCsvLine(lines[0]);
+    const headerNorm = header.map(normalizeHeader);
+
+    const findCol = (...aliases: string[]) => {
+      for (const alias of aliases) {
+        const norm = normalizeHeader(alias);
+        const idx = headerNorm.indexOf(norm);
+        if (idx !== -1) return idx;
+      }
+      return -1;
+    };
+
     const colIndex = {
-      district: header.indexOf('district'),
-      dsDivision: header.indexOf('ds_division'),
-      gnNumber: header.indexOf('gn_number'),
-      gnName: gnNameCol !== -1 ? gnNameCol : header.indexOf('gn_division'),
-      secretaryName: header.indexOf('secretary_name'),
-      secretaryContact: header.indexOf('secretary_contact'),
-      secretaryEmail: header.indexOf('secretary_email'),
-      sdoName: header.indexOf('sdo_name'),
-      initialTeams: header.indexOf('initial_teams'),
-      maxMembersPerTeam: header.indexOf('max_members_per_team'),
+      district: findCol('district', 'district_name', 'districtname'),
+      dsDivision: findCol(
+        'ds_division',
+        'dsdivision',
+        'ds_name',
+        'ds',
+        'divisional_secretariat',
+      ),
+      gnNumber: findCol(
+        'gn_number',
+        'gnnumber',
+        'gn_no',
+        'gnno',
+        'gn_code',
+        'gncode',
+      ),
+      gnName: findCol(
+        'gn_name',
+        'gnname',
+        'gn_division',
+        'gndivision',
+        'grama_niladhari',
+      ),
+      secretaryName: findCol(
+        'secretary_name',
+        'secretaryname',
+        'secretary',
+        'gn_secretary',
+      ),
+      secretaryContact: findCol(
+        'secretary_contact',
+        'secretarycontact',
+        'secretary_phone',
+        'contact',
+        'phone',
+      ),
+      secretaryEmail: findCol('secretary_email', 'secretaryemail', 'email'),
+      sdoName: findCol('sdo_name', 'sdoname', 'sdo'),
+      initialTeams: findCol(
+        'initial_teams',
+        'initialteams',
+        'teams',
+        'team_count',
+        'number_of_teams',
+      ),
+      maxMembersPerTeam: findCol(
+        'max_members_per_team',
+        'maxmembersperteam',
+        'max_members',
+        'maxmembers',
+        'team_limit',
+      ),
     };
 
     if (
@@ -1157,9 +1211,17 @@ export class AreaService {
       }
 
       // Validate district name against official 25 districts (no arbitrary creation on typo!)
-      const officialDistrict = SRI_LANKA_25_DISTRICTS.find(
-        (d) => d.nameEn.toLowerCase() === districtName.toLowerCase(),
-      );
+      const normDistrictInput = districtName
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_-]/g, '');
+      const officialDistrict = SRI_LANKA_25_DISTRICTS.find((d) => {
+        return (
+          d.nameEn.toLowerCase().replace(/[\s_-]/g, '') === normDistrictInput ||
+          d.nameSi.trim() === districtName.trim() ||
+          d.nameTa.trim() === districtName.trim()
+        );
+      });
       if (!officialDistrict) {
         errors.push({
           row: rowNumber,

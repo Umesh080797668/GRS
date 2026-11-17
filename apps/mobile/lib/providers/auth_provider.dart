@@ -101,11 +101,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Checks saved session on app launch (Cold Start per M2.6)
   Future<void> checkColdStart() async {
-    final results = await Future.wait([
-      _storage.getActiveProfile(),
-      _storage.getAccessToken(),
-      _storage.getRefreshToken(),
-    ]);
+    final List<Object?> results;
+    try {
+      results = await Future.wait<Object?>([
+        _storage.getActiveProfile(),
+        _storage.getAccessToken(),
+        _storage.getRefreshToken(),
+      ]);
+    } catch (_) {
+      // Secure storage unreadable (e.g. Android Keystore key lost after a restore or
+      // reinstall). The session cannot be recovered: start clean at the sign-in screen
+      // instead of hanging on the splash screen.
+      try {
+        await _storage.wipeAll();
+      } catch (_) {}
+      _apiClient.clearTokens();
+      state = const AuthState(status: AuthStatus.unauthenticated);
+      return;
+    }
     final profile = results[0] as ProfileModel?;
     final accessToken = results[1] as String?;
     final refreshToken = results[2] as String?;
@@ -117,6 +130,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     if (!profile.isActive) {
       state = AuthState(status: AuthStatus.deactivated, profile: profile);
+      return;
+    }
+
+    // Profile exists but the session tokens are gone (cleared, reinstall leftovers):
+    // there is nothing to refresh, so give the user a fresh sign-in instead of a
+    // permanent "offline" state that can never recover.
+    if ((refreshToken == null || refreshToken.trim().isEmpty) &&
+        (accessToken == null || accessToken.trim().isEmpty) &&
+        !profile.mustChangePassword) {
+      await _endSession(errorMessage: 'sessionEnded');
       return;
     }
 
@@ -196,8 +219,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await _rejectMobileRestricted();
         return;
       }
-      // If server explicitly returned 401/400 while online, refresh was rejected
-      // For network errors/timeouts, device is in offline mode
+      // The server explicitly rejected the refresh token (logged out elsewhere, user
+      // deleted, password changed, token revoked): the session is over. Local unsynced
+      // records stay on the device; the user simply signs in again.
+      if (e is GrsApiException && e.isUnauthorized) {
+        await _endSession(errorMessage: 'sessionEnded');
+        return;
+      }
+      // Network errors, timeouts and 5xx: stay signed in and continue in offline mode.
     }
 
     // Airplane-mode / Offline cold start (per Blueprint §7.6)
@@ -404,8 +433,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       await _apiClient.verifyEmail(email, code);
       if (state.profile != null) {
-        final updated = state.profile!.copyWith(
+        final updated = ProfileModel(
+          id: state.profile!.id,
+          userCode: state.profile!.userCode,
           email: email.trim().toLowerCase(),
+          role: state.profile!.role,
+          fullName: state.profile!.fullName,
+          phoneE164: state.profile!.phoneE164,
+          preferredLanguage: state.profile!.preferredLanguage,
+          districtId: state.profile!.districtId,
+          dsId: state.profile!.dsId,
+          gnId: state.profile!.gnId,
+          teamId: state.profile!.teamId,
+          isActive: state.profile!.isActive,
           mustChangePassword: false,
         );
         await _storage.saveActiveProfile(updated);
@@ -457,6 +497,52 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
+  /// Clears the stored session (tokens + active profile) and returns to sign-in.
+  /// Local records are intentionally kept so unsynced work is never lost.
+  Future<void> _endSession({String? errorMessage}) async {
+    try {
+      await _storage.clearTokens();
+      await _storage.clearActiveProfile();
+    } catch (_) {}
+    _apiClient.clearTokens();
+    state = AuthState(
+      status: AuthStatus.unauthenticated,
+      errorMessage: errorMessage,
+    );
+  }
+
+  /// Called by the API client when the server definitively rejects the session during a
+  /// token refresh. Mobile sessions have no timeout, so this only happens for real reasons:
+  /// logged out elsewhere, account deleted/deactivated, password changed or token theft.
+  Future<void> handleSessionInvalidated(GrsApiException error) async {
+    // Cold start and login handle their own rejections
+    if (state.status == AuthStatus.initial ||
+        state.status == AuthStatus.unauthenticated ||
+        state.status == AuthStatus.authenticating ||
+        state.status == AuthStatus.versionGate) {
+      return;
+    }
+
+    if (error.isAccountDeactivated) {
+      try {
+        await _storage.clearTokens();
+      } catch (_) {}
+      _apiClient.clearTokens();
+      state = AuthState(
+        status: AuthStatus.deactivated,
+        profile: state.profile,
+        errorMessage:
+            'Your account has been deactivated. Contact your administrator.',
+      );
+      return;
+    }
+    if (error.isMobileRestricted) {
+      await _rejectMobileRestricted();
+      return;
+    }
+    await _endSession(errorMessage: 'sessionEnded');
+  }
+
   Future<void> _rejectMobileRestricted() async {
     await _storage.clearTokens();
     await _storage.clearActiveProfile();
@@ -478,8 +564,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 }
 
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  final storage = ref.watch(secureStorageProvider);
-  return AuthNotifier(apiClient: apiClient, storage: storage, ref: ref);
-});
+final StateNotifierProvider<AuthNotifier, AuthState> authProvider =
+    StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+      final apiClient = ref.watch(apiClientProvider);
+      final storage = ref.watch(secureStorageProvider);
+      return AuthNotifier(apiClient: apiClient, storage: storage, ref: ref);
+    });

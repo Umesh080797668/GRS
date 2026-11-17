@@ -140,9 +140,17 @@ export interface AccountActivityDetailResponse {
   sessions: UserSessionHistoryItem[];
 }
 
+/**
+ * Result of a token refresh:
+ *  - 'ok'          new tokens stored
+ *  - 'invalid'     the server rejected the refresh token (logged out, revoked, deleted user)
+ *  - 'unavailable' network error / 5xx / rate limit: the session may still be perfectly valid
+ */
+type RefreshOutcome = 'ok' | 'invalid' | 'unavailable';
+
 export class ApiClient {
   private baseUrl: string;
-  private refreshPromise: Promise<boolean> | null = null;
+  private refreshPromise: Promise<RefreshOutcome> | null = null;
   private inMemoryAccessToken: string | null = null;
 
   constructor() {
@@ -194,17 +202,6 @@ export class ApiClient {
     localStorage.removeItem('grs_access_token');
     localStorage.removeItem('grs_refresh_token');
     localStorage.removeItem('grs_user');
-    try {
-      localStorage.removeItem('grs_web_data_entry_drafts');
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('grs_web_data_entry_drafts')) {
-          localStorage.removeItem(key);
-        }
-      }
-    } catch {
-      // Invariant: Silently handle storage errors
-    }
   }
 
   public getStoredUser(): SessionTokens['user'] | null {
@@ -267,9 +264,20 @@ export class ApiClient {
         }
 
         if (this.getRefreshToken()) {
-          const refreshed = await this.refreshSession();
-          if (refreshed) {
+          const outcome = await this.refreshSessionOutcome();
+          if (outcome === 'ok') {
             return this.request<T>(path, options, false);
+          } else if (outcome === 'unavailable') {
+            // Transient failure (network / 5xx / rate limit): keep the session and let the
+            // caller retry instead of throwing the user out and losing unsaved work.
+            throw new ApiError({
+              message:
+                translateMessageKey('errors.network') ||
+                'Could not reach the GRS servers. Please try again.',
+              status: 0,
+              code: 'NETWORK_ERROR',
+              messageKey: 'errors.network',
+            });
           } else {
             this.clearSession();
             if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
@@ -449,53 +457,68 @@ export class ApiClient {
   }
 
   async verifyEmail(code: string): Promise<{ success: boolean; email: string }> {
-    const res = await this.request<{ success: boolean; email: string }>('/v1/auth/email/verify', {
+    return this.request('/v1/auth/email/verify', {
       method: 'POST',
       body: JSON.stringify({ code }),
     });
-    const stored = this.getStoredUser();
-    if (stored && res.email) {
-      stored.email = res.email;
-      localStorage.setItem('grs_auth_user', JSON.stringify(stored));
-    }
-    return res;
   }
 
   async refreshSession(): Promise<boolean> {
+    return (await this.refreshSessionOutcome()) === 'ok';
+  }
+
+  private refreshSessionOutcome(): Promise<RefreshOutcome> {
     if (this.refreshPromise) {
       return this.refreshPromise;
     }
 
-    const rt = this.getRefreshToken();
-    if (!rt) return false;
+    if (!this.getRefreshToken()) return Promise.resolve('invalid');
 
-    this.refreshPromise = (async () => {
+    this.refreshPromise = (async (): Promise<RefreshOutcome> => {
       try {
-        const res = await fetch(`${this.baseUrl}/v1/auth/refresh`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Client-Type': 'web',
-            'X-App-Version': APP_VERSION,
-          },
-          body: JSON.stringify({ refreshToken: rt }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.accessToken) {
-            this.inMemoryAccessToken = data.accessToken;
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('grs_access_token');
+        // Two attempts at most: if another browser tab rotated the refresh token while we were
+        // refreshing, our token is stale (401) but localStorage already holds the new one.
+        // Retry with it instead of logging out every tab.
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const rt = this.getRefreshToken();
+          if (!rt) return 'invalid';
+
+          const res = await fetch(`${this.baseUrl}/v1/auth/refresh`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Client-Type': 'web',
+              'X-App-Version': APP_VERSION,
+            },
+            body: JSON.stringify({ refreshToken: rt }),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.accessToken) {
+              this.inMemoryAccessToken = data.accessToken;
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem('grs_access_token');
+              }
             }
+            if (data.refreshToken && typeof window !== 'undefined') {
+              localStorage.setItem('grs_refresh_token', data.refreshToken);
+            }
+            return 'ok';
           }
-          if (data.refreshToken && typeof window !== 'undefined') {
-            localStorage.setItem('grs_refresh_token', data.refreshToken);
+
+          if (res.status === 401 || res.status === 403) {
+            const latest = this.getRefreshToken();
+            if (latest && latest !== rt) continue; // another tab already rotated it
+            return 'invalid';
           }
-          return true;
+
+          // 5xx / 429 / 426 ...: not an auth verdict, the session may still be valid
+          return 'unavailable';
         }
-        return false;
+        return 'invalid';
       } catch {
-        return false;
+        return 'unavailable';
       } finally {
         this.refreshPromise = null;
       }
@@ -541,11 +564,11 @@ export class ApiClient {
 
   // --- PROGRESS & SYNC HEALTH (M5.6 & M5.7) ---
 
-  async getProgressStats(areaType?: string, areaId?: string, refresh?: boolean): Promise<any> {
+  async getProgressStats(areaType?: string, areaId?: string, forceRefresh?: boolean): Promise<any> {
     const params = new URLSearchParams();
     if (areaType) params.append('areaType', areaType);
     if (areaId) params.append('areaId', areaId);
-    if (refresh) params.append('refresh', 'true');
+    if (forceRefresh) params.append('refresh', 'true');
     const query = params.toString() ? `?${params.toString()}` : '';
     return this.request(`/v1/stats/progress${query}`);
   }
@@ -866,23 +889,13 @@ export class ApiClient {
 
   // --- HOUSEHOLDS & IMPORT (M5.4) ---
 
-  async getHouseholds(params: {
-    gnId?: string;
-    teamId?: string;
-    search?: string;
-    limit?: number;
-    cursor?: string;
-    status?: string;
-    unassignedOnly?: boolean;
-  } = {}): Promise<any> {
+  async getHouseholds(params: { gnId?: string; search?: string; limit?: number; cursor?: string; status?: string } = {}): Promise<any> {
     const p = new URLSearchParams();
     if (params.gnId) p.append('gnId', params.gnId);
-    if (params.teamId) p.append('teamId', params.teamId);
     if (params.search) p.append('search', params.search);
     if (params.limit) p.append('limit', params.limit.toString());
     if (params.cursor) p.append('cursor', params.cursor);
     if (params.status) p.append('status', params.status);
-    if (params.unassignedOnly) p.append('unassignedOnly', 'true');
     const q = p.toString() ? `?${p.toString()}` : '';
     return this.request(`/v1/houses${q}`);
   }

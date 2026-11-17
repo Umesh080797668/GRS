@@ -89,7 +89,7 @@ export class ReleasesController {
     private readonly releasesService: ReleasesService,
     private readonly prisma: PrismaService,
     @Optional() private readonly jwtService?: JwtService,
-  ) { }
+  ) {}
 
   /**
    * Validates that the request comes from an authorized publisher:
@@ -143,14 +143,19 @@ export class ReleasesController {
       });
     }
 
-    if (
-      !payload ||
-      payload.role !== UserRole.super_admin ||
-      payload.scope !== 'full'
-    ) {
+    if (!payload || payload.role !== UserRole.super_admin) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_SCOPE',
-        message: 'Only super_admin with full scope can publish or sync app releases',
+        message: 'Only super_admin can publish or sync app releases',
+      });
+    }
+
+    // A restricted first-sign-in token (must change password) is not a full session.
+    if (payload.scope === 'change-password') {
+      throw new ForbiddenException({
+        code: 'SCOPE_RESTRICTED',
+        message_key: 'errors.auth.password_change_required',
+        message: 'Change your password before publishing releases',
       });
     }
 

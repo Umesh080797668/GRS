@@ -1,7 +1,10 @@
 # Environment & Secrets
 .env
-.env.*
-!.env.example
+.env.local
+.env.*.local
+.env.production
+.env.staging
+.env.development
 *.pem
 *.key
 *.cert
@@ -25,6 +28,8 @@ pnpm-debug.log*
 .flutter-plugins-dependencies
 apps/mobile/.flutter-plugins
 apps/mobile/.flutter-plugins-dependencies
+apps/dashboard/.flutter-plugins
+apps/dashboard/.flutter-plugins-dependencies
 
 # Android
 **/android/local.properties

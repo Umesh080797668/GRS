@@ -55,6 +55,8 @@ void callbackDispatcher() {
                 refreshToken: newRefresh,
               );
             },
+            // The foreground app may have rotated the token while this worker was queued
+            readStoredRefreshToken: storage.getRefreshToken,
           );
 
           final result = await SyncEngine.executePushLoop(

@@ -37,6 +37,23 @@ export type LoginResult =
   }
   | AuthSession;
 
+/** Web sessions keep the original 30-day sliding refresh window. */
+const WEB_REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/**
+ * Mobile sessions must never time out on their own. They end only when the user
+ * logs out, an admin deactivates/deletes the account, credentials change (security),
+ * or the app is reinstalled (no stored token). ~10 years == effectively no expiry.
+ */
+const MOBILE_REFRESH_TTL_MS = 3650 * 24 * 60 * 60 * 1000;
+/**
+ * Mobile only: a refresh token that was merely ROTATED (not logged out / revoked for
+ * security) may be presented again for this long. Covers a lost refresh response, a slow
+ * network that outlived the client timeout, or the foreground app and the background
+ * sync worker racing on the same token. Without it those cases look like token theft
+ * and every session of the user is revoked ("random logout").
+ */
+const MOBILE_ROTATION_REUSE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -317,7 +334,12 @@ export class AuthService {
     }
 
     // Standard Login Session
-    const session = await this.generateAuthSession(profile, dto.deviceId);
+    const session = await this.generateAuthSession(
+      profile,
+      dto.deviceId,
+      undefined,
+      { clientType },
+    );
     await this.runActivitySafe('recordLoginSession', () =>
       this.sessionActivityService?.recordLoginSession({
         profileId: profile.id,
@@ -435,7 +457,12 @@ export class AuthService {
       }),
     );
 
-    const session = await this.generateAuthSession(updated, deviceId);
+    const session = await this.generateAuthSession(
+      updated,
+      deviceId,
+      undefined,
+      { clientType },
+    );
     await this.runActivitySafe('recordLoginSessionAfterPasswordChange', () =>
       this.sessionActivityService?.recordLoginSession({
         profileId: userId,
@@ -480,10 +507,23 @@ export class AuthService {
       });
     }
 
+    const isMobileClient = clientType === 'mobile';
+    const wasRotated = !!tokenRecord.replacedBy && tokenRecord.replacedBy.length > 0;
+    const rotatedAgeMs = tokenRecord.revokedAt
+      ? Date.now() - tokenRecord.revokedAt.getTime()
+      : Number.POSITIVE_INFINITY;
+    // Mobile: re-presenting a token that was only rotated is a retry, not theft.
+    const isBenignMobileRetry =
+      isMobileClient &&
+      wasRotated &&
+      !!tokenRecord.deviceId &&
+      rotatedAgeMs < MOBILE_ROTATION_REUSE_WINDOW_MS &&
+      tokenRecord.profile?.isActive === true;
+
     // Detect token reuse
     if (
-      tokenRecord.revokedAt ||
-      (tokenRecord.replacedBy && tokenRecord.replacedBy.length > 0)
+      !isBenignMobileRetry &&
+      (tokenRecord.revokedAt || wasRotated)
     ) {
       const gracePeriodMs = 15 * 1000;
       const isWithinGraceWindow =
@@ -509,8 +549,10 @@ export class AuthService {
       });
     }
 
-    // Check expiration
-    if (tokenRecord.expiresAt < new Date()) {
+    // Check expiration. Mobile device sessions never time out (see MOBILE_REFRESH_TTL_MS);
+    // this also covers mobile tokens issued before the no-expiry change.
+    const neverExpires = isMobileClient && !!tokenRecord.deviceId;
+    if (!neverExpires && tokenRecord.expiresAt < new Date()) {
       throw new UnauthorizedException({
         code: 'AUTH_INVALID',
         message_key: 'errors.auth.refresh_token_expired',
@@ -530,9 +572,7 @@ export class AuthService {
     const deviceId = dto.deviceId || tokenRecord.deviceId;
 
     // Preserve active area assignment on refresh (Decision C20 / Multi-GN architecture)
-    let activeAreaOverride:
-      | { gnId?: string; teamId?: string; dsId?: string; districtId?: string }
-      | undefined = undefined;
+    let activeAreaOverride: { gnId?: string; teamId?: string; dsId?: string; districtId?: string } | undefined = undefined;
     const activeGnId = (tokenRecord as any).activeGnId;
     const activeTeamId = (tokenRecord as any).activeTeamId;
     if (activeGnId) {
@@ -550,25 +590,16 @@ export class AuthService {
       }
     }
 
-    // Atomically revoke current token first to prevent rotation races and orphan sessions
-    const revokeResult = await this.prisma.refreshToken.updateMany({
-      where: { id: tokenRecord.id, revokedAt: null },
-      data: {
-        revokedAt: new Date(),
-      },
-    });
-
-    if (revokeResult.count === 0) {
-      throw new UnauthorizedException({
-        code: 'AUTH_INVALID',
-        message_key: 'errors.auth.refresh_token_revoked',
-      });
-    }
-
+    // Issues the new pair and atomically rotates (revokes + links) the current token.
+    // A benign mobile retry presents an already-rotated token: nothing left to revoke.
     const session = await this.generateAuthSession(
       profile,
       deviceId ?? undefined,
       activeAreaOverride,
+      {
+        clientType,
+        rotateFromTokenId: isBenignMobileRetry ? undefined : tokenRecord.id,
+      },
     );
 
     await this.runActivitySafe('touchActivityOnRefresh', () =>
@@ -660,8 +691,7 @@ export class AuthService {
 
     const activeArea = {
       gnId: assignment.gnId,
-      teamId:
-        assignment.teamId || assignment.team?.id || profile.teamId || undefined,
+      teamId: assignment.teamId || assignment.team?.id || profile.teamId || undefined,
       dsId: assignment.gn.dsId,
       districtId: assignment.gn.ds.districtId,
     };
@@ -671,8 +701,6 @@ export class AuthService {
       where: { id: userId },
       data: {
         gnId: activeArea.gnId,
-        dsId: activeArea.dsId,
-        districtId: activeArea.districtId,
         ...(activeArea.teamId ? { teamId: activeArea.teamId } : {}),
       },
     });
@@ -692,6 +720,7 @@ export class AuthService {
       profile,
       dto.deviceId,
       activeArea,
+      { clientType },
     );
     await this.runActivitySafe('touchActivityOnSwitchArea', () =>
       this.sessionActivityService?.touchActivity({
@@ -724,9 +753,8 @@ export class AuthService {
   }
 
   /**
-   * Terminates active session. If deviceId is provided, terminates sessions for that device.
-   * If deviceId is omitted, revokes all active refresh tokens for the profile and bumps tokenVersion
-   * to immediately invalidate all existing access tokens.
+   * Terminates active session. If deviceId is omitted, only terminates unassigned sessions
+   * rather than revoking all active devices.
    */
   async logout(profileId: string, deviceId?: string, clientType?: string) {
     if (deviceId) {
@@ -742,14 +770,10 @@ export class AuthService {
       await this.prisma.refreshToken.updateMany({
         where: {
           profileId,
+          deviceId: null,
           revokedAt: null,
         },
         data: { revokedAt: new Date() },
-      });
-      // Invalidate active access tokens immediately by incrementing tokenVersion
-      await this.prisma.profile.update({
-        where: { id: profileId },
-        data: { tokenVersion: { increment: 1 } },
       });
     }
     await this.runActivitySafe('endSessionsOnLogout', () =>
@@ -789,7 +813,7 @@ export class AuthService {
   }
 
   /**
-   * Generates JWT Access Token (15m) and Refresh Token (30d).
+   * Generates JWT Access Token (15m) and Refresh Token (web: 30d sliding, mobile: no timeout).
    */
   private async generateAuthSession(
     profile: any,
@@ -800,24 +824,12 @@ export class AuthService {
       dsId?: string;
       districtId?: string;
     },
+    options?: { clientType?: string; rotateFromTokenId?: string },
   ) {
     const effectiveGnId = activeArea?.gnId ?? profile.gnId;
     const effectiveTeamId = activeArea?.teamId ?? profile.teamId;
-    let effectiveDsId = activeArea?.dsId ?? profile.dsId;
-    let effectiveDistrictId = activeArea?.districtId ?? profile.districtId;
-
-    if ((!effectiveDsId || !effectiveDistrictId) && effectiveGnId) {
-      try {
-        const gn = await this.prisma.gnDivision.findUnique({
-          where: { id: effectiveGnId },
-          select: { dsId: true, ds: { select: { districtId: true } } },
-        });
-        if (gn) {
-          effectiveDsId = effectiveDsId ?? gn.dsId;
-          effectiveDistrictId = effectiveDistrictId ?? gn.ds?.districtId;
-        }
-      } catch { }
-    }
+    const effectiveDsId = activeArea?.dsId ?? profile.dsId;
+    const effectiveDistrictId = activeArea?.districtId ?? profile.districtId;
 
     const payload = {
       sub: profile.id,
@@ -840,9 +852,13 @@ export class AuthService {
       .update(rawRefreshToken)
       .digest('hex');
 
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    // Mobile device sessions never time out; web keeps the 30-day sliding window.
+    const isMobileSession = options?.clientType === 'mobile' && !!deviceId;
+    const expiresAt = new Date(
+      Date.now() + (isMobileSession ? MOBILE_REFRESH_TTL_MS : WEB_REFRESH_TTL_MS),
+    );
 
-    await this.prisma.refreshToken.create({
+    const createdToken = await this.prisma.refreshToken.create({
       data: {
         profileId: profile.id,
         tokenHash: refreshHash,
@@ -851,7 +867,31 @@ export class AuthService {
         activeTeamId: effectiveTeamId,
         expiresAt,
       },
+      select: { id: true },
     });
+
+    // Rotation: atomically revoke the presented token and link it to its successor
+    // (replaced_by) so a later re-presentation can be told apart from logout/security revokes.
+    if (options?.rotateFromTokenId) {
+      const rotated = await this.prisma.refreshToken.updateMany({
+        where: { id: options.rotateFromTokenId, revokedAt: null },
+        data: {
+          revokedAt: new Date(),
+          ...(createdToken?.id ? { replacedBy: createdToken.id } : {}),
+        },
+      });
+      if (rotated.count === 0) {
+        if (createdToken?.id) {
+          await this.prisma.refreshToken.deleteMany({
+            where: { id: createdToken.id },
+          });
+        }
+        throw new UnauthorizedException({
+          code: 'AUTH_INVALID',
+          message_key: 'errors.auth.refresh_token_revoked',
+        });
+      }
+    }
 
     let assignments: any[] = [];
     try {
@@ -907,18 +947,11 @@ export class AuthService {
     const cleanUserId = userId.trim();
     const cleanEmail = email.trim().toLowerCase();
     const existing = await this.prisma.profile.findFirst({
-      where: {
-        id: { not: cleanUserId },
-        OR: [
-          { email: { equals: cleanEmail } },
-          { pendingEmail: { equals: cleanEmail } },
-        ],
-      },
+      where: { email: { equals: cleanEmail }, id: { not: cleanUserId } },
     });
     if (existing) {
       throw new ConflictException({
         code: 'EMAIL_ALREADY_IN_USE',
-        message_key: 'errors.auth.email_already_in_use',
         message: 'This email is already associated with another account',
       });
     }

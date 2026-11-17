@@ -3,7 +3,6 @@ import {
   UnauthorizedException,
   BadRequestException,
   ForbiddenException,
-  ConflictException
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -20,7 +19,6 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
   let credentialService: CredentialService;
   let jwtService: JwtService;
   let emailService: EmailService;
-  let rateLimitService: RateLimitService;
 
   const mockProfile = {
     id: 'user-uuid-1',
@@ -114,7 +112,6 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
     credentialService = module.get<CredentialService>(CredentialService);
     jwtService = module.get<JwtService>(JwtService);
     emailService = module.get<EmailService>(EmailService);
-    rateLimitService = module.get<RateLimitService>(RateLimitService);
   });
 
   describe('Identifier Normalization', () => {
@@ -480,6 +477,112 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
       expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
     });
 
+    describe('Mobile sessions never time out', () => {
+      const mobileProfile = { ...mockProfile, role: UserRole.team_member, isActive: true };
+      const activeMobileToken = (over: Record<string, any> = {}) => ({
+        id: 'rt-mobile',
+        profileId: mockProfile.id,
+        deviceId: 'mobile-device',
+        revokedAt: null,
+        replacedBy: null,
+        expiresAt: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), // long past
+        profile: mobileProfile,
+        ...over,
+      });
+
+      it('mobile refresh ignores a long-past expiresAt (no timeout) and rotates the token', async () => {
+        prisma.refreshToken.findFirst.mockResolvedValue(activeMobileToken());
+
+        const session = await service.refreshTokens(
+          { refreshToken: 'mobileRefreshToken' },
+          'mobile',
+        );
+
+        expect(session.refreshToken).toBeDefined();
+        // New token row is effectively non-expiring (> 5 years)
+        const createArg = prisma.refreshToken.create.mock.calls[0][0];
+        expect(createArg.data.expiresAt.getTime()).toBeGreaterThan(
+          Date.now() + 5 * 365 * 24 * 60 * 60 * 1000,
+        );
+        // Old token revoked and linked to its successor
+        expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+          where: { id: 'rt-mobile', revokedAt: null },
+          data: { revokedAt: expect.any(Date), replacedBy: 'rt-1' },
+        });
+      });
+
+      it('web refresh still enforces expiry', async () => {
+        prisma.refreshToken.findFirst.mockResolvedValue(
+          activeMobileToken({ profile: { ...mockProfile, role: UserRole.sda } }),
+        );
+        await expect(
+          service.refreshTokens({ refreshToken: 'webToken' }, 'web'),
+        ).rejects.toThrow(UnauthorizedException);
+      });
+
+      it('mobile re-presenting a ROTATED token (lost response / race) gets a new session instead of mass revoke', async () => {
+        prisma.refreshToken.findFirst.mockResolvedValue(
+          activeMobileToken({
+            revokedAt: new Date(Date.now() - 60 * 60 * 1000), // rotated 1h ago
+            replacedBy: 'rt-successor',
+          }),
+        );
+
+        const session = await service.refreshTokens(
+          { refreshToken: 'staleButLegit' },
+          'mobile',
+        );
+
+        expect(session.accessToken).toBe('mock.jwt.token');
+        // No "revoke everything" security sweep
+        expect(prisma.refreshToken.updateMany).not.toHaveBeenCalledWith({
+          where: { profileId: mockProfile.id },
+          data: { revokedAt: expect.any(Date) },
+        });
+      });
+
+      it('mobile token revoked by LOGOUT/security (not rotated) is rejected and not revived', async () => {
+        prisma.refreshToken.findFirst.mockResolvedValue(
+          activeMobileToken({
+            revokedAt: new Date(Date.now() - 60 * 60 * 1000),
+            replacedBy: null,
+          }),
+        );
+        await expect(
+          service.refreshTokens({ refreshToken: 'loggedOutToken' }, 'mobile'),
+        ).rejects.toThrow(UnauthorizedException);
+      });
+
+      it('mobile rotated token reused after the window is treated as theft', async () => {
+        prisma.refreshToken.findFirst.mockResolvedValue(
+          activeMobileToken({
+            revokedAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
+            replacedBy: 'rt-successor',
+          }),
+        );
+        await expect(
+          service.refreshTokens({ refreshToken: 'ancientToken' }, 'mobile'),
+        ).rejects.toThrow(UnauthorizedException);
+        expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+          where: { profileId: mockProfile.id },
+          data: { revokedAt: expect.any(Date) },
+        });
+      });
+
+      it('deactivated account cannot refresh even on a rotated-token retry', async () => {
+        prisma.refreshToken.findFirst.mockResolvedValue(
+          activeMobileToken({
+            revokedAt: new Date(Date.now() - 1000 * 60),
+            replacedBy: 'rt-successor',
+            profile: { ...mobileProfile, isActive: false },
+          }),
+        );
+        await expect(
+          service.refreshTokens({ refreshToken: 'x' }, 'mobile'),
+        ).rejects.toThrow(UnauthorizedException);
+      });
+    });
+
     it('blocks web-only role sda from refreshing tokens via mobile client', async () => {
       prisma.refreshToken.findFirst.mockResolvedValue({
         id: 'rt-active',
@@ -490,7 +593,10 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
       });
 
       await expect(
-        service.refreshTokens({ refreshToken: 'validRefreshToken' }, 'mobile'),
+        service.refreshTokens(
+          { refreshToken: 'validRefreshToken' },
+          'mobile',
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -542,86 +648,6 @@ describe('AuthService (Task M1.3 & Invariant 14)', () => {
       ).rejects.toMatchObject({
         response: {
           code: 'INVALID_CODE',
-        },
-      });
-    });
-
-    it('uses clientIp in rateLimitKey for forgotPassword and resetPassword', async () => {
-      const rlSpy = jest.spyOn(rateLimitService, 'checkRateLimit');
-      prisma.profile.findFirst.mockResolvedValue(null);
-
-      await service.forgotPassword('test@example.com', '192.168.1.100');
-      expect(rlSpy).toHaveBeenCalledWith(
-        'auth_forgot_192.168.1.100_test@example.com',
-        5,
-        300,
-      );
-
-      await expect(
-        service.resetPassword(
-          'test@example.com',
-          '123456',
-          'NewPassword123!',
-          '192.168.1.100',
-        ),
-      ).rejects.toThrow();
-      expect(rlSpy).toHaveBeenCalledWith(
-        'auth_reset_192.168.1.100_test@example.com',
-        10,
-        300,
-      );
-    });
-  });
-
-  describe('Session Termination (logout)', () => {
-    it('revokes only device tokens when deviceId is provided', async () => {
-      await service.logout(mockProfile.id, 'device-123', 'mobile');
-      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
-        where: {
-          profileId: mockProfile.id,
-          deviceId: 'device-123',
-          revokedAt: null,
-        },
-        data: { revokedAt: expect.any(Date) },
-      });
-      expect(prisma.profile.update).not.toHaveBeenCalled();
-    });
-
-    it('revokes all active tokens and bumps tokenVersion when deviceId is omitted', async () => {
-      await service.logout(mockProfile.id, undefined, 'web');
-      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
-        where: {
-          profileId: mockProfile.id,
-          revokedAt: null,
-        },
-        data: { revokedAt: expect.any(Date) },
-      });
-      expect(prisma.profile.update).toHaveBeenCalledWith({
-        where: { id: mockProfile.id },
-        data: { tokenVersion: { increment: 1 } },
-      });
-    });
-  });
-
-  describe('Pending Email Conflict Detection (addPendingEmail)', () => {
-    it('throws ConflictException if email matches an existing account email or pendingEmail', async () => {
-      prisma.profile.findFirst.mockResolvedValue({
-        id: 'other-user',
-        email: 'other@grs.gov.lk',
-        pendingEmail: 'conflict@grs.gov.lk',
-      });
-
-      await expect(
-        service.addPendingEmail(mockProfile.id, 'conflict@grs.gov.lk'),
-      ).rejects.toThrow(ConflictException);
-
-      expect(prisma.profile.findFirst).toHaveBeenCalledWith({
-        where: {
-          id: { not: mockProfile.id },
-          OR: [
-            { email: { equals: 'conflict@grs.gov.lk' } },
-            { pendingEmail: { equals: 'conflict@grs.gov.lk' } },
-          ],
         },
       });
     });

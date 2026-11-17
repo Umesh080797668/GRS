@@ -426,5 +426,217 @@ void main() {
         expect(await fakeStorage.getAccessToken(), isNull);
       },
     );
+
+    group('Mobile sessions never time out; they end only for real reasons', () {
+      Future<(AuthNotifier, FakeSecureStorageService)> coldStartWith(
+        MockClient mockClient, {
+        bool withTokens = true,
+      }) async {
+        final apiClient = GrsApiClient(
+          baseUrl: 'http://localhost:3000',
+          client: mockClient,
+        );
+        final fakeStorage = FakeSecureStorageService();
+        await fakeStorage.saveActiveProfile(activeProfile);
+        if (withTokens) {
+          await fakeStorage.saveTokens(
+            accessToken: 'old-access',
+            refreshToken: 'old-refresh',
+          );
+        }
+        final notifier = AuthNotifier(
+          apiClient: apiClient,
+          storage: fakeStorage,
+        );
+        await notifier.checkColdStart();
+        return (notifier, fakeStorage);
+      }
+
+      test(
+        'server rejects refresh token (logged out / user deleted / revoked) -> session ends, sign-in shown',
+        () async {
+          final (notifier, storage) = await coldStartWith(
+            MockClient(
+              (request) async => http.Response(
+                jsonEncode({
+                  'code': 'AUTH_INVALID',
+                  'message_key': 'errors.auth.invalid_refresh_token',
+                }),
+                401,
+                headers: {'content-type': 'application/json'},
+              ),
+            ),
+          );
+
+          expect(notifier.state.status, equals(AuthStatus.unauthenticated));
+          expect(notifier.state.errorMessage, equals('sessionEnded'));
+          expect(await storage.getAccessToken(), isNull);
+          expect(await storage.getRefreshToken(), isNull);
+          expect(await storage.getActiveProfile(), isNull);
+        },
+      );
+
+      test(
+        'server error (5xx) or network failure NEVER signs the user out',
+        () async {
+          final (notifier, storage) = await coldStartWith(
+            MockClient((request) async => http.Response('Bad gateway', 502)),
+          );
+
+          expect(notifier.state.status, equals(AuthStatus.authenticated));
+          expect(notifier.state.isOffline, isTrue);
+          expect(await storage.getRefreshToken(), equals('old-refresh'));
+        },
+      );
+
+      test(
+        'profile left behind without any tokens (reinstall leftovers) -> fresh sign-in, not a dead offline state',
+        () async {
+          final (notifier, storage) = await coldStartWith(
+            MockClient((request) async => http.Response('{}', 200)),
+            withTokens: false,
+          );
+
+          expect(notifier.state.status, equals(AuthStatus.unauthenticated));
+          expect(notifier.state.errorMessage, equals('sessionEnded'));
+          expect(await storage.getActiveProfile(), isNull);
+        },
+      );
+
+      test(
+        'mid-session refresh rejection ends the session via onSessionInvalidated',
+        () async {
+          final fakeStorage = FakeSecureStorageService();
+          await fakeStorage.saveActiveProfile(activeProfile);
+          await fakeStorage.saveTokens(
+            accessToken: 'expired-access',
+            refreshToken: 'revoked-refresh',
+          );
+
+          late final AuthNotifier notifier;
+          final apiClient = GrsApiClient(
+            baseUrl: 'http://localhost:3000',
+            client: MockClient((request) async {
+              return http.Response(
+                jsonEncode({
+                  'code': 'AUTH_INVALID',
+                  'message_key': 'errors.auth.token_reuse_detected',
+                }),
+                401,
+                headers: {'content-type': 'application/json'},
+              );
+            }),
+            onSessionInvalidated: (error) =>
+                notifier.handleSessionInvalidated(error),
+          );
+          apiClient.setTokens(
+            accessToken: 'expired-access',
+            refreshToken: 'revoked-refresh',
+          );
+          notifier = AuthNotifier(
+            apiClient: apiClient,
+            storage: fakeStorage,
+            initialState: const AuthState(
+              status: AuthStatus.authenticated,
+              profile: activeProfile,
+            ),
+          );
+
+          await expectLater(
+            apiClient.refreshSession(),
+            throwsA(isA<GrsApiException>()),
+          );
+
+          expect(notifier.state.status, equals(AuthStatus.unauthenticated));
+          expect(await fakeStorage.getRefreshToken(), isNull);
+          expect(apiClient.refreshToken, isNull);
+        },
+      );
+
+      test(
+        'a network failure during mid-session refresh does NOT invalidate the session',
+        () async {
+          var invalidated = false;
+          final apiClient = GrsApiClient(
+            baseUrl: 'http://localhost:3000',
+            client: MockClient((request) async {
+              throw http.ClientException('Network unreachable');
+            }),
+            onSessionInvalidated: (error) async => invalidated = true,
+          );
+          apiClient.setTokens(accessToken: 'a', refreshToken: 'r');
+
+          await expectLater(apiClient.refreshSession(), throwsA(anything));
+          expect(invalidated, isFalse);
+          expect(apiClient.refreshToken, equals('r'));
+        },
+      );
+
+      test(
+        'refresh always uses the newest persisted token (background sync may have rotated it)',
+        () async {
+          String? sentToken;
+          final apiClient = GrsApiClient(
+            baseUrl: 'http://localhost:3000',
+            client: MockClient((request) async {
+              sentToken =
+                  (jsonDecode(request.body)
+                          as Map<String, dynamic>)['refreshToken']
+                      as String?;
+              return http.Response(
+                jsonEncode({
+                  'accessToken': 'new-access',
+                  'refreshToken': 'new-refresh',
+                  'profile': activeProfile.toJson(),
+                }),
+                200,
+                headers: {'content-type': 'application/json'},
+              );
+            }),
+            readStoredRefreshToken: () async => 'rotated-by-background',
+          );
+          apiClient.setTokens(
+            accessToken: 'a',
+            refreshToken: 'stale-in-memory',
+          );
+
+          await apiClient.refreshSession();
+
+          expect(sentToken, equals('rotated-by-background'));
+          expect(apiClient.refreshToken, equals('new-refresh'));
+        },
+      );
+
+      test(
+        'failing token persistence is retried and never aborts a refresh the server already rotated',
+        () async {
+          var writes = 0;
+          final apiClient = GrsApiClient(
+            baseUrl: 'http://localhost:3000',
+            client: MockClient(
+              (request) async => http.Response(
+                jsonEncode({
+                  'accessToken': 'new-access',
+                  'refreshToken': 'new-refresh',
+                  'profile': activeProfile.toJson(),
+                }),
+                200,
+                headers: {'content-type': 'application/json'},
+              ),
+            ),
+            onTokenRefreshed: (a, r) async {
+              writes++;
+              if (writes < 3) throw Exception('keystore busy');
+            },
+          );
+          apiClient.setTokens(accessToken: 'a', refreshToken: 'r');
+
+          final res = await apiClient.refreshSession();
+
+          expect(res.refreshToken, equals('new-refresh'));
+          expect(writes, equals(3));
+        },
+      );
+    });
   });
 }

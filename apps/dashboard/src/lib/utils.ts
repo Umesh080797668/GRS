@@ -66,6 +66,50 @@ export function getOfficialHouseholdTemplateCsv(): string {
   ].join('\n');
 }
 
+/**
+ * 25 Official administrative districts in Sri Lanka.
+ */
+export const SRI_LANKA_25_DISTRICTS = [
+  'Ampara',
+  'Anuradhapura',
+  'Badulla',
+  'Batticaloa',
+  'Colombo',
+  'Galle',
+  'Gampaha',
+  'Hambantota',
+  'Jaffna',
+  'Kalutara',
+  'Kandy',
+  'Kegalle',
+  'Kilinochchi',
+  'Kurunegala',
+  'Mannar',
+  'Matale',
+  'Matara',
+  'Monaragala',
+  'Mullaitivu',
+  'Nuwara Eliya',
+  'Polonnaruwa',
+  'Puttalam',
+  'Ratnapura',
+  'Trincomalee',
+  'Vavuniya',
+] as const;
+
+/**
+ * Official CSV template for pilot area bulk hierarchy import (M1.7).
+ */
+export function getPilotAreaTemplateCsv(): string {
+  return [
+    'district,ds_division,gn_number,gn_name,secretary_name,secretary_contact,secretary_email,sdo_name,initial_teams,max_members_per_team',
+    'Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.com,Sunil Jayakody,2,10',
+    'Colombo,Thimbirigasyaya,514B,Pamankada,Sunethra Silva,+94772345678,sunethra@example.com,Sunil Jayakody,3,10',
+    'Gampaha,Kelaniya,123,Peliyagoda,Kamal Fernando,+94773456789,kamal@example.com,Anura Kumara,2,10',
+    'Kalutara,Panadura,675,Wekada,Sarath Perera,+94774567890,sarath@example.com,Bandara Silva,1,10',
+  ].join('\n');
+}
+
 export const APP_TIMEZONE = 'Asia/Colombo';
 
 export function formatDate(isoString?: string): string {

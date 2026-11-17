@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Shell from '../../components/Shell';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -19,7 +19,215 @@ import {
   X,
   Plus,
   Trash2,
+  Download,
+  FileText,
+  Table,
+  HelpCircle,
+  RotateCcw,
+  UploadCloud,
+  Info,
 } from 'lucide-react';
+import {
+  SRI_LANKA_25_DISTRICTS,
+  getPilotAreaTemplateCsv,
+  downloadFile,
+} from '../../lib/utils';
+
+export interface PilotGridRow {
+  id: string;
+  district: string;
+  dsDivision: string;
+  gnNumber: string;
+  gnName: string;
+  secretaryName: string;
+  secretaryContact: string;
+  sdoName: string;
+  initialTeams: number;
+}
+
+const DEFAULT_PILOT_GRID_ROWS: PilotGridRow[] = [
+  {
+    id: 'row-1',
+    district: 'Colombo',
+    dsDivision: 'Thimbirigasyaya',
+    gnNumber: '514A',
+    gnName: 'Kirulapone',
+    secretaryName: 'Nimal Perera',
+    secretaryContact: '+94771234567',
+    sdoName: 'Sunil Jayakody',
+    initialTeams: 2,
+  },
+  {
+    id: 'row-2',
+    district: 'Colombo',
+    dsDivision: 'Thimbirigasyaya',
+    gnNumber: '514B',
+    gnName: 'Pamankada',
+    secretaryName: 'Sunethra Silva',
+    secretaryContact: '+94772345678',
+    sdoName: 'Sunil Jayakody',
+    initialTeams: 3,
+  },
+  {
+    id: 'row-3',
+    district: 'Gampaha',
+    dsDivision: 'Kelaniya',
+    gnNumber: '123',
+    gnName: 'Peliyagoda',
+    secretaryName: 'Kamal Fernando',
+    secretaryContact: '+94773456789',
+    sdoName: 'Anura Kumara',
+    initialTeams: 2,
+  },
+  {
+    id: 'row-4',
+    district: 'Kalutara',
+    dsDivision: 'Panadura',
+    gnNumber: '675',
+    gnName: 'Wekada',
+    secretaryName: 'Sarath Perera',
+    secretaryContact: '+94774567890',
+    sdoName: 'Bandara Silva',
+    initialTeams: 1,
+  },
+];
+
+function gridToCsv(rows: PilotGridRow[]): string {
+  const header =
+    'district,ds_division,gn_number,gn_name,secretary_name,secretary_contact,secretary_email,sdo_name,initial_teams,max_members_per_team';
+  const csvRows = rows.map((r) => {
+    return [
+      r.district.trim(),
+      r.dsDivision.trim(),
+      r.gnNumber.trim(),
+      r.gnName.trim(),
+      r.secretaryName.trim(),
+      r.secretaryContact.trim(),
+      '',
+      r.sdoName.trim(),
+      r.initialTeams || 1,
+      10,
+    ]
+      .map((val) => {
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      })
+      .join(',');
+  });
+  return [header, ...csvRows].join('\n');
+}
+
+function parseCsvToGrid(csvText: string): PilotGridRow[] {
+  const lines = csvText
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !l.startsWith('#'));
+
+  if (lines.length < 2) return [];
+
+  const parseLine = (line: string): string[] => {
+    const res: string[] = [];
+    let inside = false;
+    let curr = '';
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        if (inside && i + 1 < line.length && line[i + 1] === '"') {
+          curr += '"';
+          i++;
+        } else {
+          inside = !inside;
+        }
+      } else if (c === ',' && !inside) {
+        res.push(curr.trim());
+        curr = '';
+      } else {
+        curr += c;
+      }
+    }
+    res.push(curr.trim());
+    return res;
+  };
+
+  const headerNorm = parseLine(lines[0]).map((h) =>
+    h
+      .toLowerCase()
+      .replace(/^["']|["']$/g, '')
+      .replace(/[\s_-]+/g, '')
+  );
+
+  const findCol = (...aliases: string[]) => {
+    for (const a of aliases) {
+      const norm = a.toLowerCase().replace(/[\s_-]+/g, '');
+      const idx = headerNorm.indexOf(norm);
+      if (idx !== -1) return idx;
+    }
+    return -1;
+  };
+
+  const colIdx = {
+    district: findCol('district', 'district_name'),
+    dsDivision: findCol('ds_division', 'dsdivision', 'ds_name', 'ds'),
+    gnNumber: findCol('gn_number', 'gnnumber', 'gn_no', 'gnno'),
+    gnName: findCol('gn_name', 'gnname', 'gn_division', 'gndivision'),
+    secName: findCol('secretary_name', 'secretary', 'gn_secretary'),
+    secContact: findCol('secretary_contact', 'contact', 'phone'),
+    sdoName: findCol('sdo_name', 'sdoname', 'sdo'),
+    initialTeams: findCol('initial_teams', 'teams', 'team_count'),
+  };
+
+  const rows: PilotGridRow[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const parts = parseLine(lines[i]);
+    if (parts.length === 0 || (parts.length === 1 && !parts[0])) continue;
+    rows.push({
+      id: `row-${i}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      district: colIdx.district !== -1 ? parts[colIdx.district] || '' : parts[0] || '',
+      dsDivision: colIdx.dsDivision !== -1 ? parts[colIdx.dsDivision] || '' : parts[1] || '',
+      gnNumber: colIdx.gnNumber !== -1 ? parts[colIdx.gnNumber] || '' : parts[2] || '',
+      gnName: colIdx.gnName !== -1 ? parts[colIdx.gnName] || '' : parts[3] || '',
+      secretaryName: colIdx.secName !== -1 ? parts[colIdx.secName] || '' : '',
+      secretaryContact: colIdx.secContact !== -1 ? parts[colIdx.secContact] || '' : '',
+      sdoName: colIdx.sdoName !== -1 ? parts[colIdx.sdoName] || '' : '',
+      initialTeams:
+        colIdx.initialTeams !== -1 ? parseInt(parts[colIdx.initialTeams], 10) || 1 : 1,
+    });
+  }
+  return rows;
+}
+
+function validateGridRow(row: PilotGridRow): { isValid: boolean; error?: string } {
+  if (!row.district.trim()) {
+    return { isValid: false, error: 'District is required' };
+  }
+  const normDist = row.district.trim().toLowerCase().replace(/[\s_-]/g, '');
+  const isValidDist = SRI_LANKA_25_DISTRICTS.some(
+    (d) => d.toLowerCase().replace(/[\s_-]/g, '') === normDist
+  );
+  if (!isValidDist) {
+    return {
+      isValid: false,
+      error: `"${row.district}" is not one of 25 official districts`,
+    };
+  }
+  if (!row.dsDivision.trim()) {
+    return { isValid: false, error: 'DS Division is required' };
+  }
+  if (!row.gnNumber.trim()) {
+    return { isValid: false, error: 'GN Number is required' };
+  }
+  if (!row.gnName.trim()) {
+    return { isValid: false, error: 'GN Name is required' };
+  }
+  if (row.initialTeams < 1 || row.initialTeams > 50) {
+    return { isValid: false, error: 'Teams must be between 1 and 50' };
+  }
+  return { isValid: true };
+}
 
 export default function AreasPage() {
   const { t } = useLanguage();
@@ -42,11 +250,15 @@ export default function AreasPage() {
 
   const [loading, setLoading] = useState(true);
   const [showPilotImport, setShowPilotImport] = useState(false);
-  const [pilotCsv, setPilotCsv] = useState(
-    'district,ds_division,gn_name,gn_number,initial_teams\nColombo,Colombo,Kollupitiya,GN-01,2\nColombo,Colombo,Bambalapitiya,GN-02,3'
-  );
+  const [pilotImportMode, setPilotImportMode] = useState<'grid' | 'csv'>('grid');
+  const [pilotGridRows, setPilotGridRows] = useState<PilotGridRow[]>(DEFAULT_PILOT_GRID_ROWS);
+  const [pilotCsv, setPilotCsv] = useState(getPilotAreaTemplateCsv());
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
+  const [pilotDryRunResult, setPilotDryRunResult] = useState<any>(null);
+  const [showPilotGuide, setShowPilotGuide] = useState(false);
+  const [isDraggingCsv, setIsDraggingCsv] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Edit / Delete modals
   const [editingTeam, setEditingTeam] = useState<any>(null);
@@ -472,17 +684,188 @@ export default function AreasPage() {
     }
   };
 
-  const handleImportPilotCsv = async () => {
+  const handleAddGridRow = () => {
+    const lastRow = pilotGridRows[pilotGridRows.length - 1];
+    const newRow: PilotGridRow = {
+      id: `row-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      district: lastRow?.district || 'Colombo',
+      dsDivision: lastRow?.dsDivision || '',
+      gnNumber: '',
+      gnName: '',
+      secretaryName: '',
+      secretaryContact: '',
+      sdoName: lastRow?.sdoName || '',
+      initialTeams: 2,
+    };
+    const next = [...pilotGridRows, newRow];
+    setPilotGridRows(next);
+    setPilotCsv(gridToCsv(next));
+    setModalError(null);
+    setPilotDryRunResult(null);
+  };
+
+  const handleAdd5GridRows = () => {
+    const lastRow = pilotGridRows[pilotGridRows.length - 1];
+    const newRows: PilotGridRow[] = Array.from({ length: 5 }).map((_, idx) => ({
+      id: `row-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+      district: lastRow?.district || 'Colombo',
+      dsDivision: lastRow?.dsDivision || '',
+      gnNumber: '',
+      gnName: '',
+      secretaryName: '',
+      secretaryContact: '',
+      sdoName: lastRow?.sdoName || '',
+      initialTeams: 2,
+    }));
+    const next = [...pilotGridRows, ...newRows];
+    setPilotGridRows(next);
+    setPilotCsv(gridToCsv(next));
+    setModalError(null);
+    setPilotDryRunResult(null);
+  };
+
+  const handleUpdateGridRow = (
+    id: string,
+    field: keyof PilotGridRow,
+    value: any
+  ) => {
+    const next = pilotGridRows.map((r) => {
+      if (r.id !== id) return r;
+      return { ...r, [field]: value };
+    });
+    setPilotGridRows(next);
+    setPilotCsv(gridToCsv(next));
+    setModalError(null);
+    setPilotDryRunResult(null);
+  };
+
+  const handleDeleteGridRow = (id: string) => {
+    const next = pilotGridRows.filter((r) => r.id !== id);
+    setPilotGridRows(next);
+    setPilotCsv(gridToCsv(next));
+    setModalError(null);
+    setPilotDryRunResult(null);
+  };
+
+  const handleClearGridRows = () => {
+    setPilotGridRows([]);
+    setPilotCsv(
+      'district,ds_division,gn_number,gn_name,secretary_name,secretary_contact,secretary_email,sdo_name,initial_teams,max_members_per_team\n'
+    );
+    setModalError(null);
+    setPilotDryRunResult(null);
+  };
+
+  const handleResetSampleGridRows = () => {
+    setPilotGridRows(DEFAULT_PILOT_GRID_ROWS);
+    setPilotCsv(getPilotAreaTemplateCsv());
+    setModalError(null);
+    setPilotDryRunResult(null);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        setPilotCsv(content);
+        const parsed = parseCsvToGrid(content);
+        if (parsed.length > 0) {
+          setPilotGridRows(parsed);
+        }
+        setModalError(null);
+        setPilotDryRunResult(null);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingCsv(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        setPilotCsv(content);
+        const parsed = parseCsvToGrid(content);
+        if (parsed.length > 0) {
+          setPilotGridRows(parsed);
+        }
+        setModalError(null);
+        setPilotDryRunResult(null);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportPilotCsv = async (dryRun = false) => {
+    let effectiveCsv = pilotCsv;
+    if (pilotImportMode === 'grid') {
+      if (pilotGridRows.length === 0) {
+        setModalError('Please add at least one row in the grid.');
+        return;
+      }
+      effectiveCsv = gridToCsv(pilotGridRows);
+      setPilotCsv(effectiveCsv);
+    }
+
+    if (!effectiveCsv.trim()) {
+      setModalError('CSV content is empty. Please enter or upload area data.');
+      return;
+    }
+
     setImporting(true);
     setImportResult(null);
+    setPilotDryRunResult(null);
     setModalError(null);
     setErrorBanner(null);
     setSuccessBanner(null);
+
     try {
-      const res = await api.importPilotAreaCsv(pilotCsv);
+      const res = await api.importPilotAreaCsv(effectiveCsv, dryRun);
+      if (dryRun) {
+        setPilotDryRunResult(res);
+        if (res.errors && res.errors.length > 0) {
+          setModalError(
+            `Dry run detected ${res.errors.length} validation issue(s). See error details below.`
+          );
+        }
+        return;
+      }
+
       setImportResult(res);
-      setSuccessBanner('Pilot areas CSV imported successfully.');
+      if (res.errors && res.errors.length > 0) {
+        setModalError(
+          `Import halted: ${res.errors.length} error(s) found in CSV data. No areas were created.`
+        );
+        return;
+      }
+
+      setSuccessBanner(
+        `Pilot area hierarchy created successfully! Added/verified ${res.rowCount} row(s) (${res.importedDistricts} new districts, ${res.importedDs} new DS divisions, ${res.importedGn} new GN divisions, and ${res.importedTeams} field teams provisioned).`
+      );
+      setShowPilotImport(false);
+
+      // Select first district
+      const firstRowDistrict =
+        pilotImportMode === 'grid'
+          ? pilotGridRows[0]?.district
+          : parseCsvToGrid(effectiveCsv)[0]?.district;
       await loadDistricts(selectedDistrictId);
+      if (firstRowDistrict) {
+        const found = districts.find(
+          (d) => d.nameEn.toLowerCase() === firstRowDistrict.toLowerCase()
+        );
+        if (found) {
+          handleDistrictChange(found.id);
+        }
+      }
     } catch (err: any) {
       setModalError(`Pilot import failed: ${err.message}`);
     } finally {
@@ -1086,55 +1469,690 @@ export default function AreasPage() {
       </div>
 
       {/* Pilot Area CSV Import Modal */}
-      {showPilotImport && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal-content" style={{ maxWidth: '620px' }}>
-            <div className="modal-header">
-              <div>
-                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--slate-900)' }}>
-                  {t('areas.import_pilot')}
-                </h3>
-                <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '3px 0 0 0' }}>
-                  Required headers: district,ds_division,gn_name,gn_number (also accepts gn_division),initial_teams
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setShowPilotImport(false); setModalError(null); }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '4px' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
+      {showPilotImport && (() => {
+        const rowValidations = pilotGridRows.map(validateGridRow);
+        const validCount = rowValidations.filter((v) => v.isValid).length;
+        const invalidCount = pilotGridRows.length - validCount;
+        const uniqueDistricts = new Set(
+          pilotGridRows.map((r) => r.district.trim()).filter(Boolean)
+        ).size;
+        const uniqueDs = new Set(
+          pilotGridRows
+            .map((r) => `${r.district.trim()}_${r.dsDivision.trim()}`)
+            .filter((val) => !val.startsWith('_') && !val.endsWith('_'))
+        ).size;
+        const totalTeams = pilotGridRows.reduce(
+          (sum, r) => sum + (parseInt(String(r.initialTeams), 10) || 1),
+          0
+        );
 
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {renderModalError()}
-              <textarea
-                className="input-field"
-                rows={6}
-                value={pilotCsv}
-                onChange={(e) => setPilotCsv(e.target.value)}
-                style={{ fontFamily: 'monospace', fontSize: '12px' }}
-              />
-
-              {importResult && (
-                <div style={{ background: 'var(--success-bg)', border: '1px solid var(--success-border)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '12.5px', color: 'var(--success-text)' }}>
-                  Successfully processed pilot area hierarchy!
+        return (
+          <div className="modal-backdrop" role="dialog" aria-modal="true">
+            <div
+              className="modal-content"
+              style={{
+                maxWidth: '1100px',
+                width: '95vw',
+                maxHeight: '92vh',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {/* Header */}
+              <div className="modal-header" style={{ padding: '16px 20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div
+                    style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '8px',
+                      background: 'var(--primary-subtle, rgba(37, 99, 235, 0.1))',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--primary)',
+                    }}
+                  >
+                    <Layers size={20} />
+                  </div>
+                  <div>
+                    <h3
+                      style={{
+                        fontSize: '17px',
+                        fontWeight: 700,
+                        margin: 0,
+                        color: 'var(--slate-900)',
+                      }}
+                    >
+                      {t('areas.import_pilot')} (Pilot Area Bulk Import)
+                    </h3>
+                    <p
+                      style={{
+                        fontSize: '12.5px',
+                        color: 'var(--slate-500)',
+                        margin: '3px 0 0 0',
+                      }}
+                    >
+                      Add and provision multiple Districts, DS Divisions, GN Divisions, and Field Teams simultaneously.
+                    </p>
+                  </div>
                 </div>
-              )}
-            </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPilotImport(false);
+                    setModalError(null);
+                    setPilotDryRunResult(null);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--slate-400)',
+                    padding: '6px',
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
 
-            <div className="modal-footer">
-              <button type="button" onClick={() => { setShowPilotImport(false); setModalError(null); }} className="btn-secondary">
-                Close
-              </button>
-              <button type="button" onClick={handleImportPilotCsv} disabled={importing} className="btn-primary">
-                {importing ? <Loader2 size={16} className="animate-spin" /> : 'Run Pilot Import'}
-              </button>
+              {/* Modal Body - Scrollable */}
+              <div
+                className="modal-body"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px',
+                  overflowY: 'auto',
+                  padding: '16px 20px',
+                  flex: 1,
+                }}
+              >
+                {/* Control Bar: Mode Toggle & Utilities */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '10px',
+                    paddingBottom: '12px',
+                    borderBottom: '1px solid var(--slate-200)',
+                  }}
+                >
+                  {/* Mode Tabs */}
+                  <div style={{ display: 'flex', background: 'var(--slate-100)', borderRadius: '6px', padding: '3px', gap: '2px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPilotImportMode('grid');
+                        const parsed = parseCsvToGrid(pilotCsv);
+                        if (parsed.length > 0) setPilotGridRows(parsed);
+                      }}
+                      className={pilotImportMode === 'grid' ? 'btn-primary' : 'btn-secondary'}
+                      style={{
+                        padding: '5px 12px',
+                        fontSize: '12.5px',
+                        height: '32px',
+                        borderRadius: '4px',
+                        border: 'none',
+                        boxShadow: pilotImportMode === 'grid' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                      }}
+                    >
+                      <Table size={14} />
+                      <span>{t('areas.pilot_mode_grid')}</span>
+                      <span
+                        style={{
+                          background: pilotImportMode === 'grid' ? 'rgba(255,255,255,0.25)' : 'var(--slate-200)',
+                          padding: '1px 6px',
+                          borderRadius: '10px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          marginLeft: '4px',
+                        }}
+                      >
+                        {pilotGridRows.length}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPilotImportMode('csv');
+                        setPilotCsv(gridToCsv(pilotGridRows));
+                      }}
+                      className={pilotImportMode === 'csv' ? 'btn-primary' : 'btn-secondary'}
+                      style={{
+                        padding: '5px 12px',
+                        fontSize: '12.5px',
+                        height: '32px',
+                        borderRadius: '4px',
+                        border: 'none',
+                        boxShadow: pilotImportMode === 'csv' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                      }}
+                    >
+                      <FileText size={14} />
+                      <span>{t('areas.pilot_mode_csv')}</span>
+                    </button>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => downloadFile(getPilotAreaTemplateCsv(), 'pilot_areas_template.csv')}
+                      className="btn-secondary"
+                      style={{ padding: '4px 10px', fontSize: '12px', height: '32px' }}
+                      title="Download template CSV with columns and demo rows"
+                    >
+                      <Download size={13} />
+                      <span>{t('areas.pilot_template_download')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowPilotGuide(!showPilotGuide)}
+                      className="btn-secondary"
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '12px',
+                        height: '32px',
+                        background: showPilotGuide ? 'var(--slate-200)' : undefined,
+                      }}
+                    >
+                      <HelpCircle size={13} />
+                      <span>Format Guide</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResetSampleGridRows}
+                      className="btn-secondary"
+                      style={{ padding: '4px 10px', fontSize: '12px', height: '32px' }}
+                      title="Reset rows to 4 clean sample areas"
+                    >
+                      <RotateCcw size={13} />
+                      <span>Reset Samples</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Collapsible Format Guide */}
+                {showPilotGuide && (
+                  <div
+                    style={{
+                      background: 'var(--slate-50, #f8fafc)',
+                      border: '1px solid var(--slate-200, #e2e8f0)',
+                      borderRadius: '8px',
+                      padding: '14px 16px',
+                      fontSize: '12.5px',
+                      lineHeight: '1.6',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: 'var(--slate-800)', marginBottom: '6px' }}>
+                      <Info size={16} style={{ color: 'var(--primary)' }} />
+                      <span>CSV Format & Hierarchy Specifications:</span>
+                    </div>
+                    <ul style={{ margin: '0 0 8px 18px', padding: 0, color: 'var(--slate-700)' }}>
+                      <li>
+                        <strong>district</strong> (Required): Must match one of Sri Lanka&apos;s 25 official districts (e.g. <em>Colombo, Gampaha, Kalutara, Kandy, Galle, Jaffna, etc.</em>). Trilingual (English, Sinhala, Tamil) accepted.
+                      </li>
+                      <li>
+                        <strong>ds_division</strong> (Required): Divisional Secretariat name (e.g. <em>Thimbirigasyaya</em>). If already in the system, it will be reused.
+                      </li>
+                      <li>
+                        <strong>gn_number</strong> (Required): Grama Niladhari division code / number (e.g. <em>514A, 675, GN-01</em>).
+                      </li>
+                      <li>
+                        <strong>gn_name</strong> (Required): Grama Niladhari division name (e.g. <em>Kirulapone</em>). Also accepts <code>gn_division</code>.
+                      </li>
+                      <li>
+                        <strong>initial_teams</strong> (Optional): Number of Field Teams to automatically provision (1 to 50, default: <code>1</code>).
+                      </li>
+                      <li>
+                        <strong>secretary_name, secretary_contact, sdo_name</strong> (Optional): Contact and officer metadata for the GN / DS division.
+                      </li>
+                    </ul>
+                    <div style={{ fontSize: '11.5px', color: 'var(--slate-500)' }}>
+                      💡 Tip: Multiple GN divisions in the same DS Division or District can be imported together; the system will group them under the same administrative parents automatically without duplicate entries.
+                    </div>
+                  </div>
+                )}
+
+                {/* Error Banner */}
+                {renderModalError()}
+
+                {/* Server Error Table */}
+                {(pilotDryRunResult?.errors?.length > 0 || importResult?.errors?.length > 0) && (
+                  <div
+                    style={{
+                      background: 'var(--danger-bg)',
+                      border: '1px solid var(--danger-border)',
+                      borderRadius: '6px',
+                      padding: '10px 14px',
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--danger-text)', marginBottom: '6px' }}>
+                      Validation Issues Detected by Server:
+                    </div>
+                    <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
+                      <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--danger-border)' }}>
+                            <th style={{ padding: '3px 6px', width: '70px' }}>Row</th>
+                            <th style={{ padding: '3px 6px' }}>Error Details</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(pilotDryRunResult?.errors || importResult?.errors || []).map((err: any, idx: number) => (
+                            <tr key={idx} style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+                              <td style={{ padding: '3px 6px', fontWeight: 600 }}>Row {err.row}</td>
+                              <td style={{ padding: '3px 6px' }}>{err.error}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Dry Run Success Banner */}
+                {pilotDryRunResult?.dryRun && (!pilotDryRunResult.errors || pilotDryRunResult.errors.length === 0) && (
+                  <div
+                    style={{
+                      background: 'var(--success-bg)',
+                      border: '1px solid var(--success-border)',
+                      borderRadius: '6px',
+                      padding: '10px 14px',
+                      color: 'var(--success-text)',
+                      fontSize: '13px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <CheckCircle size={16} />
+                    <span>
+                      <strong>Dry Run Passed:</strong> All {pilotDryRunResult.rowCount} rows verified successfully with 0 errors! Click <strong>Import & Create Areas</strong> to commit to database.
+                    </span>
+                  </div>
+                )}
+
+                {/* Import Success Banner */}
+                {importResult && (!importResult.errors || importResult.errors.length === 0) && (
+                  <div
+                    style={{
+                      background: 'var(--success-bg)',
+                      border: '1px solid var(--success-border)',
+                      borderRadius: '6px',
+                      padding: '10px 14px',
+                      color: 'var(--success-text)',
+                      fontSize: '13px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <CheckCircle size={16} />
+                    <span>
+                      <strong>Import Complete:</strong> Created/verified {importResult.rowCount} row(s) ({importResult.importedDistricts} new Districts, {importResult.importedDs} new DS Divisions, {importResult.importedGn} new GN Divisions, and {importResult.importedTeams} Field Teams provisioned).
+                    </span>
+                  </div>
+                )}
+
+                {/* MODE 1: Interactive Multi-Row Grid */}
+                {pilotImportMode === 'grid' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {/* Grid Toolbar */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={handleAddGridRow}
+                          className="btn-secondary"
+                          style={{ padding: '4px 10px', fontSize: '12px', height: '28px' }}
+                        >
+                          <Plus size={13} />
+                          <span>{t('areas.pilot_add_row')}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAdd5GridRows}
+                          className="btn-secondary"
+                          style={{ padding: '4px 10px', fontSize: '12px', height: '28px' }}
+                        >
+                          <Plus size={13} />
+                          <span>+ 5 Rows</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleClearGridRows}
+                          className="btn-secondary"
+                          style={{ padding: '4px 10px', fontSize: '12px', height: '28px', color: 'var(--danger-text)' }}
+                        >
+                          <Trash2 size={13} />
+                          <span>Clear All</span>
+                        </button>
+                      </div>
+
+                      <div>
+                        {invalidCount === 0 ? (
+                          <span className="badge badge-success" style={{ fontSize: '11.5px', padding: '3px 8px' }}>
+                            ✓ {validCount} of {pilotGridRows.length} rows valid
+                          </span>
+                        ) : (
+                          <span className="badge badge-danger" style={{ fontSize: '11.5px', padding: '3px 8px' }}>
+                            ⚠ {invalidCount} row(s) have errors
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Table Container */}
+                    <div
+                      style={{
+                        border: '1px solid var(--slate-200)',
+                        borderRadius: '6px',
+                        overflowX: 'auto',
+                        maxHeight: '340px',
+                      }}
+                    >
+                      <table style={{ width: '100%', minWidth: '950px', borderCollapse: 'collapse', fontSize: '12px' }}>
+                        <thead style={{ position: 'sticky', top: 0, background: 'var(--slate-100)', zIndex: 1 }}>
+                          <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--slate-200)' }}>
+                            <th style={{ padding: '8px', width: '36px', textAlign: 'center' }}>#</th>
+                            <th style={{ padding: '8px', width: '40px', textAlign: 'center' }}>Status</th>
+                            <th style={{ padding: '8px', width: '140px' }}>District *</th>
+                            <th style={{ padding: '8px', width: '140px' }}>DS Division *</th>
+                            <th style={{ padding: '8px', width: '100px' }}>GN No. *</th>
+                            <th style={{ padding: '8px', width: '140px' }}>GN Name *</th>
+                            <th style={{ padding: '8px', width: '130px' }}>Secretary Name</th>
+                            <th style={{ padding: '8px', width: '110px' }}>Phone</th>
+                            <th style={{ padding: '8px', width: '120px' }}>SDO Officer</th>
+                            <th style={{ padding: '8px', width: '70px', textAlign: 'center' }}>Teams</th>
+                            <th style={{ padding: '8px', width: '40px', textAlign: 'center' }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pilotGridRows.length === 0 ? (
+                            <tr>
+                              <td colSpan={11} style={{ textAlign: 'center', padding: '2rem', color: 'var(--slate-400)' }}>
+                                No rows yet. Click <strong>&quot;Add Row&quot;</strong> or <strong>&quot;Reset Samples&quot;</strong> to start!
+                              </td>
+                            </tr>
+                          ) : (
+                            pilotGridRows.map((row, idx) => {
+                              const val = validateGridRow(row);
+                              return (
+                                <tr
+                                  key={row.id}
+                                  style={{
+                                    borderBottom: '1px solid var(--slate-100)',
+                                    background: val.isValid ? undefined : 'rgba(239, 68, 68, 0.04)',
+                                  }}
+                                >
+                                  <td style={{ padding: '4px 6px', textAlign: 'center', color: 'var(--slate-400)', fontWeight: 600 }}>
+                                    {idx + 1}
+                                  </td>
+                                  <td style={{ padding: '4px 6px', textAlign: 'center' }} title={val.isValid ? 'Row is valid' : val.error}>
+                                    {val.isValid ? (
+                                      <CheckCircle size={15} style={{ color: 'var(--success)' }} />
+                                    ) : (
+                                      <AlertCircle size={15} style={{ color: 'var(--danger-text)' }} />
+                                    )}
+                                  </td>
+                                  <td style={{ padding: '4px 6px' }}>
+                                    <select
+                                      className="input-field"
+                                      value={row.district}
+                                      onChange={(e) => handleUpdateGridRow(row.id, 'district', e.target.value)}
+                                      style={{ padding: '3px 6px', fontSize: '12px', height: '28px' }}
+                                    >
+                                      <option value="">Select District...</option>
+                                      {SRI_LANKA_25_DISTRICTS.map((d) => (
+                                        <option key={d} value={d}>
+                                          {d}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                  <td style={{ padding: '4px 6px' }}>
+                                    <input
+                                      type="text"
+                                      className="input-field"
+                                      placeholder="DS Division"
+                                      value={row.dsDivision}
+                                      onChange={(e) => handleUpdateGridRow(row.id, 'dsDivision', e.target.value)}
+                                      style={{ padding: '3px 6px', fontSize: '12px', height: '28px' }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px 6px' }}>
+                                    <input
+                                      type="text"
+                                      className="input-field"
+                                      placeholder="e.g. 514A"
+                                      value={row.gnNumber}
+                                      onChange={(e) => handleUpdateGridRow(row.id, 'gnNumber', e.target.value)}
+                                      style={{ padding: '3px 6px', fontSize: '12px', height: '28px' }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px 6px' }}>
+                                    <input
+                                      type="text"
+                                      className="input-field"
+                                      placeholder="GN Name"
+                                      value={row.gnName}
+                                      onChange={(e) => handleUpdateGridRow(row.id, 'gnName', e.target.value)}
+                                      style={{ padding: '3px 6px', fontSize: '12px', height: '28px' }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px 6px' }}>
+                                    <input
+                                      type="text"
+                                      className="input-field"
+                                      placeholder="Secretary"
+                                      value={row.secretaryName}
+                                      onChange={(e) => handleUpdateGridRow(row.id, 'secretaryName', e.target.value)}
+                                      style={{ padding: '3px 6px', fontSize: '12px', height: '28px' }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px 6px' }}>
+                                    <input
+                                      type="text"
+                                      className="input-field"
+                                      placeholder="+94..."
+                                      value={row.secretaryContact}
+                                      onChange={(e) => handleUpdateGridRow(row.id, 'secretaryContact', e.target.value)}
+                                      style={{ padding: '3px 6px', fontSize: '12px', height: '28px' }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px 6px' }}>
+                                    <input
+                                      type="text"
+                                      className="input-field"
+                                      placeholder="SDO Name"
+                                      value={row.sdoName}
+                                      onChange={(e) => handleUpdateGridRow(row.id, 'sdoName', e.target.value)}
+                                      style={{ padding: '3px 6px', fontSize: '12px', height: '28px' }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px 6px' }}>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max="50"
+                                      className="input-field"
+                                      value={row.initialTeams}
+                                      onChange={(e) =>
+                                        handleUpdateGridRow(row.id, 'initialTeams', parseInt(e.target.value, 10) || 1)
+                                      }
+                                      style={{ padding: '3px 6px', fontSize: '12px', height: '28px', textAlign: 'center' }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteGridRow(row.id)}
+                                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--slate-400)', padding: '2px' }}
+                                      title="Delete row"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* MODE 2: CSV Textarea & File Upload */}
+                {pilotImportMode === 'csv' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {/* Drag and Drop Box */}
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDraggingCsv(true);
+                      }}
+                      onDragLeave={() => setIsDraggingCsv(false)}
+                      onDrop={handleFileDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{
+                        border: '2px dashed',
+                        borderColor: isDraggingCsv ? 'var(--primary)' : 'var(--slate-200)',
+                        background: isDraggingCsv ? 'var(--primary-subtle, rgba(37,99,235,0.05))' : 'var(--slate-50)',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept=".csv,text/csv,text/plain"
+                        onChange={handleFileUpload}
+                        style={{ display: 'none' }}
+                      />
+                      <UploadCloud size={24} style={{ color: 'var(--primary)', margin: '0 auto 6px' }} />
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--slate-800)' }}>
+                        Click to browse or drag and drop a .csv file
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: 'var(--slate-500)', marginTop: '2px' }}>
+                        Supports UTF-8 CSV with district, ds_division, gn_number, gn_name headers
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: 'var(--slate-500)' }}>
+                        <span>Or edit raw CSV text directly:</span>
+                        <span>{pilotCsv.split('\n').filter(Boolean).length} lines</span>
+                      </div>
+                      <textarea
+                        className="input-field"
+                        rows={8}
+                        value={pilotCsv}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setPilotCsv(val);
+                          const parsed = parseCsvToGrid(val);
+                          if (parsed.length > 0) setPilotGridRows(parsed);
+                        }}
+                        style={{ fontFamily: 'monospace', fontSize: '12px', lineHeight: '1.5' }}
+                        placeholder="district,ds_division,gn_number,gn_name,secretary_name,secretary_contact,secretary_email,sdo_name,initial_teams,max_members_per_team"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Projected Hierarchy Summary Strip */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                    gap: '10px',
+                    padding: '10px 14px',
+                    background: 'var(--slate-50)',
+                    border: '1px solid var(--slate-200)',
+                    borderRadius: '8px',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '11px', color: 'var(--slate-500)', textTransform: 'uppercase', fontWeight: 600 }}>
+                      Total GN Divisions
+                    </div>
+                    <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--slate-900)' }}>
+                      {pilotGridRows.length}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: 'var(--slate-500)', textTransform: 'uppercase', fontWeight: 600 }}>
+                      Districts Covered
+                    </div>
+                    <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--primary)' }}>
+                      {uniqueDistricts}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: 'var(--slate-500)', textTransform: 'uppercase', fontWeight: 600 }}>
+                      DS Divisions Covered
+                    </div>
+                    <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--slate-900)' }}>
+                      {uniqueDs}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: 'var(--slate-500)', textTransform: 'uppercase', fontWeight: 600 }}>
+                      Field Teams Provisioned
+                    </div>
+                    <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--success-text, #16a34a)' }}>
+                      {totalTeams}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="modal-footer" style={{ padding: '12px 20px', borderTop: '1px solid var(--slate-200)' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPilotImport(false);
+                    setModalError(null);
+                    setPilotDryRunResult(null);
+                  }}
+                  className="btn-secondary"
+                >
+                  Close
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleImportPilotCsv(true)}
+                    disabled={importing || pilotGridRows.length === 0}
+                    className="btn-secondary"
+                    title="Validate against database constraints without committing changes"
+                  >
+                    {importing ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle size={15} />}
+                    <span>{t('areas.pilot_validate_dry_run')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleImportPilotCsv(false)}
+                    disabled={importing || pilotGridRows.length === 0 || invalidCount > 0}
+                    className="btn-primary"
+                  >
+                    {importing ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} />}
+                    <span>{t('areas.pilot_run_import')} ({pilotGridRows.length} Areas)</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Edit Field Team Modal */}
       {editingTeam && (

@@ -18,6 +18,18 @@ class GrsApiClient {
   final Future<void> Function(String newAccess, String newRefresh)?
   onTokenRefreshed;
 
+  /// Called when the server DEFINITIVELY rejects the session during a token refresh
+  /// (refresh token revoked/unknown, user logged out elsewhere, account deleted or
+  /// deactivated, password changed, token reuse). The app must then end the session
+  /// and show the sign-in screen. It is NOT called for network errors, timeouts or 5xx,
+  /// so a flaky connection never signs the user out.
+  final Future<void> Function(GrsApiException error)? onSessionInvalidated;
+
+  /// Reads the latest persisted refresh token. The foreground app and the background
+  /// sync worker share one stored token; reading it right before refreshing avoids
+  /// presenting a stale (already rotated) token, which would look like token theft.
+  final Future<String?> Function()? readStoredRefreshToken;
+
   Completer<LoginResponse>? _refreshCompleter;
 
   /// Returns true if an auth token refresh is currently in flight.
@@ -30,6 +42,8 @@ class GrsApiClient {
     String? refreshToken,
     this.appVersion = '1.0.0',
     this.onTokenRefreshed,
+    this.onSessionInvalidated,
+    this.readStoredRefreshToken,
   }) : _client = client ?? http.Client(),
        _accessToken = accessToken,
        _refreshToken = refreshToken;
@@ -213,6 +227,19 @@ class GrsApiClient {
   }
 
   Future<LoginResponse> _doRefreshSession() async {
+    // Another isolate (background sync) may have rotated the token since we loaded it.
+    final reader = readStoredRefreshToken;
+    if (reader != null) {
+      try {
+        final stored = await reader();
+        if (stored != null && stored.trim().isNotEmpty) {
+          _refreshToken = stored;
+        }
+      } catch (_) {
+        // Fall back to the in-memory token
+      }
+    }
+
     final uri = Uri.parse('$baseUrl/v1/auth/refresh');
     final response = await _client.post(
       uri,
@@ -225,13 +252,43 @@ class GrsApiClient {
       final res = LoginResponse.fromJson(json);
       _accessToken = res.accessToken;
       _refreshToken = res.refreshToken;
-      if (onTokenRefreshed != null) {
-        await onTokenRefreshed!(res.accessToken, res.refreshToken);
-      }
+      await _persistRefreshedTokens(res.accessToken, res.refreshToken);
       return res;
     }
 
-    _handleError(response);
+    try {
+      _handleError(response);
+    } on GrsApiException catch (e) {
+      if (_isSessionRejected(e)) {
+        try {
+          await onSessionInvalidated?.call(e);
+        } catch (_) {
+          // Never let a UI-side callback failure mask the original auth error
+        }
+      }
+      rethrow;
+    }
+  }
+
+  /// True only when the server itself said "this session is over" (not on
+  /// connectivity problems, rate limits, version gates or server errors).
+  bool _isSessionRejected(GrsApiException e) =>
+      e.statusCode == 401 || e.isAccountDeactivated || e.isMobileRestricted;
+
+  /// Persists rotated tokens. The server already rotated them, so a failed write must be
+  /// retried instead of aborting the refresh and leaving a stale token on disk.
+  Future<void> _persistRefreshedTokens(String access, String refresh) async {
+    final callback = onTokenRefreshed;
+    if (callback == null) return;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        await callback(access, refresh);
+        return;
+      } catch (_) {
+        if (attempt == 2) return; // In-memory tokens stay valid for this run
+        await Future<void>.delayed(Duration(milliseconds: 150 * (attempt + 1)));
+      }
+    }
   }
 
   /// POST /v1/auth/logout

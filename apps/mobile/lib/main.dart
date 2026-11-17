@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grs_ui/grs_ui.dart';
+import 'package:path_provider/path_provider.dart';
 import 'data/local/secure_storage_service.dart';
 import 'l10n/l10n.dart';
 import 'providers/api_client_provider.dart';
@@ -41,6 +42,42 @@ class GrsHttpOverrides extends HttpOverrides {
   }
 }
 
+/// Marker file kept in the app's private storage. It is deleted together with the app,
+/// whereas the iOS Keychain (flutter_secure_storage) SURVIVES uninstalling. Without this
+/// check a reinstalled app would silently resume the previous session.
+const String _installMarkerName = '.grs_install_marker';
+
+Future<void> _resetSessionOnFreshInstall(SecureStorageService storage) async {
+  if (kIsWeb) return;
+  try {
+    final supportDir = await getApplicationSupportDirectory();
+    final marker = File('${supportDir.path}/$_installMarkerName');
+    if (await marker.exists()) return;
+
+    // Updating from a version that had no marker: the user's offline database is still on
+    // disk, so this is an upgrade (keep the session), not a reinstall.
+    final docsDir = await getApplicationDocumentsDirectory();
+    var hasLocalData = false;
+    if (await docsDir.exists()) {
+      await for (final entity in docsDir.list()) {
+        final name = entity.path.split(Platform.pathSeparator).last;
+        if (entity is File && name.startsWith('grs_offline_')) {
+          hasLocalData = true;
+          break;
+        }
+      }
+    }
+
+    if (!hasLocalData) {
+      // Fresh install: drop any session / keys left behind in the Keychain or Keystore
+      await storage.wipeAll();
+    }
+    await marker.create(recursive: true);
+  } catch (_) {
+    // Never block app start-up on this check
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = GrsHttpOverrides();
@@ -48,6 +85,7 @@ void main() async {
 
   // Restore saved API server URL before creating ProviderScope to eliminate post-startup rebuilds
   final storage = SecureStorageService();
+  await _resetSessionOnFreshInstall(storage);
   final savedUrl = await storage.getApiBaseUrl();
   String initialUrl = ApiEndpointResolver.resolveDefault();
   if (savedUrl != null &&

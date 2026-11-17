@@ -10,7 +10,7 @@ import { UserRole, ScopeContext } from '../common/scope/scope.types';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) { }
+  constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
@@ -23,11 +23,9 @@ export class RolesGuard implements CanActivate {
 
     if (user && user.scope === 'change-password') {
       const rawUrl = req.originalUrl || req.path || req.url || '';
-      const path = rawUrl.split('?')[0].replace(/\/+$/, '');
-      const isChangePassword =
-        path === '/v1/auth/change-password' ||
-        path === '/auth/change-password';
-      if (!isChangePassword) {
+      // Path only (no query string / fragment): see JwtStrategy.validate.
+      const path = String(rawUrl).split(/[?#]/)[0].replace(/\/+$/, '');
+      if (!/(^|\/)auth\/change-password$/.test(path)) {
         throw new ForbiddenException({
           code: 'SCOPE_RESTRICTED',
           message_key: 'errors.auth.password_change_required',

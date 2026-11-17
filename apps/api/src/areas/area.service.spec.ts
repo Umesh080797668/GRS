@@ -443,6 +443,19 @@ Colombo,Thimbirigasyaya,514A,Kirulapone,Nimal Perera,+94771234567,nimal@example.
       expect(inMemoryGn[0].gnName).toBe('Kirulapone, West');
       expect(inMemoryTeams).toHaveLength(2);
     });
+
+    it('handles UTF-8 BOM, flexible header aliases, and district variations', async () => {
+      const bomCsv =
+        '\uFEFFDistrict,DS Division,GN No,GN Name,Secretary Name,Initial Teams\n' +
+        'Colombo,Colombo,GN-01,Kollupitiya,Saman,2\n' +
+        'Gampaha,Kelaniya,GN-02,Peliyagoda,Sunil,3';
+
+      const result = await service.importPilotAreaFromCsv(bomCsv);
+      expect(result.errors).toHaveLength(0);
+      expect(result.rowCount).toBe(2);
+      expect(result.importedGn).toBe(2);
+      expect(result.importedTeams).toBe(5);
+    });
   });
 
   describe('Area Scoping, Field Restriction & Pagination', () => {

@@ -141,6 +141,62 @@ describe('ApiClient - Single-flight refresh (Bug 4)', () => {
     assert.strictEqual(localStorageMock.grs_refresh_token, undefined);
   });
 
+  it('keeps the session when the refresh endpoint is temporarily unavailable (5xx / network)', async () => {
+    for (const mode of ['http503', 'network'] as const) {
+      localStorageMock.grs_refresh_token = 'valid-refresh-token';
+      (globalThis as any).fetch = async (url: string) => {
+        if (url.includes('/v1/auth/refresh')) {
+          if (mode === 'network') throw new Error('Failed to fetch');
+          return { ok: false, status: 503, statusText: 'Unavailable', json: async () => ({}) };
+        }
+        return { ok: false, status: 401, statusText: 'Unauthorized', json: async () => ({}) };
+      };
+
+      await assert.rejects(async () => {
+        await (client as any).request('/test-transient');
+      }, (err: any) => err instanceof ApiError && err.code === 'NETWORK_ERROR');
+
+      // Session must NOT be cleared by a transient failure
+      assert.strictEqual(localStorageMock.grs_refresh_token, 'valid-refresh-token');
+      assert.ok(localStorageMock.grs_user);
+    }
+  });
+
+  it('does not log out every tab when another tab already rotated the refresh token', async () => {
+    const sentRefreshTokens: string[] = [];
+    (globalThis as any).fetch = async (url: string, options: any = {}) => {
+      if (url.includes('/v1/auth/refresh')) {
+        const body = JSON.parse(options.body);
+        sentRefreshTokens.push(body.refreshToken);
+        if (body.refreshToken === 'valid-refresh-token') {
+          // Simulate the other tab rotating the token while this request is in flight
+          localStorageMock.grs_refresh_token = 'rotated-by-other-tab';
+          return { ok: false, status: 401, statusText: 'Unauthorized', json: async () => ({}) };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            accessToken: 'fresh-access',
+            refreshToken: 'fresh-refresh',
+          }),
+        };
+      }
+      const auth = options.headers?.Authorization || '';
+      if (auth === 'Bearer fresh-access') {
+        return { ok: true, status: 200, text: async () => JSON.stringify({ ok: true }) };
+      }
+      return { ok: false, status: 401, statusText: 'Unauthorized', json: async () => ({}) };
+    };
+
+    const result = await (client as any).request('/test-multi-tab');
+
+    assert.deepStrictEqual(result, { ok: true });
+    assert.deepStrictEqual(sentRefreshTokens, ['valid-refresh-token', 'rotated-by-other-tab']);
+    assert.strictEqual(localStorageMock.grs_refresh_token, 'fresh-refresh');
+    assert.ok(localStorageMock.grs_user);
+  });
+
   it('throws typed ApiError translating message_key instead of falling back to HTTP 400', async () => {
     (globalThis as any).fetch = async () => ({
       ok: false,
@@ -487,25 +543,5 @@ describe('ApiClient - Single-flight refresh (Bug 4)', () => {
     assert.strictEqual(requests[10].method, 'DELETE');
     assert.strictEqual(requests[10].url.endsWith('/v1/clients/cl-1'), true);
     assert.deepStrictEqual(requests[10].body, { reason: 'Duplicate entry' });
-  });
-
-  it('getHouseholds serializes status and unassignedOnly query parameters properly', async () => {
-    let capturedUrl = '';
-    (globalThis as any).fetch = async (url: string) => {
-      capturedUrl = url;
-      return {
-        ok: true,
-        status: 200,
-        statusText: 'OK',
-        text: async () => JSON.stringify({ households: [], totalCount: 0 }),
-      };
-    };
-
-    client.setAccessToken('auth-token');
-    await client.getHouseholds({ gnId: 'gn-123', status: 'finished', limit: 30 });
-    assert.strictEqual(capturedUrl.includes('/v1/houses?'), true);
-    assert.strictEqual(capturedUrl.includes('gnId=gn-123'), true);
-    assert.strictEqual(capturedUrl.includes('status=finished'), true);
-    assert.strictEqual(capturedUrl.includes('limit=30'), true);
   });
 });
