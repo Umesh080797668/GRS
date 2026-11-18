@@ -311,6 +311,32 @@ export default function LoginPage() {
         </div>
       </div>
 
+      {/* Powered by Zyntrix Systems Attribution */}
+      <div
+        style={{
+          marginTop: '1.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '6px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/zyntrix_diamond.png"
+            alt="Zyntrix Systems"
+            style={{ width: '22px', height: '22px', objectFit: 'contain' }}
+          />
+          <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--slate-600)', letterSpacing: '0.02em' }}>
+            {t('app.created_by')}
+          </span>
+        </div>
+        <span style={{ fontSize: '11px', color: 'var(--slate-400)', letterSpacing: '0.03em' }}>
+          {t('app.zyntrix_tagline')}
+        </span>
+      </div>
+
       {/* Forgot Password Modal */}
       {showForgotModal && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">

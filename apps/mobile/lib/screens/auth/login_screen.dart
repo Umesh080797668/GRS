@@ -267,12 +267,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                   GrsFadeIn(
                                     delay: const Duration(milliseconds: 500),
                                     child: Center(
-                                      child: Text(
-                                        'Global Research & Survey Program',
-                                        style: GrsTypography.labelSmall(
-                                          color: secondary,
-                                        ),
-                                        textAlign: TextAlign.center,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Image.asset(
+                                                'assets/images/zyntrix_diamond.png',
+                                                height: 15,
+                                                width: 15,
+                                                fit: BoxFit.contain,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                'Created & Powered by Zyntrix Systems',
+                                                style:
+                                                    GrsTypography.labelSmall(
+                                                      color: secondary,
+                                                    ).copyWith(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Global Research & Survey Program',
+                                            style: GrsTypography.labelSmall(
+                                              color: secondary.withValues(
+                                                alpha: 0.65,
+                                              ),
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),

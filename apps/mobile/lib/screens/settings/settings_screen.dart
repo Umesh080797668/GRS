@@ -426,11 +426,142 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
 
+          const SizedBox(height: 12),
+
+          // ── Zyntrix Systems Attribution Card ──────────────────────────────
+          GrsFadeSlideItem(
+            index: 8,
+            child: GrsCard(
+              padding: EdgeInsets.zero,
+              child: InkWell(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Image.asset(
+                            'assets/images/zyntrix_diamond.png',
+                            height: 64,
+                            width: 64,
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'ZYNTRIX SYSTEMS',
+                            style:
+                                GrsTypography.headlineMedium(
+                                  color: isDark
+                                      ? GrsColors.textPrimaryDark
+                                      : GrsColors.textPrimaryLight,
+                                ).copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.2,
+                                ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Where Data Becomes Decisions',
+                            style: GrsTypography.bodyMedium(
+                              color: isDark
+                                  ? GrsColors.textSecondaryDark
+                                  : GrsColors.textSecondaryLight,
+                            ).copyWith(fontStyle: FontStyle.italic),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Designed and engineered by Zyntrix Systems for the National Door-to-Door Enumeration and Skills Survey System.',
+                            style: GrsTypography.bodyMedium(
+                              color: isDark
+                                  ? GrsColors.textSecondaryDark
+                                  : GrsColors.textSecondaryLight,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          child: const Text('Close'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF1E293B)
+                              : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isDark
+                                ? GrsColors.outlineDark
+                                : GrsColors.outlineLight,
+                          ),
+                        ),
+                        child: Image.asset(
+                          'assets/images/zyntrix_diamond.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Powered by Zyntrix Systems',
+                              style: GrsTypography.bodyLarge(color: ink)
+                                  .copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Where Data Becomes Decisions',
+                              style: GrsTypography.labelSmall(color: secondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 18,
+                        color: secondary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
           const SizedBox(height: 32),
 
           // ── Sign Out ───────────────────────────────────────────────────────
           GrsFadeSlideItem(
-            index: 8,
+            index: 9,
             child: GrsButton(
               text: l10n.get('logout'),
               variant: GrsButtonVariant.danger,

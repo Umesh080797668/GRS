@@ -469,6 +469,51 @@ export function Shell({ children, activePath }: ShellProps) {
           })}
         </nav>
 
+        {/* Zyntrix Systems Attribution in Sidebar */}
+        {!collapsed ? (
+          <div
+            style={{
+              padding: '0.75rem 1rem',
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/zyntrix_diamond.png"
+              alt="Zyntrix Systems"
+              style={{ width: '22px', height: '22px', objectFit: 'contain' }}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <span style={{ fontSize: '10px', color: 'var(--slate-400)', letterSpacing: '0.04em' }}>
+                {t('app.powered_by')}
+              </span>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                Zyntrix Systems
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              padding: '0.75rem 0',
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+              display: 'flex',
+              justifyContent: 'center',
+            }}
+            title={t('app.powered_by')}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/zyntrix_diamond.png"
+              alt="Zyntrix Systems"
+              style={{ width: '20px', height: '20px', objectFit: 'contain' }}
+            />
+          </div>
+        )}
+
         {/* Desktop Collapse Toggle */}
         <div
           style={{
@@ -698,6 +743,37 @@ export function Shell({ children, activePath }: ShellProps) {
         >
           {children}
         </main>
+
+        {/* Civic System Footer with Zyntrix Systems Attribution */}
+        <footer
+          style={{
+            borderTop: '1px solid var(--border-subtle)',
+            background: '#ffffff',
+            padding: '0.875rem 1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '12px',
+            color: 'var(--slate-500)',
+            flexWrap: 'wrap',
+            gap: '8px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>{t('app.subtitle')} • Door-to-Door Skills Campaign 2026</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/zyntrix_diamond.png"
+              alt="Zyntrix Systems"
+              style={{ width: '16px', height: '16px', objectFit: 'contain' }}
+            />
+            <span style={{ fontWeight: 600, color: 'var(--slate-700)' }}>
+              {t('app.created_by')}
+            </span>
+          </div>
+        </footer>
       </div>
 
       <style jsx global>{`

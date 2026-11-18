@@ -226,6 +226,31 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
 
+                  const SizedBox(height: 12),
+
+                  // ── Zyntrix Systems Attribution ───────────────────────────
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.asset(
+                        'assets/images/zyntrix_diamond.png',
+                        height: 16,
+                        width: 16,
+                        fit: BoxFit.contain,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Created & Powered by Zyntrix Systems',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.65),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+
                   const SizedBox(height: 20),
                 ],
               ),

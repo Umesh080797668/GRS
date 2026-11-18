@@ -4,6 +4,9 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
   en: {
     'app.title': 'GRS Web Dashboard — Door-to-Door Skills Campaign 2026',
     'app.subtitle': 'Democratic Socialist Republic of Sri Lanka',
+    'app.powered_by': 'Powered by Zyntrix Systems',
+    'app.created_by': 'Created & Powered by Zyntrix Systems',
+    'app.zyntrix_tagline': 'Where Data Becomes Decisions',
     'nav.progress': 'Progress Overview',
     'nav.users': 'User Management',
     'nav.activity': 'User Activity',
@@ -618,6 +621,9 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
   si: {
     'app.title': 'GRS වෙබ් උපකරණ පුවරුව — දොරින් දොර කුසලතා සංගණනය 2026',
     'app.subtitle': 'ශ්‍රී ලංකා ප්‍රජාතාන්ත්‍රික සමාජවාදී ජනරජය',
+    'app.powered_by': 'Zyntrix Systems මඟින් බලගන්වන ලදී',
+    'app.created_by': 'Zyntrix Systems මඟින් නිර්මාණය කර බලගන්වන ලදී',
+    'app.zyntrix_tagline': 'Where Data Becomes Decisions',
     'nav.progress': 'සංගණන ප්‍රගතිය',
     'nav.users': 'පරිශීලක කළමනාකරණය',
     'nav.activity': 'පරිශීලක ක්‍රියාකාරකම්',
@@ -1232,6 +1238,9 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
   ta: {
     'app.title': 'GRS வலை டாஷ்போர்டு — வீடு வீடாக திறன் பிரச்சாரம் 2026',
     'app.subtitle': 'இலங்கை ஜனநாயக சோசலிசக் குடியரசு',
+    'app.powered_by': 'Zyntrix Systems ஆல் இயக்கப்படுகிறது',
+    'app.created_by': 'Zyntrix Systems ஆல் உருவாக்கப்பட்டு இயக்கப்படுகிறது',
+    'app.zyntrix_tagline': 'Where Data Becomes Decisions',
     'nav.progress': 'பிரச்சார முன்னேற்றம்',
     'nav.users': 'பயனர் மேலாண்மை',
     'nav.activity': 'பயனர் செயல்பாடு',
