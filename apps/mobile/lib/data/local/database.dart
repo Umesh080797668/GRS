@@ -666,8 +666,10 @@ class AppDatabase {
 
     if (search != null && search.trim().isNotEmpty) {
       final term = '%${search.trim()}%';
-      conditions.add('(house_no LIKE ? OR house_leader_name LIKE ?)');
-      args.addAll([term, term]);
+      conditions.add(
+        '(house_no LIKE ? OR house_leader_name LIKE ? OR id IN (SELECT household_id FROM clients WHERE name LIKE ? OR phone_raw LIKE ? OR phone_e164 LIKE ?))',
+      );
+      args.addAll([term, term, term, term, term]);
     }
 
     final effectiveFilter = statusFilter ?? status;

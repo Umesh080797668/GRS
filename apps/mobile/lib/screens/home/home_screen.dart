@@ -53,6 +53,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       begin: 0.5,
       end: 1.0,
     ).animate(CurvedAnimation(parent: _heroPulseCtrl, curve: Curves.easeInOut));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && ref.read(connectivityProvider)) {
+        ref.read(syncProvider.notifier).pullChanges();
+      }
+    });
   }
 
   @override
@@ -88,6 +94,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       }
     } else if (state.isCompleted) {
       if (mounted) {
+        if (ref.read(connectivityProvider)) {
+          await ref.read(syncProvider.notifier).pullChanges();
+        }
+        if (!mounted) return;
+        ref.read(recordsRevisionProvider.notifier).increment();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(l10n.get('areaDataLoadedSuccess'))),
         );
@@ -461,24 +472,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 child: Text(l10n.translate('databaseError', {'error': '$err'})),
               ),
               data: (db) {
-                return FutureBuilder<List<Map<String, dynamic>>>(
+                return FutureBuilder<List<dynamic>>(
                   key: ValueKey(
                     'households_${_selectedFilter}_${_searchController.text}_${authState.profile?.gnId}_$revision',
                   ),
-                  future: db.getHouseholds(
-                    search: _searchController.text.trim().isEmpty
-                        ? null
-                        : _searchController.text.trim(),
-                    statusFilter: _selectedFilter == 'all'
-                        ? null
-                        : _selectedFilter,
-                    gnId: authState.profile?.gnId,
-                  ),
+                  future: Future.wait([
+                    db.getHouseholds(
+                      search: _searchController.text.trim().isEmpty
+                          ? null
+                          : _searchController.text.trim(),
+                      statusFilter: _selectedFilter == 'all'
+                          ? null
+                          : _selectedFilter,
+                      gnId: authState.profile?.gnId,
+                    ),
+                    db.getAllClients(),
+                  ]),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) {
                       return _buildLoadingSkeletons(isDark);
                     }
-                    final households = snapshot.data!;
+                    final households =
+                        snapshot.data![0] as List<Map<String, dynamic>>;
+                    final allClients =
+                        snapshot.data![1] as List<Map<String, dynamic>>;
+
+                    final clientsByHouse =
+                        <String, List<Map<String, dynamic>>>{};
+                    for (final c in allClients) {
+                      final hId = c['household_id'] as String?;
+                      if (hId != null && hId.isNotEmpty) {
+                        (clientsByHouse[hId] ??= []).add(c);
+                      }
+                    }
 
                     if (households.isEmpty) {
                       return _EmptyState(
@@ -491,6 +517,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
                     return RefreshIndicator(
                       onRefresh: () async {
+                        if (ref.read(connectivityProvider)) {
+                          await ref.read(syncProvider.notifier).pullChanges();
+                        }
                         ref.read(recordsRevisionProvider.notifier).increment();
                       },
                       child: ListView.builder(
@@ -515,6 +544,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               (h['has_special_needs'] as int?) == 1;
                           final status =
                               h['status'] as String? ?? 'not_started';
+                          final houseClients =
+                              clientsByHouse[houseId] ?? const [];
 
                           return GrsFadeSlideItem(
                             index: index < 12 ? index : 0,
@@ -536,6 +567,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                 isEtf: isEtf,
                                 hasSpecialNeeds: hasSpecialNeeds,
                                 status: status,
+                                clients: houseClients,
                                 l10n: l10n,
                                 isDark: isDark,
                                 onRefresh: () {
@@ -620,83 +652,93 @@ class _HeroPanel extends StatelessWidget {
         children: [
           // Status row
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Flexible(
+              Expanded(
                 child: Text(
                   l10n.get('fieldWorkStatus'),
                   style: GrsTypography.labelSmall(
                     color: Colors.white.withValues(alpha: 0.7),
                   ),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 8),
               // Connection status badge
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (pendingCount > 0) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.20),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.cloud_upload_outlined,
-                            size: 11,
-                            color: Colors.white,
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (pendingCount > 0) ...[
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$pendingCount ${l10n.get('statusPending')}',
-                            style: GrsTypography.labelSmall(color: Colors.white)
-                                .copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 11,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.20),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.cloud_upload_outlined,
+                                size: 11,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  '$pendingCount ${l10n.get('statusPending')}',
+                                  style:
+                                      GrsTypography.labelSmall(
+                                        color: Colors.white,
+                                      ).copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 11,
+                                      ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    FadeTransition(
+                      opacity: heroPulse,
+                      child: Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: isOnline
+                              ? GrsColors.syncSynced
+                              : const Color(0xFFF59E0B),
+                          shape: BoxShape.circle,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                  ],
-                  FadeTransition(
-                    opacity: heroPulse,
-                    child: Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: isOnline
-                            ? GrsColors.syncSynced
-                            : const Color(0xFFF59E0B),
-                        shape: BoxShape.circle,
+                    const SizedBox(width: 6),
+                    if (!isOnline) ...[
+                      const Icon(
+                        Icons.airplanemode_active_rounded,
+                        size: 11,
+                        color: Colors.white70,
                       ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      isOnline ? l10n.get('online') : l10n.get('offline'),
+                      style: GrsTypography.labelSmall(
+                        color: Colors.white.withValues(alpha: 0.90),
+                      ).copyWith(fontWeight: FontWeight.w600),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  if (!isOnline) ...[
-                    const Icon(
-                      Icons.airplanemode_active_rounded,
-                      size: 11,
-                      color: Colors.white70,
-                    ),
-                    const SizedBox(width: 4),
                   ],
-                  Text(
-                    isOnline ? l10n.get('online') : l10n.get('offline'),
-                    style: GrsTypography.labelSmall(
-                      color: Colors.white.withValues(alpha: 0.90),
-                    ).copyWith(fontWeight: FontWeight.w600),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
@@ -931,6 +973,7 @@ class _HouseCard extends StatelessWidget {
     this.isEtf = false,
     this.hasSpecialNeeds = false,
     required this.status,
+    this.clients = const [],
     required this.l10n,
     required this.isDark,
     this.onRefresh,
@@ -950,6 +993,7 @@ class _HouseCard extends StatelessWidget {
   final bool isEtf;
   final bool hasSpecialNeeds;
   final String status;
+  final List<Map<String, dynamic>> clients;
   final GrsL10n l10n;
   final bool isDark;
   final VoidCallback? onRefresh;
@@ -968,109 +1012,394 @@ class _HouseCard extends StatelessWidget {
 
     return GrsCard(
       padding: EdgeInsets.zero,
-      child: ListTile(
-        onTap: () async {
-          await context.push('/houses/$houseId');
-          onRefresh?.call();
-        },
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        leading: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: avatarBg,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            '$serialNo',
-            style: GrsTypography.titleMedium(
-              color: avatarInk,
-            ).copyWith(fontWeight: FontWeight.w700, fontSize: 15),
-          ),
-        ),
-        title: Text(
-          '${l10n.get('houseNumber')}: $houseNo',
-          style: GrsTypography.titleMedium(
-            color: isDark
-                ? GrsColors.textPrimaryDark
-                : GrsColors.textPrimaryLight,
-          ).copyWith(fontSize: 15),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 2),
-            Text(
-              [
-                leader,
-                if (village != null && village!.trim().isNotEmpty)
-                  village!.trim(),
-              ].join(' • '),
-              style: GrsTypography.bodyMedium(
-                color: isDark
-                    ? GrsColors.textSecondaryDark
-                    : GrsColors.textSecondaryLight,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            onTap: () async {
+              await context.push('/houses/$houseId');
+              onRefresh?.call();
+            },
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 8,
+            ),
+            leading: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: avatarBg,
+                borderRadius: BorderRadius.circular(12),
               ),
+              alignment: Alignment.center,
+              child: Text(
+                '$serialNo',
+                style: GrsTypography.titleMedium(
+                  color: avatarInk,
+                ).copyWith(fontWeight: FontWeight.w700, fontSize: 15),
+              ),
+            ),
+            title: Text(
+              '${l10n.get('houseNumber')}: $houseNo',
+              style: GrsTypography.titleMedium(
+                color: isDark
+                    ? GrsColors.textPrimaryDark
+                    : GrsColors.textPrimaryLight,
+              ).copyWith(fontSize: 15),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            if (targetFemale > 0 || targetMale > 0) ...[
-              const SizedBox(height: 3),
-              Text(
-                'Target (18-35): ${targetFemale}F / ${targetMale}M',
-                style: GrsTypography.labelSmall(
-                  color: isDark
-                      ? GrsColors.textTertiaryDark
-                      : GrsColors.textTertiaryLight,
-                ).copyWith(fontSize: 11),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    leader,
+                    if (village != null && village!.trim().isNotEmpty)
+                      village!.trim(),
+                  ].join(' • '),
+                  style: GrsTypography.bodyMedium(
+                    color: isDark
+                        ? GrsColors.textSecondaryDark
+                        : GrsColors.textSecondaryLight,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (targetFemale > 0 || targetMale > 0) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    'Target (18-35): ${targetFemale}F / ${targetMale}M',
+                    style: GrsTypography.labelSmall(
+                      color: isDark
+                          ? GrsColors.textTertiaryDark
+                          : GrsColors.textTertiaryLight,
+                    ).copyWith(fontSize: 11),
+                  ),
+                ],
+                if (isAswesuma ||
+                    isSamurdhi ||
+                    isEpf ||
+                    isEtf ||
+                    hasSpecialNeeds) ...[
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 2,
+                    children: [
+                      if (isAswesuma)
+                        _buildMiniTag(
+                          'Aswesuma',
+                          const Color(0xFFE0E7FF),
+                          const Color(0xFF3730A3),
+                        ),
+                      if (isSamurdhi)
+                        _buildMiniTag(
+                          'Samurdhi',
+                          const Color(0xFFFEF3C7),
+                          const Color(0xFF92400E),
+                        ),
+                      if (isEpf || isEtf)
+                        _buildMiniTag(
+                          isEpf && isEtf ? 'EPF/ETF' : (isEpf ? 'EPF' : 'ETF'),
+                          const Color(0xFFF1F5F9),
+                          const Color(0xFF475569),
+                        ),
+                      if (hasSpecialNeeds)
+                        _buildMiniTag(
+                          'Special Needs',
+                          const Color(0xFFFEE2E2),
+                          const Color(0xFF991B1B),
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+            trailing: _buildStatusBadge(status, l10n),
+          ),
+
+          // ── Records under each house that has records ─────────────────────
+          if (clients.isNotEmpty) ...[
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: isDark
+                  ? const Color(0xFF334155).withValues(alpha: 0.5)
+                  : const Color(0xFFE2E8F0),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFF0F172A).withValues(alpha: 0.4)
+                    : const Color(0xFFF8FAFC),
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(12),
+                ),
               ),
-            ],
-            if (isAswesuma ||
-                isSamurdhi ||
-                isEpf ||
-                isEtf ||
-                hasSpecialNeeds) ...[
-              const SizedBox(height: 4),
-              Wrap(
-                spacing: 4,
-                runSpacing: 2,
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (isAswesuma)
-                    _buildMiniTag(
-                      'Aswesuma',
-                      const Color(0xFFE0E7FF),
-                      const Color(0xFF3730A3),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.folder_shared_outlined,
+                          size: 14,
+                          color: isDark
+                              ? GrsColors.textSecondaryDark
+                              : GrsColors.textSecondaryLight,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '${l10n.get('beneficiariesCount').isNotEmpty ? l10n.get('beneficiariesCount') : 'Beneficiaries'} (${clients.length})',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
+                              color: isDark
+                                  ? GrsColors.textSecondaryDark
+                                  : GrsColors.textSecondaryLight,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        InkWell(
+                          onTap: () async {
+                            final hasConsent =
+                                clients.isNotEmpty ||
+                                clients.any(
+                                  (c) => (c['consent_given'] as int?) == 1,
+                                );
+                            if (hasConsent) {
+                              await context.push(
+                                '/houses/$houseId/client/new?consent=true',
+                              );
+                            } else {
+                              await context.push('/houses/$houseId/consent');
+                            }
+                            onRefresh?.call();
+                          },
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.add_circle_outline_rounded,
+                                  size: 13,
+                                  color: isDark
+                                      ? GrsColors.primaryDark
+                                      : GrsColors.primaryLight,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  l10n.get('addBeneficiaryButton').isNotEmpty
+                                      ? l10n.get('addBeneficiaryButton')
+                                      : 'Add',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark
+                                        ? GrsColors.primaryDark
+                                        : GrsColors.primaryLight,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  if (isSamurdhi)
-                    _buildMiniTag(
-                      'Samurdhi',
-                      const Color(0xFFFEF3C7),
-                      const Color(0xFF92400E),
-                    ),
-                  if (isEpf || isEtf)
-                    _buildMiniTag(
-                      isEpf && isEtf ? 'EPF/ETF' : (isEpf ? 'EPF' : 'ETF'),
-                      const Color(0xFFF1F5F9),
-                      const Color(0xFF475569),
-                    ),
-                  if (hasSpecialNeeds)
-                    _buildMiniTag(
-                      'Special Needs',
-                      const Color(0xFFFEE2E2),
-                      const Color(0xFF991B1B),
-                    ),
+                  ),
+                  ...clients.map((c) {
+                    final clientId = c['id'] as String;
+                    final clientName =
+                        (c['name'] as String?)?.trim().isNotEmpty == true
+                        ? (c['name'] as String).trim()
+                        : 'Unnamed';
+                    final age = c['age'] as int? ?? 0;
+                    final gender = (c['gender'] as String?) ?? '';
+                    final isFemale = gender.toUpperCase().startsWith('F');
+                    final phone = (c['phone_raw'] ?? c['phone_e164'] ?? '')
+                        .toString()
+                        .trim();
+                    final syncStatus = (c['sync_status'] as String?) ?? 'draft';
+
+                    final avatarBg = isFemale
+                        ? (isDark
+                              ? const Color(0xFF2D1B45)
+                              : const Color(0xFFF3E8FF))
+                        : (isDark
+                              ? GrsColors.primaryContainerDark
+                              : GrsColors.primaryContainerLight);
+                    final avatarInk = isFemale
+                        ? const Color(0xFF9333EA)
+                        : (isDark
+                              ? GrsColors.primaryDark
+                              : GrsColors.primaryLight);
+
+                    final genderLabel = isFemale
+                        ? (l10n.get('female').isNotEmpty
+                              ? l10n.get('female')
+                              : 'Female')
+                        : (l10n.get('male').isNotEmpty
+                              ? l10n.get('male')
+                              : 'Male');
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: InkWell(
+                        onTap: () async {
+                          await context.push(
+                            '/houses/$houseId/client/$clientId',
+                          );
+                          onRefresh?.call();
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF1E293B)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(
+                                      0xFF334155,
+                                    ).withValues(alpha: 0.5)
+                                  : const Color(0xFFE2E8F0),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: avatarBg,
+                                  borderRadius: BorderRadius.circular(7),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  isFemale ? '♀' : '♂',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: avatarInk,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      clientName,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark
+                                            ? GrsColors.textPrimaryDark
+                                            : GrsColors.textPrimaryLight,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 1),
+                                    Text(
+                                      [
+                                        'Age $age',
+                                        genderLabel,
+                                        if (phone.isNotEmpty) phone,
+                                      ].join(' • '),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: isDark
+                                            ? GrsColors.textSecondaryDark
+                                            : GrsColors.textSecondaryLight,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildClientSyncBadge(syncStatus, l10n),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                size: 16,
+                                color: isDark
+                                    ? GrsColors.textTertiaryDark
+                                    : GrsColors.textTertiaryLight,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
                 ],
               ),
-            ],
+            ),
           ],
-        ),
-        trailing: _buildStatusBadge(status, l10n),
+        ],
       ),
     );
+  }
+
+  Widget _buildClientSyncBadge(String status, GrsL10n l10n) {
+    switch (status) {
+      case 'synced':
+        return GrsSyncBadge(
+          status: GrsSyncStatus.synced,
+          label: l10n.get('statusSynced').isNotEmpty
+              ? l10n.get('statusSynced')
+              : 'Synced',
+        );
+      case 'pending':
+        return GrsSyncBadge(
+          status: GrsSyncStatus.pending,
+          label: l10n.get('statusPending').isNotEmpty
+              ? l10n.get('statusPending')
+              : 'Pending',
+        );
+      case 'rejected':
+        return GrsSyncBadge(
+          status: GrsSyncStatus.rejected,
+          label: l10n.get('statusRejected').isNotEmpty
+              ? l10n.get('statusRejected')
+              : 'Rejected',
+        );
+      case 'draft':
+      default:
+        return GrsSyncBadge(
+          status: GrsSyncStatus.draft,
+          label: l10n.get('statusDraft').isNotEmpty
+              ? l10n.get('statusDraft')
+              : 'Draft',
+        );
+    }
   }
 
   Widget _buildMiniTag(String text, Color bg, Color fg) {
@@ -1399,6 +1728,11 @@ class _Level4Hub extends ConsumerWidget {
                               await ref
                                   .read(authProvider.notifier)
                                   .switchArea(newGnId);
+                              if (ref.read(connectivityProvider)) {
+                                await ref
+                                    .read(syncProvider.notifier)
+                                    .pullChanges();
+                              }
                               ref
                                   .read(recordsRevisionProvider.notifier)
                                   .increment();

@@ -3,6 +3,7 @@ import 'package:grs_core/grs_core.dart';
 import '../data/sync/area_download_service.dart';
 import 'api_client_provider.dart';
 import 'database_provider.dart';
+import 'sync_provider.dart';
 
 final areaDownloadServiceProvider = Provider<AreaDownloadService?>((ref) {
   final dbAsync = ref.watch(databaseProvider);
@@ -41,6 +42,11 @@ class AreaDownloadNotifier extends StateNotifier<AreaDownloadProgress> {
           );
         },
       );
+
+      // Also pull latest client records for the downloaded area
+      try {
+        await _ref.read(syncProvider.notifier).pullChanges();
+      } catch (_) {}
 
       state = AreaDownloadProgress(
         downloaded: state.downloaded,

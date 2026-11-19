@@ -103,5 +103,108 @@ void main() {
       expect(find.textContaining('HN-1999'), findsWidgets);
       expect(find.textContaining('HN-1 '), findsNothing);
     });
+
+    testWidgets('Houses with records show their records under the house card', (
+      WidgetTester tester,
+    ) async {
+      final now = DateTime.now();
+      // House 1 has 2 clients
+      await db.upsertHousehold(
+        Household(
+          id: 'house-rec-1',
+          districtId: 'dist-01',
+          dsId: 'ds-01',
+          gnId: 'gn-01',
+          serialNo: 1,
+          houseNo: 'HN-101',
+          houseLeaderName: 'Kamal Silva',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+
+      // House 2 has NO clients
+      await db.upsertHousehold(
+        Household(
+          id: 'house-rec-2',
+          districtId: 'dist-01',
+          dsId: 'ds-01',
+          gnId: 'gn-01',
+          serialNo: 2,
+          houseNo: 'HN-102',
+          houseLeaderName: 'Nimal Perera',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+
+      // Insert 2 clients for House 1
+      await db.saveClient(
+        client: Client(
+          id: 'client-1',
+          householdId: 'house-rec-1',
+          name: 'Kasun Silva',
+          age: 24,
+          gender: 'M',
+          consentGiven: true,
+          consentAt: now,
+          infoProvidedBy: 'self',
+          createdAt: now,
+          updatedAt: now,
+        ),
+        status: SyncStatus.synced,
+      );
+
+      await db.saveClient(
+        client: Client(
+          id: 'client-2',
+          householdId: 'house-rec-1',
+          name: 'Sanduni Silva',
+          age: 22,
+          gender: 'F',
+          consentGiven: true,
+          consentAt: now,
+          infoProvidedBy: 'self',
+          createdAt: now,
+          updatedAt: now,
+        ),
+        status: SyncStatus.pending,
+      );
+
+      // Render HomeScreen
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            databaseProvider.overrideWith((ref) => Future.value(db)),
+          ],
+          child: const MaterialApp(home: HomeScreen()),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // House 101 and House 102 are visible
+      expect(find.textContaining('HN-101'), findsOneWidget);
+      expect(find.textContaining('HN-102'), findsOneWidget);
+
+      // Under House 101, records (beneficiaries) are displayed
+      expect(find.text('Kasun Silva'), findsOneWidget);
+      expect(find.text('Sanduni Silva'), findsOneWidget);
+      expect(find.textContaining('Beneficiaries (2)'), findsOneWidget);
+
+      // Test search by beneficiary name finds the house
+      final searchInput = find.byType(TextField);
+      await tester.enterText(searchInput, 'Kasun');
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('HN-101'), findsOneWidget);
+      expect(find.textContaining('HN-102'), findsNothing);
+      expect(find.text('Kasun Silva'), findsOneWidget);
+    });
   });
 }

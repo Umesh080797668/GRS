@@ -273,7 +273,7 @@ export default function DataEntryPage() {
 
   function handleSelectExistingHousehold(hId: string) {
     setSelectedHouseholdId(hId);
-    setConsentGiven(true);
+    // NOTE: consent is per respondent and must be ticked explicitly - never pre-tick it here.
     const found = existingHouseholds.find((h) => h.id === hId);
     if (found) {
       setHouseNo(found.houseNo || '');
@@ -527,7 +527,8 @@ export default function DataEntryPage() {
       setFutureHopes([]);
       setInfoProvidedBy('self');
       setInfoProvidedByOther('');
-      setConsentGiven(true);
+      // The next respondent must give their own consent - do not carry it over.
+      setConsentGiven(false);
 
       if (editingDraftId) {
         const remaining = drafts.filter((d) => d.id !== editingDraftId);

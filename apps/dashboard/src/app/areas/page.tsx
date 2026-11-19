@@ -6,6 +6,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { getAreaScopeLocks } from '../../lib/area-scope';
+import { gridToCsv, parseCsvToGrid, type PilotGridRow } from '../../lib/pilot-csv';
 import {
   MapPin,
   Layers,
@@ -32,18 +33,6 @@ import {
   getPilotAreaTemplateCsv,
   downloadFile,
 } from '../../lib/utils';
-
-export interface PilotGridRow {
-  id: string;
-  district: string;
-  dsDivision: string;
-  gnNumber: string;
-  gnName: string;
-  secretaryName: string;
-  secretaryContact: string;
-  sdoName: string;
-  initialTeams: number;
-}
 
 const DEFAULT_PILOT_GRID_ROWS: PilotGridRow[] = [
   {
@@ -91,118 +80,6 @@ const DEFAULT_PILOT_GRID_ROWS: PilotGridRow[] = [
     initialTeams: 1,
   },
 ];
-
-function gridToCsv(rows: PilotGridRow[]): string {
-  const header =
-    'district,ds_division,gn_number,gn_name,secretary_name,secretary_contact,secretary_email,sdo_name,initial_teams,max_members_per_team';
-  const csvRows = rows.map((r) => {
-    return [
-      r.district.trim(),
-      r.dsDivision.trim(),
-      r.gnNumber.trim(),
-      r.gnName.trim(),
-      r.secretaryName.trim(),
-      r.secretaryContact.trim(),
-      '',
-      r.sdoName.trim(),
-      r.initialTeams ?? 0,
-      10,
-    ]
-      .map((val) => {
-        const str = String(val);
-        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-          return `"${str.replace(/"/g, '""')}"`;
-        }
-        return str;
-      })
-      .join(',');
-  });
-  return [header, ...csvRows].join('\n');
-}
-
-function parseCsvToGrid(csvText: string): PilotGridRow[] {
-  const lines = csvText
-    .replace(/^\uFEFF/, '')
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0 && !l.startsWith('#'));
-
-  if (lines.length < 2) return [];
-
-  const parseLine = (line: string): string[] => {
-    const res: string[] = [];
-    let inside = false;
-    let curr = '';
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') {
-        if (inside && i + 1 < line.length && line[i + 1] === '"') {
-          curr += '"';
-          i++;
-        } else {
-          inside = !inside;
-        }
-      } else if (c === ',' && !inside) {
-        res.push(curr.trim());
-        curr = '';
-      } else {
-        curr += c;
-      }
-    }
-    res.push(curr.trim());
-    return res;
-  };
-
-  const headerNorm = parseLine(lines[0]).map((h) =>
-    h
-      .toLowerCase()
-      .replace(/^["']|["']$/g, '')
-      .replace(/[\s_-]+/g, '')
-  );
-
-  const findCol = (...aliases: string[]) => {
-    for (const a of aliases) {
-      const norm = a.toLowerCase().replace(/[\s_-]+/g, '');
-      const idx = headerNorm.indexOf(norm);
-      if (idx !== -1) return idx;
-    }
-    return -1;
-  };
-
-  const colIdx = {
-    district: findCol('district', 'district_name'),
-    dsDivision: findCol('ds_division', 'dsdivision', 'ds_name', 'ds'),
-    gnNumber: findCol('gn_number', 'gnnumber', 'gn_no', 'gnno'),
-    gnName: findCol('gn_name', 'gnname', 'gn_division', 'gndivision'),
-    secName: findCol('secretary_name', 'secretary', 'gn_secretary'),
-    secContact: findCol('secretary_contact', 'contact', 'phone'),
-    sdoName: findCol('sdo_name', 'sdoname', 'sdo'),
-    initialTeams: findCol('initial_teams', 'teams', 'team_count'),
-  };
-
-  const rows: PilotGridRow[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const parts = parseLine(lines[i]);
-    if (parts.length === 0 || (parts.length === 1 && !parts[0])) continue;
-    rows.push({
-      id: `row-${i}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      district: colIdx.district !== -1 ? parts[colIdx.district] || '' : parts[0] || '',
-      dsDivision: colIdx.dsDivision !== -1 ? parts[colIdx.dsDivision] || '' : parts[1] || '',
-      gnNumber: colIdx.gnNumber !== -1 ? parts[colIdx.gnNumber] || '' : parts[2] || '',
-      gnName: colIdx.gnName !== -1 ? parts[colIdx.gnName] || '' : parts[3] || '',
-      secretaryName: colIdx.secName !== -1 ? parts[colIdx.secName] || '' : '',
-      secretaryContact: colIdx.secContact !== -1 ? parts[colIdx.secContact] || '' : '',
-      sdoName: colIdx.sdoName !== -1 ? parts[colIdx.sdoName] || '' : '',
-      initialTeams:
-        colIdx.initialTeams !== -1
-          ? isNaN(parseInt(parts[colIdx.initialTeams], 10))
-            ? 0
-            : parseInt(parts[colIdx.initialTeams], 10)
-          : 0,
-    });
-  }
-  return rows;
-}
 
 function validateGridRow(row: PilotGridRow): { isValid: boolean; error?: string } {
   if (!row.district.trim()) {
@@ -767,21 +644,27 @@ export default function AreasPage() {
     setPilotDryRunResult(null);
   };
 
+  // The grid must always mirror the uploaded file. Previously an unparsable file left the
+  // OLD grid rows (including the sample Colombo rows) in place and they were imported instead.
+  const applyUploadedCsv = (content: string) => {
+    const parsed = parseCsvToGrid(content);
+    setPilotCsv(content);
+    setPilotGridRows(parsed);
+    setPilotDryRunResult(null);
+    setModalError(
+      parsed.length === 0
+        ? 'No data rows were found in the uploaded file. Check that it has the template header and at least one data row.'
+        : null
+    );
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (event) => {
       const content = event.target?.result as string;
-      if (content) {
-        setPilotCsv(content);
-        const parsed = parseCsvToGrid(content);
-        if (parsed.length > 0) {
-          setPilotGridRows(parsed);
-        }
-        setModalError(null);
-        setPilotDryRunResult(null);
-      }
+      if (content) applyUploadedCsv(content);
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -795,15 +678,7 @@ export default function AreasPage() {
     const reader = new FileReader();
     reader.onload = (event) => {
       const content = event.target?.result as string;
-      if (content) {
-        setPilotCsv(content);
-        const parsed = parseCsvToGrid(content);
-        if (parsed.length > 0) {
-          setPilotGridRows(parsed);
-        }
-        setModalError(null);
-        setPilotDryRunResult(null);
-      }
+      if (content) applyUploadedCsv(content);
     };
     reader.readAsText(file);
   };
@@ -861,15 +736,17 @@ export default function AreasPage() {
         pilotImportMode === 'grid'
           ? pilotGridRows[0]?.district
           : parseCsvToGrid(effectiveCsv)[0]?.district;
-      await loadDistricts(selectedDistrictId);
+      // Look the district up in a FRESH list (state `districts` is stale until the next render,
+      // so a district created by this import could never be found).
+      let preferredDistrictId = selectedDistrictId;
       if (firstRowDistrict) {
-        const found = districts.find(
-          (d) => d.nameEn.toLowerCase() === firstRowDistrict.toLowerCase()
+        const freshDistricts = await api.getDistricts();
+        const found = freshDistricts.find(
+          (d: any) => String(d.nameEn || '').toLowerCase() === firstRowDistrict.trim().toLowerCase()
         );
-        if (found) {
-          handleDistrictChange(found.id);
-        }
+        if (found) preferredDistrictId = found.id;
       }
+      await loadDistricts(preferredDistrictId);
     } catch (err: any) {
       setModalError(`Pilot import failed: ${err.message}`);
     } finally {
