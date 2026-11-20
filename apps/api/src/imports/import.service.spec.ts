@@ -566,6 +566,29 @@ describe('ImportService', () => {
       expect(csv).toContain('"\'@SUM(A1)"');
     });
 
+    it('getErrorReportCsv blocks a CDC Secretary from another GN division (no PII leak)', async () => {
+      prisma.importBatch.findUnique.mockResolvedValue({
+        id: 'batch-uuid-2',
+        gnId: 'some-other-gn',
+        status: 'previewed',
+        stagingRows: [
+          {
+            rowNo: 2,
+            errors: ['Validation failed'],
+            data: { houseNo: '12', headName: 'Private Person', address: 'Secret Rd' },
+          },
+        ],
+      });
+
+      await expect(
+        service.getErrorReportCsv(mockCdcCaller, 'batch-uuid-2'),
+      ).rejects.toMatchObject({ response: { code: 'FORBIDDEN_SCOPE' } });
+
+      // National roles are still allowed to read any batch's report.
+      const csv = await service.getErrorReportCsv(mockAdminCaller as any, 'batch-uuid-2');
+      expect(csv).toContain('Private Person');
+    });
+
     it('rejects file exceeding MAX_IMPORT_ROWS (10,000 rows) with ROW_LIMIT_EXCEEDED', async () => {
       const rows = ['house_no,head_name'];
       for (let i = 1; i <= 10001; i++) {

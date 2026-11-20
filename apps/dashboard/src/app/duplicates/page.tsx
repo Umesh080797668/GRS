@@ -645,7 +645,7 @@ export default function DuplicatesPage() {
             <option value="">{areaLocks.isGnLocked ? 'Assigned GN Division' : 'All GN Divisions'}</option>
             {gnDivisions.map((gn) => (
               <option key={gn.id} value={gn.id}>
-                {gn.nameEn || gn.name} ({gn.gnCode || gn.gnNumber})
+                {gn.gnNumber || gn.gnCode} — {gn.gnName || gn.nameEn || gn.name}
               </option>
             ))}
           </select>

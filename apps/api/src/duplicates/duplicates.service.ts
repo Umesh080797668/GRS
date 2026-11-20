@@ -45,6 +45,22 @@ export class DuplicatesService {
   ) { }
 
   /**
+   * Level 4 works at GN-division scope (a team is optional). A client is in a secretary's scope when it
+   * belongs to their GN division, or - for secretaries who do have a team - to their team.
+   * Previously confirm/dismiss required a team, so a team-less secretary could list duplicates but
+   * never resolve them, and pairs from houses not yet claimed by a team were unresolvable.
+   */
+  private isInSecretaryScope(
+    caller: ScopeContext,
+    record: { gnId?: string | null; teamId?: string | null } | null | undefined,
+  ): boolean {
+    if (!record) return false;
+    if (caller.gnId && record.gnId === caller.gnId) return true;
+    if (caller.teamId && record.teamId === caller.teamId) return true;
+    return false;
+  }
+
+  /**
    * Builds client-level scope predicate enforced against at least one side of the duplicate pair.
    * Level 5 (team_member) has zero access to duplicate review queues (§6.2 / Role Matrix).
    */
@@ -514,13 +530,13 @@ export class DuplicatesService {
       }
     } else if (caller.role === UserRole.cdc_secretary) {
       if (
-        !caller.teamId ||
-        (recordA.teamId !== caller.teamId && recordB.teamId !== caller.teamId)
+        !this.isInSecretaryScope(caller, recordA) &&
+        !this.isInSecretaryScope(caller, recordB)
       ) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_TEAM',
           message:
-            'CDC Secretary can only resolve duplicate candidates within their assigned team',
+            'CDC Secretary can only resolve duplicate candidates within their assigned GN division or team',
         });
       }
     }
@@ -564,12 +580,12 @@ export class DuplicatesService {
 
     if (
       caller.role === UserRole.cdc_secretary &&
-      duplicateRecord.teamId !== caller.teamId
+      !this.isInSecretaryScope(caller, duplicateRecord)
     ) {
       throw new ForbiddenException({
         code: 'OUT_OF_SCOPE_TEAM',
         message:
-          'CDC Secretary cannot mark a client belonging to another team as duplicate',
+          'CDC Secretary cannot mark a client belonging to another GN division or team as duplicate',
       });
     }
 
@@ -655,8 +671,8 @@ export class DuplicatesService {
     const candidate = await this.prisma.duplicateCandidate.findUnique({
       where: { id: candidateId },
       include: {
-        clientARecord: { select: { id: true, teamId: true, dsId: true } },
-        clientBRecord: { select: { id: true, teamId: true, dsId: true } },
+        clientARecord: { select: { id: true, teamId: true, dsId: true, gnId: true } },
+        clientBRecord: { select: { id: true, teamId: true, dsId: true, gnId: true } },
       },
     });
 
@@ -681,14 +697,13 @@ export class DuplicatesService {
       }
     } else if (caller.role === UserRole.cdc_secretary) {
       if (
-        !caller.teamId ||
-        (candidate.clientARecord?.teamId !== caller.teamId &&
-          candidate.clientBRecord?.teamId !== caller.teamId)
+        !this.isInSecretaryScope(caller, candidate.clientARecord) &&
+        !this.isInSecretaryScope(caller, candidate.clientBRecord)
       ) {
         throw new ForbiddenException({
           code: 'OUT_OF_SCOPE_TEAM',
           message:
-            'CDC Secretary can only dismiss duplicate candidates within their assigned team',
+            'CDC Secretary can only dismiss duplicate candidates within their assigned GN division or team',
         });
       }
     }

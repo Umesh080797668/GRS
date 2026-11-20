@@ -64,7 +64,7 @@ export function Shell({ children, activePath }: ShellProps) {
   const [switchingArea, setSwitchingArea] = useState(false);
   const [openDuplicatesCount, setOpenDuplicatesCount] = useState<number>(0);
   const [activeGnList, setActiveGnList] = useState<
-    Array<{ gnId: string; gnName?: string; gnCode?: string; teamId?: string; teamNo?: string }>
+    Array<{ gnId: string; gnName?: string; gnNumber?: string; gnCode?: string; teamId?: string; teamNo?: string }>
   >([]);
 
   useEffect(() => {
@@ -652,7 +652,7 @@ export function Shell({ children, activePath }: ShellProps) {
                   {activeGnList.map((a) => (
                     <option key={a.gnId} value={a.gnId}>
                       {a.gnName
-                        ? `${a.gnName} (${a.gnCode || a.gnId.slice(0, 6)})`
+                        ? `${a.gnName} (${a.gnNumber || a.gnCode || a.gnId.slice(0, 6)})`
                         : `GN ${a.gnId.slice(0, 8)}`}
                       {a.teamNo ? ` — Team ${a.teamNo}` : ''}
                     </option>

@@ -313,6 +313,57 @@ describe('DuplicatesService (M6.2 & M6.4)', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
+    describe('GN-level CDC Secretary without a team', () => {
+      const noTeamCaller: ScopeContext = {
+        userId,
+        role: UserRole.cdc_secretary,
+        gnId,
+        dsId,
+        districtId,
+      };
+
+      const poolPair = () =>
+        makeCandidate({
+          clientARecord: {
+            id: clientAId, teamId: null, gnId, dsId, districtId,
+            duplicateOf: null, createdAt: new Date('2026-11-10T00:00:00Z'),
+          },
+          clientBRecord: {
+            id: clientBId, teamId: null, gnId, dsId, districtId,
+            duplicateOf: null, createdAt: new Date('2026-11-11T00:00:00Z'),
+          },
+        });
+
+      it('can confirm a duplicate inside their GN division (previously always 403 without a team)', async () => {
+        prisma.duplicateCandidate.findUnique.mockResolvedValue(poolPair());
+        prisma.client.update.mockResolvedValue({ id: clientBId, duplicateOf: clientAId });
+        prisma.duplicateCandidate.update.mockResolvedValue({ id: candId, status: DuplicateStatus.confirmed });
+        prisma.clientAudit.create.mockResolvedValue({ id: 'audit-1' });
+        prisma.team.updateMany.mockResolvedValue({ count: 0 });
+
+        const result = await service.confirmDuplicate(noTeamCaller, candId, {});
+        expect(result.status).toBe(DuplicateStatus.confirmed);
+      });
+
+      it('can dismiss a duplicate inside their GN division', async () => {
+        prisma.duplicateCandidate.findUnique.mockResolvedValue(poolPair());
+        prisma.duplicateCandidate.update.mockResolvedValue({ id: candId, status: DuplicateStatus.dismissed });
+        const res = await service.dismissDuplicate(noTeamCaller, candId, {});
+        expect(res.status).toBe(DuplicateStatus.dismissed);
+      });
+
+      it('is still blocked from another GN division', async () => {
+        const otherGn = '77777777-7777-7777-7777-777777777777';
+        const foreign = poolPair();
+        foreign.clientARecord.gnId = otherGn;
+        foreign.clientBRecord.gnId = otherGn;
+        prisma.duplicateCandidate.findUnique.mockResolvedValue(foreign);
+
+        await expect(service.confirmDuplicate(noTeamCaller, candId, {})).rejects.toThrow(ForbiddenException);
+        await expect(service.dismissDuplicate(noTeamCaller, candId, {})).rejects.toThrow(ForbiddenException);
+      });
+    });
+
     it('throws NotFoundException when duplicate candidate does not exist', async () => {
       prisma.duplicateCandidate.findUnique.mockResolvedValue(null);
       await expect(

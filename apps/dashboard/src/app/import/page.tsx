@@ -133,6 +133,19 @@ export default function ImportPage() {
     }
   }
 
+  // A staged preview belongs to the GN it was uploaded for. If the target changes afterwards,
+  // committing would silently import into the OLD GN while the dropdown shows the new one.
+  function discardPreviewForTargetChange() {
+    if (!currentBatchId || isCommitted) return;
+    setCurrentBatchId(null);
+    setBatchStatus(null);
+    setRows([]);
+    setFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setCommitError(null);
+    setFileError('The target division changed, so the previous preview was discarded. Please upload the file again.');
+  }
+
   async function handleFileSelected(selectedFile: File) {
     setFileError(null);
     setCommitSuccess(null);
@@ -298,14 +311,20 @@ export default function ImportPage() {
               className="select-field"
               value={selectedDistrict}
               onChange={(e) => {
+                discardPreviewForTargetChange();
                 setSelectedDistrict(e.target.value);
+                // Clear the dependent selections right away so a file cannot be uploaded
+                // against the previous district's GN while the new lists are still loading.
+                setSelectedDs('');
+                setSelectedGn('');
+                setGnDivisions([]);
                 loadDs(e.target.value);
               }}
               disabled={areaLocks.isDistrictLocked}
             >
               {districts.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.nameEn} ({d.code})
+                  {d.nameEn}
                 </option>
               ))}
             </select>
@@ -317,14 +336,17 @@ export default function ImportPage() {
               className="select-field"
               value={selectedDs}
               onChange={(e) => {
+                discardPreviewForTargetChange();
                 setSelectedDs(e.target.value);
+                setSelectedGn('');
+                setGnDivisions([]);
                 loadGns(e.target.value);
               }}
               disabled={dsDivisions.length === 0 || areaLocks.isDsLocked}
             >
               {dsDivisions.map((ds) => (
                 <option key={ds.id} value={ds.id}>
-                  {ds.nameEn} ({ds.code})
+                  {ds.nameEn}
                 </option>
               ))}
             </select>
@@ -335,12 +357,15 @@ export default function ImportPage() {
             <select
               className="select-field"
               value={selectedGn}
-              onChange={(e) => setSelectedGn(e.target.value)}
+              onChange={(e) => {
+                discardPreviewForTargetChange();
+                setSelectedGn(e.target.value);
+              }}
               disabled={gnDivisions.length === 0 || areaLocks.isGnLocked}
             >
               {gnDivisions.map((gn) => (
                 <option key={gn.id} value={gn.id}>
-                  {gn.nameEn} ({gn.gnCode})
+                  {gn.gnNumber} — {gn.gnName}
                 </option>
               ))}
             </select>

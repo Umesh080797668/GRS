@@ -1074,6 +1074,16 @@ export class ImportService {
       });
     }
 
+    // The error report contains house numbers, head-of-household names and addresses, so it needs
+    // the same GN scope check as getImportBatch / confirmImport.
+    if (caller.role === UserRole.cdc_secretary && caller.gnId !== batch.gnId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_SCOPE',
+        message:
+          'CDC Secretary can only download error reports for their assigned GN division',
+      });
+    }
+
     const errorRows = batch.stagingRows.filter(
       (r) => Array.isArray(r.errors) && r.errors.length > 0,
     );

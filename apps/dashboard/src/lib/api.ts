@@ -17,6 +17,7 @@ export interface SessionTokens {
     assignments?: Array<{
       gnId: string;
       gnName?: string;
+      gnNumber?: string;
       gnCode?: string;
       teamId?: string;
       teamNo?: string;
@@ -540,6 +541,7 @@ export class ApiClient {
     assignments: Array<{
       gnId: string;
       gnName?: string;
+      gnNumber?: string;
       gnCode?: string;
       teamId?: string;
       teamNo?: string;

@@ -1235,7 +1235,7 @@ export default function DataEntryPage() {
                       >
                         {gnDivisions.map((gn) => (
                           <option key={gn.id} value={gn.id}>
-                            {gn.nameEn} ({gn.gnCode})
+                            {gn.gnNumber} — {gn.gnName}
                           </option>
                         ))}
                       </select>
