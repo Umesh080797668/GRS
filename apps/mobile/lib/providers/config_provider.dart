@@ -46,3 +46,9 @@ final agentCanEditSyncedProvider = FutureProvider<bool>((ref) async {
   final config = await ref.watch(appConfigProvider.future);
   return config.agentCanEditSynced;
 });
+
+/// Provider exposing whether the platform is currently locked.
+final platformLockedProvider = FutureProvider<bool>((ref) async {
+  final config = await ref.watch(appConfigProvider.future);
+  return config.platformLocked;
+});

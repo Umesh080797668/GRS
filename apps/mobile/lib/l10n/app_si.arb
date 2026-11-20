@@ -881,5 +881,15 @@
         "type": "String"
       }
     }
+  },
+  "platformLockedTitle": "ප්‍රවේශය අත්හිටුවා ඇත",
+  "@platformLockedTitle": {},
+  "platformLockedMessage": "{scope} පද්ධති පරිපාලක විසින් තාවකාලිකව අගුළු දමා ඇත. කරුණාකර ඔබගේ අධීක්ෂකවරයා අමතන්න.",
+  "@platformLockedMessage": {
+    "placeholders": {
+      "scope": {
+        "type": "String"
+      }
+    }
   }
 }

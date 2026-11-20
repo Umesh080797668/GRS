@@ -380,6 +380,9 @@ class AppTranslations {
     "loadMore": "Load More",
     "selectAtLeastOneLanguage":
         "Please select at least one preferred language.",
+    "platformLockedTitle": "Access Suspended",
+    "platformLockedMessage":
+        "The {scope} has been temporarily locked by the system administrator. Please contact your supervisor.",
   };
 
   static const Map<String, String> si = {
@@ -768,6 +771,9 @@ class AppTranslations {
     "statusDismissedLabel": "ඉවතලන ලද",
     "loadMore": "තවත් පූරණය කරන්න",
     "selectAtLeastOneLanguage": "කරුණාකර අවම වශයෙන් එක් භාෂාවක් තෝරන්න.",
+    "platformLockedTitle": "ප්‍රවේශය අත්හිටුවා ඇත",
+    "platformLockedMessage":
+        "{scope} පද්ධති පරිපාලක විසින් තාවකාලිකව අගුළු දමා ඇත. කරුණාකර ඔබගේ අධීක්ෂකවරයා අමතන්න.",
   };
 
   static const Map<String, String> ta = {
@@ -1159,6 +1165,9 @@ class AppTranslations {
     "loadMore": "மேலும் ஏற்று",
     "selectAtLeastOneLanguage":
         "குறைந்தது ஒரு விருப்ப மொழியைத் தேர்ந்தெடுக்கவும்.",
+    "platformLockedTitle": "அணுகல் நிறுத்தப்பட்டது",
+    "platformLockedMessage":
+        "{scope} கணினி நிர்வாகியால் தற்காலிகமாக பூட்டப்பட்டுள்ளது. உங்கள் மேற்பார்வையாளரை தொடர்பு கொள்ளவும்.",
   };
 
   static Map<String, String> get(String lang) {

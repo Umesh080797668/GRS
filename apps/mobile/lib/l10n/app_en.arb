@@ -881,5 +881,13 @@
         "type": "String"
       }
     }
+  },
+  "platformLockedTitle": "Access Suspended",
+  "@platformLockedTitle": {},
+  "platformLockedMessage": "The {scope} has been temporarily locked by the system administrator. Please contact your supervisor.",
+  "@platformLockedMessage": {
+    "placeholders": {
+      "scope": {}
+    }
   }
 }

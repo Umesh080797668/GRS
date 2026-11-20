@@ -22,6 +22,33 @@ describe('AppConfigService & VersionGateGuard & RateLimiter (M1.8)', () => {
           val !== undefined ? { key: where.key, value: val } : null,
         );
       }),
+      findMany: jest.fn().mockImplementation(({ where }) => {
+        if (!where) {
+          return Promise.resolve(
+            Object.entries(inMemorySettings).map(([key, value]) => ({ key, value })),
+          );
+        }
+        if (where.key?.in) {
+          return Promise.resolve(
+            where.key.in
+              .filter((k: string) => inMemorySettings[k] !== undefined)
+              .map((k: string) => ({ key: k, value: inMemorySettings[k] })),
+          );
+        }
+        if (where.OR) {
+          const rows: { key: string; value: any }[] = [];
+          for (const [k, v] of Object.entries(inMemorySettings)) {
+            for (const cond of where.OR) {
+              if (cond.key?.startsWith && k.startsWith(cond.key.startsWith)) {
+                rows.push({ key: k, value: v });
+                break;
+              }
+            }
+          }
+          return Promise.resolve(rows);
+        }
+        return Promise.resolve([]);
+      }),
       upsert: jest.fn().mockImplementation(({ where, update, create }) => {
         inMemorySettings[where.key] = update.value ?? create.value;
         return Promise.resolve({
@@ -310,6 +337,133 @@ describe('AppConfigService & VersionGateGuard & RateLimiter (M1.8)', () => {
           web_entry_roles: ['super_admin', 'hacker_role'] as any,
         }),
       ).rejects.toThrow();
+    });
+
+    it('updates platform_locked status via PATCH /v1/config', async () => {
+      const updated = await controller.updateConfig({
+        platform_locked: true,
+      });
+      expect(updated.platformLocked).toBe(true);
+    });
+
+    it('rejects non-boolean platform_locked', async () => {
+      await expect(
+        controller.updateConfig({
+          platform_locked: 'true' as any,
+        }),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('Platform & Area Lock Enforcement (L00 Super Admin)', () => {
+    let controller: AppConfigController;
+
+    beforeEach(() => {
+      controller = new AppConfigController(configService);
+    });
+
+    it('allows access to all when no locks are set', async () => {
+      const status = await configService.getPlatformLockStatus({
+        gnId: 'gn-1',
+        dsId: 'ds-1',
+        districtId: 'dist-1',
+        role: 'team_member',
+      });
+      expect(status.locked).toBe(false);
+    });
+
+    it('blocks non-super_admin when platform_locked is true', async () => {
+      inMemorySettings['platform_locked'] = true;
+      const status = await configService.getPlatformLockStatus({
+        gnId: 'gn-1',
+        role: 'cdc_secretary',
+      });
+      expect(status.locked).toBe(true);
+      expect(status.reason).toBe('platform');
+    });
+
+    it('NEVER blocks super_admin even if platform_locked is true', async () => {
+      inMemorySettings['platform_locked'] = true;
+      const status = await configService.getPlatformLockStatus({
+        gnId: 'gn-1',
+        role: 'super_admin',
+      });
+      expect(status.locked).toBe(false);
+    });
+
+    it('blocks users in locked district', async () => {
+      inMemorySettings['district_lock:dist-colombo'] = true;
+      const statusBlocked = await configService.getPlatformLockStatus({
+        districtId: 'dist-colombo',
+        role: 'team_member',
+      });
+      expect(statusBlocked.locked).toBe(true);
+      expect(statusBlocked.reason).toBe('district');
+
+      const statusAllowed = await configService.getPlatformLockStatus({
+        districtId: 'dist-kandy',
+        role: 'team_member',
+      });
+      expect(statusAllowed.locked).toBe(false);
+    });
+
+    it('blocks users in locked DS division', async () => {
+      inMemorySettings['ds_lock:ds-moratuwa'] = true;
+      const statusBlocked = await configService.getPlatformLockStatus({
+        dsId: 'ds-moratuwa',
+        districtId: 'dist-colombo',
+        role: 'team_member',
+      });
+      expect(statusBlocked.locked).toBe(true);
+      expect(statusBlocked.reason).toBe('ds');
+
+      const statusAllowed = await configService.getPlatformLockStatus({
+        dsId: 'ds-dehiwala',
+        districtId: 'dist-colombo',
+        role: 'team_member',
+      });
+      expect(statusAllowed.locked).toBe(false);
+    });
+
+    it('blocks users in locked GN division', async () => {
+      inMemorySettings['gn_lock:gn-100'] = true;
+      const statusBlocked = await configService.getPlatformLockStatus({
+        gnId: 'gn-100',
+        dsId: 'ds-dehiwala',
+        role: 'team_member',
+      });
+      expect(statusBlocked.locked).toBe(true);
+      expect(statusBlocked.reason).toBe('gn');
+
+      const statusAllowed = await configService.getPlatformLockStatus({
+        gnId: 'gn-200',
+        dsId: 'ds-dehiwala',
+        role: 'team_member',
+      });
+      expect(statusAllowed.locked).toBe(false);
+    });
+
+    it('allows super_admin to manage area locks via controller endpoints', async () => {
+      const res = await controller.updateAreaLock({
+        type: 'gn',
+        id: 'gn-test-42',
+        locked: true,
+      });
+      expect(res.key).toBe('gn_lock:gn-test-42');
+      expect(res.locked).toBe(true);
+
+      const locks = await controller.getAreaLocks();
+      expect(locks.some((l) => l.key === 'gn_lock:gn-test-42' && l.locked)).toBe(true);
+
+      // Unlock
+      await controller.updateAreaLock({
+        type: 'gn',
+        id: 'gn-test-42',
+        locked: false,
+      });
+      const updatedLocks = await controller.getAreaLocks();
+      const lockItem = updatedLocks.find((l) => l.key === 'gn_lock:gn-test-42');
+      expect(lockItem?.locked).toBe(false);
     });
   });
 });

@@ -20,6 +20,7 @@ import {
   Menu,
   X,
   Loader2,
+  Lock,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -147,6 +148,12 @@ export function Shell({ children, activePath }: ShellProps) {
       key: 'nav.activity',
       href: '/activity',
       icon: <Radio size={18} />,
+      roles: ['super_admin'],
+    },
+    {
+      key: 'nav.platform_lock',
+      href: '/platform-lock',
+      icon: <Lock size={18} />,
       roles: ['super_admin'],
     },
     {

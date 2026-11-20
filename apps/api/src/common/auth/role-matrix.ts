@@ -399,6 +399,22 @@ export const ROLE_ENDPOINT_POLICIES: EndpointPolicy[] = [
   },
   {
     method: 'GET',
+    path: '/config/area-locks',
+    category: 'config',
+    allowedRoles: ['super_admin'],
+    scopeEnforcement: 'national',
+    description: 'List active area-level platform locks (L00 only)',
+  },
+  {
+    method: 'PATCH',
+    path: '/config/area-lock',
+    category: 'config',
+    allowedRoles: ['super_admin'],
+    scopeEnforcement: 'national',
+    description: 'Set or remove area-level platform locks (L00 only)',
+  },
+  {
+    method: 'GET',
     path: '/lookups',
     category: 'lookups',
     allowedRoles: [

@@ -564,6 +564,34 @@ export class ApiClient {
     });
   }
 
+  private patch(path: string, data: Record<string, any>): Promise<any> {
+    return this.request(path, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  private get<T = any>(path: string): Promise<T> {
+    return this.request<T>(path);
+  }
+
+  async getPlatformLockStatus(): Promise<{ platformLocked: boolean }> {
+    const cfg = await this.getConfig();
+    return { platformLocked: cfg.platformLocked ?? false };
+  }
+
+  async updatePlatformLock(locked: boolean): Promise<any> {
+    return this.patch('/v1/config', { platform_locked: locked });
+  }
+
+  async setAreaLock(type: 'gn' | 'ds' | 'district', id: string, locked: boolean): Promise<any> {
+    return this.patch('/v1/config/area-lock', { type, id, locked });
+  }
+
+  async getAreaLocks(): Promise<{ key: string; locked: boolean }[]> {
+    return this.get('/v1/config/area-locks');
+  }
+
   // --- PROGRESS & SYNC HEALTH (M5.6 & M5.7) ---
 
   async getProgressStats(areaType?: string, areaId?: string, forceRefresh?: boolean): Promise<any> {

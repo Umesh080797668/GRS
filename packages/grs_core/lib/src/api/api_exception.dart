@@ -31,6 +31,8 @@ class GrsApiException implements Exception {
   bool get isMobileRestricted =>
       code == 'MOBILE_ACCESS_RESTRICTED' ||
       messageKey == 'errors.auth.mobile_restricted';
+  bool get isPlatformLocked =>
+      code == 'PLATFORM_LOCKED' || messageKey == 'errors.auth.platform_locked';
 
   @override
   String toString() =>

@@ -7,6 +7,7 @@ class AppConfigModel {
   final int syncJitterMaxS;
   final int syncBatchMax;
   final List<String> webEntryRoles;
+  final bool platformLocked;
 
   const AppConfigModel({
     required this.minSupportedVersion,
@@ -16,6 +17,7 @@ class AppConfigModel {
     required this.syncJitterMaxS,
     required this.syncBatchMax,
     this.webEntryRoles = const ['admin', 'cg', 'dc', 'sda', 'cdc_secretary'],
+    this.platformLocked = false,
   });
 
   factory AppConfigModel.fromJson(Map<String, dynamic> json) {
@@ -65,6 +67,10 @@ class AppConfigModel {
       syncBatchMax:
           json['sync_batch_max'] as int? ?? json['syncBatchMax'] as int? ?? 50,
       webEntryRoles: parseRoles(),
+      platformLocked:
+          json['platform_locked'] as bool? ??
+          json['platformLocked'] as bool? ??
+          false,
     );
   }
 
@@ -76,6 +82,7 @@ class AppConfigModel {
     'sync_jitter_max_s': syncJitterMaxS,
     'sync_batch_max': syncBatchMax,
     'web_entry_roles': webEntryRoles,
+    'platform_locked': platformLocked,
   };
 }
 

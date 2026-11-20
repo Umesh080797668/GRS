@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "../styles/globals.css";
 import { LanguageProvider } from "../context/LanguageContext";
 import { AuthProvider } from "../context/AuthContext";
+import ClientRoot from "../components/ClientRoot";
 
 export const metadata: Metadata = {
   title: "GRS Web Dashboard — Door-to-Door Skills Campaign 2026",
@@ -33,7 +34,9 @@ export default function RootLayout({
       </head>
       <body>
         <LanguageProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <ClientRoot>{children}</ClientRoot>
+          </AuthProvider>
         </LanguageProvider>
       </body>
     </html>

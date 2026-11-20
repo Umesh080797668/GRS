@@ -1,8 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Optional } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppConfigService } from '../config/app-config.service';
 import { ScopeContext } from '../common/scope/scope.types';
 
 export interface JwtPayload {
@@ -22,6 +23,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    @Optional()
+    private readonly appConfigService?: AppConfigService,
   ) {
     const secret = configService.get<string>('JWT_ACCESS_SECRET');
     if (!secret || secret.trim().length === 0) {
@@ -92,6 +95,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         code: 'AUTH_INVALID',
         message_key: 'errors.auth.session_revoked',
       });
+    }
+
+    if (this.appConfigService) {
+      const lockStatus = await this.appConfigService.getPlatformLockStatus({
+        gnId: profile.gnId ?? undefined,
+        dsId: profile.dsId ?? undefined,
+        districtId: profile.districtId ?? undefined,
+        role: profile.role,
+      });
+      if (lockStatus.locked) {
+        throw new UnauthorizedException({
+          code: 'PLATFORM_LOCKED',
+          message_key: 'errors.auth.platform_locked',
+          reason: lockStatus.reason,
+        });
+      }
     }
 
     return {

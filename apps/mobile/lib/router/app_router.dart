@@ -11,6 +11,7 @@ import '../screens/client/client_form_screen.dart';
 import '../screens/client/consent_screen.dart';
 import '../screens/guard/deactivated_screen.dart';
 import '../screens/guard/permission_gate_screen.dart';
+import '../screens/guard/platform_locked_screen.dart';
 import '../screens/guard/splash_screen.dart';
 import '../screens/guard/version_gate_screen.dart';
 import '../screens/home/home_screen.dart';
@@ -85,6 +86,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         return location == '/deactivated' ? null : '/deactivated';
       }
 
+      if (status == AuthStatus.platformLocked) {
+        return location == '/platform-locked' ? null : '/platform-locked';
+      }
+
       if (status == AuthStatus.mustChangePassword) {
         return location == '/change-password' ? null : '/change-password';
       }
@@ -156,6 +161,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/deactivated',
         builder: (context, state) => const DeactivatedScreen(),
+      ),
+      GoRoute(
+        path: '/platform-locked',
+        builder: (context, state) => const PlatformLockedScreen(),
       ),
       GoRoute(
         path: '/version-gate',

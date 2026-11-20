@@ -95,6 +95,8 @@ class GrsApiClient {
             messageKey;
         if (body['details'] is Map<String, dynamic>) {
           details = body['details'] as Map<String, dynamic>;
+        } else {
+          details = body;
         }
       }
     } catch (_) {

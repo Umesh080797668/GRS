@@ -21,6 +21,7 @@ enum AuthStatus {
   authenticated,
   deactivated,
   versionGate,
+  platformLocked,
 }
 
 class AuthState {
@@ -30,6 +31,7 @@ class AuthState {
   final bool isOffline;
   final String? minVersionRequired;
   final bool isSessionExpiredOffline;
+  final String? lockReason;
 
   const AuthState({
     required this.status,
@@ -38,6 +40,7 @@ class AuthState {
     this.isOffline = false,
     this.minVersionRequired,
     this.isSessionExpiredOffline = false,
+    this.lockReason,
   });
 
   ProfileModel? get user => profile;
@@ -51,6 +54,7 @@ class AuthState {
     bool? isOffline,
     String? minVersionRequired,
     bool? isSessionExpiredOffline,
+    String? lockReason,
   }) {
     return AuthState(
       status: status ?? this.status,
@@ -60,6 +64,7 @@ class AuthState {
       minVersionRequired: minVersionRequired ?? this.minVersionRequired,
       isSessionExpiredOffline:
           isSessionExpiredOffline ?? this.isSessionExpiredOffline,
+      lockReason: lockReason ?? this.lockReason,
     );
   }
 }
@@ -210,6 +215,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
         return;
       }
+      if (e is GrsApiException && e.isPlatformLocked) {
+        state = AuthState(
+          status: AuthStatus.platformLocked,
+          profile: profile,
+          lockReason: e.details['reason'] as String?,
+        );
+        return;
+      }
       if (e is GrsApiException && e.isAccountDeactivated) {
         await _storage.clearTokens();
         state = AuthState(status: AuthStatus.deactivated, profile: profile);
@@ -323,6 +336,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = AuthState(
           status: AuthStatus.versionGate,
           minVersionRequired: e.details['min_version'] as String? ?? '1.0.0',
+        );
+      } else if (e.isPlatformLocked) {
+        state = AuthState(
+          status: AuthStatus.platformLocked,
+          lockReason: e.details['reason'] as String?,
         );
       } else if (e.isAccountDeactivated) {
         state = const AuthState(
@@ -538,6 +556,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
     if (error.isMobileRestricted) {
       await _rejectMobileRestricted();
+      return;
+    }
+    if (error.isPlatformLocked) {
+      state = AuthState(
+        status: AuthStatus.platformLocked,
+        profile: state.profile,
+        lockReason: error.details['reason'] as String?,
+      );
       return;
     }
     await _endSession(errorMessage: 'sessionEnded');

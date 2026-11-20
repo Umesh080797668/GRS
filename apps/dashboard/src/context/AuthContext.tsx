@@ -8,6 +8,8 @@ interface AuthContextType {
   user: SessionTokens['user'] | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isPlatformLocked: boolean;
+  lockReason: string | undefined;
   login: (identifier: string, pwd: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => void;
@@ -18,6 +20,8 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   isAuthenticated: false,
   isLoading: true,
+  isPlatformLocked: false,
+  lockReason: undefined,
   login: async () => { },
   logout: () => { },
   refreshUser: () => { },
@@ -27,6 +31,8 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SessionTokens['user'] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPlatformLocked, setIsPlatformLocked] = useState(false);
+  const [lockReason, setLockReason] = useState<string | undefined>(undefined);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -64,6 +70,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, [user, isLoading, pathname, router]);
+
+  // Check platform lock status whenever user changes
+  useEffect(() => {
+    if (!user || user.role === 'super_admin') {
+      setIsPlatformLocked(false);
+      setLockReason(undefined);
+      return;
+    }
+    api.getConfig().then((cfg: any) => {
+      if (cfg?.platformLocked) {
+        setIsPlatformLocked(true);
+        setLockReason('platform');
+      } else {
+        const gnId = user.gnId;
+        const dsId = user.dsId;
+        const districtId = user.districtId;
+        if (districtId && cfg?.[`district_lock:${districtId}`]) {
+          setIsPlatformLocked(true);
+          setLockReason('district');
+        } else if (dsId && cfg?.[`ds_lock:${dsId}`]) {
+          setIsPlatformLocked(true);
+          setLockReason('ds');
+        } else if (gnId && cfg?.[`gn_lock:${gnId}`]) {
+          setIsPlatformLocked(true);
+          setLockReason('gn');
+        } else {
+          setIsPlatformLocked(false);
+          setLockReason(undefined);
+        }
+      }
+    }).catch(() => {
+      // Don't lock on network error
+    });
+  }, [user]);
 
   // Keep user session alive while tab is visible (every 60s, throttled on visibility resume)
   const lastHeartbeatRef = useRef<number>(0);
@@ -146,6 +186,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isAuthenticated: !!user,
         isLoading,
+        isPlatformLocked,
+        lockReason,
         login,
         logout,
         refreshUser,

@@ -93,11 +93,15 @@ export class UpdateConfigDto {
   @IsString()
   consent_version?: string;
 
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  platform_locked?: boolean;
+
   // CamelCase equivalents for convenience
   @IsOptional()
   @IsString()
-  consentVersion?: string;
-  @IsOptional()
+  consentVersion?: string; @IsOptional()
   @IsString()
   @Matches(SEMVER_REGEX)
   minSupportedVersion?: string;

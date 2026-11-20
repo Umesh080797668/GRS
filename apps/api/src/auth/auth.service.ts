@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CredentialService } from './credential.service';
 import { EmailService } from '../email/email.service';
 import { RateLimitService } from '../config/rate-limit.service';
+import { AppConfigService } from '../config/app-config.service';
 import { SessionActivityService } from './session-activity.service';
 import { GrsValidators } from '../common/validators/grs-validators';
 import { isWebOnlyRole, UserRole } from '../common/scope/scope.types';
@@ -73,6 +74,8 @@ export class AuthService {
     private readonly rateLimitService: RateLimitService,
     @Optional()
     private readonly sessionActivityService?: SessionActivityService,
+    @Optional()
+    private readonly appConfigService?: AppConfigService,
   ) { }
 
   private async runActivitySafe(
@@ -281,6 +284,22 @@ export class AuthService {
         code: 'ACCOUNT_DEACTIVATED',
         message_key: 'errors.auth.deactivated',
       });
+    }
+
+    if (this.appConfigService) {
+      const lockStatus = await this.appConfigService.getPlatformLockStatus({
+        gnId: profile.gnId ?? undefined,
+        dsId: profile.dsId ?? undefined,
+        districtId: profile.districtId ?? undefined,
+        role: profile.role,
+      });
+      if (lockStatus.locked) {
+        throw new UnauthorizedException({
+          code: 'PLATFORM_LOCKED',
+          message_key: 'errors.auth.platform_locked',
+          reason: lockStatus.reason,
+        });
+      }
     }
 
     this.assertClientChannelAllowed(
@@ -566,6 +585,7 @@ export class AuthService {
         message_key: 'errors.auth.deactivated',
       });
     }
+
     this.assertClientChannelAllowed(profile.role, clientType);
 
     // Revoke current token and issue new pair (preserve deviceId if not explicitly provided)
@@ -587,6 +607,22 @@ export class AuthService {
           dsId: gn.dsId,
           districtId: gn.ds?.districtId,
         };
+      }
+    }
+
+    if (this.appConfigService) {
+      const lockStatus = await this.appConfigService.getPlatformLockStatus({
+        gnId: activeAreaOverride?.gnId ?? profile.gnId ?? undefined,
+        dsId: activeAreaOverride?.dsId ?? profile.dsId ?? undefined,
+        districtId: activeAreaOverride?.districtId ?? profile.districtId ?? undefined,
+        role: profile.role,
+      });
+      if (lockStatus.locked) {
+        throw new UnauthorizedException({
+          code: 'PLATFORM_LOCKED',
+          message_key: 'errors.auth.platform_locked',
+          reason: lockStatus.reason,
+        });
       }
     }
 

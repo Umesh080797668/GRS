@@ -34,6 +34,8 @@ const KEY_MAPPINGS: Record<string, string> = {
   webEntryRoles: 'web_entry_roles',
   consent_version: 'consent_version',
   consentVersion: 'consent_version',
+  platform_locked: 'platform_locked',
+  platformLocked: 'platform_locked',
 };
 
 @Controller('v1/config')
@@ -151,7 +153,8 @@ export class AppConfigController {
         }
       } else if (
         canonicalKey === 'agent_can_edit_synced' ||
-        canonicalKey === 'web_data_entry_enabled'
+        canonicalKey === 'web_data_entry_enabled' ||
+        canonicalKey === 'platform_locked'
       ) {
         if (typeof rawValue !== 'boolean') {
           throw new BadRequestException({
@@ -217,5 +220,35 @@ export class AppConfigController {
     }
 
     return this.configService.getConfig();
+  }
+
+  @Get('area-locks')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.super_admin)
+  async getAreaLocks() {
+    return this.configService.getAreaLocks();
+  }
+
+  @Patch('area-lock')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.super_admin)
+  async updateAreaLock(
+    @Body() body: { type: 'gn' | 'ds' | 'district'; id: string; locked: boolean },
+  ) {
+    if (!body || !body.type || !body.id || typeof body.locked !== 'boolean') {
+      throw new BadRequestException({
+        code: 'INVALID_AREA_LOCK_PAYLOAD',
+        message: 'Must provide type ("gn" | "ds" | "district"), id, and locked boolean',
+      });
+    }
+    if (!['gn', 'ds', 'district'].includes(body.type)) {
+      throw new BadRequestException({
+        code: 'INVALID_AREA_LOCK_TYPE',
+        message: 'type must be "gn", "ds", or "district"',
+      });
+    }
+    const key = `${body.type}_lock:${body.id.trim()}`;
+    await this.configService.updateSetting(key, body.locked);
+    return { key, locked: body.locked };
   }
 }

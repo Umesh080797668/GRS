@@ -12,6 +12,7 @@ export interface AppConfig {
   initialPasswordTtlDays: number;
   webEntryRoles: string[];
   consentVersion: string;
+  platformLocked: boolean;
   features: {
     webDataEntry: boolean;
   };
@@ -48,6 +49,7 @@ export class AppConfigService {
           'web_data_entry_enabled',
           'web_entry_roles',
           'consent_version',
+          'platform_locked',
         ];
         const rows = await this.prisma.appSetting.findMany({
           where: { key: { in: keys } },
@@ -67,6 +69,7 @@ export class AppConfigService {
           web_entry_roles:
             map.get('web_entry_roles') ?? DEFAULT_WEB_ENTRY_ROLES,
           consent_version: map.get('consent_version') ?? 'consent.v0',
+          platform_locked: map.get('platform_locked') ?? false,
         });
         this.cachedConfig = {
           value: config,
@@ -142,6 +145,7 @@ export class AppConfigService {
       initialPasswordTtlDays: toNumberVal(values.initial_password_ttl_days, 30),
       webEntryRoles,
       consentVersion: this.asString(values.consent_version, 'consent.v0'),
+      platformLocked: Boolean(values.platform_locked ?? false),
       features: {
         webDataEntry:
           Boolean(webEntrySetting) || webEntryRoles.includes('super_admin'),
@@ -192,6 +196,65 @@ export class AppConfigService {
       create: { key, value },
     });
     this.cachedConfig = null;
+  }
+
+  /**
+   * Checks platform lock status for a given user scope.
+   * super_admin is never locked.
+   */
+  async getPlatformLockStatus(scope: {
+    gnId?: string;
+    dsId?: string;
+    districtId?: string;
+    role?: string;
+  }): Promise<{ locked: boolean; reason?: string }> {
+    if (scope.role === 'super_admin') return { locked: false };
+
+    const systemLocked = Boolean(await this.getSetting('platform_locked', false));
+    if (systemLocked) return { locked: true, reason: 'platform' };
+
+    if (scope.districtId) {
+      const districtLocked = Boolean(
+        await this.getSetting(`district_lock:${scope.districtId}`, false),
+      );
+      if (districtLocked) return { locked: true, reason: 'district' };
+    }
+
+    if (scope.dsId) {
+      const dsLocked = Boolean(
+        await this.getSetting(`ds_lock:${scope.dsId}`, false),
+      );
+      if (dsLocked) return { locked: true, reason: 'ds' };
+    }
+
+    if (scope.gnId) {
+      const gnLocked = Boolean(
+        await this.getSetting(`gn_lock:${scope.gnId}`, false),
+      );
+      if (gnLocked) return { locked: true, reason: 'gn' };
+    }
+
+    return { locked: false };
+  }
+
+  /**
+   * Returns all area lock settings (gn_lock:*, ds_lock:*, district_lock:*).
+   */
+  async getAreaLocks(): Promise<{ key: string; locked: boolean }[]> {
+    try {
+      const rows = await this.prisma.appSetting.findMany({
+        where: {
+          OR: [
+            { key: { startsWith: 'gn_lock:' } },
+            { key: { startsWith: 'ds_lock:' } },
+            { key: { startsWith: 'district_lock:' } },
+          ],
+        },
+      });
+      return rows.map((r) => ({ key: r.key, locked: Boolean(r.value) }));
+    } catch {
+      return [];
+    }
   }
 
   /**

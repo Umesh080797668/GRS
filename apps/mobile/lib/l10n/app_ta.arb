@@ -881,5 +881,13 @@
         "type": "String"
       }
     }
+  },
+  "platformLockedTitle": "அணுகல் நிறுத்தப்பட்டது",
+  "@platformLockedTitle": {},
+  "platformLockedMessage": "{scope} கணினி நிர்வாகியால் தற்காலிகமாக பூட்டப்பட்டுள்ளது. உங்கள் மேற்பார்வையாளரை தொடர்பு கொள்ளவும்.",
+  "@platformLockedMessage": {
+    "placeholders": {
+      "scope": {}
+    }
   }
 }
