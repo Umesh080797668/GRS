@@ -86,13 +86,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const gnId = user.gnId;
         const dsId = user.dsId;
         const districtId = user.districtId;
-        if (districtId && cfg?.[`district_lock:${districtId}`]) {
+        const areaLocks = cfg?.areaLocks || {};
+        if (districtId && (cfg?.[`district_lock:${districtId}`] || areaLocks[`district_lock:${districtId}`])) {
           setIsPlatformLocked(true);
           setLockReason('district');
-        } else if (dsId && cfg?.[`ds_lock:${dsId}`]) {
+        } else if (dsId && (cfg?.[`ds_lock:${dsId}`] || areaLocks[`ds_lock:${dsId}`])) {
           setIsPlatformLocked(true);
           setLockReason('ds');
-        } else if (gnId && cfg?.[`gn_lock:${gnId}`]) {
+        } else if (gnId && (cfg?.[`gn_lock:${gnId}`] || areaLocks[`gn_lock:${gnId}`])) {
           setIsPlatformLocked(true);
           setLockReason('gn');
         } else {
@@ -103,6 +104,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }).catch(() => {
       // Don't lock on network error
     });
+  }, [user]);
+
+  // Listen for platform-lock events emitted by api.ts
+  useEffect(() => {
+    const handlePlatformLock = (e: any) => {
+      if (user?.role === 'super_admin') return;
+      setIsPlatformLocked(true);
+      if (e?.detail?.reason) {
+        setLockReason(e.detail.reason);
+      }
+    };
+    window.addEventListener('grs:platform-locked', handlePlatformLock);
+    return () => {
+      window.removeEventListener('grs:platform-locked', handlePlatformLock);
+    };
   }, [user]);
 
   // Keep user session alive while tab is visible (every 60s, throttled on visibility resume)
@@ -151,6 +167,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
     }
     setUser(session.user);
+    if (session.user.role !== 'super_admin') {
+      if (session.platformLocked || (session.user as any).platformLocked) {
+        setIsPlatformLocked(true);
+        setLockReason(session.lockReason || (session.user as any).lockReason || 'platform');
+        return;
+      }
+      try {
+        const cfg: any = await api.getConfig();
+        const gnId = session.user.gnId;
+        const dsId = session.user.dsId;
+        const districtId = session.user.districtId;
+        const areaLocks = cfg?.areaLocks || {};
+        if (cfg?.platformLocked) {
+          setIsPlatformLocked(true);
+          setLockReason('platform');
+          return;
+        } else if (districtId && (cfg?.[`district_lock:${districtId}`] || areaLocks[`district_lock:${districtId}`])) {
+          setIsPlatformLocked(true);
+          setLockReason('district');
+          return;
+        } else if (dsId && (cfg?.[`ds_lock:${dsId}`] || areaLocks[`ds_lock:${dsId}`])) {
+          setIsPlatformLocked(true);
+          setLockReason('ds');
+          return;
+        } else if (gnId && (cfg?.[`gn_lock:${gnId}`] || areaLocks[`gn_lock:${gnId}`])) {
+          setIsPlatformLocked(true);
+          setLockReason('gn');
+          return;
+        }
+      } catch {
+        // Ignore config check error on login
+      }
+    }
     if (session.user.mustChangePassword) {
       router.push('/first-sign-in');
     } else {
@@ -166,6 +215,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       api.clearSession();
       setUser(null);
+      setIsPlatformLocked(false);
+      setLockReason(undefined);
       router.replace('/login');
     }
   };

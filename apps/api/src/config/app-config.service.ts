@@ -13,6 +13,7 @@ export interface AppConfig {
   webEntryRoles: string[];
   consentVersion: string;
   platformLocked: boolean;
+  areaLocks: Record<string, boolean>;
   features: {
     webDataEntry: boolean;
   };
@@ -52,9 +53,28 @@ export class AppConfigService {
           'platform_locked',
         ];
         const rows = await this.prisma.appSetting.findMany({
-          where: { key: { in: keys } },
+          where: {
+            OR: [
+              { key: { in: keys } },
+              { key: { startsWith: 'gn_lock:' } },
+              { key: { startsWith: 'ds_lock:' } },
+              { key: { startsWith: 'district_lock:' } },
+            ],
+          },
         });
         const map = new Map<string, unknown>(rows.map((r) => [r.key, r.value]));
+        const areaLocks: Record<string, boolean> = {};
+        for (const row of rows) {
+          if (
+            row.key.startsWith('gn_lock:') ||
+            row.key.startsWith('ds_lock:') ||
+            row.key.startsWith('district_lock:')
+          ) {
+            if (row.value === true || row.value === 'true') {
+              areaLocks[row.key] = true;
+            }
+          }
+        }
         const config = this.buildConfigFromValues({
           min_supported_version: map.get('min_supported_version') ?? '1.0.0',
           latest_version: map.get('latest_version') ?? '1.0.0',
@@ -70,6 +90,7 @@ export class AppConfigService {
             map.get('web_entry_roles') ?? DEFAULT_WEB_ENTRY_ROLES,
           consent_version: map.get('consent_version') ?? 'consent.v0',
           platform_locked: map.get('platform_locked') ?? false,
+          area_locks: areaLocks,
         });
         this.cachedConfig = {
           value: config,
@@ -146,6 +167,7 @@ export class AppConfigService {
       webEntryRoles,
       consentVersion: this.asString(values.consent_version, 'consent.v0'),
       platformLocked: Boolean(values.platform_locked ?? false),
+      areaLocks: (values.area_locks as Record<string, boolean>) || {},
       features: {
         webDataEntry:
           Boolean(webEntrySetting) || webEntryRoles.includes('super_admin'),
@@ -210,28 +232,20 @@ export class AppConfigService {
   }): Promise<{ locked: boolean; reason?: string }> {
     if (scope.role === 'super_admin') return { locked: false };
 
-    const systemLocked = Boolean(await this.getSetting('platform_locked', false));
-    if (systemLocked) return { locked: true, reason: 'platform' };
+    const config = await this.getConfig();
+    if (config.platformLocked) return { locked: true, reason: 'platform' };
 
-    if (scope.districtId) {
-      const districtLocked = Boolean(
-        await this.getSetting(`district_lock:${scope.districtId}`, false),
-      );
-      if (districtLocked) return { locked: true, reason: 'district' };
+    const areaLocks = config.areaLocks || {};
+    if (scope.districtId && areaLocks[`district_lock:${scope.districtId}`]) {
+      return { locked: true, reason: 'district' };
     }
 
-    if (scope.dsId) {
-      const dsLocked = Boolean(
-        await this.getSetting(`ds_lock:${scope.dsId}`, false),
-      );
-      if (dsLocked) return { locked: true, reason: 'ds' };
+    if (scope.dsId && areaLocks[`ds_lock:${scope.dsId}`]) {
+      return { locked: true, reason: 'ds' };
     }
 
-    if (scope.gnId) {
-      const gnLocked = Boolean(
-        await this.getSetting(`gn_lock:${scope.gnId}`, false),
-      );
-      if (gnLocked) return { locked: true, reason: 'gn' };
+    if (scope.gnId && areaLocks[`gn_lock:${scope.gnId}`]) {
+      return { locked: true, reason: 'gn' };
     }
 
     return { locked: false };

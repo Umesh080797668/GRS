@@ -192,6 +192,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
           );
           return;
         }
+        if (res.platformLocked) {
+          state = AuthState(
+            status: AuthStatus.platformLocked,
+            profile: res.profile,
+            lockReason: res.lockReason,
+          );
+          return;
+        }
         if (res.profile.mustChangePassword) {
           state = AuthState(
             status: AuthStatus.mustChangePassword,
@@ -318,6 +326,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
         refreshToken: res.refreshToken,
       );
       await _storage.saveActiveProfile(res.profile);
+
+      if (res.platformLocked) {
+        state = AuthState(
+          status: AuthStatus.platformLocked,
+          profile: res.profile,
+          lockReason: res.lockReason,
+        );
+        return;
+      }
 
       if (res.mustChangePassword) {
         state = AuthState(
@@ -576,6 +593,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState(
       status: AuthStatus.unauthenticated,
       errorMessage: _mobileRestrictedMessage,
+    );
+  }
+
+  void setPlatformLocked(String? reason) {
+    if (state.profile?.role == 'super_admin') return;
+    state = state.copyWith(
+      status: AuthStatus.platformLocked,
+      lockReason: reason,
     );
   }
 

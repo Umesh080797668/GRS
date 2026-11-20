@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grs_core/grs_core.dart';
 import 'api_client_provider.dart';
 import 'database_provider.dart';
+import 'auth_provider.dart';
 
 /// Provider caching AppConfigModel from GET /v1/config with offline SQLite fallback.
 final appConfigProvider = FutureProvider<AppConfigModel>((ref) async {
@@ -51,4 +52,26 @@ final agentCanEditSyncedProvider = FutureProvider<bool>((ref) async {
 final platformLockedProvider = FutureProvider<bool>((ref) async {
   final config = await ref.watch(appConfigProvider.future);
   return config.platformLocked;
+});
+
+/// Provider exposing whether the current user is locked based on platform/area lock settings.
+final userLockedProvider = Provider<({bool locked, String? reason})>((ref) {
+  final configAsync = ref.watch(appConfigProvider);
+  final auth = ref.watch(authProvider);
+  final profile = auth.profile;
+  final config = configAsync.value;
+  if (config == null || profile == null) return (locked: false, reason: null);
+  final locked = config.isUserLocked(
+    role: profile.role,
+    districtId: profile.districtId,
+    dsId: profile.dsId,
+    gnId: profile.gnId,
+  );
+  final reason = config.getLockReason(
+    role: profile.role,
+    districtId: profile.districtId,
+    dsId: profile.dsId,
+    gnId: profile.gnId,
+  );
+  return (locked: locked, reason: reason);
 });

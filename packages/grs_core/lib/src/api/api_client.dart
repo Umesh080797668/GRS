@@ -275,7 +275,9 @@ class GrsApiClient {
   /// True only when the server itself said "this session is over" (not on
   /// connectivity problems, rate limits, version gates or server errors).
   bool _isSessionRejected(GrsApiException e) =>
-      e.statusCode == 401 || e.isAccountDeactivated || e.isMobileRestricted;
+      !e.isPlatformLocked &&
+      e.statusCode != 423 &&
+      (e.statusCode == 401 || e.isAccountDeactivated || e.isMobileRestricted);
 
   /// Persists rotated tokens. The server already rotated them, so a failed write must be
   /// retried instead of aborting the refresh and leaving a stale token on disk.

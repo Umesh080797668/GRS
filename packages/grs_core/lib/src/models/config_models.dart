@@ -8,6 +8,7 @@ class AppConfigModel {
   final int syncBatchMax;
   final List<String> webEntryRoles;
   final bool platformLocked;
+  final Map<String, bool> areaLocks;
 
   const AppConfigModel({
     required this.minSupportedVersion,
@@ -18,7 +19,48 @@ class AppConfigModel {
     required this.syncBatchMax,
     this.webEntryRoles = const ['admin', 'cg', 'dc', 'sda', 'cdc_secretary'],
     this.platformLocked = false,
+    this.areaLocks = const {},
   });
+
+  bool isUserLocked({
+    String? role,
+    String? districtId,
+    String? dsId,
+    String? gnId,
+  }) {
+    if (role == 'super_admin') return false;
+    if (platformLocked) return true;
+    if (districtId != null && areaLocks['district_lock:$districtId'] == true) {
+      return true;
+    }
+    if (dsId != null && areaLocks['ds_lock:$dsId'] == true) {
+      return true;
+    }
+    if (gnId != null && areaLocks['gn_lock:$gnId'] == true) {
+      return true;
+    }
+    return false;
+  }
+
+  String? getLockReason({
+    String? role,
+    String? districtId,
+    String? dsId,
+    String? gnId,
+  }) {
+    if (role == 'super_admin') return null;
+    if (platformLocked) return 'platform';
+    if (districtId != null && areaLocks['district_lock:$districtId'] == true) {
+      return 'district';
+    }
+    if (dsId != null && areaLocks['ds_lock:$dsId'] == true) {
+      return 'ds';
+    }
+    if (gnId != null && areaLocks['gn_lock:$gnId'] == true) {
+      return 'gn';
+    }
+    return null;
+  }
 
   factory AppConfigModel.fromJson(Map<String, dynamic> json) {
     List<String> parseRoles() {
@@ -42,6 +84,20 @@ class AppConfigModel {
       // Decision C19: Level 00 (super_admin) is off by default
       return const ['admin', 'cg', 'dc', 'sda', 'cdc_secretary'];
     }
+
+    final parsedAreaLocks = <String, bool>{};
+    if (json['areaLocks'] is Map) {
+      (json['areaLocks'] as Map).forEach((k, v) {
+        parsedAreaLocks[k.toString()] = v == true || v == 'true';
+      });
+    }
+    json.forEach((k, v) {
+      if (k.startsWith('gn_lock:') ||
+          k.startsWith('ds_lock:') ||
+          k.startsWith('district_lock:')) {
+        parsedAreaLocks[k] = v == true || v == 'true';
+      }
+    });
 
     return AppConfigModel(
       minSupportedVersion:
@@ -71,6 +127,7 @@ class AppConfigModel {
           json['platform_locked'] as bool? ??
           json['platformLocked'] as bool? ??
           false,
+      areaLocks: parsedAreaLocks,
     );
   }
 
@@ -83,6 +140,7 @@ class AppConfigModel {
     'sync_batch_max': syncBatchMax,
     'web_entry_roles': webEntryRoles,
     'platform_locked': platformLocked,
+    'areaLocks': areaLocks,
   };
 }
 

@@ -97,22 +97,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       });
     }
 
-    if (this.appConfigService) {
-      const lockStatus = await this.appConfigService.getPlatformLockStatus({
-        gnId: profile.gnId ?? undefined,
-        dsId: profile.dsId ?? undefined,
-        districtId: profile.districtId ?? undefined,
-        role: profile.role,
-      });
-      if (lockStatus.locked) {
-        throw new UnauthorizedException({
-          code: 'PLATFORM_LOCKED',
-          message_key: 'errors.auth.platform_locked',
-          reason: lockStatus.reason,
-        });
-      }
-    }
-
     return {
       userId: profile.id,
       role: profile.role,

@@ -242,6 +242,8 @@ class LoginResponse {
   final int expiresIn;
   final bool mustChangePassword;
   final ProfileModel profile;
+  final bool platformLocked;
+  final String? lockReason;
 
   const LoginResponse({
     required this.accessToken,
@@ -249,6 +251,8 @@ class LoginResponse {
     required this.expiresIn,
     required this.mustChangePassword,
     required this.profile,
+    this.platformLocked = false,
+    this.lockReason,
   });
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) => LoginResponse(
@@ -276,6 +280,29 @@ class LoginResponse {
             isActive: true,
             mustChangePassword: false,
           ),
+    platformLocked:
+        json['platformLocked'] as bool? ??
+        json['platform_locked'] as bool? ??
+        (json['profile'] is Map
+            ? (json['profile']['platformLocked'] as bool? ??
+                  json['profile']['platform_locked'] as bool?)
+            : null) ??
+        (json['user'] is Map
+            ? (json['user']['platformLocked'] as bool? ??
+                  json['user']['platform_locked'] as bool?)
+            : null) ??
+        false,
+    lockReason:
+        json['lockReason'] as String? ??
+        json['lock_reason'] as String? ??
+        (json['profile'] is Map
+            ? (json['profile']['lockReason'] as String? ??
+                  json['profile']['lock_reason'] as String?)
+            : null) ??
+        (json['user'] is Map
+            ? (json['user']['lockReason'] as String? ??
+                  json['user']['lock_reason'] as String?)
+            : null),
   );
 
   Map<String, dynamic> toJson() => {
@@ -284,6 +311,8 @@ class LoginResponse {
     'expiresIn': expiresIn,
     'mustChangePassword': mustChangePassword,
     'profile': profile.toJson(),
+    'platformLocked': platformLocked,
+    if (lockReason != null) 'lockReason': lockReason,
   };
 }
 

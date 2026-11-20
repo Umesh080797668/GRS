@@ -3,6 +3,8 @@ import { translateMessageKey } from './translations.ts';
 export interface SessionTokens {
   accessToken: string;
   refreshToken: string;
+  platformLocked?: boolean;
+  lockReason?: string;
   user: {
     id: string;
     userCode: string;
@@ -10,6 +12,8 @@ export interface SessionTokens {
     role: string;
     fullName?: string;
     mustChangePassword?: boolean;
+    platformLocked?: boolean;
+    lockReason?: string;
     districtId?: string;
     dsId?: string;
     gnId?: string;
@@ -309,11 +313,23 @@ export class ApiClient {
 
         const code =
           errData.code ||
-          (response.status === 426
-            ? 'UPGRADE_REQUIRED'
-            : response.status === 429
-              ? 'RATE_LIMITED'
-              : undefined);
+          (response.status === 423
+            ? 'PLATFORM_LOCKED'
+            : response.status === 426
+              ? 'UPGRADE_REQUIRED'
+              : response.status === 429
+                ? 'RATE_LIMITED'
+                : undefined);
+
+        if (response.status === 423 || code === 'PLATFORM_LOCKED') {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('grs:platform-locked', {
+                detail: { reason: errData?.reason },
+              }),
+            );
+          }
+        }
 
         const messageKey =
           errData.message_key ||

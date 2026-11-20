@@ -44,7 +44,11 @@ export class AppConfigController {
 
   @Get()
   async getConfig() {
-    return this.configService.getConfig();
+    const config = await this.configService.getConfig();
+    return {
+      ...config,
+      ...(config.areaLocks || {}),
+    };
   }
 
   @Patch()

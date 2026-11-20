@@ -27,6 +27,9 @@ export type AuthSession = {
   accessToken: string;
   refreshToken: string;
   user: Record<string, any>;
+  profile?: Record<string, any>;
+  platformLocked?: boolean;
+  lockReason?: string;
 };
 
 export type LoginResult =
@@ -35,6 +38,8 @@ export type LoginResult =
     accessToken: string;
     user: Record<string, any>;
     profile?: Record<string, any>;
+    platformLocked?: boolean;
+    lockReason?: string;
   }
   | AuthSession;
 
@@ -344,11 +349,30 @@ export class AuthService {
         { expiresIn: '15m' } as any,
       );
 
+      let platformLocked = false;
+      let lockReason: string | undefined = undefined;
+      if (this.appConfigService) {
+        const lockStatus = await this.appConfigService.getPlatformLockStatus({
+          gnId: profile.gnId ?? undefined,
+          dsId: profile.dsId ?? undefined,
+          districtId: profile.districtId ?? undefined,
+          role: profile.role,
+        });
+        platformLocked = lockStatus.locked;
+        lockReason = lockStatus.reason;
+      }
+
+      const sanitized: any = this.sanitizeProfile(profile);
+      sanitized.platformLocked = platformLocked;
+      sanitized.lockReason = lockReason;
+
       return {
         mustChangePassword: true as const,
         accessToken: limitedToken,
-        user: this.sanitizeProfile(profile),
-        profile: this.sanitizeProfile(profile),
+        user: sanitized,
+        profile: sanitized,
+        platformLocked,
+        lockReason,
       };
     }
 
@@ -607,22 +631,6 @@ export class AuthService {
           dsId: gn.dsId,
           districtId: gn.ds?.districtId,
         };
-      }
-    }
-
-    if (this.appConfigService) {
-      const lockStatus = await this.appConfigService.getPlatformLockStatus({
-        gnId: activeAreaOverride?.gnId ?? profile.gnId ?? undefined,
-        dsId: activeAreaOverride?.dsId ?? profile.dsId ?? undefined,
-        districtId: activeAreaOverride?.districtId ?? profile.districtId ?? undefined,
-        role: profile.role,
-      });
-      if (lockStatus.locked) {
-        throw new UnauthorizedException({
-          code: 'PLATFORM_LOCKED',
-          message_key: 'errors.auth.platform_locked',
-          reason: lockStatus.reason,
-        });
       }
     }
 
@@ -956,12 +964,30 @@ export class AuthService {
       isActiveArea: a.gnId === effectiveGnId,
     }));
 
+    let platformLocked = false;
+    let lockReason: string | undefined = undefined;
+    if (this.appConfigService) {
+      const lockStatus = await this.appConfigService.getPlatformLockStatus({
+        gnId: effectiveGnId ?? undefined,
+        dsId: effectiveDsId ?? undefined,
+        districtId: effectiveDistrictId ?? undefined,
+        role: profile.role,
+      });
+      platformLocked = lockStatus.locked;
+      lockReason = lockStatus.reason;
+    }
+
+    sanitized.platformLocked = platformLocked;
+    sanitized.lockReason = lockReason;
+
     return {
       mustChangePassword: false as const,
       accessToken,
       refreshToken: rawRefreshToken,
       user: sanitized,
       profile: sanitized,
+      platformLocked,
+      lockReason,
     };
   }
 

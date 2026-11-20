@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
+import '../providers/config_provider.dart';
 import '../screens/auth/add_email_screen.dart';
 import '../screens/auth/change_password_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
@@ -37,6 +38,17 @@ class AppRouterNotifier extends ChangeNotifier {
     });
     _ref.listen<PermissionGateState>(permissionGateProvider, (prev, next) {
       if (prev?.isGranted != next.isGranted) {
+        notifyListeners();
+      }
+    });
+    _ref.listen<({bool locked, String? reason})>(userLockedProvider, (
+      prev,
+      next,
+    ) {
+      if (prev?.locked != next.locked) {
+        if (next.locked) {
+          _ref.read(authProvider.notifier).setPlatformLocked(next.reason);
+        }
         notifyListeners();
       }
     });

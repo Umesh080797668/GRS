@@ -39,6 +39,10 @@ describe('AppConfigService & VersionGateGuard & RateLimiter (M1.8)', () => {
           const rows: { key: string; value: any }[] = [];
           for (const [k, v] of Object.entries(inMemorySettings)) {
             for (const cond of where.OR) {
+              if (cond.key?.in && cond.key.in.includes(k)) {
+                rows.push({ key: k, value: v });
+                break;
+              }
               if (cond.key?.startsWith && k.startsWith(cond.key.startsWith)) {
                 rows.push({ key: k, value: v });
                 break;

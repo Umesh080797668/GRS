@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { CredentialService } from './credential.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
+import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { SessionActivityService } from './session-activity.service';
 
@@ -36,6 +37,7 @@ import { SessionActivityService } from './session-activity.service';
     AuthService,
     CredentialService,
     JwtStrategy,
+    JwtAuthGuard,
     RolesGuard,
     SessionActivityService,
   ],
@@ -43,10 +45,11 @@ import { SessionActivityService } from './session-activity.service';
     AuthService,
     CredentialService,
     JwtStrategy,
+    JwtAuthGuard,
     RolesGuard,
     SessionActivityService,
     PassportModule,
     JwtModule,
   ],
 })
-export class AuthModule {}
+export class AuthModule { }
